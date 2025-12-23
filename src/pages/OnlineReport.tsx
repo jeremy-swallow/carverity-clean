@@ -1,60 +1,173 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+
+type SavedReport = {
+  concern: string;
+  context: string;
+  createdAt: string;
+};
+
+const STORAGE_KEY = "carverity_latest_online_report";
 
 export default function OnlineReport() {
+  const navigate = useNavigate();
+
+  const concern =
+    localStorage.getItem("carverity_primary_concern") ||
+    "Not sure — just want peace of mind";
+
+  const context =
+    localStorage.getItem("carverity_scan_context") || "online";
+
+  // Save report once on first render
+  const existing = localStorage.getItem(STORAGE_KEY);
+  if (!existing) {
+    const report: SavedReport = {
+      concern,
+      context,
+      createdAt: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(report));
+  }
+
+  function concernIntro() {
+    switch (concern) {
+      case "Mechanical issues":
+        return "You mentioned mechanical reliability as your main concern, so I focused on signs that could indicate wear, neglect, or issues that aren’t always obvious in listings.";
+      case "Accident or damage history":
+        return "You mentioned accident or damage history as your main concern, so I paid closer attention to panel alignment, paint consistency, and what the photos don’t show.";
+      case "Price vs condition":
+        return "You mentioned price versus condition as your main concern, so I focused on whether the listing presentation and details justify the asking price.";
+      default:
+        return "You mentioned wanting peace of mind, so I took a broad look at the listing to spot anything that may be worth checking more closely.";
+    }
+  }
+
+  function keyFocusPoints() {
+    switch (concern) {
+      case "Mechanical issues":
+        return [
+          "Gaps or inconsistencies in service history",
+          "Limited detail around recent maintenance",
+          "Photos that avoid the engine bay or underbody",
+        ];
+      case "Accident or damage history":
+        return [
+          "Photos that avoid certain angles or panels",
+          "Inconsistent reflections or paint finish",
+          "Limited close-ups of common impact areas",
+        ];
+      case "Price vs condition":
+        return [
+          "Presentation quality compared to similar listings",
+          "Kilometres relative to the asking price",
+          "Missing details that would justify the premium",
+        ];
+      default:
+        return [
+          "Overall consistency of the listing",
+          "What’s shown versus what’s not",
+          "Signals that suggest further verification",
+        ];
+    }
+  }
+
+  function overallAssessment() {
+    switch (concern) {
+      case "Mechanical issues":
+        return "Nothing immediately suggests a major red flag from the listing alone, but mechanical condition is rarely fully visible online. This one is worth inspecting carefully rather than assuming it’s problem-free.";
+      case "Accident or damage history":
+        return "There are no obvious signs of past damage from the listing, but the absence of detail means it’s important to confirm panel condition and history in person.";
+      case "Price vs condition":
+        return "The listing appears reasonably presented, but the value really depends on whether the condition matches the asking price when viewed in person.";
+      default:
+        return "Based on the listing alone, nothing stands out as a clear deal-breaker. That said, listings rarely tell the full story, so verification is key.";
+    }
+  }
+
+  function nextChecks() {
+    switch (concern) {
+      case "Mechanical issues":
+        return [
+          "Ask for evidence of recent servicing or repairs",
+          "Listen for unusual noises during a cold start",
+          "Confirm when major maintenance items were last done",
+        ];
+      case "Accident or damage history":
+        return [
+          "Check panel gaps and paint consistency in natural light",
+          "Ask directly about past accidents or insurance claims",
+          "Inspect common impact areas closely",
+        ];
+      case "Price vs condition":
+        return [
+          "Compare it against similar cars with similar kilometres",
+          "Confirm what features or condition justify the price",
+          "Be prepared to negotiate if condition doesn’t align",
+        ];
+      default:
+        return [
+          "Verify the condition matches the photos",
+          "Ask questions about anything not shown clearly",
+          "Trust your instincts during the inspection",
+        ];
+    }
+  }
+
   return (
     <div
       style={{
         maxWidth: 900,
         margin: "0 auto",
-        padding: "clamp(24px, 5vw, 48px)",
+        padding: "clamp(24px, 6vw, 64px)",
         display: "flex",
         flexDirection: "column",
-        gap: 32,
+        gap: 36,
       }}
     >
       {/* Header */}
       <section>
-        <h1
-          style={{
-            fontSize: "clamp(28px, 6vw, 40px)",
-            marginBottom: 8,
-          }}
-        >
-          Here’s what stands out
+        <h1 style={{ fontSize: 36, marginBottom: 12 }}>
+          Your latest assessment
         </h1>
 
-        <p
-          style={{
-            color: "#cbd5f5",
-            maxWidth: 640,
-            lineHeight: 1.6,
-          }}
-        >
-          I’ve reviewed the listing and focused on areas that commonly hide
-          issues or affect value. This is an early assessment — not a verdict.
+        <p style={{ color: "#cbd5f5", maxWidth: 680, lineHeight: 1.6 }}>
+          I’ve reviewed the {context === "online" ? "listing" : "car"} with your
+          priorities in mind. This report will remain available on this device.
         </p>
       </section>
 
-      {/* Overall signal */}
+      {/* Overall assessment */}
       <section
         style={{
-          padding: 20,
-          borderRadius: 14,
+          padding: 22,
+          borderRadius: 16,
           background: "rgba(255,255,255,0.04)",
           borderLeft: "4px solid #7aa2ff",
         }}
       >
-        <strong style={{ fontSize: 18 }}>Overall signal</strong>
-        <p style={{ color: "#cbd5f5", marginTop: 8 }}>
-          The listing appears generally consistent, but there are a few areas
-          worth clarifying before inspecting the car in person.
+        <strong style={{ fontSize: 18, display: "block", marginBottom: 8 }}>
+          Overall assessment
+        </strong>
+        <p style={{ color: "#cbd5f5", margin: 0 }}>
+          {overallAssessment()}
         </p>
       </section>
 
-      {/* Key observations */}
-      <section style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <h2 style={{ fontSize: 22, margin: 0 }}>Key observations</h2>
+      {/* Personalised focus */}
+      <section>
+        <h2 style={{ fontSize: 22, marginBottom: 10 }}>
+          Focus based on your concern
+        </h2>
+        <p style={{ color: "#cbd5f5", maxWidth: 760 }}>
+          {concernIntro()}
+        </p>
+      </section>
 
+      {/* Key focus points */}
+      <section>
+        <h3 style={{ fontSize: 20, marginBottom: 10 }}>
+          What I paid closest attention to
+        </h3>
         <ul
           style={{
             margin: 0,
@@ -63,203 +176,61 @@ export default function OnlineReport() {
             lineHeight: 1.6,
           }}
         >
-          <li>Some photos avoid close-ups of wear-prone areas</li>
-          <li>Service history details are not clearly shown</li>
-          <li>Pricing is within market range, but not a standout deal</li>
+          {keyFocusPoints().map((point) => (
+            <li key={point}>{point}</li>
+          ))}
         </ul>
       </section>
 
-      {/* Questions to ask seller with guidance */}
+      {/* Next steps */}
       <section
         style={{
-          padding: 20,
-          borderRadius: 14,
+          padding: 22,
+          borderRadius: 16,
           background: "rgba(255,255,255,0.03)",
         }}
       >
-        <h2 style={{ fontSize: 22, marginTop: 0 }}>
-          Questions worth asking the seller
-        </h2>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <GuidedQuestion
-            priority="High"
-            question="Do you have service records or invoices for recent maintenance?"
-            acceptable="Clear records, invoices, or a service booklet that matches the car’s age and mileage."
-            redFlag="Vague answers, missing records, or reluctance to provide proof."
-          />
-
-          <GuidedQuestion
-            priority="High"
-            question="Has the car ever been in an accident or had paint/body repairs?"
-            acceptable="Honest disclosure with details or repair documentation."
-            redFlag="Deflecting the question, changing the subject, or inconsistent explanations."
-          />
-
-          <GuidedQuestion
-            priority="Medium"
-            question="Are there any mechanical issues or warning lights present?"
-            acceptable="Minor issues disclosed upfront or recently addressed problems."
-            redFlag="Claims that the car is ‘perfect’ without explanation or inspection."
-          />
-
-          <GuidedQuestion
-            priority="Medium"
-            question="Is the mileage consistent with how the car has been used?"
-            acceptable="Usage that aligns with the kilometres shown (e.g. highway driving)."
-            redFlag="Unclear usage patterns or explanations that don’t match wear."
-          />
-
-          <GuidedQuestion
-            priority="Low"
-            question="Are you happy for an independent inspection before purchase?"
-            acceptable="Agreement or openness to an independent inspection."
-            redFlag="Strong resistance or pressure to avoid inspections."
-          />
-        </div>
-      </section>
-
-      {/* What to do if you see red flags */}
-      <section
-        style={{
-          padding: 20,
-          borderRadius: 14,
-          background: "rgba(255,255,255,0.03)",
-        }}
-      >
-        <h2 style={{ fontSize: 22, marginTop: 0 }}>
-          If you notice red flags
-        </h2>
-
-        <ol
+        <strong style={{ display: "block", marginBottom: 10 }}>
+          What to verify next
+        </strong>
+        <ul
           style={{
             margin: 0,
             paddingLeft: 20,
             color: "#cbd5f5",
             lineHeight: 1.6,
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
           }}
         >
-          <li>
-            <strong>Slow down.</strong> Red flags don’t always mean the car is bad,
-            but they do mean it’s worth taking your time.
-          </li>
-          <li>
-            <strong>Ask follow-up questions.</strong> Inconsistencies are often
-            clarified by honest sellers when asked directly.
-          </li>
-          <li>
-            <strong>Verify independently.</strong> Consider a mechanical
-            inspection or professional opinion before committing.
-          </li>
-          <li>
-            <strong>Be willing to walk away.</strong> There will always be other
-            cars — pressure to rush is itself a warning sign.
-          </li>
-        </ol>
+          {nextChecks().map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </section>
 
-      {/* CTA */}
-      <section
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 16,
-          alignItems: "center",
-        }}
-      >
-        <Link
-          to="/scan/in-person"
+      {/* Continue */}
+      <section>
+        <button
+          onClick={() => navigate("/scan/online/next-actions")}
           style={{
-            padding: "14px 22px",
-            borderRadius: 10,
+            padding: "16px 26px",
+            borderRadius: 14,
+            fontSize: 16,
+            fontWeight: 600,
             background: "#7aa2ff",
             color: "#0b1020",
-            fontWeight: 600,
-            textDecoration: "none",
+            border: "none",
+            cursor: "pointer",
           }}
         >
-          Prepare for in-person inspection
-        </Link>
-
-        <Link
-          to="/start-scan"
-          style={{
-            color: "#9ca3af",
-            textDecoration: "none",
-            fontSize: 14,
-          }}
-        >
-          ← Check a different car
-        </Link>
+          What would you like to do next?
+        </button>
       </section>
 
       {/* Disclaimer */}
       <p style={{ color: "#6b7280", fontSize: 13 }}>
-        This assessment is based only on the online listing provided and does
-        not replace a physical inspection or professional mechanical advice.
+        This assessment is saved locally on this device and does not replace a
+        physical inspection or professional advice.
       </p>
-    </div>
-  );
-}
-
-/* =========================================================
-   GUIDED QUESTION BLOCK
-========================================================= */
-
-function GuidedQuestion({
-  question,
-  acceptable,
-  redFlag,
-  priority,
-}: {
-  question: string;
-  acceptable: string;
-  redFlag: string;
-  priority: "High" | "Medium" | "Low";
-}) {
-  const priorityColor = {
-    High: "#ef4444",
-    Medium: "#f59e0b",
-    Low: "#10b981",
-  }[priority];
-
-  return (
-    <div
-      style={{
-        padding: 16,
-        borderRadius: 12,
-        background: "rgba(255,255,255,0.04)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-      }}
-    >
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: priorityColor,
-            minWidth: 60,
-          }}
-        >
-          {priority}
-        </span>
-        <strong style={{ color: "#e5e7eb" }}>{question}</strong>
-      </div>
-
-      <div style={{ fontSize: 14, color: "#cbd5f5" }}>
-        <strong style={{ color: "#10b981" }}>Good sign:</strong>{" "}
-        {acceptable}
-      </div>
-
-      <div style={{ fontSize: 14, color: "#cbd5f5" }}>
-        <strong style={{ color: "#ef4444" }}>Red flag:</strong>{" "}
-        {redFlag}
-      </div>
     </div>
   );
 }

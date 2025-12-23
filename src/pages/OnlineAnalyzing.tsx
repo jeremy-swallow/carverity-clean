@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 /* =========================================================
    ONLINE ANALYSIS — TRANSITION SCREEN
@@ -6,6 +7,16 @@ import { Link } from "react-router-dom";
 ========================================================= */
 
 export default function OnlineAnalyzing() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      navigate("/scan/online/report");
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [navigate]);
+
   return (
     <div
       style={{
@@ -88,9 +99,8 @@ export default function OnlineAnalyzing() {
           lineHeight: 1.5,
         }}
       >
-        This usually takes a moment.  
-        You don’t need to stay on this screen — I’ll let you know when it’s
-        ready.
+        This usually takes a moment. You don’t need to stay on this screen — I’ll
+        let you know when it’s ready.
       </footer>
 
       {/* Back option */}
