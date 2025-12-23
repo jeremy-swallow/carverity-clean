@@ -1,35 +1,94 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 
-function App() {
-  const [count, setCount] = useState(0)
+import Layout from "./components/Layout";
+import ClarifyingQuestions from "./components/ClarifyingQuestions";
 
+/* =========================================================
+   SIMPLE PLACEHOLDER PAGE
+========================================================= */
+const Page = ({ title }: { title: string }) => {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
+    <div
+      style={{
+        maxWidth: 720,
+        margin: "0 auto",
+        padding: "clamp(24px, 5vw, 48px)",
+      }}
+    >
+      <h1 style={{ fontSize: 36, marginBottom: 16 }}>{title}</h1>
+      <p style={{ color: "#cbd5f5", lineHeight: 1.6 }}>
+        This page is wired correctly.
+        <br />
+        We’ll replace this with the real UI next.
       </p>
-    </>
-  )
+    </div>
+  );
+};
+
+/* =========================================================
+   ANALYSIS TRANSITION (PLACEHOLDER)
+========================================================= */
+function Analyzing() {
+  return (
+    <div
+      style={{
+        maxWidth: 720,
+        margin: "0 auto",
+        padding: "clamp(24px, 5vw, 48px)",
+        textAlign: "center",
+      }}
+    >
+      <h1 style={{ fontSize: 32, marginBottom: 16 }}>
+        Analysing the listing…
+      </h1>
+
+      <p style={{ color: "#cbd5f5", lineHeight: 1.6 }}>
+        I’m reviewing the details and looking for potential risks,
+        inconsistencies, or red flags.
+        <br />
+        This usually only takes a moment.
+      </p>
+    </div>
+  );
 }
 
-export default App
+/* =========================================================
+   APP ROUTING
+========================================================= */
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Page title="Home" />} />
+          <Route path="/start-scan" element={<Page title="Start Scan" />} />
+
+          {/* ONLINE SCAN FLOW */}
+          <Route
+            path="/scan/online"
+            element={<ClarifyingQuestions />}
+          />
+          <Route
+            path="/scan/online/analyzing"
+            element={<Analyzing />}
+          />
+
+          {/* OTHER ROUTES */}
+          <Route path="/pricing" element={<Page title="Pricing" />} />
+          <Route path="/checkout" element={<Page title="Checkout" />} />
+          <Route
+            path="/checkout/success"
+            element={<Page title="Checkout Success" />}
+          />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}
