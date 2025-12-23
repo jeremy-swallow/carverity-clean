@@ -1,11 +1,5 @@
-import { Outlet, Link } from "react-router-dom";
+import { Outlet, NavLink } from "react-router-dom";
 import { useState } from "react";
-
-/* =========================================================
-   RESPONSIVE LAYOUT
-   - Mobile: logo + menu icon
-   - Desktop: logo + nav links
-========================================================= */
 
 export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -14,156 +8,142 @@ export default function Layout() {
     <div
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(180deg, #0b1020, #060914)",
-        color: "#e5e7eb",
-        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+        display: "flex",
+        flexDirection: "column",
+        background: "#0b1020",
+        color: "white",
       }}
     >
       {/* HEADER */}
       <header
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "16px clamp(16px, 5vw, 40px)",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          background: "rgba(11,16,32,0.9)",
+          backdropFilter: "blur(8px)",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
         }}
       >
-        {/* Logo */}
-        <Link
-          to="/"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            textDecoration: "none",
-            color: "inherit",
-          }}
-        >
-          <img
-            src="/logo.png"
-            alt="CarVerity"
-            style={{
-              height: 28,
-              width: "auto",
-            }}
-          />
-          <div style={{ lineHeight: 1.1 }}>
-            <strong style={{ fontSize: 16 }}>CarVerity</strong>
-            <div style={{ fontSize: 12, color: "#9aa4c7" }}>
-              calm expert assistant
-            </div>
-          </div>
-        </Link>
-
-        {/* Desktop nav */}
-        <nav
-          style={{
-            display: "none",
-            gap: 24,
-          }}
-          className="desktop-nav"
-        >
-          <Link style={navLinkStyle} to="/">
-            Home
-          </Link>
-          <Link style={navLinkStyle} to="/start-scan">
-            Start Scan
-          </Link>
-          <Link style={navLinkStyle} to="/pricing">
-            Pricing
-          </Link>
-        </nav>
-
-        {/* Mobile menu button */}
-        <button
-          onClick={() => setMenuOpen((v) => !v)}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#e5e7eb",
-            fontSize: 22,
-            cursor: "pointer",
-            display: "block",
-          }}
-          className="mobile-menu-button"
-          aria-label="Menu"
-        >
-          ☰
-        </button>
-      </header>
-
-      {/* Mobile menu */}
-      {menuOpen && (
         <div
           style={{
-            padding: "16px 24px",
+            maxWidth: 1200,
+            margin: "0 auto",
+            padding: "14px 20px",
             display: "flex",
-            flexDirection: "column",
-            gap: 16,
-            background: "#0b1020",
-            borderBottom: "1px solid rgba(255,255,255,0.06)",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
         >
-          <Link onClick={() => setMenuOpen(false)} style={navLinkStyle} to="/">
-            Home
-          </Link>
-          <Link
-            onClick={() => setMenuOpen(false)}
-            style={navLinkStyle}
-            to="/start-scan"
+          {/* Logo / Brand */}
+          <NavLink
+            to="/"
+            style={{
+              fontSize: 18,
+              fontWeight: 700,
+              letterSpacing: 0.3,
+              textDecoration: "none",
+              color: "white",
+            }}
           >
-            Start Scan
-          </Link>
-          <Link
-            onClick={() => setMenuOpen(false)}
-            style={navLinkStyle}
-            to="/pricing"
-          >
-            Pricing
-          </Link>
-        </div>
-      )}
+            CarVerity
+          </NavLink>
 
-      {/* CONTENT */}
+          {/* Desktop Nav */}
+          <nav
+            style={{
+              display: "none",
+              gap: 24,
+              fontSize: 15,
+            }}
+            className="desktop-nav"
+          >
+            <NavLink
+              to="/start-scan"
+              style={({ isActive }) => ({
+                color: isActive ? "#7aa2ff" : "#cbd5f5",
+                textDecoration: "none",
+                fontWeight: 500,
+              })}
+            >
+              Start scan
+            </NavLink>
+
+            <NavLink
+              to="/pricing"
+              style={({ isActive }) => ({
+                color: isActive ? "#7aa2ff" : "#cbd5f5",
+                textDecoration: "none",
+                fontWeight: 500,
+              })}
+            >
+              Pricing
+            </NavLink>
+          </nav>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "white",
+              fontSize: 22,
+              cursor: "pointer",
+            }}
+            aria-label="Toggle menu"
+          >
+            ☰
+          </button>
+        </div>
+
+        {/* Mobile Menu */}
+        {menuOpen && (
+          <div
+            style={{
+              borderTop: "1px solid rgba(255,255,255,0.08)",
+              padding: "12px 20px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
+            <NavLink
+              to="/start-scan"
+              onClick={() => setMenuOpen(false)}
+              style={{
+                color: "#cbd5f5",
+                textDecoration: "none",
+                fontSize: 16,
+              }}
+            >
+              Start scan
+            </NavLink>
+
+            <NavLink
+              to="/pricing"
+              onClick={() => setMenuOpen(false)}
+              style={{
+                color: "#cbd5f5",
+                textDecoration: "none",
+                fontSize: 16,
+              }}
+            >
+              Pricing
+            </NavLink>
+          </div>
+        )}
+      </header>
+
+      {/* PAGE CONTENT */}
       <main
         style={{
-          padding: "clamp(24px, 5vw, 48px)",
+          flex: 1,
+          width: "100%",
         }}
       >
         <Outlet />
       </main>
-
-      {/* FOOTER */}
-      <footer
-        style={{
-          padding: "24px",
-          textAlign: "center",
-          fontSize: 13,
-          color: "#9aa4c7",
-          borderTop: "1px solid rgba(255,255,255,0.06)",
-        }}
-      >
-        © CarVerity — vehicle insight with confidence
-      </footer>
-
-      {/* RESPONSIVE RULES */}
-      <style>{`
-        @media (min-width: 768px) {
-          .desktop-nav {
-            display: flex;
-          }
-          .mobile-menu-button {
-            display: none;
-          }
-        }
-      `}</style>
     </div>
   );
 }
-
-const navLinkStyle: React.CSSProperties = {
-  textDecoration: "none",
-  color: "#cbd5f5",
-  fontSize: 14,
-};
