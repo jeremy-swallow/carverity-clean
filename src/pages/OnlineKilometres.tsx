@@ -40,7 +40,6 @@ export default function OnlineKilometres() {
         </p>
       </header>
 
-      {/* INPUT CARD */}
       <div
         style={{
           padding: 24,
@@ -76,7 +75,7 @@ export default function OnlineKilometres() {
         />
 
         <button
-          onClick={() => navigate("/scan/online/analyzing")}
+          onClick={() => navigate("/scan/online/owners")}
           style={{
             alignSelf: "flex-start",
             padding: "12px 18px",
@@ -92,7 +91,6 @@ export default function OnlineKilometres() {
         </button>
       </div>
 
-      {/* ACTIONS */}
       <div
         style={{
           display: "flex",
@@ -102,7 +100,7 @@ export default function OnlineKilometres() {
       >
         <button
           disabled={!canContinue}
-          onClick={() => navigate("/scan/online/analyzing")}
+          onClick={() => navigate("/scan/online/owners")}
           style={{
             padding: "14px 22px",
             borderRadius: 12,
