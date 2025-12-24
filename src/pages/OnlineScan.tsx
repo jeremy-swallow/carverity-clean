@@ -8,6 +8,13 @@ export default function OnlineScan() {
   const normalizedLink = link.trim();
   const canContinue = normalizedLink.length >= 8;
 
+  function handleContinue() {
+    console.log("CONTINUE CLICKED");
+    console.log("LINK VALUE:", normalizedLink);
+
+    navigate("/scan/online/kilometres");
+  }
+
   return (
     <div
       style={{
@@ -46,7 +53,7 @@ export default function OnlineScan() {
         </label>
 
         <input
-          type="url"
+          type="text"
           placeholder="https://www.carsales.com.au/..."
           value={link}
           onChange={(e) => setLink(e.target.value)}
@@ -68,8 +75,9 @@ export default function OnlineScan() {
 
       <div style={{ display: "flex", gap: 16 }}>
         <button
+          type="button"
+          onClick={handleContinue}
           disabled={!canContinue}
-          onClick={() => navigate("/scan/online/kilometres")}
           style={{
             padding: "14px 22px",
             borderRadius: 12,
@@ -79,13 +87,13 @@ export default function OnlineScan() {
             color: canContinue ? "#0b1020" : "#9aa3c7",
             border: "none",
             cursor: canContinue ? "pointer" : "not-allowed",
-            pointerEvents: canContinue ? "auto" : "none",
           }}
         >
           Continue
         </button>
 
         <button
+          type="button"
           onClick={() => navigate("/start-scan")}
           style={{
             background: "none",
