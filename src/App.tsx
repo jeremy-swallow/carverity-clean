@@ -10,7 +10,8 @@ import Layout from "./components/Layout";
 /* Landing / Marketing */
 import Home from "./pages/Home";
 
-/* Entry */
+/* Scan entry */
+import ScanMode from "./pages/ScanMode";
 import StartScan from "./pages/StartScan";
 
 /* My Scans */
@@ -37,8 +38,11 @@ export default function App() {
           {/* MARKETING HOMEPAGE */}
           <Route path="/" element={<Home />} />
 
-          {/* TOOL ENTRY */}
-          <Route path="/start-scan" element={<StartScan />} />
+          {/* NEW FIRST STEP — SCAN MODE SELECTION */}
+          <Route path="/start-scan" element={<ScanMode />} />
+
+          {/* LEGACY / DIRECT ENTRY (still supported if linked internally) */}
+          <Route path="/scan/start" element={<StartScan />} />
 
           {/* MY SCANS */}
           <Route path="/my-scans" element={<MyScans />} />
