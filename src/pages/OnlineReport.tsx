@@ -1,4 +1,9 @@
-import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import {
+  saveScan,
+  generateScanId,
+  SavedScan,
+} from "../utils/scanStorage";
 
 type SavedReport = {
   concern: string;
@@ -7,10 +12,9 @@ type SavedReport = {
 };
 
 const STORAGE_KEY = "carverity_latest_online_report";
+const SCAN_SAVED_FLAG = "carverity_latest_online_scan_saved";
 
 export default function OnlineReport() {
-  const navigate = useNavigate();
-
   const concern =
     localStorage.getItem("carverity_primary_concern") ||
     "Not sure — just want peace of mind";
@@ -18,27 +22,50 @@ export default function OnlineReport() {
   const context =
     localStorage.getItem("carverity_scan_context") || "online";
 
-  // Save report once on first render
-  const existing = localStorage.getItem(STORAGE_KEY);
-  if (!existing) {
-    const report: SavedReport = {
-      concern,
-      context,
+  /* ---------------------------------------------------------
+     Save detailed report (existing behaviour)
+  --------------------------------------------------------- */
+  useEffect(() => {
+    const existing = localStorage.getItem(STORAGE_KEY);
+    if (!existing) {
+      const report: SavedReport = {
+        concern,
+        context,
+        createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(report));
+    }
+  }, [concern, context]);
+
+  /* ---------------------------------------------------------
+     Save scan summary (NEW)
+     Ensures this only happens once
+  --------------------------------------------------------- */
+  useEffect(() => {
+    const alreadySaved = localStorage.getItem(SCAN_SAVED_FLAG);
+    if (alreadySaved) return;
+
+    const scan: SavedScan = {
+      id: generateScanId(),
+      type: "online",
+      title: "Online listing check",
       createdAt: new Date().toISOString(),
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(report));
-  }
+
+    saveScan(scan);
+    localStorage.setItem(SCAN_SAVED_FLAG, "true");
+  }, []);
 
   function concernIntro() {
     switch (concern) {
       case "Mechanical issues":
-        return "You mentioned mechanical reliability as your main concern, so I focused on signs that could indicate wear, neglect, or issues that aren’t always obvious in listings.";
+        return "You mentioned mechanical reliability as your main concern, so I focused on signs that could indicate wear, neglect, or hidden issues.";
       case "Accident or damage history":
         return "You mentioned accident or damage history as your main concern, so I paid closer attention to panel alignment, paint consistency, and what the photos don’t show.";
       case "Price vs condition":
         return "You mentioned price versus condition as your main concern, so I focused on whether the listing presentation and details justify the asking price.";
       default:
-        return "You mentioned wanting peace of mind, so I took a broad look at the listing to spot anything that may be worth checking more closely.";
+        return "You mentioned wanting peace of mind, so I took a broad look at the listing to spot anything that might be worth checking more closely.";
     }
   }
 
@@ -47,8 +74,8 @@ export default function OnlineReport() {
       case "Mechanical issues":
         return [
           "Gaps or inconsistencies in service history",
-          "Limited detail around recent maintenance",
-          "Photos that avoid the engine bay or underbody",
+          "Lack of detail around recent maintenance",
+          "Photos that avoid engine bay or underbody views",
         ];
       case "Accident or damage history":
         return [
@@ -59,56 +86,14 @@ export default function OnlineReport() {
       case "Price vs condition":
         return [
           "Presentation quality compared to similar listings",
-          "Kilometres relative to the asking price",
-          "Missing details that would justify the premium",
+          "Kilometres relative to price",
+          "Missing details that justify the premium",
         ];
       default:
         return [
           "Overall consistency of the listing",
           "What’s shown versus what’s not",
           "Signals that suggest further verification",
-        ];
-    }
-  }
-
-  function overallAssessment() {
-    switch (concern) {
-      case "Mechanical issues":
-        return "Nothing immediately suggests a major red flag from the listing alone, but mechanical condition is rarely fully visible online. This one is worth inspecting carefully rather than assuming it’s problem-free.";
-      case "Accident or damage history":
-        return "There are no obvious signs of past damage from the listing, but the absence of detail means it’s important to confirm panel condition and history in person.";
-      case "Price vs condition":
-        return "The listing appears reasonably presented, but the value really depends on whether the condition matches the asking price when viewed in person.";
-      default:
-        return "Based on the listing alone, nothing stands out as a clear deal-breaker. That said, listings rarely tell the full story, so verification is key.";
-    }
-  }
-
-  function nextChecks() {
-    switch (concern) {
-      case "Mechanical issues":
-        return [
-          "Ask for evidence of recent servicing or repairs",
-          "Listen for unusual noises during a cold start",
-          "Confirm when major maintenance items were last done",
-        ];
-      case "Accident or damage history":
-        return [
-          "Check panel gaps and paint consistency in natural light",
-          "Ask directly about past accidents or insurance claims",
-          "Inspect common impact areas closely",
-        ];
-      case "Price vs condition":
-        return [
-          "Compare it against similar cars with similar kilometres",
-          "Confirm what features or condition justify the price",
-          "Be prepared to negotiate if condition doesn’t align",
-        ];
-      default:
-        return [
-          "Verify the condition matches the photos",
-          "Ask questions about anything not shown clearly",
-          "Trust your instincts during the inspection",
         ];
     }
   }
@@ -121,7 +106,7 @@ export default function OnlineReport() {
         padding: "clamp(24px, 6vw, 64px)",
         display: "flex",
         flexDirection: "column",
-        gap: 36,
+        gap: 32,
       }}
     >
       {/* Header */}
@@ -131,43 +116,34 @@ export default function OnlineReport() {
         </h1>
 
         <p style={{ color: "#cbd5f5", maxWidth: 680, lineHeight: 1.6 }}>
-          I’ve reviewed the {context === "online" ? "listing" : "car"} with your
-          priorities in mind. This report will remain available on this device.
+          I’ve reviewed the listing with your priorities in mind. This report is
+          saved and available on this device.
         </p>
       </section>
 
-      {/* Overall assessment */}
+      {/* Personalised intro */}
       <section
         style={{
-          padding: 22,
-          borderRadius: 16,
+          padding: 20,
+          borderRadius: 14,
           background: "rgba(255,255,255,0.04)",
           borderLeft: "4px solid #7aa2ff",
         }}
       >
-        <strong style={{ fontSize: 18, display: "block", marginBottom: 8 }}>
-          Overall assessment
-        </strong>
-        <p style={{ color: "#cbd5f5", margin: 0 }}>
-          {overallAssessment()}
-        </p>
-      </section>
-
-      {/* Personalised focus */}
-      <section>
-        <h2 style={{ fontSize: 22, marginBottom: 10 }}>
+        <strong style={{ fontSize: 18 }}>
           Focus based on your concern
-        </h2>
-        <p style={{ color: "#cbd5f5", maxWidth: 760 }}>
+        </strong>
+        <p style={{ color: "#cbd5f5", marginTop: 8 }}>
           {concernIntro()}
         </p>
       </section>
 
       {/* Key focus points */}
       <section>
-        <h3 style={{ fontSize: 20, marginBottom: 10 }}>
+        <h2 style={{ fontSize: 22, marginBottom: 12 }}>
           What I paid closest attention to
-        </h3>
+        </h2>
+
         <ul
           style={{
             margin: 0,
@@ -182,48 +158,22 @@ export default function OnlineReport() {
         </ul>
       </section>
 
-      {/* Next steps */}
+      {/* Guidance */}
       <section
         style={{
-          padding: 22,
-          borderRadius: 16,
+          padding: 20,
+          borderRadius: 14,
           background: "rgba(255,255,255,0.03)",
         }}
       >
-        <strong style={{ display: "block", marginBottom: 10 }}>
-          What to verify next
+        <strong style={{ display: "block", marginBottom: 6 }}>
+          What this means for you
         </strong>
-        <ul
-          style={{
-            margin: 0,
-            paddingLeft: 20,
-            color: "#cbd5f5",
-            lineHeight: 1.6,
-          }}
-        >
-          {nextChecks().map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </section>
-
-      {/* Continue */}
-      <section>
-        <button
-          onClick={() => navigate("/scan/online/next-actions")}
-          style={{
-            padding: "16px 26px",
-            borderRadius: 14,
-            fontSize: 16,
-            fontWeight: 600,
-            background: "#7aa2ff",
-            color: "#0b1020",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          What would you like to do next?
-        </button>
+        <p style={{ color: "#cbd5f5", margin: 0 }}>
+          This assessment is designed to help you slow down and verify the right
+          details. If the car still interests you, the next step is confirming
+          what isn’t visible from the listing alone.
+        </p>
       </section>
 
       {/* Disclaimer */}
