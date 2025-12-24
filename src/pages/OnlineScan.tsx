@@ -5,7 +5,8 @@ export default function OnlineScan() {
   const navigate = useNavigate();
   const [link, setLink] = useState("");
 
-  const canContinue = link.trim().length > 10;
+  const normalizedLink = link.trim();
+  const canContinue = normalizedLink.length >= 8;
 
   return (
     <div
@@ -49,6 +50,11 @@ export default function OnlineScan() {
           placeholder="https://www.carsales.com.au/..."
           value={link}
           onChange={(e) => setLink(e.target.value)}
+          onInput={(e) =>
+            setLink((e.target as HTMLInputElement).value)
+          }
+          autoComplete="off"
+          inputMode="url"
           style={{
             padding: "14px 16px",
             borderRadius: 10,
@@ -73,6 +79,7 @@ export default function OnlineScan() {
             color: canContinue ? "#0b1020" : "#9aa3c7",
             border: "none",
             cursor: canContinue ? "pointer" : "not-allowed",
+            pointerEvents: canContinue ? "auto" : "none",
           }}
         >
           Continue
