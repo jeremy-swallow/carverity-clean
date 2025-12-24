@@ -1,11 +1,31 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { saveProgress } from "../utils/scanProgress";
 
 export default function OnlineOwners() {
   const navigate = useNavigate();
   const [owners, setOwners] = useState("");
-
   const canContinue = owners.trim().length > 0;
+
+  useEffect(() => {
+    // Track that the user reached this step
+    saveProgress({
+      type: "online",
+      step: "/scan/online/owners",
+      startedAt: new Date().toISOString(),
+    });
+
+    // Restore previously entered value if present
+    const existing = localStorage.getItem("carverity_owners");
+    if (existing) setOwners(existing);
+  }, []);
+
+  function handleContinue() {
+    const value = owners.trim();
+    localStorage.setItem("carverity_owners", value);
+
+    navigate("/scan/online/analyzing");
+  }
 
   return (
     <div
@@ -15,46 +35,38 @@ export default function OnlineOwners() {
         padding: "clamp(24px, 6vw, 64px)",
         display: "flex",
         flexDirection: "column",
-        gap: 32,
+        gap: 24,
       }}
     >
-      <header>
-        <h1
+      {/* Step context */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <span
           style={{
-            fontSize: "clamp(28px, 6vw, 40px)",
-            marginBottom: 12,
+            fontSize: 13,
+            letterSpacing: 0.8,
+            textTransform: "uppercase",
+            color: "#9aa3c7",
           }}
         >
-          How many previous owners has it had?
+          Online scan · Step 3 of 5
+        </span>
+
+        <h1 style={{ fontSize: 24, fontWeight: 800 }}>
+          How many previous owners has the car had?
         </h1>
 
-        <p
-          style={{
-            color: "#cbd5f5",
-            lineHeight: 1.6,
-            maxWidth: 560,
-          }}
-        >
-          Fewer owners often means more consistent care, but an estimate
-          is completely fine.
+        <p style={{ color: "#cbd5f5", fontSize: 15 }}>
+          Enter the number of owners listed (or your best understanding from the
+          advert or seller). If you’re unsure, an estimate is fine — we’ll take
+          it into account as part of the assessment.
         </p>
-      </header>
+      </div>
 
-      {/* INPUT CARD */}
-      <div
-        style={{
-          padding: 24,
-          borderRadius: 16,
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
-        }}
-      >
+      {/* Input */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <label
           htmlFor="owners"
-          style={{ fontSize: 14, color: "#9aa3c7" }}
+          style={{ fontSize: 14, color: "#cbd5f5", fontWeight: 500 }}
         >
           Number of previous owners
         </label>
@@ -62,47 +74,31 @@ export default function OnlineOwners() {
         <input
           id="owners"
           type="text"
-          placeholder="e.g. 1, 2, or not sure"
+          inputMode="numeric"
+          placeholder="e.g. 1, 2 or 3+"
           value={owners}
           onChange={(e) => setOwners(e.target.value)}
           style={{
-            padding: "14px 16px",
-            borderRadius: 10,
-            border: "1px solid rgba(255,255,255,0.15)",
-            background: "rgba(0,0,0,0.25)",
-            color: "white",
+            padding: 16,
+            borderRadius: 12,
             fontSize: 16,
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "rgba(7,10,25,0.9)",
+            color: "#e5ebff",
           }}
         />
 
-        <button
-          onClick={() => navigate("/scan/online/analyzing")}
-          style={{
-            alignSelf: "flex-start",
-            padding: "12px 18px",
-            borderRadius: 10,
-            background: "rgba(255,255,255,0.08)",
-            color: "#cbd5f5",
-            border: "none",
-            cursor: "pointer",
-            fontSize: 14,
-          }}
-        >
-          I’m not sure
-        </button>
+        <p style={{ color: "#9aa3c7", fontSize: 13 }}>
+          Tip: Fewer owners can suggest consistent care, while many owners in a
+          short time may be worth asking more questions about.
+        </p>
       </div>
 
-      {/* ACTIONS */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-        }}
-      >
+      {/* Actions */}
+      <div style={{ marginTop: 12 }}>
         <button
           disabled={!canContinue}
-          onClick={() => navigate("/scan/online/analyzing")}
+          onClick={handleContinue}
           style={{
             padding: "14px 22px",
             borderRadius: 12,
@@ -111,23 +107,10 @@ export default function OnlineOwners() {
             background: canContinue ? "#7aa2ff" : "#3a3f55",
             color: canContinue ? "#0b1020" : "#9aa3c7",
             border: "none",
-            cursor: canContinue ? "pointer" : "not-allowed",
+            cursor: canContinue ? "pointer" : "default",
           }}
         >
           Continue
-        </button>
-
-        <button
-          onClick={() => navigate("/scan/online/kilometres")}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#9aa3c7",
-            cursor: "pointer",
-            fontSize: 14,
-          }}
-        >
-          ← Go back
         </button>
       </div>
     </div>
