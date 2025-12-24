@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { saveProgress } from "../utils/scanProgress";
 
 export default function OnlineScan() {
   const navigate = useNavigate();
@@ -8,10 +9,16 @@ export default function OnlineScan() {
   const canContinue = link.trim().length > 10;
 
   function handleContinue() {
-    localStorage.setItem(
-      "carverity_listing_url",
-      link.trim()
-    );
+    const trimmed = link.trim();
+
+    localStorage.setItem("carverity_listing_url", trimmed);
+
+    saveProgress({
+      type: "online",
+      step: "/scan/online/kilometres",
+      startedAt: new Date().toISOString(),
+    });
+
     navigate("/scan/online/kilometres");
   }
 
@@ -26,14 +33,7 @@ export default function OnlineScan() {
         gap: 32,
       }}
     >
-      <header>
-        <h1 style={{ fontSize: 36 }}>
-          Let’s start with the listing
-        </h1>
-        <p style={{ color: "#cbd5f5" }}>
-          Paste the listing you’re looking at.
-        </p>
-      </header>
+      <h1>Let’s start with the listing</h1>
 
       <input
         type="url"
@@ -54,17 +54,9 @@ export default function OnlineScan() {
           padding: "14px 22px",
           borderRadius: 12,
           fontSize: 16,
-          fontWeight: 600,
-          background: canContinue
-            ? "#7aa2ff"
-            : "#3a3f55",
-          color: canContinue
-            ? "#0b1020"
-            : "#9aa3c7",
+          background: canContinue ? "#7aa2ff" : "#3a3f55",
+          color: canContinue ? "#0b1020" : "#9aa3c7",
           border: "none",
-          cursor: canContinue
-            ? "pointer"
-            : "not-allowed",
         }}
       >
         Continue
