@@ -1,57 +1,21 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
-type PhotoStep = {
-  key: string;
-  title: string;
-  instruction: string;
-  guideImage: string;
-};
-
-const STEPS: PhotoStep[] = [
-  {
-    key: "front",
-    title: "Front of the car",
-    instruction:
-      "Stand a few metres back and make sure the entire front of the car is visible in the frame.",
-    guideImage: "/photo-guides/front.png",
-  },
-  {
-    key: "rear",
-    title: "Rear of the car",
-    instruction:
-      "Take a clear photo of the full rear of the car, including the bumper and tail lights.",
-    guideImage: "/photo-guides/rear.png",
-  },
-  {
-    key: "side-left",
-    title: "Left side of the car",
-    instruction:
-      "Capture the full left side from front to rear. Try to keep the car straight in the frame.",
-    guideImage: "/photo-guides/side-left.png",
-  },
-  {
-    key: "side-right",
-    title: "Right side of the car",
-    instruction:
-      "Capture the full right side of the car from front to rear, similar to the previous photo.",
-    guideImage: "/photo-guides/side-right.png",
-  },
-];
+import { saveProgress } from "../utils/scanProgress";
 
 export default function InPersonPhotos() {
   const navigate = useNavigate();
-  const [index, setIndex] = useState(0);
 
-  const step = STEPS[index];
-  const isLast = index === STEPS.length - 1;
+  useEffect(() => {
+    // Mark this step in progress
+    saveProgress({
+      type: "in-person",
+      step: "/scan/in-person/photos",
+      startedAt: new Date().toISOString(),
+    });
+  }, []);
 
-  function handleNext() {
-    if (isLast) {
-      navigate("/scan/in-person/summary");
-    } else {
-      setIndex((i) => i + 1);
-    }
+  function handleContinue() {
+    navigate("/scan/in-person/checks");
   }
 
   return (
@@ -62,65 +26,64 @@ export default function InPersonPhotos() {
         padding: "clamp(24px, 6vw, 64px)",
         display: "flex",
         flexDirection: "column",
-        gap: 28,
+        gap: 24,
       }}
     >
-      {/* Header */}
-      <header>
-        <h1
-          style={{
-            fontSize: "clamp(26px, 6vw, 36px)",
-            marginBottom: 10,
-          }}
-        >
-          {step.title}
-        </h1>
-
-        <p
-          style={{
-            color: "#cbd5f5",
-            lineHeight: 1.6,
-            maxWidth: 560,
-          }}
-        >
-          {step.instruction}
-        </p>
-      </header>
-
-      {/* Guide image */}
-      <div
+      {/* Step context */}
+      <span
         style={{
-          width: "100%",
-          display: "flex",
-          justifyContent: "center",
-          padding: "16px 0",
+          fontSize: 13,
+          textTransform: "uppercase",
+          letterSpacing: 0.8,
+          color: "#9aa3c7",
         }}
       >
-        <img
-          src={step.guideImage}
-          alt={step.title}
-          style={{
-            maxWidth: "100%",
-            maxHeight: 240,
-            objectFit: "contain",
-            borderRadius: 12,
-          }}
-        />
+        In-person scan · Step 2 of 4
+      </span>
+
+      <h1 style={{ fontSize: 24, fontWeight: 800 }}>
+        Let’s start by capturing a few photos
+      </h1>
+
+      <p style={{ color: "#cbd5f5", fontSize: 15 }}>
+        These photos help you spot visible issues and give you something to
+        review later — instead of relying only on memory.
+      </p>
+
+      {/* Guidance box */}
+      <div
+        style={{
+          padding: 18,
+          borderRadius: 14,
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.12)",
+        }}
+      >
+        <p style={{ color: "#e5ebff", fontSize: 14, marginBottom: 8 }}>
+          Suggested angles:
+        </p>
+
+        <ul style={{ marginLeft: 18, color: "#cbd5f5", fontSize: 14 }}>
+          <li>Front of the car</li>
+          <li>Rear of the car</li>
+          <li>Driver side & passenger side</li>
+          <li>Interior — dash & centre console</li>
+          <li>Engine bay (if accessible)</li>
+        </ul>
+
+        <p style={{ color: "#9aa3c7", fontSize: 13, marginTop: 10 }}>
+          You can continue even if you can’t take all photos — just capture
+          what’s practical.
+        </p>
       </div>
 
-      {/* Actions */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-        }}
-      >
+      {/* Action */}
+      <div style={{ marginTop: 8 }}>
         <button
-          onClick={handleNext}
+          onClick={handleContinue}
           style={{
             padding: "14px 22px",
-            borderRadius: 14,
+            borderRadius: 12,
             fontSize: 16,
             fontWeight: 600,
             background: "#7aa2ff",
@@ -129,20 +92,7 @@ export default function InPersonPhotos() {
             cursor: "pointer",
           }}
         >
-          {isLast ? "Continue" : "Next photo"}
-        </button>
-
-        <button
-          onClick={() => navigate("/scan/in-person")}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#9aa7d9",
-            cursor: "pointer",
-            fontSize: 14,
-          }}
-        >
-          ← Go back
+          Continue to checks
         </button>
       </div>
     </div>
