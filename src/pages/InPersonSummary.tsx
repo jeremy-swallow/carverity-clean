@@ -1,8 +1,5 @@
 import { useEffect } from "react";
-import {
-  saveScan,
-  generateScanId,
-} from "../utils/scanStorage";
+import { saveScan, generateScanId } from "../utils/scanStorage";
 import type { SavedScan } from "../utils/scanStorage";
 
 const SCAN_SAVED_FLAG = "carverity_latest_in_person_scan_saved";
@@ -10,6 +7,7 @@ const SCAN_SAVED_FLAG = "carverity_latest_in_person_scan_saved";
 export default function InPersonSummary() {
   /* ---------------------------------------------------------
      Save in-person scan summary (once)
+     Improved, contextual title
   --------------------------------------------------------- */
   useEffect(() => {
     const alreadySaved = localStorage.getItem(SCAN_SAVED_FLAG);
@@ -18,7 +16,7 @@ export default function InPersonSummary() {
     const scan: SavedScan = {
       id: generateScanId(),
       type: "in-person",
-      title: "In-person vehicle check",
+      title: "In-person check — on site",
       createdAt: new Date().toISOString(),
     };
 
@@ -44,12 +42,12 @@ export default function InPersonSummary() {
         </h1>
 
         <p style={{ color: "#cbd5f5", maxWidth: 680, lineHeight: 1.6 }}>
-          You’ve completed an in-person inspection. This summary is saved on this
-          device so you can refer back to it later.
+          You’ve completed an in-person inspection. This summary has been saved
+          on this device so you can review it later.
         </p>
       </section>
 
-      {/* Summary card */}
+      {/* Guidance */}
       <section
         style={{
           padding: 20,
@@ -69,9 +67,9 @@ export default function InPersonSummary() {
             lineHeight: 1.6,
           }}
         >
-          <li>Compare what you saw with the seller’s claims</li>
-          <li>Ask follow-up questions about anything unclear</li>
-          <li>Consider a professional inspection if needed</li>
+          <li>Compare what you observed with the seller’s claims</li>
+          <li>Clarify any unclear history or condition details</li>
+          <li>Consider a professional inspection if you’re unsure</li>
         </ul>
       </section>
 
