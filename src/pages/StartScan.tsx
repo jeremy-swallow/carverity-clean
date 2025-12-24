@@ -1,39 +1,18 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, clearProgress } from "../utils/scanProgress";
 
 export default function StartScan() {
   const navigate = useNavigate();
-  const [progress, setProgress] = useState(loadProgress());
+  const progress = loadProgress();
 
-  // ✅ Validate progress on mount
-  useEffect(() => {
-    if (!progress) return;
-
-    const listing = localStorage.getItem("carverity_listing_url");
-
-    // ❌ If there is progress but no listing URL, treat it as stale
-    const missingListing = !listing || listing.trim().length === 0;
-
-    // ❌ If the progress is older than 24h, also treat as stale
-    const isStale =
-      Date.now() - new Date(progress.updatedAt).getTime() > 24 * 60 * 60 * 1000;
-
-    if (missingListing || isStale) {
-      clearProgress();
-      setProgress(null);
-    }
-  }, []);
+  const isActiveScan =
+    progress &&
+    progress.step &&
+    progress.type &&
+    progress.step.startsWith("/scan/");
 
   function resumeScan() {
-    if (!progress) return;
-
-    if (!progress.step.startsWith("/")) {
-      clearProgress();
-      navigate("/scan/online");
-      return;
-    }
-
+    if (!isActiveScan) return;
     navigate(progress.step);
   }
 
@@ -55,7 +34,7 @@ export default function StartScan() {
     >
       <h1>Let’s check the car together</h1>
 
-      {progress && (
+      {isActiveScan && (
         <div
           style={{
             padding: 20,
@@ -101,9 +80,9 @@ export default function StartScan() {
         </div>
       )}
 
-      {!progress && (
+      {!isActiveScan && (
         <button
-          onClick={startFresh}
+          onClick={() => navigate("/scan/online")}
           style={{
             padding: "14px 22px",
             borderRadius: 14,
