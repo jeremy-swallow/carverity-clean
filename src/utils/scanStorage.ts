@@ -1,6 +1,6 @@
 /* =========================================================
    Scan Storage Utility
-   Local-only persistence (v1)
+   Local-only persistence (v2)
 ========================================================= */
 
 export type ScanType = "online" | "in-person";
@@ -10,6 +10,11 @@ export type SavedScan = {
   type: ScanType;
   title: string;
   createdAt: string;
+
+  /* NEW — full scan content (v1) */
+  concern?: string;
+  context?: string;
+  summary?: string;
 };
 
 const STORAGE_KEY = "carverity_saved_scans";
@@ -27,17 +32,22 @@ export function loadScans(): SavedScan[] {
   }
 }
 
-/* Save a new scan (most recent first) */
+/* Save or update a scan */
 export function saveScan(scan: SavedScan) {
   const existing = loadScans();
-  const updated = [scan, ...existing];
+  const filtered = existing.filter((s) => s.id !== scan.id);
+  const updated = [scan, ...filtered];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
 
-/* Delete a single scan by id */
+/* Get a single scan by id */
+export function getScanById(scanId: string): SavedScan | undefined {
+  return loadScans().find((s) => s.id === scanId);
+}
+
+/* Delete a single scan */
 export function deleteScan(scanId: string) {
-  const existing = loadScans();
-  const updated = existing.filter((s) => s.id !== scanId);
+  const updated = loadScans().filter((s) => s.id !== scanId);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
 
@@ -46,7 +56,9 @@ export function clearAllScans() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-/* Generate a simple unique id */
+/* Generate unique id */
 export function generateScanId() {
-  return `scan_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  return `scan_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }
