@@ -8,9 +8,14 @@ export type ScanType = "online" | "in-person";
 export type SavedScan = {
   id: string;
   type: ScanType;
+
   title: string;
   createdAt: string;
+
+  /* Online-only */
   listingUrl?: string;
+
+  /* Optional summary (generated later) */
   summary?: string;
 };
 
@@ -21,8 +26,10 @@ export function loadScans(): SavedScan[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
+
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
+
     return parsed as SavedScan[];
   } catch {
     return [];
@@ -36,10 +43,11 @@ export function saveScan(scan: SavedScan) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
 
-/* Delete a scan by id */
-export function deleteScan(id: string) {
-  const updated = loadScans().filter((s) => s.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+/* Delete a single scan */
+export function deleteScan(scanId: string) {
+  const existing = loadScans();
+  const filtered = existing.filter((s) => s.id !== scanId);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
 }
 
 /* Clear all scans */
