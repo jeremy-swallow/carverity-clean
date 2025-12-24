@@ -1,14 +1,34 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, clearProgress } from "../utils/scanProgress";
 
 export default function StartScan() {
   const navigate = useNavigate();
-  const progress = loadProgress();
+  const [progress, setProgress] = useState(loadProgress());
+
+  // ✅ Validate progress on mount
+  useEffect(() => {
+    if (!progress) return;
+
+    const listing = localStorage.getItem("carverity_listing_url");
+
+    // ❌ If there is progress but no listing URL, treat it as stale
+    const missingListing = !listing || listing.trim().length === 0;
+
+    // ❌ If the progress is older than 24h, also treat as stale
+    const isStale =
+      Date.now() - new Date(progress.updatedAt).getTime() > 24 * 60 * 60 * 1000;
+
+    if (missingListing || isStale) {
+      clearProgress();
+      setProgress(null);
+    }
+  }, []);
 
   function resumeScan() {
     if (!progress) return;
 
-    if (typeof progress.step !== "string" || !progress.step.startsWith("/")) {
+    if (!progress.step.startsWith("/")) {
       clearProgress();
       navigate("/scan/online");
       return;
