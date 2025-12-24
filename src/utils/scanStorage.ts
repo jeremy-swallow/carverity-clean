@@ -1,36 +1,22 @@
 /* =========================================================
    Scan Storage Utility
-   Local-only persistence (v3)
+   Local-only persistence (v1)
 ========================================================= */
 
 export type ScanType = "online" | "in-person";
-
-export type AIScanInsight = {
-  summary: string;
-  focusPoints: string[];
-  confidence: "low" | "medium" | "high";
-};
 
 export type SavedScan = {
   id: string;
   type: ScanType;
   title: string;
   createdAt: string;
-
-  /* Context */
-  concern?: string;
-  context?: string;
-
-  /* Human summary (non-AI / v1 content) */
+  listingUrl?: string;
   summary?: string;
-
-  /* AI output (v1) */
-  aiInsight?: AIScanInsight;
 };
 
 const STORAGE_KEY = "carverity_saved_scans";
 
-/* Load all scans */
+/* Load all saved scans */
 export function loadScans(): SavedScan[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -43,30 +29,27 @@ export function loadScans(): SavedScan[] {
   }
 }
 
-/* Save or update scan */
+/* Save a new scan (most recent first) */
 export function saveScan(scan: SavedScan) {
   const existing = loadScans();
-  const filtered = existing.filter((s) => s.id !== scan.id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([scan, ...filtered]));
+  const updated = [scan, ...existing];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
 
-/* Get scan by id */
-export function getScanById(id: string) {
-  return loadScans().find((s) => s.id === id);
-}
-
-/* Delete one scan */
+/* Delete a scan by id */
 export function deleteScan(id: string) {
   const updated = loadScans().filter((s) => s.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
 
-/* Clear all */
+/* Clear all scans */
 export function clearAllScans() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-/* Generate id */
+/* Generate a simple unique id */
 export function generateScanId() {
-  return `scan_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  return `scan_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }

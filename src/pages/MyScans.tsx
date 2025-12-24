@@ -44,7 +44,6 @@ export default function MyScans() {
         gap: 36,
       }}
     >
-      {/* Header */}
       <header>
         <h1 style={{ fontSize: 36, marginBottom: 10 }}>
           My scans
@@ -57,13 +56,10 @@ export default function MyScans() {
             lineHeight: 1.6,
           }}
         >
-          These are vehicle checks you’ve completed.  
-          They’re saved <strong>locally on this device</strong>, so you can
-          revisit them anytime.
+          These scans are saved <strong>locally on this device</strong>.
         </p>
       </header>
 
-      {/* Empty state */}
       {scans.length === 0 && (
         <section
           style={{
@@ -71,24 +67,18 @@ export default function MyScans() {
             borderRadius: 16,
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.08)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
           }}
         >
-          <strong style={{ fontSize: 18 }}>
-            No scans yet
-          </strong>
+          <strong>No scans yet</strong>
 
-          <p style={{ color: "#cbd5f5", lineHeight: 1.6 }}>
-            When you run an online or in-person scan, it will appear here so
-            you can refer back to it later.
+          <p style={{ color: "#cbd5f5", marginTop: 8 }}>
+            Run an online or in-person scan to see it here.
           </p>
 
           <button
             onClick={() => navigate("/start-scan")}
             style={{
-              alignSelf: "flex-start",
+              marginTop: 16,
               padding: "14px 22px",
               borderRadius: 14,
               fontSize: 16,
@@ -104,7 +94,6 @@ export default function MyScans() {
         </section>
       )}
 
-      {/* Scan list */}
       {scans.length > 0 && (
         <>
           <section
@@ -128,38 +117,31 @@ export default function MyScans() {
                   gap: 10,
                 }}
               >
-                <div>
-                  <strong style={{ fontSize: 16 }}>
-                    {scan.title}
-                  </strong>
+                <strong>{scan.title}</strong>
 
-                  <div
-                    style={{
-                      marginTop: 6,
-                      fontSize: 13,
-                      color: "#9aa3c7",
-                    }}
-                  >
-                    {scan.type === "online"
-                      ? "Online scan"
-                      : "In-person scan"}
-                  </div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "#9aa3c7",
+                  }}
+                >
+                  {scan.type === "online"
+                    ? "Online scan"
+                    : "In-person scan"}
+                </div>
 
-                  <div
-                    style={{
-                      marginTop: 6,
-                      fontSize: 12,
-                      color: "#6b7280",
-                    }}
-                  >
-                    {new Date(scan.createdAt).toLocaleString()}
-                  </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "#6b7280",
+                  }}
+                >
+                  {new Date(scan.createdAt).toLocaleString()}
                 </div>
 
                 {scan.summary && (
                   <p
                     style={{
-                      marginTop: 8,
                       fontSize: 14,
                       color: "#cbd5f5",
                       lineHeight: 1.5,
@@ -169,19 +151,13 @@ export default function MyScans() {
                   </p>
                 )}
 
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 12,
-                    marginTop: 10,
-                  }}
-                >
+                <div style={{ display: "flex", gap: 12 }}>
                   <button
                     onClick={() =>
                       navigate(
                         scan.type === "online"
-                          ? `/scan/online/report/${scan.id}`
-                          : `/scan/in-person/summary/${scan.id}`
+                          ? "/scan/online/report"
+                          : "/scan/in-person/summary"
                       )
                     }
                     style={{
@@ -230,7 +206,7 @@ export default function MyScans() {
               fontSize: 14,
             }}
           >
-            Clear all scans on this device
+            Clear all scans
           </button>
         </>
       )}

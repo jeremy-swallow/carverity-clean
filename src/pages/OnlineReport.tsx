@@ -43,6 +43,20 @@ export default function OnlineReport() {
         }}
       >
         <strong>{scan.title}</strong>
+
+        {scan.listingUrl && (
+          <p style={{ marginTop: 8 }}>
+            <a
+              href={scan.listingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#7aa2ff", wordBreak: "break-all" }}
+            >
+              View original listing
+            </a>
+          </p>
+        )}
+
         <p style={{ color: "#cbd5f5", marginTop: 8 }}>
           Created {new Date(scan.createdAt).toLocaleString()}
         </p>

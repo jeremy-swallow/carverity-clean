@@ -12,11 +12,10 @@ export default function InPersonSummary() {
     const scan: SavedScan = {
       id: generateScanId(),
       type: "in-person",
-      title: "In-person check — on site",
+      title: "In-person inspection",
       createdAt: new Date().toISOString(),
-      context: "in-person",
       summary:
-        "This in-person inspection focused on visible condition, warning signs, and details that are difficult to verify from a listing alone.",
+        "This in-person inspection focused on visible condition, warning signs, and details that are difficult to assess from an online listing alone.",
     };
 
     saveScan(scan);

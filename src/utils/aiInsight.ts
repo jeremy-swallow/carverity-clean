@@ -1,4 +1,10 @@
-import type { AIScanInsight, ScanType } from "./scanStorage";
+import type { ScanType } from "./scanStorage";
+
+export type AIScanInsight = {
+  summary: string;
+  focusPoints: string[];
+  confidence: "low" | "medium" | "high";
+};
 
 export function generateAIScanInsight(
   type: ScanType,
@@ -17,14 +23,13 @@ export function generateAIScanInsight(
     };
   }
 
-  // In-person inspections
   return {
     summary:
       "This in-person inspection focused on visible condition and immediate risk signals that are difficult to judge from a listing alone.",
     focusPoints: [
       "Overall condition relative to age and usage",
-      "Signs of neglect, rushed preparation, or cosmetic masking",
-      "Anything that would justify a professional inspection",
+      "Signs of neglect or cosmetic masking",
+      "Whether a professional inspection is justified",
     ],
     confidence: "high",
   };

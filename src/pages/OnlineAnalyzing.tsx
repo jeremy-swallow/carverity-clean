@@ -7,11 +7,15 @@ export default function OnlineAnalyzing() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
+      const listingUrl =
+        sessionStorage.getItem("carverity_listing_url") || undefined;
+
       saveScan({
         id: generateScanId(),
         type: "online",
         title: "Online listing analysis",
         createdAt: new Date().toISOString(),
+        listingUrl,
       });
 
       navigate("/scan/online/report");
