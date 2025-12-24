@@ -1,8 +1,18 @@
-import { Outlet, NavLink } from "react-router-dom";
+import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { useState } from "react";
+
+function getContextLabel(pathname: string) {
+  if (pathname.startsWith("/scan/online")) return "Online scan";
+  if (pathname.startsWith("/scan/in-person")) return "In-person scan";
+  if (pathname.startsWith("/start-scan")) return "Start scan";
+  return "";
+}
 
 export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+
+  const contextLabel = getContextLabel(location.pathname);
 
   return (
     <div
@@ -20,8 +30,8 @@ export default function Layout() {
           position: "sticky",
           top: 0,
           zIndex: 50,
-          background: "rgba(11,16,32,0.9)",
-          backdropFilter: "blur(8px)",
+          background: "rgba(11,16,32,0.92)",
+          backdropFilter: "blur(10px)",
           borderBottom: "1px solid rgba(255,255,255,0.08)",
         }}
       >
@@ -33,28 +43,47 @@ export default function Layout() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            gap: 24,
           }}
         >
-          {/* Logo / Brand */}
+          {/* Brand */}
           <NavLink
             to="/"
+            onClick={() => setMenuOpen(false)}
             style={{
               fontSize: 18,
               fontWeight: 700,
               letterSpacing: 0.3,
               textDecoration: "none",
               color: "white",
+              whiteSpace: "nowrap",
             }}
           >
             CarVerity
           </NavLink>
 
-          {/* Desktop Nav */}
+          {/* Context label (desktop only) */}
+          {contextLabel && (
+            <div
+              style={{
+                fontSize: 14,
+                color: "#9aa7d9",
+                whiteSpace: "nowrap",
+                display: "none",
+              }}
+              className="header-context"
+            >
+              {contextLabel}
+            </div>
+          )}
+
+          {/* Desktop navigation */}
           <nav
             style={{
               display: "none",
-              gap: 24,
+              gap: 28,
               fontSize: 15,
+              alignItems: "center",
             }}
             className="desktop-nav"
           >
@@ -64,6 +93,10 @@ export default function Layout() {
                 color: isActive ? "#7aa2ff" : "#cbd5f5",
                 textDecoration: "none",
                 fontWeight: 500,
+                paddingBottom: 2,
+                borderBottom: isActive
+                  ? "2px solid #7aa2ff"
+                  : "2px solid transparent",
               })}
             >
               Start scan
@@ -75,13 +108,17 @@ export default function Layout() {
                 color: isActive ? "#7aa2ff" : "#cbd5f5",
                 textDecoration: "none",
                 fontWeight: 500,
+                paddingBottom: 2,
+                borderBottom: isActive
+                  ? "2px solid #7aa2ff"
+                  : "2px solid transparent",
               })}
             >
               Pricing
             </NavLink>
           </nav>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile menu button */}
           <button
             onClick={() => setMenuOpen((v) => !v)}
             style={{
@@ -90,6 +127,7 @@ export default function Layout() {
               color: "white",
               fontSize: 22,
               cursor: "pointer",
+              lineHeight: 1,
             }}
             aria-label="Toggle menu"
           >
@@ -97,17 +135,29 @@ export default function Layout() {
           </button>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile menu */}
         {menuOpen && (
           <div
             style={{
               borderTop: "1px solid rgba(255,255,255,0.08)",
-              padding: "12px 20px",
+              padding: "14px 20px",
               display: "flex",
               flexDirection: "column",
-              gap: 12,
+              gap: 14,
             }}
           >
+            {contextLabel && (
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "#9aa7d9",
+                  marginBottom: 4,
+                }}
+              >
+                {contextLabel}
+              </div>
+            )}
+
             <NavLink
               to="/start-scan"
               onClick={() => setMenuOpen(false)}

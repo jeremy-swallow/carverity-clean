@@ -21,10 +21,14 @@ body {
   min-height: 100vh;
 }
 
-/* Desktop navigation visibility */
+/* Desktop header behaviour */
 @media (min-width: 768px) {
   .desktop-nav {
     display: flex !important;
+  }
+
+  .header-context {
+    display: block !important;
   }
 
   header button {
