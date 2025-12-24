@@ -10,6 +10,9 @@ import Layout from "./components/Layout";
 /* Entry */
 import StartScan from "./pages/StartScan";
 
+/* My Scans */
+import MyScans from "./pages/MyScans";
+
 /* Online flow */
 import OnlineScan from "./pages/OnlineScan";
 import OnlineKilometres from "./pages/OnlineKilometres";
@@ -31,6 +34,9 @@ export default function App() {
           {/* Home / entry */}
           <Route path="/" element={<StartScan />} />
           <Route path="/start-scan" element={<StartScan />} />
+
+          {/* My Scans */}
+          <Route path="/my-scans" element={<MyScans />} />
 
           {/* ONLINE SCAN FLOW */}
           <Route path="/scan/online" element={<OnlineScan />} />
