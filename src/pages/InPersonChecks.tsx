@@ -1,54 +1,21 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
-type CheckItem = {
-  id: string;
-  label: string;
-  hint: string;
-};
-
-const CHECKS: CheckItem[] = [
-  {
-    id: "panel_gaps",
-    label: "Panel gaps look even",
-    hint: "Check doors, bonnet, and boot for uneven spacing.",
-  },
-  {
-    id: "paint_consistency",
-    label: "Paint finish looks consistent",
-    hint: "Look for colour differences or odd reflections.",
-  },
-  {
-    id: "tyres_even",
-    label: "Tyres appear evenly worn",
-    hint: "Uneven wear can point to alignment or suspension issues.",
-  },
-  {
-    id: "warning_lights",
-    label: "No warning lights visible on the dash",
-    hint: "Ask the seller to turn the car on if needed.",
-  },
-  {
-    id: "unusual_smells",
-    label: "No unusual smells",
-    hint: "Strong fuel, oil, or burning smells are worth questioning.",
-  },
-  {
-    id: "gut_feel",
-    label: "Nothing feels obviously off",
-    hint: "If something doesn’t feel right, trust that instinct.",
-  },
-];
+import { saveProgress } from "../utils/scanProgress";
 
 export default function InPersonChecks() {
   const navigate = useNavigate();
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
 
-  function toggle(id: string) {
-    setChecked((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+  useEffect(() => {
+    // Mark this step in the in-person scan
+    saveProgress({
+      type: "in-person",
+      step: "/scan/in-person/checks",
+      startedAt: new Date().toISOString(),
+    });
+  }, []);
+
+  function handleContinue() {
+    navigate("/scan/in-person/summary");
   }
 
   return (
@@ -56,97 +23,68 @@ export default function InPersonChecks() {
       style={{
         maxWidth: 720,
         margin: "0 auto",
-        padding: "clamp(20px, 5vw, 48px)",
+        padding: "clamp(24px, 6vw, 64px)",
         display: "flex",
         flexDirection: "column",
-        gap: 32,
+        gap: 24,
       }}
     >
-      {/* Header */}
-      <header>
-        <h1
-          style={{
-            fontSize: "clamp(26px, 6vw, 36px)",
-            marginBottom: 10,
-          }}
-        >
-          Quick visual check
-        </h1>
-
-        <p
-          style={{
-            color: "#cbd5f5",
-            lineHeight: 1.6,
-            maxWidth: 600,
-          }}
-        >
-          Take a moment to check these basics while you’re next to the car.
-          You don’t need to tick everything — this is about slowing down and
-          noticing anything worth asking about.
-        </p>
-      </header>
-
-      {/* Checklist */}
-      <section
+      {/* Step context */}
+      <span
         style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
+          fontSize: 13,
+          textTransform: "uppercase",
+          letterSpacing: 0.8,
+          color: "#9aa3c7",
         }}
       >
-        {CHECKS.map((item) => {
-          const isChecked = !!checked[item.id];
+        In-person scan · Step 3 of 4
+      </span>
 
-          return (
-            <button
-              key={item.id}
-              onClick={() => toggle(item.id)}
-              style={{
-                padding: 18,
-                borderRadius: 14,
-                background: isChecked
-                  ? "rgba(122,162,255,0.15)"
-                  : "rgba(255,255,255,0.04)",
-                border: isChecked
-                  ? "1px solid rgba(122,162,255,0.6)"
-                  : "1px solid rgba(255,255,255,0.08)",
-                textAlign: "left",
-                cursor: "pointer",
-              }}
-            >
-              <strong
-                style={{
-                  display: "block",
-                  fontSize: 16,
-                  marginBottom: 6,
-                  color: isChecked ? "#e0e7ff" : "#ffffff",
-                }}
-              >
-                {item.label}
-              </strong>
+      <h1 style={{ fontSize: 24, fontWeight: 800 }}>
+        Now let’s check a few important details
+      </h1>
 
-              <span style={{ color: "#cbd5f5", fontSize: 14 }}>
-                {item.hint}
-              </span>
-            </button>
-          );
-        })}
-      </section>
+      <p style={{ color: "#cbd5f5", fontSize: 15 }}>
+        Take a moment to look over key areas of the car. These checks help you
+        spot warning signs and things that may be worth asking the seller
+        about.
+      </p>
 
-      {/* Actions */}
+      {/* Guidance box */}
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          flexWrap: "wrap",
+          padding: 18,
+          borderRadius: 14,
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.12)",
         }}
       >
+        <p style={{ color: "#e5ebff", fontSize: 14, marginBottom: 8 }}>
+          Things to pay attention to:
+        </p>
+
+        <ul style={{ marginLeft: 18, color: "#cbd5f5", fontSize: 14 }}>
+          <li>Panel alignment, dents or mismatched paint</li>
+          <li>Unusual tyre wear or uneven tread</li>
+          <li>Warning lights on the dash when the car is running</li>
+          <li>Smoke, rattles or rough idle</li>
+          <li>Strong smells inside the cabin</li>
+        </ul>
+
+        <p style={{ color: "#9aa3c7", fontSize: 13, marginTop: 10 }}>
+          Only check what’s safe and practical — you don’t need tools or
+          mechanical knowledge for this step.
+        </p>
+      </div>
+
+      {/* Action */}
+      <div style={{ marginTop: 8 }}>
         <button
-          onClick={() => navigate("/scan/in-person/summary")}
+          onClick={handleContinue}
           style={{
-            padding: "16px 26px",
-            borderRadius: 14,
+            padding: "14px 22px",
+            borderRadius: 12,
             fontSize: 16,
             fontWeight: 600,
             background: "#7aa2ff",
@@ -155,20 +93,7 @@ export default function InPersonChecks() {
             cursor: "pointer",
           }}
         >
-          Continue
-        </button>
-
-        <button
-          onClick={() => navigate("/scan/in-person/photos")}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#9aa7d9",
-            cursor: "pointer",
-            fontSize: 14,
-          }}
-        >
-          ← Back to photos
+          Continue to summary
         </button>
       </div>
     </div>
