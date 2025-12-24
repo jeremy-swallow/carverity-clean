@@ -1,25 +1,27 @@
-import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { getScanById } from "../utils/scanStorage";
+import { useEffect } from "react";
+import { saveScan, generateScanId } from "../utils/scanStorage";
 import type { SavedScan } from "../utils/scanStorage";
 
+const IN_PERSON_SAVED_FLAG = "carverity_in_person_saved";
+
 export default function InPersonSummary() {
-  const { scanId } = useParams();
-  const [scan, setScan] = useState<SavedScan | null>(null);
-
   useEffect(() => {
-    if (!scanId) return;
-    const found = getScanById(scanId);
-    if (found) setScan(found);
-  }, [scanId]);
+    const alreadySaved = localStorage.getItem(IN_PERSON_SAVED_FLAG);
+    if (alreadySaved) return;
 
-  if (!scan) {
-    return (
-      <div style={{ padding: 40 }}>
-        <p>Scan not found.</p>
-      </div>
-    );
-  }
+    const scan: SavedScan = {
+      id: generateScanId(),
+      type: "in-person",
+      title: "In-person check — on site",
+      createdAt: new Date().toISOString(),
+      context: "in-person",
+      summary:
+        "This in-person inspection focused on visible condition, warning signs, and details that are difficult to verify from a listing alone.",
+    };
+
+    saveScan(scan);
+    localStorage.setItem(IN_PERSON_SAVED_FLAG, "true");
+  }, []);
 
   return (
     <div
@@ -32,16 +34,28 @@ export default function InPersonSummary() {
         gap: 28,
       }}
     >
-      <h1>{scan.title}</h1>
+      <h1>In-person inspection complete</h1>
 
-      {scan.summary && (
-        <p style={{ color: "#cbd5f5", lineHeight: 1.6 }}>
-          {scan.summary}
+      <p style={{ color: "#cbd5f5", lineHeight: 1.6 }}>
+        This inspection has been saved on this device so you can review it later.
+      </p>
+
+      <section
+        style={{
+          padding: 20,
+          borderRadius: 14,
+          background: "rgba(255,255,255,0.04)",
+        }}
+      >
+        <strong>What this means</strong>
+        <p style={{ color: "#cbd5f5", marginTop: 8 }}>
+          Use this inspection to confirm details with the seller and decide
+          whether further checks or a professional inspection are worthwhile.
         </p>
-      )}
+      </section>
 
       <p style={{ fontSize: 13, color: "#6b7280" }}>
-        Saved on this device.
+        Saved locally on this device.
       </p>
     </div>
   );
