@@ -1,128 +1,78 @@
-import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { Outlet, Link } from "react-router-dom";
 
-function getContextLabel(pathname: string) {
-  if (pathname.startsWith("/scan/online")) return "Online scan";
-  if (pathname.startsWith("/scan/in-person")) return "In-person scan";
-  if (pathname.startsWith("/my-scans")) return "My scans";
-  if (pathname.startsWith("/start-scan")) return "Start scan";
-  return "";
-}
+const HEADER_HEIGHT = 64;
 
 export default function Layout() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const location = useLocation();
-  const contextLabel = getContextLabel(location.pathname);
-
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        background: "#0b1020",
-        color: "white",
-      }}
-    >
+    <>
+      {/* Header */}
       <header
         style={{
-          position: "sticky",
+          position: "fixed",
           top: 0,
-          zIndex: 50,
-          background: "rgba(11,16,32,0.92)",
+          left: 0,
+          right: 0,
+          height: HEADER_HEIGHT,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 20px",
+          background: "rgba(6, 10, 30, 0.85)",
           backdropFilter: "blur(10px)",
-          borderBottom: "1px solid rgba(255,255,255,0.08)",
+          zIndex: 1000,
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
         }}
       >
-        <div
+        <Link
+          to="/"
           style={{
-            maxWidth: 1200,
-            margin: "0 auto",
-            padding: "14px 20px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 24,
+            fontWeight: 700,
+            fontSize: 18,
+            color: "white",
+            textDecoration: "none",
           }}
         >
-          <NavLink
-            to="/"
-            onClick={() => setMenuOpen(false)}
+          CarVerity
+        </Link>
+
+        <nav
+          style={{
+            display: "flex",
+            gap: 18,
+            fontSize: 14,
+          }}
+        >
+          <Link
+            to="/start-scan"
             style={{
-              fontSize: 18,
-              fontWeight: 700,
+              color: "#cbd5f5",
               textDecoration: "none",
-              color: "white",
             }}
           >
-            CarVerity
-          </NavLink>
+            Start scan
+          </Link>
 
-          {contextLabel && (
-            <div
-              className="header-context"
-              style={{ fontSize: 14, color: "#9aa7d9", display: "none" }}
-            >
-              {contextLabel}
-            </div>
-          )}
-
-          <nav
-            className="desktop-nav"
+          <Link
+            to="/my-scans"
             style={{
-              display: "none",
-              gap: 28,
-              alignItems: "center",
+              color: "#cbd5f5",
+              textDecoration: "none",
             }}
           >
-            <NavLink to="/start-scan">Start scan</NavLink>
-            <NavLink to="/my-scans">My scans</NavLink>
-          </nav>
-
-          <button
-            onClick={() => setMenuOpen((v) => !v)}
-            style={{
-              background: "none",
-              border: "none",
-              color: "white",
-              fontSize: 22,
-              cursor: "pointer",
-            }}
-          >
-            ☰
-          </button>
-        </div>
-
-        {menuOpen && (
-          <div
-            style={{
-              borderTop: "1px solid rgba(255,255,255,0.08)",
-              padding: "14px 20px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 14,
-            }}
-          >
-            {contextLabel && (
-              <div style={{ fontSize: 13, color: "#9aa7d9" }}>
-                {contextLabel}
-              </div>
-            )}
-
-            <NavLink to="/start-scan" onClick={() => setMenuOpen(false)}>
-              Start scan
-            </NavLink>
-
-            <NavLink to="/my-scans" onClick={() => setMenuOpen(false)}>
-              My scans
-            </NavLink>
-          </div>
-        )}
+            My scans
+          </Link>
+        </nav>
       </header>
 
-      <main style={{ flex: 1 }}>
+      {/* Page content */}
+      <main
+        style={{
+          paddingTop: HEADER_HEIGHT,
+          minHeight: "100vh",
+        }}
+      >
         <Outlet />
       </main>
-    </div>
+    </>
   );
 }
