@@ -1,6 +1,10 @@
 import { useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { saveScan } from "../utils/scanStorage";
+import {
+  saveScan,
+  getScanById,
+} from "../utils/scanStorage";
+import { generateAIScanInsight } from "../utils/aiInsight";
 import type { SavedScan } from "../utils/scanStorage";
 
 export default function OnlineReport() {
@@ -10,13 +14,16 @@ export default function OnlineReport() {
     localStorage.getItem("carverity_primary_concern") ||
     "Peace of mind";
 
-  const context = "online";
-
-  const summary =
-    "This online assessment highlights areas worth verifying before inspecting the car in person. It focuses on consistency, disclosure, and potential risk signals in the listing.";
-
   useEffect(() => {
     if (!scanId) return;
+
+    const existing = getScanById(scanId);
+    if (existing?.aiInsight) return;
+
+    const aiInsight = generateAIScanInsight(
+      "online",
+      concern
+    );
 
     const scan: SavedScan = {
       id: scanId,
@@ -24,12 +31,20 @@ export default function OnlineReport() {
       title: "Online check",
       createdAt: new Date().toISOString(),
       concern,
-      context,
-      summary,
+      context: "online",
+      aiInsight,
     };
 
     saveScan(scan);
   }, [scanId, concern]);
+
+  if (!scanId) return null;
+
+  const scan = getScanById(scanId);
+
+  if (!scan?.aiInsight) {
+    return <div style={{ padding: 40 }}>Preparing insights…</div>;
+  }
 
   return (
     <div
@@ -42,10 +57,10 @@ export default function OnlineReport() {
         gap: 28,
       }}
     >
-      <h1>Your online assessment</h1>
+      <h1>Your assessment</h1>
 
       <p style={{ color: "#cbd5f5", lineHeight: 1.6 }}>
-        {summary}
+        {scan.aiInsight.summary}
       </p>
 
       <section
@@ -55,14 +70,23 @@ export default function OnlineReport() {
           background: "rgba(255,255,255,0.04)",
         }}
       >
-        <strong>Primary concern</strong>
-        <p style={{ color: "#cbd5f5", marginTop: 6 }}>
-          {concern}
-        </p>
+        <strong>Key things to verify</strong>
+        <ul
+          style={{
+            marginTop: 10,
+            paddingLeft: 20,
+            color: "#cbd5f5",
+            lineHeight: 1.6,
+          }}
+        >
+          {scan.aiInsight.focusPoints.map((p) => (
+            <li key={p}>{p}</li>
+          ))}
+        </ul>
       </section>
 
       <p style={{ fontSize: 13, color: "#6b7280" }}>
-        Saved on this device.
+        Confidence level: {scan.aiInsight.confidence}
       </p>
     </div>
   );
