@@ -15,39 +15,44 @@ export default function OnlineReport() {
     try {
       setSaving(true);
 
-      const user = await getCurrentUser();
+      let user = await getCurrentUser();
 
-      // ⛔ Not signed in → trigger magic-link login
+      // If not logged in → ask for email + send magic link
       if (!user) {
+        console.log("User not signed in — prompting email login");
+
         const email = window.prompt(
           "Enter your email so we can save this scan to your account"
         );
-
         if (!email) {
+          console.log("User cancelled email prompt");
           setSaving(false);
           return;
         }
 
-        await supabase.auth.signInWithOtp({
+        const redirectUrl = `${window.location.origin}/my-scans`;
+        console.log("Requesting magic link →", redirectUrl);
+
+        const { error } = await supabase.auth.signInWithOtp({
           email,
-          options: {
-            // ✅ Redirect user back to this page after clicking email link
-            emailRedirectTo: `${window.location.origin}/scan/online/report`,
-          },
+          options: { emailRedirectTo: redirectUrl },
         });
 
-        alert("Check your email to finish signing in, then press Save again.");
+        if (error) throw error;
+
+        alert(
+          "Check your email for a login link. After opening it, return to this page and tap Save again."
+        );
+
         setSaving(false);
         return;
       }
 
-      // -------------------------
-      // 👍 User is signed in — save scan
-      // -------------------------
+      console.log("User is signed in — saving scan");
 
       const summaryParts: string[] = [];
       if (listingUrl) summaryParts.push(`Listing: ${listingUrl}`);
-      if (kilometres) summaryParts.push(`Kilometres: ${kilometres}`);
+      if (kilometres) summaryParts.push(`KMs: ${kilometres}`);
       if (owners) summaryParts.push(`Owners: ${owners}`);
 
       const scan = {
@@ -65,14 +70,14 @@ export default function OnlineReport() {
 
       if (error) throw error;
 
-      // 🧹 Clear progress after saving
+      // Clear saved draft data
       localStorage.removeItem("carverity_listing_url");
       localStorage.removeItem("carverity_kms");
       localStorage.removeItem("carverity_owners");
 
-      // ➜ Go to My Scans
       navigate("/my-scans");
     } catch (err: any) {
+      console.error("Save error:", err);
       alert("There was a problem saving your scan: " + err.message);
     } finally {
       setSaving(false);
