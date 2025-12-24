@@ -11,6 +11,7 @@ import OnlineScan from "./pages/OnlineScan";
 import OnlineKilometres from "./pages/OnlineKilometres";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
 import OnlineReport from "./pages/OnlineReport";
+import InPersonScan from "./pages/InPersonScan";
 import InPersonSummary from "./pages/InPersonSummary";
 import MyScans from "./pages/MyScans";
 
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/scan/online/report/:scanId" element={<OnlineReport />} />
 
           {/* In-person scan */}
+          <Route path="/scan/in-person" element={<InPersonScan />} />
           <Route
             path="/scan/in-person/summary/:scanId"
             element={<InPersonSummary />}
