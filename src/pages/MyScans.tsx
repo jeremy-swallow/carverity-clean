@@ -16,7 +16,7 @@ export default function MyScans() {
   }, []);
 
   function handleDelete(scanId: string) {
-    const ok = confirm("Delete this scan?");
+    const ok = confirm("Delete this scan? This cannot be undone.");
     if (!ok) return;
 
     deleteScan(scanId);
@@ -24,7 +24,9 @@ export default function MyScans() {
   }
 
   function handleClearAll() {
-    const ok = confirm("Delete all saved scans?");
+    const ok = confirm(
+      "Delete all saved scans on this device? This cannot be undone."
+    );
     if (!ok) return;
 
     clearAllScans();
@@ -39,33 +41,77 @@ export default function MyScans() {
         padding: "clamp(24px, 6vw, 64px)",
         display: "flex",
         flexDirection: "column",
-        gap: 32,
+        gap: 36,
       }}
     >
+      {/* Header */}
       <header>
-        <h1 style={{ fontSize: 36, marginBottom: 8 }}>My scans</h1>
-        <p style={{ color: "#cbd5f5", maxWidth: 640 }}>
-          These scans are saved locally on this device.
+        <h1 style={{ fontSize: 36, marginBottom: 10 }}>
+          My scans
+        </h1>
+
+        <p
+          style={{
+            color: "#cbd5f5",
+            maxWidth: 680,
+            lineHeight: 1.6,
+          }}
+        >
+          These are vehicle checks you’ve completed.  
+          They’re saved <strong>locally on this device</strong>, so you can
+          revisit them anytime.
         </p>
       </header>
 
-      {scans.length === 0 ? (
-        <div
+      {/* Empty state */}
+      {scans.length === 0 && (
+        <section
           style={{
-            padding: 24,
+            padding: 28,
             borderRadius: 16,
             background: "rgba(255,255,255,0.04)",
-            color: "#9aa3c7",
+            border: "1px solid rgba(255,255,255,0.08)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
           }}
         >
-          You don’t have any saved scans yet.
-        </div>
-      ) : (
+          <strong style={{ fontSize: 18 }}>
+            No scans yet
+          </strong>
+
+          <p style={{ color: "#cbd5f5", lineHeight: 1.6 }}>
+            When you run an online or in-person scan, it will appear here so
+            you can refer back to it later.
+          </p>
+
+          <button
+            onClick={() => navigate("/start-scan")}
+            style={{
+              alignSelf: "flex-start",
+              padding: "14px 22px",
+              borderRadius: 14,
+              fontSize: 16,
+              fontWeight: 600,
+              background: "#7aa2ff",
+              color: "#0b1020",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Start a scan
+          </button>
+        </section>
+      )}
+
+      {/* Scan list */}
+      {scans.length > 0 && (
         <>
-          <div
+          <section
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(280px, 1fr))",
               gap: 20,
             }}
           >
@@ -73,18 +119,20 @@ export default function MyScans() {
               <div
                 key={scan.id}
                 style={{
-                  padding: 20,
+                  padding: 22,
                   borderRadius: 16,
                   background: "rgba(255,255,255,0.05)",
                   border: "1px solid rgba(255,255,255,0.08)",
-                  color: "white",
                   display: "flex",
                   flexDirection: "column",
                   gap: 10,
                 }}
               >
                 <div>
-                  <strong>{scan.title}</strong>
+                  <strong style={{ fontSize: 16 }}>
+                    {scan.title}
+                  </strong>
+
                   <div
                     style={{
                       marginTop: 6,
@@ -92,8 +140,11 @@ export default function MyScans() {
                       color: "#9aa3c7",
                     }}
                   >
-                    {scan.type === "online" ? "Online scan" : "In-person scan"}
+                    {scan.type === "online"
+                      ? "Online scan"
+                      : "In-person scan"}
                   </div>
+
                   <div
                     style={{
                       marginTop: 6,
@@ -105,11 +156,24 @@ export default function MyScans() {
                   </div>
                 </div>
 
+                {scan.summary && (
+                  <p
+                    style={{
+                      marginTop: 8,
+                      fontSize: 14,
+                      color: "#cbd5f5",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {scan.summary}
+                  </p>
+                )}
+
                 <div
                   style={{
                     display: "flex",
                     gap: 12,
-                    marginTop: 8,
+                    marginTop: 10,
                   }}
                 >
                   <button
@@ -121,13 +185,15 @@ export default function MyScans() {
                       )
                     }
                     style={{
-                      padding: "8px 14px",
-                      borderRadius: 10,
+                      padding: "10px 16px",
+                      borderRadius: 12,
                       background: "transparent",
-                      border: "1px solid rgba(122,162,255,0.4)",
+                      border:
+                        "1px solid rgba(122,162,255,0.4)",
                       color: "#7aa2ff",
                       cursor: "pointer",
                       fontSize: 14,
+                      fontWeight: 600,
                     }}
                   >
                     View
@@ -136,10 +202,11 @@ export default function MyScans() {
                   <button
                     onClick={() => handleDelete(scan.id)}
                     style={{
-                      padding: "8px 14px",
-                      borderRadius: 10,
+                      padding: "10px 16px",
+                      borderRadius: 12,
                       background: "transparent",
-                      border: "1px solid rgba(239,68,68,0.5)",
+                      border:
+                        "1px solid rgba(239,68,68,0.5)",
                       color: "#ef4444",
                       cursor: "pointer",
                       fontSize: 14,
@@ -150,12 +217,11 @@ export default function MyScans() {
                 </div>
               </div>
             ))}
-          </div>
+          </section>
 
           <button
             onClick={handleClearAll}
             style={{
-              marginTop: 12,
               alignSelf: "flex-start",
               background: "none",
               border: "none",
@@ -164,7 +230,7 @@ export default function MyScans() {
               fontSize: 14,
             }}
           >
-            Clear all scans
+            Clear all scans on this device
           </button>
         </>
       )}
