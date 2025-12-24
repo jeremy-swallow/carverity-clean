@@ -4,25 +4,9 @@ import {
   loadScans,
   deleteScan,
   clearAllScans,
+  updateScanTitle,
 } from "../utils/scanStorage";
 import type { SavedScan } from "../utils/scanStorage";
-
-function getDomain(url: string) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-}
-
-function getFavicon(url: string) {
-  try {
-    const domain = new URL(url).hostname;
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-  } catch {
-    return "";
-  }
-}
 
 export default function MyScans() {
   const navigate = useNavigate();
@@ -32,8 +16,19 @@ export default function MyScans() {
     setScans(loadScans());
   }, []);
 
+  function handleRename(scan: SavedScan) {
+    const newTitle = prompt(
+      "Rename this scan:",
+      scan.title
+    );
+    if (!newTitle || !newTitle.trim()) return;
+
+    updateScanTitle(scan.id, newTitle.trim());
+    setScans(loadScans());
+  }
+
   function handleDelete(scanId: string) {
-    const ok = confirm("Delete this scan? This cannot be undone.");
+    const ok = confirm("Delete this scan?");
     if (!ok) return;
 
     deleteScan(scanId);
@@ -41,9 +36,7 @@ export default function MyScans() {
   }
 
   function handleClearAll() {
-    const ok = confirm(
-      "Delete all saved scans on this device? This cannot be undone."
-    );
+    const ok = confirm("Delete all scans?");
     if (!ok) return;
 
     clearAllScans();
@@ -61,64 +54,21 @@ export default function MyScans() {
         gap: 36,
       }}
     >
-      {/* Header */}
       <header>
-        <h1 style={{ fontSize: 36, marginBottom: 10 }}>
+        <h1 style={{ fontSize: 36 }}>
           My scans
         </h1>
-
-        <p
-          style={{
-            color: "#cbd5f5",
-            maxWidth: 680,
-            lineHeight: 1.6,
-          }}
-        >
-          These checks are saved <strong>locally on this device</strong>.
+        <p style={{ color: "#cbd5f5" }}>
+          Saved locally on this device.
         </p>
       </header>
 
-      {/* Empty state */}
       {scans.length === 0 && (
-        <section
-          style={{
-            padding: 28,
-            borderRadius: 16,
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-          }}
-        >
-          <strong style={{ fontSize: 18 }}>
-            No scans yet
-          </strong>
-
-          <p style={{ color: "#cbd5f5" }}>
-            When you complete a scan, it will appear here.
-          </p>
-
-          <button
-            onClick={() => navigate("/start-scan")}
-            style={{
-              alignSelf: "flex-start",
-              padding: "14px 22px",
-              borderRadius: 14,
-              fontSize: 16,
-              fontWeight: 600,
-              background: "#7aa2ff",
-              color: "#0b1020",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            Start a scan
-          </button>
-        </section>
+        <p style={{ color: "#cbd5f5" }}>
+          No scans yet.
+        </p>
       )}
 
-      {/* Scan list */}
       {scans.length > 0 && (
         <>
           <section
@@ -129,178 +79,58 @@ export default function MyScans() {
               gap: 20,
             }}
           >
-            {scans.map((scan) => {
-              const domain =
-                scan.type === "online" && scan.listingUrl
-                  ? getDomain(scan.listingUrl)
-                  : "";
+            {scans.map((scan) => (
+              <div
+                key={scan.id}
+                style={{
+                  padding: 22,
+                  borderRadius: 16,
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+              >
+                <strong>{scan.title}</strong>
 
-              const favicon =
-                scan.type === "online" && scan.listingUrl
-                  ? getFavicon(scan.listingUrl)
-                  : "";
-
-              return (
-                <div
-                  key={scan.id}
-                  style={{
-                    padding: 22,
-                    borderRadius: 16,
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 12,
-                  }}
-                >
-                  <div>
-                    <strong style={{ fontSize: 16 }}>
-                      {scan.title}
-                    </strong>
-
-                    <div
-                      style={{
-                        marginTop: 6,
-                        fontSize: 13,
-                        color: "#9aa3c7",
-                      }}
-                    >
-                      {scan.type === "online"
-                        ? "Online scan"
-                        : "In-person scan"}
-                    </div>
-
-                    <div
-                      style={{
-                        marginTop: 6,
-                        fontSize: 12,
-                        color: "#6b7280",
-                      }}
-                    >
-                      {new Date(scan.createdAt).toLocaleString()}
-                    </div>
-                  </div>
-
-                  {scan.summary && (
-                    <p
-                      style={{
-                        fontSize: 14,
-                        color: "#cbd5f5",
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      {scan.summary}
-                    </p>
-                  )}
-
-                  {/* Online-only: listing preview */}
-                  {scan.type === "online" &&
-                    scan.listingUrl &&
-                    domain && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          marginTop: 4,
-                          fontSize: 13,
-                          color: "#9aa3c7",
-                        }}
-                      >
-                        {favicon && (
-                          <img
-                            src={favicon}
-                            alt=""
-                            width={16}
-                            height={16}
-                            style={{
-                              borderRadius: 4,
-                            }}
-                          />
-                        )}
-                        <span>{domain}</span>
-                      </div>
-                    )}
-
-                  {scan.type === "online" && scan.listingUrl && (
-                    <a
-                      href={scan.listingUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        fontSize: 14,
-                        color: "#7aa2ff",
-                        textDecoration: "none",
-                        marginTop: 2,
-                      }}
-                    >
-                      View original listing →
-                    </a>
-                  )}
-
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 12,
-                      marginTop: 10,
-                    }}
-                  >
-                    <button
-                      onClick={() =>
-                        navigate(
-                          scan.type === "online"
-                            ? "/scan/online/report"
-                            : "/scan/in-person/summary"
-                        )
-                      }
-                      style={{
-                        padding: "10px 16px",
-                        borderRadius: 12,
-                        background: "transparent",
-                        border:
-                          "1px solid rgba(122,162,255,0.4)",
-                        color: "#7aa2ff",
-                        cursor: "pointer",
-                        fontSize: 14,
-                        fontWeight: 600,
-                      }}
-                    >
-                      View summary
-                    </button>
-
-                    <button
-                      onClick={() => handleDelete(scan.id)}
-                      style={{
-                        padding: "10px 16px",
-                        borderRadius: 12,
-                        background: "transparent",
-                        border:
-                          "1px solid rgba(239,68,68,0.5)",
-                        color: "#ef4444",
-                        cursor: "pointer",
-                        fontSize: 14,
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
+                <div style={{ fontSize: 13, color: "#9aa3c7" }}>
+                  {scan.type === "online"
+                    ? "Online scan"
+                    : "In-person scan"}
                 </div>
-              );
-            })}
+
+                <div style={{ fontSize: 12, color: "#6b7280" }}>
+                  {new Date(scan.createdAt).toLocaleString()}
+                </div>
+
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    onClick={() =>
+                      navigate(
+                        scan.type === "online"
+                          ? "/scan/online/report"
+                          : "/scan/in-person/summary"
+                      )
+                    }
+                  >
+                    View
+                  </button>
+
+                  <button onClick={() => handleRename(scan)}>
+                    Rename
+                  </button>
+
+                  <button onClick={() => handleDelete(scan.id)}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
           </section>
 
-          <button
-            onClick={handleClearAll}
-            style={{
-              alignSelf: "flex-start",
-              background: "none",
-              border: "none",
-              color: "#ef4444",
-              cursor: "pointer",
-              fontSize: 14,
-            }}
-          >
-            Clear all scans on this device
+          <button onClick={handleClearAll}>
+            Clear all scans
           </button>
         </>
       )}
