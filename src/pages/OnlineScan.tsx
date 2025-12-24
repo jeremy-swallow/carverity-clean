@@ -8,6 +8,7 @@ export default function OnlineScan() {
 
   const canContinue = link.trim().length > 10;
 
+  // ✅ This is the current step
   useEffect(() => {
     saveProgress({
       type: "online",
@@ -21,12 +22,7 @@ export default function OnlineScan() {
 
     localStorage.setItem("carverity_listing_url", trimmed);
 
-    saveProgress({
-      type: "online",
-      step: "/scan/online/kilometres",
-      startedAt: new Date().toISOString(),
-    });
-
+    // ❌ Do NOT advance progress here
     navigate("/scan/online/kilometres");
   }
 
