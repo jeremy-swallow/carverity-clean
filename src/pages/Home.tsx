@@ -27,9 +27,9 @@ export default function Home() {
         </h1>
 
         <p style={{ fontSize: 18, maxWidth: 760, color: "#cbd5f5" }}>
-          CarVerity helps everyday Australians make smarter car-buying decisions —
-          whether you’re comparing listings online or inspecting a vehicle in person
-          at a dealership or private sale.
+          Make smarter car-buying decisions before you spend a dollar. CarVerity
+          helps you assess a vehicle online or in person by highlighting
+          condition clues, risk signals and details that are easy to miss.
         </p>
 
         <div style={{ display: "flex", gap: 12, marginTop: 6, flexWrap: "wrap" }}>
@@ -71,7 +71,7 @@ export default function Home() {
       {/* TWO MODES */}
       <section id="modes" style={{ display: "grid", gap: 18 }}>
         <h2 style={{ fontSize: 24, fontWeight: 700 }}>
-          Two ways CarVerity helps you assess a vehicle
+          Two ways to use CarVerity when checking a vehicle
         </h2>
 
         <div
@@ -83,14 +83,14 @@ export default function Home() {
         >
           <ModeCard
             title="Online listing scan"
-            description="Paste the link to a car listing and CarVerity helps you evaluate price signals, ownership history clues, risk factors and listing details that deserve a closer look."
+            description="Paste the link to a car listing and CarVerity helps you spot price signals, ownership clues, risk indicators and listing details worth questioning — before you travel to see the car."
             action="Start online scan"
             onClick={() => navigate("/start-scan")}
           />
 
           <ModeCard
             title="In-person inspection assist"
-            description="Use CarVerity while you’re standing with the car — in a yard, driveway or dealership — to guide you through visual checks, photos and details that are easy to miss."
+            description="Use CarVerity while you’re with the car — in a driveway, yard or dealership — to guide you through photos, visual checks and important details that are easy to overlook."
             action="Start in-person scan"
             onClick={() => navigate('/scan/in-person')}
           />
@@ -115,12 +115,12 @@ export default function Home() {
 
           <Card
             title="2. Answer guided questions"
-            body="We ask the right questions to reveal condition clues, usage patterns and risk indicators."
+            body="We ask focused questions to reveal condition clues, usage patterns and potential risks."
           />
 
           <Card
             title="3. Get clearer buying confidence"
-            body="Your scan highlights insights and red-flags that help you decide whether the car is worth pursuing."
+            body="Your scan highlights insights and red flags to help you decide whether the car is worth pursuing."
           />
         </div>
       </section>
@@ -143,7 +143,7 @@ export default function Home() {
         </button>
 
         <p style={{ color: "#9aa3c7", fontSize: 14 }}>
-          No account required — quick, simple and privacy-friendly.
+          No account required. Quick, simple and privacy-friendly.
         </p>
       </section>
 
