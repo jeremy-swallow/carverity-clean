@@ -11,7 +11,6 @@ import Layout from "./components/Layout";
 import StartScan from "./pages/StartScan";
 
 /* Online flow */
-import OnlineStart from "./pages/OnlineStart";
 import OnlineScan from "./pages/OnlineScan";
 import OnlineKilometres from "./pages/OnlineKilometres";
 import OnlineOwners from "./pages/OnlineOwners";
@@ -34,8 +33,7 @@ export default function App() {
           <Route path="/start-scan" element={<StartScan />} />
 
           {/* ONLINE SCAN FLOW */}
-          <Route path="/scan/online" element={<OnlineStart />} />
-          <Route path="/scan/online/listing" element={<OnlineScan />} />
+          <Route path="/scan/online" element={<OnlineScan />} />
           <Route path="/scan/online/kilometres" element={<OnlineKilometres />} />
           <Route path="/scan/online/owners" element={<OnlineOwners />} />
           <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
