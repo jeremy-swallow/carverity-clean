@@ -1,12 +1,35 @@
-import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import {
+  saveScan,
+  generateScanId,
+} from "../utils/scanStorage";
+import type { SavedScan } from "../utils/scanStorage";
+
+const SCAN_SAVED_FLAG = "carverity_latest_in_person_scan_saved";
 
 export default function InPersonSummary() {
-  const navigate = useNavigate();
+  /* ---------------------------------------------------------
+     Save in-person scan summary (once)
+  --------------------------------------------------------- */
+  useEffect(() => {
+    const alreadySaved = localStorage.getItem(SCAN_SAVED_FLAG);
+    if (alreadySaved) return;
+
+    const scan: SavedScan = {
+      id: generateScanId(),
+      type: "in-person",
+      title: "In-person vehicle check",
+      createdAt: new Date().toISOString(),
+    };
+
+    saveScan(scan);
+    localStorage.setItem(SCAN_SAVED_FLAG, "true");
+  }, []);
 
   return (
     <div
       style={{
-        maxWidth: 720,
+        maxWidth: 900,
         margin: "0 auto",
         padding: "clamp(24px, 6vw, 64px)",
         display: "flex",
@@ -15,86 +38,27 @@ export default function InPersonSummary() {
       }}
     >
       {/* Header */}
-      <header>
-        <h1
-          style={{
-            fontSize: "clamp(28px, 6vw, 40px)",
-            marginBottom: 12,
-          }}
-        >
-          Here’s how it’s looking
+      <section>
+        <h1 style={{ fontSize: 36, marginBottom: 12 }}>
+          In-person check complete
         </h1>
 
-        <p
-          style={{
-            color: "#cbd5f5",
-            lineHeight: 1.6,
-            maxWidth: 600,
-          }}
-        >
-          You’ve taken the time to look over the car properly. That alone puts
-          you in a much stronger position than most buyers.
+        <p style={{ color: "#cbd5f5", maxWidth: 680, lineHeight: 1.6 }}>
+          You’ve completed an in-person inspection. This summary is saved on this
+          device so you can refer back to it later.
         </p>
-      </header>
+      </section>
 
-      {/* Overall guidance */}
+      {/* Summary card */}
       <section
         style={{
-          padding: 24,
-          borderRadius: 16,
+          padding: 20,
+          borderRadius: 14,
           background: "rgba(255,255,255,0.04)",
-          borderLeft: "4px solid #7aa2ff",
         }}
       >
-        <strong style={{ fontSize: 18, display: "block", marginBottom: 8 }}>
-          What this means
-        </strong>
-
-        <p style={{ color: "#cbd5f5", margin: 0 }}>
-          Nothing you’ve checked so far automatically rules this car out.
-          That doesn’t mean it’s perfect — it means you’re asking the right
-          questions and noticing the right details.
-        </p>
-      </section>
-
-      {/* Guidance */}
-      <section>
-        <h2 style={{ fontSize: 22, marginBottom: 10 }}>
-          How to use what you’ve noticed
-        </h2>
-
-        <ul
-          style={{
-            margin: 0,
-            paddingLeft: 20,
-            color: "#cbd5f5",
-            lineHeight: 1.6,
-          }}
-        >
-          <li>
-            If something felt off, ask about it directly — hesitation is a valid
-            signal.
-          </li>
-          <li>
-            If everything seemed consistent, that’s a good sign, but not a
-            guarantee.
-          </li>
-          <li>
-            Use what you saw to guide the next step, not to rush a decision.
-          </li>
-        </ul>
-      </section>
-
-      {/* Next actions */}
-      <section
-        style={{
-          padding: 24,
-          borderRadius: 16,
-          background: "rgba(255,255,255,0.03)",
-        }}
-      >
-        <strong style={{ display: "block", marginBottom: 10 }}>
-          Sensible next steps
+        <strong style={{ display: "block", marginBottom: 8 }}>
+          What to do next
         </strong>
 
         <ul
@@ -105,55 +69,16 @@ export default function InPersonSummary() {
             lineHeight: 1.6,
           }}
         >
-          <li>Request service records or maintenance history</li>
-          <li>Consider a professional inspection if you’re unsure</li>
-          <li>Take time to compare with another option if needed</li>
+          <li>Compare what you saw with the seller’s claims</li>
+          <li>Ask follow-up questions about anything unclear</li>
+          <li>Consider a professional inspection if needed</li>
         </ul>
       </section>
 
-      {/* Actions */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          flexWrap: "wrap",
-        }}
-      >
-        <button
-          onClick={() => navigate("/")}
-          style={{
-            padding: "16px 26px",
-            borderRadius: 14,
-            fontSize: 16,
-            fontWeight: 600,
-            background: "#7aa2ff",
-            color: "#0b1020",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          Finish inspection
-        </button>
-
-        <button
-          onClick={() => navigate("/scan/online")}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#9aa7d9",
-            cursor: "pointer",
-            fontSize: 14,
-          }}
-        >
-          Compare with another car
-        </button>
-      </div>
-
-      {/* Reassurance */}
-      <p style={{ color: "#9aa7d9", fontSize: 14, maxWidth: 600 }}>
-        The goal isn’t to find a perfect car — it’s to make a decision you feel
-        comfortable with.
+      {/* Disclaimer */}
+      <p style={{ color: "#6b7280", fontSize: 13 }}>
+        This summary is saved locally on this device and does not replace a
+        professional inspection or mechanical advice.
       </p>
     </div>
   );
