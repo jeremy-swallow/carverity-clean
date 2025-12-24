@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  loadScans,
-  deleteScan,
-  clearAllScans,
-  updateScanTitle,
-} from "../utils/scanStorage";
+import { loadScans } from "../utils/scanStorage";
 import type { SavedScan } from "../utils/scanStorage";
 
 export default function MyScans() {
@@ -16,123 +11,124 @@ export default function MyScans() {
     setScans(loadScans());
   }, []);
 
-  function handleRename(scan: SavedScan) {
-    const newTitle = prompt(
-      "Rename this scan:",
-      scan.title
-    );
-    if (!newTitle || !newTitle.trim()) return;
-
-    updateScanTitle(scan.id, newTitle.trim());
-    setScans(loadScans());
-  }
-
-  function handleDelete(scanId: string) {
-    const ok = confirm("Delete this scan?");
-    if (!ok) return;
-
-    deleteScan(scanId);
-    setScans(loadScans());
-  }
-
-  function handleClearAll() {
-    const ok = confirm("Delete all scans?");
-    if (!ok) return;
-
-    clearAllScans();
-    setScans([]);
+  function formatDate(iso: string) {
+    try {
+      return new Date(iso).toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+    } catch {
+      return iso;
+    }
   }
 
   return (
     <div
       style={{
-        maxWidth: 900,
+        maxWidth: 820,
         margin: "0 auto",
         padding: "clamp(24px, 6vw, 64px)",
         display: "flex",
         flexDirection: "column",
-        gap: 36,
+        gap: 24,
       }}
     >
-      <header>
-        <h1 style={{ fontSize: 36 }}>
-          My scans
-        </h1>
-        <p style={{ color: "#cbd5f5" }}>
-          Saved locally on this device.
-        </p>
-      </header>
+      <h1 style={{ fontSize: 26, fontWeight: 800 }}>My Scans</h1>
 
+      <p style={{ color: "#cbd5f5", fontSize: 15 }}>
+        Saved online and in-person scans are stored here so you can revisit and
+        compare cars later.
+      </p>
+
+      {/* Empty state */}
       {scans.length === 0 && (
-        <p style={{ color: "#cbd5f5" }}>
-          No scans yet.
-        </p>
-      )}
+        <div
+          style={{
+            padding: 20,
+            borderRadius: 14,
+            background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.12)",
+          }}
+        >
+          <p style={{ color: "#cbd5f5", marginBottom: 6 }}>
+            You haven’t saved any scans yet.
+          </p>
 
-      {scans.length > 0 && (
-        <>
-          <section
+          <button
+            onClick={() => navigate("/start-scan")}
             style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(280px, 1fr))",
-              gap: 20,
+              padding: "12px 18px",
+              borderRadius: 12,
+              background: "#7aa2ff",
+              color: "#0b1020",
+              border: "none",
+              fontWeight: 600,
+              marginTop: 6,
             }}
           >
-            {scans.map((scan) => (
+            Start a scan
+          </button>
+        </div>
+      )}
+
+      {/* Scan list */}
+      {scans.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {scans.map((scan) => (
+            <div
+              key={scan.id}
+              style={{
+                padding: 18,
+                borderRadius: 14,
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              {/* Header row */}
               <div
-                key={scan.id}
                 style={{
-                  padding: 22,
-                  borderRadius: 16,
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.08)",
                   display: "flex",
-                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                   gap: 12,
                 }}
               >
-                <strong>{scan.title}</strong>
+                <strong style={{ fontSize: 16 }}>
+                  {scan.title || "Saved scan"}
+                </strong>
 
-                <div style={{ fontSize: 13, color: "#9aa3c7" }}>
-                  {scan.type === "online"
-                    ? "Online scan"
-                    : "In-person scan"}
-                </div>
-
-                <div style={{ fontSize: 12, color: "#6b7280" }}>
-                  {new Date(scan.createdAt).toLocaleString()}
-                </div>
-
-                <div style={{ display: "flex", gap: 10 }}>
-                  <button
-                    onClick={() =>
-                      navigate(
-                        scan.type === "online"
-                          ? "/scan/online/report"
-                          : "/scan/in-person/summary"
-                      )
-                    }
-                  >
-                    View
-                  </button>
-
-                  <button onClick={() => handleRename(scan)}>
-                    Rename
-                  </button>
-
-                  <button onClick={() => handleDelete(scan.id)}>
-                    Delete
-                  </button>
-                </div>
+                <span
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#0b1020",
+                    background:
+                      scan.type === "online" ? "#7aa2ff" : "#8bffa5",
+                  }}
+                >
+                  {scan.type === "online" ? "Online scan" : "In-person scan"}
+                </span>
               </div>
-            ))}
-          </section>
 
-          <button onClick={handleClearAll}>
-            Clear all scans
-          </button>
-        </>
+              {/* Summary */}
+              {scan.summary && (
+                <p style={{ color: "#cbd5f5", fontSize: 14 }}>
+                  {scan.summary}
+                </p>
+              )}
+
+              {/* Footer meta */}
+              <p style={{ color: "#9aa3c7", fontSize: 12 }}>
+                Saved {formatDate(scan.createdAt)}
+              </p>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
