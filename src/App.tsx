@@ -7,15 +7,14 @@ import {
 
 import Layout from "./components/Layout";
 
-/* Landing / Marketing */
-import Home from "./pages/Home";
-
-/* Scan entry */
-import ScanMode from "./pages/ScanMode";
+/* Entry */
 import StartScan from "./pages/StartScan";
 
 /* My Scans */
 import MyScans from "./pages/MyScans";
+
+/* Scan Details */
+import ScanDetails from "./pages/ScanDetails";
 
 /* Online flow */
 import OnlineScan from "./pages/OnlineScan";
@@ -35,17 +34,15 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
-          {/* MARKETING HOMEPAGE */}
-          <Route path="/" element={<Home />} />
+          {/* Home / entry */}
+          <Route path="/" element={<StartScan />} />
+          <Route path="/start-scan" element={<StartScan />} />
 
-          {/* NEW FIRST STEP — SCAN MODE SELECTION */}
-          <Route path="/start-scan" element={<ScanMode />} />
-
-          {/* LEGACY / DIRECT ENTRY (still supported if linked internally) */}
-          <Route path="/scan/start" element={<StartScan />} />
-
-          {/* MY SCANS */}
+          {/* My Scans */}
           <Route path="/my-scans" element={<MyScans />} />
+
+          {/* Scan Details */}
+          <Route path="/scan/:id" element={<ScanDetails />} />
 
           {/* ONLINE SCAN FLOW */}
           <Route path="/scan/online" element={<OnlineScan />} />
@@ -60,7 +57,7 @@ export default function App() {
           <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
           <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
 
-          {/* FALLBACK */}
+          {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
