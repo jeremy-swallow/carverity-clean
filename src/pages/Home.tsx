@@ -11,17 +11,11 @@ export default function Home() {
         padding: "clamp(24px, 6vw, 72px)",
         display: "flex",
         flexDirection: "column",
-        gap: 48,
+        gap: 56,
       }}
     >
       {/* HERO */}
-      <section
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 18,
-        }}
-      >
+      <section style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <h1
           style={{
             fontSize: "clamp(28px, 4vw, 44px)",
@@ -32,18 +26,13 @@ export default function Home() {
           Buy a used car with confidence
         </h1>
 
-        <p
-          style={{
-            fontSize: "18px",
-            maxWidth: 720,
-            color: "#cbd5f5",
-          }}
-        >
-          CarVerity helps you analyse a car listing before you buy — highlighting
-          risks, ownership factors, condition signals and potential red-flags.
+        <p style={{ fontSize: 18, maxWidth: 760, color: "#cbd5f5" }}>
+          CarVerity helps everyday Australians make smarter car-buying decisions —
+          whether you’re comparing listings online or inspecting a vehicle in person
+          at a dealership or private sale.
         </p>
 
-        <div style={{ display: "flex", gap: 12, marginTop: 6 }}>
+        <div style={{ display: "flex", gap: 12, marginTop: 6, flexWrap: "wrap" }}>
           <button
             onClick={() => navigate("/start-scan")}
             style={{
@@ -61,7 +50,7 @@ export default function Home() {
 
           <button
             onClick={() => {
-              const el = document.getElementById("how-it-works");
+              const el = document.getElementById("modes");
               if (el) el.scrollIntoView({ behavior: "smooth" });
             }}
             style={{
@@ -74,21 +63,43 @@ export default function Home() {
               color: "#cbd5f5",
             }}
           >
-            Learn how it works
+            Explore scan options
           </button>
+        </div>
+      </section>
+
+      {/* TWO MODES */}
+      <section id="modes" style={{ display: "grid", gap: 18 }}>
+        <h2 style={{ fontSize: 24, fontWeight: 700 }}>
+          Two ways CarVerity helps you assess a vehicle
+        </h2>
+
+        <div
+          style={{
+            display: "grid",
+            gap: 16,
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+          }}
+        >
+          <ModeCard
+            title="Online listing scan"
+            description="Paste the link to a car listing and CarVerity helps you evaluate price signals, ownership history clues, risk factors and listing details that deserve a closer look."
+            action="Start online scan"
+            onClick={() => navigate("/start-scan")}
+          />
+
+          <ModeCard
+            title="In-person inspection assist"
+            description="Use CarVerity while you’re standing with the car — in a yard, driveway or dealership — to guide you through visual checks, photos and details that are easy to miss."
+            action="Start in-person scan"
+            onClick={() => navigate('/scan/in-person')}
+          />
         </div>
       </section>
 
       {/* HOW IT WORKS */}
       <section id="how-it-works" style={{ display: "grid", gap: 18 }}>
-        <h2
-          style={{
-            fontSize: "24px",
-            fontWeight: 700,
-          }}
-        >
-          How CarVerity works
-        </h2>
+        <h2 style={{ fontSize: 24, fontWeight: 700 }}>How CarVerity works</h2>
 
         <div
           style={{
@@ -98,32 +109,24 @@ export default function Home() {
           }}
         >
           <Card
-            title="1. Paste the car listing URL"
-            body="Start by sharing the link to the vehicle you're considering — Carsales, Marketplace, dealer listing and more."
+            title="1. Choose your scan type"
+            body="Start online from a listing link, or switch to in-person mode when you’re physically with the car."
           />
 
           <Card
-            title="2. Answer a few quick questions"
-            body="We ask focused questions about history, condition and usage to build context around the vehicle."
+            title="2. Answer guided questions"
+            body="We ask the right questions to reveal condition clues, usage patterns and risk indicators."
           />
 
           <Card
-            title="3. Get insights before you buy"
-            body="CarVerity highlights risk factors, signals to investigate further and details shoppers often overlook."
+            title="3. Get clearer buying confidence"
+            body="Your scan highlights insights and red-flags that help you decide whether the car is worth pursuing."
           />
         </div>
       </section>
 
       {/* CTA */}
-      <section
-        style={{
-          marginTop: 20,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          alignItems: "flex-start",
-        }}
-      >
+      <section style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
         <button
           onClick={() => navigate("/start-scan")}
           style={{
@@ -160,7 +163,6 @@ export default function Home() {
   );
 }
 
-/* Simple layout card component */
 function Card({ title, body }: { title: string; body: string }) {
   return (
     <div
@@ -176,6 +178,50 @@ function Card({ title, body }: { title: string; body: string }) {
     >
       <strong style={{ fontWeight: 700 }}>{title}</strong>
       <p style={{ color: "#cbd5f5" }}>{body}</p>
+    </div>
+  );
+}
+
+function ModeCard({
+  title,
+  description,
+  action,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  action: string;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      style={{
+        padding: 20,
+        borderRadius: 14,
+        background: "rgba(255,255,255,0.06)",
+        border: "1px solid rgba(255,255,255,0.15)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
+      <strong style={{ fontSize: 18 }}>{title}</strong>
+      <p style={{ color: "#cbd5f5" }}>{description}</p>
+
+      <button
+        onClick={onClick}
+        style={{
+          marginTop: 6,
+          padding: "12px 18px",
+          borderRadius: 12,
+          background: "#7aa2ff",
+          color: "#0b1020",
+          border: "none",
+          fontWeight: 700,
+        }}
+      >
+        {action}
+      </button>
     </div>
   );
 }
