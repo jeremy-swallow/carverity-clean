@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadScans } from "../utils/scanStorage";
+import {
+  loadScans,
+  deleteScan,
+  clearAllScans,
+} from "../utils/scanStorage";
 import type { SavedScan } from "../utils/scanStorage";
 
 export default function MyScans() {
@@ -8,9 +12,24 @@ export default function MyScans() {
   const [scans, setScans] = useState<SavedScan[]>([]);
 
   useEffect(() => {
-    const stored = loadScans();
-    setScans(stored);
+    setScans(loadScans());
   }, []);
+
+  function handleDelete(scanId: string) {
+    const ok = confirm("Delete this scan?");
+    if (!ok) return;
+
+    deleteScan(scanId);
+    setScans(loadScans());
+  }
+
+  function handleClearAll() {
+    const ok = confirm("Delete all saved scans?");
+    if (!ok) return;
+
+    clearAllScans();
+    setScans([]);
+  }
 
   return (
     <div
@@ -25,101 +44,130 @@ export default function MyScans() {
     >
       <header>
         <h1 style={{ fontSize: 36, marginBottom: 8 }}>My scans</h1>
-        <p style={{ color: "#cbd5f5", maxWidth: 640, lineHeight: 1.6 }}>
-          These scans are saved locally on this device. You can revisit them
-          anytime.
+        <p style={{ color: "#cbd5f5", maxWidth: 640 }}>
+          These scans are saved locally on this device.
         </p>
       </header>
 
       {scans.length === 0 ? (
-        <section
+        <div
           style={{
             padding: 24,
             borderRadius: 16,
             background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
             color: "#9aa3c7",
-            lineHeight: 1.6,
           }}
         >
-          <strong style={{ color: "white" }}>No scans yet</strong>
-          <p style={{ marginTop: 8 }}>
-            Start a scan and your latest results will appear here.
-          </p>
-
-          <button
-            onClick={() => navigate("/start-scan")}
+          You don’t have any saved scans yet.
+        </div>
+      ) : (
+        <>
+          <div
             style={{
-              marginTop: 14,
-              padding: "14px 22px",
-              borderRadius: 14,
-              fontSize: 16,
-              fontWeight: 600,
-              background: "#7aa2ff",
-              color: "#0b1020",
-              border: "none",
-              cursor: "pointer",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: 20,
             }}
           >
-            Start a scan
+            {scans.map((scan) => (
+              <div
+                key={scan.id}
+                style={{
+                  padding: 20,
+                  borderRadius: 16,
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  color: "white",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                <div>
+                  <strong>{scan.title}</strong>
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 13,
+                      color: "#9aa3c7",
+                    }}
+                  >
+                    {scan.type === "online" ? "Online scan" : "In-person scan"}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 12,
+                      color: "#6b7280",
+                    }}
+                  >
+                    {new Date(scan.createdAt).toLocaleString()}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    marginTop: 8,
+                  }}
+                >
+                  <button
+                    onClick={() =>
+                      navigate(
+                        scan.type === "online"
+                          ? `/scan/online/report/${scan.id}`
+                          : `/scan/in-person/summary/${scan.id}`
+                      )
+                    }
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 10,
+                      background: "transparent",
+                      border: "1px solid rgba(122,162,255,0.4)",
+                      color: "#7aa2ff",
+                      cursor: "pointer",
+                      fontSize: 14,
+                    }}
+                  >
+                    View
+                  </button>
+
+                  <button
+                    onClick={() => handleDelete(scan.id)}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 10,
+                      background: "transparent",
+                      border: "1px solid rgba(239,68,68,0.5)",
+                      color: "#ef4444",
+                      cursor: "pointer",
+                      fontSize: 14,
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={handleClearAll}
+            style={{
+              marginTop: 12,
+              alignSelf: "flex-start",
+              background: "none",
+              border: "none",
+              color: "#ef4444",
+              cursor: "pointer",
+              fontSize: 14,
+            }}
+          >
+            Clear all scans
           </button>
-        </section>
-      ) : (
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-            gap: 20,
-          }}
-        >
-          {scans.map((scan) => (
-            <button
-              key={scan.id}
-              onClick={() =>
-                navigate(
-                  scan.type === "online"
-                    ? "/scan/online/report"
-                    : "/scan/in-person/summary"
-                )
-              }
-              style={{
-                textAlign: "left",
-                padding: 20,
-                borderRadius: 16,
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                cursor: "pointer",
-                color: "white",
-              }}
-            >
-              <strong style={{ fontSize: 16 }}>{scan.title}</strong>
-
-              <div style={{ marginTop: 6, fontSize: 13, color: "#9aa3c7" }}>
-                {scan.type === "online" ? "Online scan" : "In-person scan"}
-              </div>
-
-              <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
-                {new Date(scan.createdAt).toLocaleString()}
-              </div>
-            </button>
-          ))}
-        </section>
+        </>
       )}
-
-      <button
-        onClick={() => navigate("/start-scan")}
-        style={{
-          marginTop: 8,
-          alignSelf: "flex-start",
-          background: "none",
-          border: "none",
-          color: "#9aa3c7",
-          cursor: "pointer",
-          fontSize: 14,
-        }}
-      >
-        ← Start a new scan
-      </button>
     </div>
   );
 }

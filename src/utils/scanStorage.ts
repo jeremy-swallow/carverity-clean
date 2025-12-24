@@ -34,6 +34,18 @@ export function saveScan(scan: SavedScan) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
 
+/* Delete a single scan by id */
+export function deleteScan(scanId: string) {
+  const existing = loadScans();
+  const updated = existing.filter((s) => s.id !== scanId);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+}
+
+/* Clear all scans */
+export function clearAllScans() {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
 /* Generate a simple unique id */
 export function generateScanId() {
   return `scan_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
