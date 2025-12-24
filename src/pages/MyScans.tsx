@@ -44,6 +44,7 @@ export default function MyScans() {
         gap: 36,
       }}
     >
+      {/* Header */}
       <header>
         <h1 style={{ fontSize: 36, marginBottom: 10 }}>
           My scans
@@ -56,10 +57,11 @@ export default function MyScans() {
             lineHeight: 1.6,
           }}
         >
-          These scans are saved <strong>locally on this device</strong>.
+          These checks are saved <strong>locally on this device</strong>.
         </p>
       </header>
 
+      {/* Empty state */}
       {scans.length === 0 && (
         <section
           style={{
@@ -67,18 +69,23 @@ export default function MyScans() {
             borderRadius: 16,
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.08)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
           }}
         >
-          <strong>No scans yet</strong>
+          <strong style={{ fontSize: 18 }}>
+            No scans yet
+          </strong>
 
-          <p style={{ color: "#cbd5f5", marginTop: 8 }}>
-            Run an online or in-person scan to see it here.
+          <p style={{ color: "#cbd5f5" }}>
+            When you complete a scan, it will appear here.
           </p>
 
           <button
             onClick={() => navigate("/start-scan")}
             style={{
-              marginTop: 16,
+              alignSelf: "flex-start",
               padding: "14px 22px",
               borderRadius: 14,
               fontSize: 16,
@@ -94,6 +101,7 @@ export default function MyScans() {
         </section>
       )}
 
+      {/* Scan list */}
       {scans.length > 0 && (
         <>
           <section
@@ -114,29 +122,35 @@ export default function MyScans() {
                   border: "1px solid rgba(255,255,255,0.08)",
                   display: "flex",
                   flexDirection: "column",
-                  gap: 10,
+                  gap: 12,
                 }}
               >
-                <strong>{scan.title}</strong>
+                <div>
+                  <strong style={{ fontSize: 16 }}>
+                    {scan.title}
+                  </strong>
 
-                <div
-                  style={{
-                    fontSize: 13,
-                    color: "#9aa3c7",
-                  }}
-                >
-                  {scan.type === "online"
-                    ? "Online scan"
-                    : "In-person scan"}
-                </div>
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 13,
+                      color: "#9aa3c7",
+                    }}
+                  >
+                    {scan.type === "online"
+                      ? "Online scan"
+                      : "In-person scan"}
+                  </div>
 
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "#6b7280",
-                  }}
-                >
-                  {new Date(scan.createdAt).toLocaleString()}
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 12,
+                      color: "#6b7280",
+                    }}
+                  >
+                    {new Date(scan.createdAt).toLocaleString()}
+                  </div>
                 </div>
 
                 {scan.summary && (
@@ -151,7 +165,30 @@ export default function MyScans() {
                   </p>
                 )}
 
-                <div style={{ display: "flex", gap: 12 }}>
+                {/* Online-only: view listing */}
+                {scan.type === "online" && scan.listingUrl && (
+                  <a
+                    href={scan.listingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: 14,
+                      color: "#7aa2ff",
+                      textDecoration: "none",
+                      marginTop: 4,
+                    }}
+                  >
+                    View original listing →
+                  </a>
+                )}
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    marginTop: 10,
+                  }}
+                >
                   <button
                     onClick={() =>
                       navigate(
@@ -172,7 +209,7 @@ export default function MyScans() {
                       fontWeight: 600,
                     }}
                   >
-                    View
+                    View summary
                   </button>
 
                   <button
@@ -206,7 +243,7 @@ export default function MyScans() {
               fontSize: 14,
             }}
           >
-            Clear all scans
+            Clear all scans on this device
           </button>
         </>
       )}
