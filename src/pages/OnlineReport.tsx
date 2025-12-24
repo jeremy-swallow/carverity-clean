@@ -1,92 +1,55 @@
-import { useEffect } from "react";
-import { useParams } from "react-router-dom";
-import {
-  saveScan,
-  getScanById,
-} from "../utils/scanStorage";
-import { generateAIScanInsight } from "../utils/aiInsight";
-import type { SavedScan } from "../utils/scanStorage";
+import { loadScans } from "../utils/scanStorage";
 
 export default function OnlineReport() {
-  const { scanId } = useParams();
+  const scans = loadScans();
+  const scan = scans.find((s) => s.type === "online");
 
-  const concern =
-    localStorage.getItem("carverity_primary_concern") ||
-    "Peace of mind";
-
-  useEffect(() => {
-    if (!scanId) return;
-
-    const existing = getScanById(scanId);
-    if (existing?.aiInsight) return;
-
-    const aiInsight = generateAIScanInsight(
-      "online",
-      concern
+  if (!scan) {
+    return (
+      <div
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          padding: "clamp(24px, 6vw, 64px)",
+        }}
+      >
+        <h1>No report found</h1>
+        <p style={{ color: "#cbd5f5" }}>
+          This online scan could not be loaded. Please start again.
+        </p>
+      </div>
     );
-
-    const scan: SavedScan = {
-      id: scanId,
-      type: "online",
-      title: "Online check",
-      createdAt: new Date().toISOString(),
-      concern,
-      context: "online",
-      aiInsight,
-    };
-
-    saveScan(scan);
-  }, [scanId, concern]);
-
-  if (!scanId) return null;
-
-  const scan = getScanById(scanId);
-
-  if (!scan?.aiInsight) {
-    return <div style={{ padding: 40 }}>Preparing insights…</div>;
   }
 
   return (
     <div
       style={{
-        maxWidth: 900,
+        maxWidth: 720,
         margin: "0 auto",
         padding: "clamp(24px, 6vw, 64px)",
         display: "flex",
         flexDirection: "column",
-        gap: 28,
+        gap: 24,
       }}
     >
-      <h1>Your assessment</h1>
+      <h1>Online Listing Report</h1>
 
-      <p style={{ color: "#cbd5f5", lineHeight: 1.6 }}>
-        {scan.aiInsight.summary}
-      </p>
-
-      <section
+      <div
         style={{
           padding: 20,
           borderRadius: 14,
           background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.08)",
         }}
       >
-        <strong>Key things to verify</strong>
-        <ul
-          style={{
-            marginTop: 10,
-            paddingLeft: 20,
-            color: "#cbd5f5",
-            lineHeight: 1.6,
-          }}
-        >
-          {scan.aiInsight.focusPoints.map((p) => (
-            <li key={p}>{p}</li>
-          ))}
-        </ul>
-      </section>
+        <strong>{scan.title}</strong>
+        <p style={{ color: "#cbd5f5", marginTop: 8 }}>
+          Created {new Date(scan.createdAt).toLocaleString()}
+        </p>
+      </div>
 
-      <p style={{ fontSize: 13, color: "#6b7280" }}>
-        Confidence level: {scan.aiInsight.confidence}
+      <p style={{ color: "#cbd5f5" }}>
+        Full AI insights will appear here in the next phase.
       </p>
     </div>
   );
