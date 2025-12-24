@@ -2,8 +2,8 @@ import { useEffect } from "react";
 import {
   saveScan,
   generateScanId,
-  SavedScan,
 } from "../utils/scanStorage";
+import type { SavedScan } from "../utils/scanStorage";
 
 type SavedReport = {
   concern: string;
