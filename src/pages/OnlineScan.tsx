@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { saveProgress } from "../utils/scanProgress";
 
@@ -7,6 +7,14 @@ export default function OnlineScan() {
   const [link, setLink] = useState("");
 
   const canContinue = link.trim().length > 10;
+
+  useEffect(() => {
+    saveProgress({
+      type: "online",
+      step: "/scan/online",
+      startedAt: new Date().toISOString(),
+    });
+  }, []);
 
   function handleContinue() {
     const trimmed = link.trim();

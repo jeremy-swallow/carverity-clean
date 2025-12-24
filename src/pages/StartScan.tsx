@@ -8,14 +8,13 @@ export default function StartScan() {
   function resumeScan() {
     if (!progress) return;
 
-    const step = typeof progress.step === "string" ? progress.step : "";
-    if (!step.startsWith("/")) {
+    if (typeof progress.step !== "string" || !progress.step.startsWith("/")) {
       clearProgress();
       navigate("/scan/online");
       return;
     }
 
-    navigate(step);
+    navigate(progress.step);
   }
 
   function startFresh() {
@@ -84,7 +83,7 @@ export default function StartScan() {
 
       {!progress && (
         <button
-          onClick={() => navigate("/scan/online")}
+          onClick={startFresh}
           style={{
             padding: "14px 22px",
             borderRadius: 14,
