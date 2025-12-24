@@ -1,8 +1,5 @@
 import { useEffect } from "react";
-import {
-  saveScan,
-  generateScanId,
-} from "../utils/scanStorage";
+import { saveScan, generateScanId } from "../utils/scanStorage";
 import type { SavedScan } from "../utils/scanStorage";
 
 type SavedReport = {
@@ -11,8 +8,30 @@ type SavedReport = {
   createdAt: string;
 };
 
-const STORAGE_KEY = "carverity_latest_online_report";
+const REPORT_STORAGE_KEY = "carverity_latest_online_report";
 const SCAN_SAVED_FLAG = "carverity_latest_online_scan_saved";
+const LISTING_URL_KEY = "carverity_listing_url";
+
+/* ---------------------------------------------------------
+   Helper — derive a friendly source name from URL
+--------------------------------------------------------- */
+function getListingSourceLabel(url: string | null) {
+  if (!url) return "listing";
+
+  try {
+    const hostname = new URL(url).hostname.replace("www.", "");
+
+    if (hostname.includes("carsales")) return "Carsales";
+    if (hostname.includes("facebook")) return "Facebook Marketplace";
+    if (hostname.includes("gumtree")) return "Gumtree";
+    if (hostname.includes("autotrader")) return "AutoTrader";
+    if (hostname.includes("carsguide")) return "CarsGuide";
+
+    return hostname;
+  } catch {
+    return "listing";
+  }
+}
 
 export default function OnlineReport() {
   const concern =
@@ -22,24 +41,29 @@ export default function OnlineReport() {
   const context =
     localStorage.getItem("carverity_scan_context") || "online";
 
+  const listingUrl = localStorage.getItem(LISTING_URL_KEY);
+  const sourceLabel = getListingSourceLabel(listingUrl);
+
   /* ---------------------------------------------------------
      Save detailed report (existing behaviour)
   --------------------------------------------------------- */
   useEffect(() => {
-    const existing = localStorage.getItem(STORAGE_KEY);
+    const existing = localStorage.getItem(REPORT_STORAGE_KEY);
     if (!existing) {
       const report: SavedReport = {
         concern,
         context,
         createdAt: new Date().toISOString(),
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(report));
+      localStorage.setItem(
+        REPORT_STORAGE_KEY,
+        JSON.stringify(report)
+      );
     }
   }, [concern, context]);
 
   /* ---------------------------------------------------------
-     Save scan summary (NEW)
-     Ensures this only happens once
+     Save scan summary (IMPROVED TITLE)
   --------------------------------------------------------- */
   useEffect(() => {
     const alreadySaved = localStorage.getItem(SCAN_SAVED_FLAG);
@@ -48,13 +72,13 @@ export default function OnlineReport() {
     const scan: SavedScan = {
       id: generateScanId(),
       type: "online",
-      title: "Online listing check",
+      title: `Online check — ${sourceLabel}`,
       createdAt: new Date().toISOString(),
     };
 
     saveScan(scan);
     localStorage.setItem(SCAN_SAVED_FLAG, "true");
-  }, []);
+  }, [sourceLabel]);
 
   function concernIntro() {
     switch (concern) {
@@ -109,7 +133,6 @@ export default function OnlineReport() {
         gap: 32,
       }}
     >
-      {/* Header */}
       <section>
         <h1 style={{ fontSize: 36, marginBottom: 12 }}>
           Your latest assessment
@@ -121,7 +144,6 @@ export default function OnlineReport() {
         </p>
       </section>
 
-      {/* Personalised intro */}
       <section
         style={{
           padding: 20,
@@ -138,7 +160,6 @@ export default function OnlineReport() {
         </p>
       </section>
 
-      {/* Key focus points */}
       <section>
         <h2 style={{ fontSize: 22, marginBottom: 12 }}>
           What I paid closest attention to
@@ -158,25 +179,6 @@ export default function OnlineReport() {
         </ul>
       </section>
 
-      {/* Guidance */}
-      <section
-        style={{
-          padding: 20,
-          borderRadius: 14,
-          background: "rgba(255,255,255,0.03)",
-        }}
-      >
-        <strong style={{ display: "block", marginBottom: 6 }}>
-          What this means for you
-        </strong>
-        <p style={{ color: "#cbd5f5", margin: 0 }}>
-          This assessment is designed to help you slow down and verify the right
-          details. If the car still interests you, the next step is confirming
-          what isn’t visible from the listing alone.
-        </p>
-      </section>
-
-      {/* Disclaimer */}
       <p style={{ color: "#6b7280", fontSize: 13 }}>
         This assessment is saved locally on this device and does not replace a
         physical inspection or professional advice.
