@@ -7,6 +7,9 @@ import {
 
 import Layout from "./components/Layout";
 
+/* Landing / Marketing */
+import Home from "./pages/Home";
+
 /* Entry */
 import StartScan from "./pages/StartScan";
 
@@ -31,11 +34,13 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
-          {/* Home / entry */}
-          <Route path="/" element={<StartScan />} />
+          {/* MARKETING HOMEPAGE */}
+          <Route path="/" element={<Home />} />
+
+          {/* TOOL ENTRY */}
           <Route path="/start-scan" element={<StartScan />} />
 
-          {/* My Scans */}
+          {/* MY SCANS */}
           <Route path="/my-scans" element={<MyScans />} />
 
           {/* ONLINE SCAN FLOW */}
@@ -51,7 +56,7 @@ export default function App() {
           <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
           <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
 
-          {/* Fallback */}
+          {/* FALLBACK */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
