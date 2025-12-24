@@ -1,7 +1,13 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+
 import Layout from "./components/Layout";
 
-/* Entry points */
+/* Entry */
 import StartScan from "./pages/StartScan";
 
 /* Online flow */
@@ -20,29 +26,31 @@ import InPersonSummary from "./pages/InPersonSummary";
 
 export default function App() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        {/* Default */}
-        <Route path="/" element={<StartScan />} />
-        <Route path="/start-scan" element={<StartScan />} />
+    <BrowserRouter>
+      <Routes>
+        <Route element={<Layout />}>
+          {/* Home / entry */}
+          <Route path="/" element={<StartScan />} />
+          <Route path="/start-scan" element={<StartScan />} />
 
-        {/* ONLINE SCAN FLOW */}
-        <Route path="/scan/online" element={<OnlineStart />} />
-        <Route path="/scan/online/listing" element={<OnlineScan />} />
-        <Route path="/scan/online/kilometres" element={<OnlineKilometres />} />
-        <Route path="/scan/online/owners" element={<OnlineOwners />} />
-        <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
-        <Route path="/scan/online/report" element={<OnlineReport />} />
+          {/* ONLINE SCAN FLOW */}
+          <Route path="/scan/online" element={<OnlineStart />} />
+          <Route path="/scan/online/listing" element={<OnlineScan />} />
+          <Route path="/scan/online/kilometres" element={<OnlineKilometres />} />
+          <Route path="/scan/online/owners" element={<OnlineOwners />} />
+          <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
+          <Route path="/scan/online/report" element={<OnlineReport />} />
 
-        {/* IN-PERSON SCAN FLOW */}
-        <Route path="/scan/in-person" element={<InPersonStart />} />
-        <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
-        <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
-        <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
+          {/* IN-PERSON SCAN FLOW */}
+          <Route path="/scan/in-person" element={<InPersonStart />} />
+          <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
+          <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
+          <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
