@@ -16,21 +16,38 @@ export default function OnlineReport() {
       setSaving(true);
 
       const user = await getCurrentUser();
+
+      // ⛔ Not signed in → trigger magic-link login
       if (!user) {
         const email = window.prompt(
           "Enter your email so we can save this scan to your account"
         );
-        if (!email) return;
 
-        await supabase.auth.signInWithOtp({ email });
-        alert("Check your email to finish signing in, then save again.");
+        if (!email) {
+          setSaving(false);
+          return;
+        }
+
+        await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            // ✅ Redirect user back to this page after clicking email link
+            emailRedirectTo: `${window.location.origin}/scan/online/report`,
+          },
+        });
+
+        alert("Check your email to finish signing in, then press Save again.");
         setSaving(false);
         return;
       }
 
+      // -------------------------
+      // 👍 User is signed in — save scan
+      // -------------------------
+
       const summaryParts: string[] = [];
       if (listingUrl) summaryParts.push(`Listing: ${listingUrl}`);
-      if (kilometres) summaryParts.push(`KMs: ${kilometres}`);
+      if (kilometres) summaryParts.push(`Kilometres: ${kilometres}`);
       if (owners) summaryParts.push(`Owners: ${owners}`);
 
       const scan = {
@@ -48,11 +65,12 @@ export default function OnlineReport() {
 
       if (error) throw error;
 
-      // Clear local progress after successful cloud save
+      // 🧹 Clear progress after saving
       localStorage.removeItem("carverity_listing_url");
       localStorage.removeItem("carverity_kms");
       localStorage.removeItem("carverity_owners");
 
+      // ➜ Go to My Scans
       navigate("/my-scans");
     } catch (err: any) {
       alert("There was a problem saving your scan: " + err.message);
