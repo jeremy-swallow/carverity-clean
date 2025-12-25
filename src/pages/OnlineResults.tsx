@@ -1,74 +1,75 @@
+// src/pages/OnlineResults.tsx
 import { useEffect, useState } from "react";
-import { loadOnlineResults } from "../utils/onlineResults";
-import { Link } from "react-router-dom";
+import { loadOnlineResults, clearOnlineResults } from "../utils/onlineResults";
+import { Link, useNavigate } from "react-router-dom";
 
-interface ResultItem {
+interface ResultSection {
   title: string;
-  description: string;
-  confidence?: string;
-  action?: string;
+  content: string;
+}
+
+interface StoredResult {
+  createdAt: string;
+  source: string;
+  sections: ResultSection[];
 }
 
 export default function OnlineResults() {
-  const [results, setResults] = useState<ResultItem[] | null>(null);
+  const navigate = useNavigate();
+  const [results, setResults] = useState<StoredResult[] | null>(null);
 
   useEffect(() => {
-    const stored = loadOnlineResults() as ResultItem[] | null;
+    const stored = loadOnlineResults() as StoredResult[] | null;
     setResults(stored);
   }, []);
 
+  function handleClear() {
+    clearOnlineResults();
+    navigate("/start-scan");
+  }
+
+  // No results saved yet
   if (!results || results.length === 0) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <h1 className="text-2xl font-semibold mb-3">No results found</h1>
+        <h1 className="text-3xl font-bold mb-2">No results found</h1>
         <p className="text-muted-foreground mb-6">
-          It looks like there are no saved scan results yet.
+          It looks like there are no saved online scan results yet.
         </p>
 
         <Link
           to="/scan/online"
           className="inline-block px-4 py-2 rounded-md bg-blue-600 text-white"
         >
-          Start a new scan
+          Start a new online scan
         </Link>
       </div>
     );
   }
 
+  const latest = results[results.length - 1];
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold mb-1">Scan results</h1>
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold">Scan results</h1>
         <p className="text-muted-foreground">
-          These findings are generated from your online vehicle listing.
+          These findings were generated from your online vehicle listing.
+        </p>
+
+        <p className="mt-2 text-xs text-muted-foreground">
+          Scan date: {new Date(latest.createdAt).toLocaleString()}
         </p>
       </header>
 
       <div className="space-y-4">
-        {results.map((item, i) => (
+        {latest.sections.map((section, i) => (
           <div
             key={i}
             className="rounded-xl border bg-card px-4 py-4 shadow-sm"
           >
-            <div className="flex justify-between items-start mb-2">
-              <h2 className="font-semibold text-lg">{item.title}</h2>
-
-              {item.confidence && (
-                <span className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
-                  Confidence: {item.confidence}
-                </span>
-              )}
-            </div>
-
-            <p className="text-sm text-muted-foreground mb-3">
-              {item.description}
-            </p>
-
-            {item.action && (
-              <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2 rounded-md">
-                Recommended action: {item.action}
-              </div>
-            )}
+            <h2 className="font-semibold text-lg mb-1">{section.title}</h2>
+            <p className="text-sm text-muted-foreground">{section.content}</p>
           </div>
         ))}
       </div>
@@ -81,10 +82,16 @@ export default function OnlineResults() {
           View next actions
         </Link>
 
-        <Link
-          to="/my-scans"
-          className="px-4 py-2 rounded-md border"
+        <button
+          onClick={handleClear}
+          className="px-4 py-2 rounded-md border text-muted-foreground"
         >
+          Clear and start again
+        </button>
+      </div>
+
+      <div className="mt-6 text-right">
+        <Link to="/my-scans" className="text-sm underline">
           Back to My Scans
         </Link>
       </div>
