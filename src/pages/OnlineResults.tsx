@@ -1,160 +1,91 @@
-// src/pages/OnlineResults.tsx
-
 import { useEffect, useState } from "react";
 import { loadOnlineResults } from "../utils/onlineResults";
-import type { StoredResult } from "../utils/onlineResults";
 import { Link } from "react-router-dom";
 
+interface ResultItem {
+  title: string;
+  description: string;
+  action?: string;
+  confidence?: string;
+}
+
 export default function OnlineResults() {
-  const [results, setResults] = useState<StoredResult[] | null>(null);
+  const [results, setResults] = useState<ResultItem[] | null>(null);
 
   useEffect(() => {
-    const stored = loadOnlineResults();
-    setResults(stored.length > 0 ? stored : null);
+    const stored = loadOnlineResults() as ResultItem[] | null;
+    setResults(stored);
   }, []);
 
-  if (!results) {
+  if (!results || results.length === 0) {
     return (
-      <div
-        style={{
-          maxWidth: 720,
-          margin: "0 auto",
-          padding: "clamp(24px, 6vw, 64px)",
-          textAlign: "center",
-        }}
-      >
-        <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>
-          No results yet
-        </h1>
-        <p style={{ color: "#9aa3c7", fontSize: 15, marginBottom: 24 }}>
-          Run an online scan first and your results will appear here.
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+        <h1 className="text-2xl font-semibold mb-3">No results found</h1>
+        <p className="text-muted-foreground mb-6">
+          It looks like there are no saved scan results yet.
         </p>
 
         <Link
           to="/online-start"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "12px 20px",
-            borderRadius: 999,
-            background: "#7aa2ff",
-            color: "#050816",
-            fontWeight: 600,
-            textDecoration: "none",
-          }}
+          className="inline-block px-4 py-2 rounded-md bg-blue-600 text-white"
         >
-          Start a new online scan
+          Start a new scan
         </Link>
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        maxWidth: 720,
-        margin: "0 auto",
-        padding: "clamp(24px, 6vw, 64px)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 24,
-      }}
-    >
-      <div>
-        <span
-          style={{
-            fontSize: 13,
-            letterSpacing: 0.8,
-            textTransform: "uppercase",
-            color: "#9aa3c7",
-          }}
-        >
-          Online scan · Results
-        </span>
-        <h1 style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>
-          How this listing looks on paper
-        </h1>
-        <p style={{ color: "#cbd5f5", fontSize: 15, marginTop: 8 }}>
-          These are early signals based on the details you’ve provided. Use them
-          as a guide only — always confirm with an in-person inspection and
-          independent mechanic.
+    <div className="max-w-3xl mx-auto px-4 py-12">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold">Scan results</h1>
+        <p className="text-muted-foreground">
+          These findings are generated from your online vehicle listing.
         </p>
-      </div>
+      </header>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {results.map((item, index) => (
+      <div className="space-y-4">
+        {results.map((item, i) => (
           <div
-            key={index}
-            style={{
-              borderRadius: 16,
-              padding: 16,
-              background:
-                "linear-gradient(135deg, rgba(148,163,255,0.08), rgba(15,23,42,0.9))",
-              border: "1px solid rgba(148,163,255,0.25)",
-            }}
+            key={i}
+            className="rounded-xl border bg-card px-4 py-4 shadow-sm"
           >
-            <h2 style={{ fontSize: 18, fontWeight: 700 }}>{item.title}</h2>
+            <div className="flex justify-between items-start mb-2">
+              <h2 className="font-semibold text-lg">{item.title}</h2>
 
-            <p
-              style={{
-                color: "#e5ebff",
-                fontSize: 15,
-                marginTop: 6,
-                lineHeight: 1.5,
-              }}
-            >
+              {item.confidence && (
+                <span className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+                  Confidence: {item.confidence}
+                </span>
+              )}
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-3">
               {item.description}
             </p>
 
             {item.action && (
-              <p
-                style={{
-                  marginTop: 8,
-                  fontSize: 14,
-                  color: "#fbbf24",
-                  fontWeight: 500,
-                }}
-              >
-                Next step: {item.action}
-              </p>
-            )}
-
-            {item.confidence && (
-              <p
-                style={{
-                  marginTop: 4,
-                  fontSize: 13,
-                  color: "#9aa3c7",
-                }}
-              >
-                Confidence: {item.confidence}
-              </p>
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm px-3 py-2 rounded-md">
+                Recommended action: {item.action}
+              </div>
             )}
           </div>
         ))}
       </div>
 
-      <div
-        style={{
-          marginTop: 16,
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 12,
-        }}
-      >
+      <div className="mt-10 flex items-center justify-between">
         <Link
-          to="/scan/online/next-actions"
-          style={{
-            padding: "10px 18px",
-            borderRadius: 999,
-            background: "#7aa2ff",
-            color: "#050816",
-            fontWeight: 600,
-            textDecoration: "none",
-          }}
+          to="/online-next-actions"
+          className="px-4 py-2 rounded-md bg-emerald-600 text-white"
         >
-          Continue to next actions
+          View next actions
+        </Link>
+
+        <Link
+          to="/my-scans"
+          className="px-4 py-2 rounded-md border"
+        >
+          Back to My Scans
         </Link>
       </div>
     </div>
