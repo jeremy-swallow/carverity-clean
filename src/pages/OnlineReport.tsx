@@ -1,3 +1,4 @@
+// src/pages/OnlineReport.tsx
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
@@ -9,35 +10,41 @@ export default function OnlineReport() {
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<any>(null);
   const [scanId, setScanId] = useState<string | null>(null);
+  const [userMissing, setUserMissing] = useState(false);
 
   // 🔎 Detect scan_id in URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get("scan_id");
+
+    // If coming from My Scans ➜ load saved scan
     if (id) {
       setScanId(id);
       fetchSavedScan(id);
     } else {
+      // If fresh scan ➜ load from sessionStorage
+      const stored = sessionStorage.getItem("active_report");
+      if (stored) {
+        setReport(JSON.parse(stored));
+      }
       setLoading(false);
     }
   }, []);
 
-  // 🟡 Load existing saved scan from Supabase
+  // 🟢 Load saved scan WITHOUT forcing login
   async function fetchSavedScan(id: string) {
     setLoading(true);
 
+    // Try to read user (optional only)
     const user = await getCurrentUser();
     if (!user) {
-      navigate("/auth-link-expired");
-      return;
+      // No session? ➜ still try loading by scan_id only
+      setUserMissing(true);
     }
 
-    const { data, error } = await supabase
-      .from("scans")
-      .select("*")
-      .eq("scan_id", id)
-      .eq("user_id", user.id)
-      .single();
+    const query = supabase.from("scans").select("*").eq("scan_id", id).single();
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Load scan error:", error);
@@ -48,12 +55,12 @@ export default function OnlineReport() {
     setLoading(false);
   }
 
-  // 💾 Save NEW scan
+  // 💾 Save NEW scan (only if user exists)
   async function saveScan() {
     const user = await getCurrentUser();
+
     if (!user) {
-      alert("Your login session expired. Please sign in again.");
-      navigate("/auth-link-expired");
+      alert("To save scans across devices, please sign in first (coming soon).");
       return;
     }
 
@@ -64,7 +71,7 @@ export default function OnlineReport() {
       scan_id: newId,
       plan: "online",
       scan_type: "online",
-      report: report || {}
+      report: report || {},
     });
 
     if (error) {
@@ -73,7 +80,7 @@ export default function OnlineReport() {
       return;
     }
 
-    navigate("/my-scans");
+    navigate(`/my-scans`);
   }
 
   return (
@@ -86,10 +93,19 @@ export default function OnlineReport() {
         <>
           <pre>{JSON.stringify(report, null, 2)}</pre>
 
+          {/* Only show save button for fresh scans */}
           {!scanId && (
             <button onClick={saveScan}>
               Save to My Scans
             </button>
+          )}
+
+          {/* Friendly message when viewing a scan without login */}
+          {scanId && userMissing && (
+            <p style={{ opacity: 0.7, marginTop: "1rem" }}>
+              You’re viewing this scan without a sign-in session.
+              Saving and history will be available when accounts are added.
+            </p>
           )}
         </>
       )}
