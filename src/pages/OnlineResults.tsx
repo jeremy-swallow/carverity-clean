@@ -18,12 +18,7 @@ export default function OnlineResults() {
 
   useEffect(() => {
     const stored = loadOnlineResults();
-
-    if (stored && Array.isArray(stored.sections)) {
-      setResult(stored);
-    } else {
-      setResult(null);
-    }
+    setResult(stored ?? null);
   }, []);
 
   if (!result) {
@@ -44,8 +39,6 @@ export default function OnlineResults() {
     );
   }
 
-  const sections = result.sections ?? [];
-
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
       <header className="mb-8">
@@ -56,14 +49,14 @@ export default function OnlineResults() {
       </header>
 
       <div className="space-y-4">
-        {sections.map((s, i) => (
+        {result.sections.map((section, idx) => (
           <div
-            key={i}
-            className="rounded-xl border bg-card px-5 py-4 shadow-sm"
+            key={idx}
+            className="rounded-xl border bg-card px-4 py-4 shadow-sm"
           >
-            <h2 className="font-semibold text-lg mb-1">{s.title}</h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              {s.content}
+            <h2 className="font-semibold text-lg mb-1">{section.title}</h2>
+            <p className="text-sm text-muted-foreground">
+              {section.content}
             </p>
           </div>
         ))}
@@ -79,7 +72,7 @@ export default function OnlineResults() {
 
         <Link
           to="/my-scans"
-          className="px-4 py-2 rounded-md border bg-background"
+          className="px-4 py-2 rounded-md border"
         >
           Back to My Scans
         </Link>
