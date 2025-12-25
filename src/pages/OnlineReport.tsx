@@ -2,23 +2,24 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { supabase } from "../supabaseClient";
 import { getCurrentUser, signInWithMagicLink } from "../supabaseAuth";
-import Toast from "../components/Toast";
 
 export default function OnlineReport() {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
 
+  function generateScanId() {
+    return crypto.randomUUID();
+  }
+
   async function handleSaveScan() {
     try {
       setSaving(true);
 
-      let user = await getCurrentUser();
+      // Ensure user is logged in
+      const user = await getCurrentUser();
 
       if (!user) {
-        const email = window.prompt(
-          "Enter your email to save your scan:"
-        );
-
+        const email = window.prompt("Enter your email to save your scan:");
         if (!email) return;
 
         await signInWithMagicLink(
@@ -26,23 +27,30 @@ export default function OnlineReport() {
           `${window.location.origin}/my-scans`
         );
 
-        Toast.info("Check your email to continue.");
+        alert("Check your email to continue.");
         return;
       }
 
+      const scan_id = generateScanId();
+
       const { error } = await supabase.from("scans").insert({
-        created_at: new Date().toISOString(),
+        scan_id,
+        user_id: user.id,
         scan_type: "online",
-        report: {},
+        plan: "free",
+        report: {
+          source: "online-report-v1"
+        }
       });
 
       if (error) throw error;
 
-      Toast.success("Saved to My Scans!");
+      alert("Saved to My Scans!");
       navigate("/my-scans");
+
     } catch (err: any) {
       console.error("Save scan error:", err?.message || err);
-      Toast.error("There was a problem saving your scan.");
+      alert("There was a problem saving your scan.");
     } finally {
       setSaving(false);
     }
@@ -53,7 +61,7 @@ export default function OnlineReport() {
       <h1>Online scan report</h1>
 
       <button onClick={handleSaveScan} disabled={saving}>
-        {saving ? "Saving…" : "Save to My Scans"}
+        {saving ? "Saving..." : "Save to My Scans"}
       </button>
     </div>
   );
