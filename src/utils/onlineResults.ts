@@ -1,37 +1,39 @@
-// src/utils/onlineResults.ts
+/**
+ * Online Results Storage
+ *
+ * Handles saving, loading and clearing the results
+ * generated from the online vehicle scan flow.
+ */
 
 export interface StoredResult {
-  title: string;
-  description: string;
-  action?: string;
-  confidence?: string;
+  createdAt: string;
+  source: "online";
+  sections: {
+    title: string;
+    content: string;
+  }[];
 }
 
 const STORAGE_KEY = "carverity_online_results";
 
-export function saveOnlineResults(results: StoredResult[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
-  } catch (err) {
-    console.error("Failed to save online results:", err);
-  }
+/**
+ * Save results to localStorage
+ */
+export function saveOnlineResults(results: StoredResult) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
 }
 
-export function loadOnlineResults(): StoredResult[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as StoredResult[];
-  } catch (err) {
-    console.error("Failed to load online results:", err);
-    return [];
-  }
+/**
+ * Load saved results (or null if none exist)
+ */
+export function loadOnlineResults(): StoredResult | null {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  return raw ? (JSON.parse(raw) as StoredResult) : null;
 }
 
+/**
+ * Clear stored results
+ */
 export function clearOnlineResults() {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch (err) {
-    console.error("Failed to clear online results:", err);
-  }
+  localStorage.removeItem(STORAGE_KEY);
 }
