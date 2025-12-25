@@ -2,8 +2,18 @@ import { Link, Outlet } from "react-router-dom";
 
 export default function Layout() {
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="border-b bg-card">
+    <div
+      className="min-h-screen text-foreground flex flex-col"
+      style={{
+        background: `
+          radial-gradient(1200px 500px at 10% -10%, rgba(72, 255, 199, 0.12), transparent),
+          radial-gradient(900px 400px at 90% 0%, rgba(87, 167, 255, 0.10), transparent),
+          linear-gradient(180deg, hsl(240 10% 7%) 0%, hsl(240 10% 4%) 100%)
+        `,
+      }}
+    >
+      {/* HEADER */}
+      <header className="border-b bg-card/70 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
 
           {/* Logo + Title */}
@@ -42,6 +52,7 @@ export default function Layout() {
         </div>
       </header>
 
+      {/* PAGE CONTENT */}
       <main className="flex-1">
         <Outlet />
       </main>
