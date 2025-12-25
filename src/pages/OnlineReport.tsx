@@ -6,7 +6,6 @@ export default function OnlineReport() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Temporary stub report — later this will be AI output
     const report = {
       sections: [
         {
@@ -24,16 +23,13 @@ export default function OnlineReport() {
       ],
     };
 
-    // Transform → match ResultItem format
     const results = report.sections.map((s) => ({
       title: s.title,
       description: s.content,
     }));
 
-    // Save for results page
     saveOnlineResults(results);
 
-    // Go straight to results page
     navigate("/online-results", { replace: true });
   }, [navigate]);
 
