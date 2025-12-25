@@ -19,6 +19,7 @@ import OnlineKilometres from "./pages/OnlineKilometres";
 import OnlineOwners from "./pages/OnlineOwners";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
 import OnlineReport from "./pages/OnlineReport";
+import OnlineResults from "./pages/OnlineResults";   // 👈 NEW
 
 /* In-person flow */
 import InPersonStart from "./pages/InPersonStart";
@@ -29,7 +30,7 @@ import InPersonSummary from "./pages/InPersonSummary";
 /* Scan details */
 import ScanDetails from "./pages/ScanDetails";
 
-/* Auth fallback (NEW) */
+/* Auth fallback */
 import AuthLinkExpired from "./pages/AuthLinkExpired";
 
 export default function App() {
@@ -52,13 +53,16 @@ export default function App() {
           <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
           <Route path="/scan/online/report" element={<OnlineReport />} />
 
+          {/* ONLINE RESULTS (NEW) */}
+          <Route path="/online-results" element={<OnlineResults />} />   {/* 👈 FIX */}
+
           {/* IN-PERSON SCAN FLOW */}
           <Route path="/scan/in-person" element={<InPersonStart />} />
           <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
           <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
           <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
 
-          {/* AUTH LINK EXPIRED (NEW) */}
+          {/* AUTH LINK EXPIRED */}
           <Route path="/auth/link-expired" element={<AuthLinkExpired />} />
 
           {/* Fallback */}
