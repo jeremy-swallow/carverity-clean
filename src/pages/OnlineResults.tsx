@@ -11,12 +11,27 @@ interface ResultItem {
 
 export default function OnlineResults() {
   const [results, setResults] = useState<ResultItem[] | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const stored = loadOnlineResults() as ResultItem[] | null;
     setResults(stored);
+    setLoading(false);
   }, []);
 
+  // ⏳ Wait for storage before deciding what to do
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+        <h1 className="text-2xl font-semibold mb-3">Loading results…</h1>
+        <p className="text-muted-foreground">
+          Please wait while we retrieve your scan.
+        </p>
+      </div>
+    );
+  }
+
+  // 🟡 Only show "no results" AFTER loading completes
   if (!results || results.length === 0) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center">
@@ -81,10 +96,7 @@ export default function OnlineResults() {
           View next actions
         </Link>
 
-        <Link
-          to="/my-scans"
-          className="px-4 py-2 rounded-md border"
-        >
+        <Link to="/my-scans" className="px-4 py-2 rounded-md border">
           Back to My Scans
         </Link>
       </div>
