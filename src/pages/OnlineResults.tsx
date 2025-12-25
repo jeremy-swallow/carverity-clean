@@ -1,5 +1,3 @@
-import { useNavigate } from "react-router-dom";
-
 interface ResultItem {
   title: string;
   description: string;
@@ -7,119 +5,124 @@ interface ResultItem {
   confidence?: string;
 }
 
-interface ResultSection {
-  heading: string;
-  items: ResultItem[];
-}
-
-const mockResults: ResultSection[] = [
-  {
-    heading: "Listing Overview",
-    items: [
-      {
-        title: "Vehicle match looks correct",
-        description:
-          "Details provided appear consistent with a typical online car listing. No immediate discrepancies detected.",
-        confidence: "High",
-      },
-    ],
-  },
-  {
-    heading: "Risk Factors",
-    items: [
-      {
-        title: "Possible price mismatch",
-        description:
-          "The listed price may be below expected market value for similar vehicles. This can sometimes indicate missing information.",
-        confidence: "Medium",
-        action: "Compare similar listings",
-      },
-      {
-        title: "Seller information incomplete",
-        description:
-          "The listing appears to lack clear seller identification or history details.",
-        confidence: "Low",
-        action: "Request seller verification",
-      },
-    ],
-  },
-  {
-    heading: "Recommended Next Actions",
-    items: [
-      {
-        title: "Continue to inspection questions",
-        description:
-          "Answer a few questions to personalise the risk analysis for this vehicle.",
-        action: "Start next step",
-      },
-    ],
-  },
-];
-
 export default function OnlineResults() {
-  const navigate = useNavigate();
+  const results: ResultItem[] = [
+    {
+      title: "Price alignment",
+      description:
+        "This vehicle is priced slightly above similar listings in the same market segment.",
+      action:
+        "Consider negotiating the price or requesting a service history report.",
+      confidence: "82%"
+    },
+    {
+      title: "Ownership signals",
+      description:
+        "Listing and VIN pattern indicate the vehicle has likely had a single private owner.",
+      confidence: "91%"
+    },
+    {
+      title: "Listing consistency",
+      description:
+        "No major wording or detail discrepancies detected in the advertisement.",
+      confidence: "88%"
+    }
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 px-6 py-8">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-semibold mb-2">
-          Analysis results
+    <div
+      style={{
+        maxWidth: 760,
+        margin: "0 auto",
+        padding: "clamp(24px, 6vw, 64px)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 24
+      }}
+    >
+      <div>
+        <span
+          style={{
+            fontSize: 13,
+            textTransform: "uppercase",
+            letterSpacing: 0.8,
+            color: "#9aa3c7"
+          }}
+        >
+          Online scan · Results
+        </span>
+
+        <h1 style={{ fontSize: 24, fontWeight: 800, marginTop: 6 }}>
+          Your preliminary analysis
         </h1>
-        <p className="text-slate-400 mb-8">
-          Preliminary findings based on the information provided so far.
+
+        <p style={{ color: "#cbd5f5", fontSize: 15 }}>
+          These insights are based on the information provided so far. They help
+          you decide whether this vehicle is worth continuing to inspect.
         </p>
+      </div>
 
-        {mockResults.map((section, i) => (
-          <div key={i} className="mb-8">
-            <h2 className="text-lg font-medium mb-4 text-slate-200">
-              {section.heading}
-            </h2>
+      <div style={{ display: "grid", gap: 16 }}>
+        {results.map((item, index) => (
+          <div
+            key={index}
+            style={{
+              padding: 16,
+              borderRadius: 14,
+              background: "rgba(7,10,25,0.9)",
+              border: "1px solid rgba(255,255,255,0.12)"
+            }}
+          >
+            <h2 style={{ fontSize: 18, marginBottom: 6 }}>{item.title}</h2>
 
-            <div className="space-y-3">
-              {section.items.map((item, j) => (
-                <div
-                  key={j}
-                  className="bg-slate-900 border border-slate-800 rounded-xl p-4"
-                >
-                  <div className="flex justify-between items-start">
-                    <h3 className="font-medium">{item.title}</h3>
-                    {item.confidence && (
-                      <span className="text-xs px-2 py-1 rounded bg-slate-800 text-slate-300">
-                        {item.confidence} confidence
-                      </span>
-                    )}
-                  </div>
+            <p style={{ color: "#e5ebff", opacity: 0.9 }}>
+              {item.description}
+            </p>
 
-                  <p className="text-sm text-slate-400 mt-2">
-                    {item.description}
-                  </p>
+            {item.action && (
+              <p
+                style={{
+                  marginTop: 8,
+                  fontSize: 13,
+                  color: "#9aa3c7"
+                }}
+              >
+                <strong>Suggested action: </strong>
+                {item.action}
+              </p>
+            )}
 
-                  {item.action && (
-                    <button className="mt-3 text-sm text-blue-300 hover:text-blue-200 underline">
-                      {item.action}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
+            {item.confidence && (
+              <p
+                style={{
+                  marginTop: 10,
+                  fontSize: 12,
+                  color: "#9aa3c7"
+                }}
+              >
+                Confidence score: {item.confidence}
+              </p>
+            )}
           </div>
         ))}
+      </div>
 
-        <div className="flex justify-between pt-6 border-t border-slate-800 mt-10">
-          <button
-            className="px-4 py-2 rounded-lg border border-slate-700 hover:bg-slate-800"
-            onClick={() => navigate(-1)}
-          >
-            Back
-          </button>
-
-          <button
-            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500"
-            onClick={() => navigate("/online/next-actions")}
-          >
-            Continue
-          </button>
-        </div>
+      <div style={{ marginTop: 20 }}>
+        <button
+          onClick={() => (window.location.href = "/online/next-actions")}
+          style={{
+            padding: "14px 22px",
+            borderRadius: 12,
+            fontSize: 16,
+            fontWeight: 600,
+            background: "#7aa2ff",
+            color: "#0b1020",
+            border: "none",
+            cursor: "pointer"
+          }}
+        >
+          Continue to next actions
+        </button>
       </div>
     </div>
   );
