@@ -5,6 +5,8 @@ export default function Home() {
   return (
     <div className="min-h-[calc(100vh-64px)] bg-background">
       <div className="max-w-4xl mx-auto px-4 py-12">
+
+        {/* HERO SECTION */}
         <header className="mb-10">
           <h1 className="text-4xl font-bold mb-3">CarVerity</h1>
           <p className="text-muted-foreground text-lg">
@@ -13,8 +15,10 @@ export default function Home() {
           </p>
         </header>
 
+        {/* ACTION CARDS */}
         <div className="grid gap-4">
 
+          {/* ONLINE SCAN */}
           <Link
             to="/online-start"
             className="border rounded-xl p-4 flex items-center justify-between hover:bg-accent"
@@ -31,6 +35,7 @@ export default function Home() {
             <ArrowRight />
           </Link>
 
+          {/* IN-PERSON SCAN */}
           <Link
             to="/inperson-start"
             className="border rounded-xl p-4 flex items-center justify-between hover:bg-accent"
