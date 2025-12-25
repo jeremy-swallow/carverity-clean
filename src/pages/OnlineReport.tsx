@@ -1,41 +1,43 @@
 // src/pages/OnlineReport.tsx
-
 import { useNavigate } from "react-router-dom";
+
 import {
   saveOnlineResults,
   clearOnlineResults,
   loadOnlineResults,
 } from "../utils/onlineResults";
+
 import type { StoredResult } from "../utils/onlineResults";
 
 export default function OnlineReport() {
   const navigate = useNavigate();
 
-  // Try to load an existing stored result (if user returns to this page)
-  const existing = loadOnlineResults();
+  // Load previously-saved result, or create a new one
+  const existing: StoredResult | null = loadOnlineResults();
 
-  // Temporary placeholder demo report (until AI generation is added)
-  const sample: StoredResult = existing ?? {
-    createdAt: new Date().toISOString(),
-    source: "online",
-    sections: [
-      {
-        title: "Listing Overview",
-        content:
-          "Placeholder content — listing extraction & vehicle signals will appear here.",
-      },
-      {
-        title: "Risk Factors",
-        content:
-          "Placeholder content — potential concerns or red flags will appear here.",
-      },
-      {
-        title: "Next Actions",
-        content:
-          "Placeholder content — recommended steps for inspection and verification.",
-      },
-    ],
-  };
+  const sample: StoredResult =
+    existing ??
+    {
+      createdAt: new Date().toISOString(),
+      source: "online",
+      sections: [
+        {
+          title: "Listing Overview",
+          content:
+            "Placeholder content — listing extraction & vehicle signals will appear here.",
+        },
+        {
+          title: "Risk Factors",
+          content:
+            "Placeholder content — potential concerns or red flags will appear here.",
+        },
+        {
+          title: "Next Actions",
+          content:
+            "Placeholder content — recommended steps for inspection and verification.",
+        },
+      ],
+    };
 
   function handleSave() {
     saveOnlineResults(sample);
@@ -58,7 +60,7 @@ export default function OnlineReport() {
       <div className="mt-8 flex gap-3">
         <button
           onClick={handleSave}
-          className="px-4 py-2 rounded-md bg-blue-600 text-white"
+          className="px-4 py-2 rounded-md bg-emerald-600 text-white"
         >
           Save to My Scans
         </button>
@@ -67,7 +69,7 @@ export default function OnlineReport() {
           onClick={handleDiscard}
           className="px-4 py-2 rounded-md border"
         >
-          Discard and restart
+          Discard
         </button>
       </div>
     </div>
