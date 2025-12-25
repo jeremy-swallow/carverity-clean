@@ -1,3 +1,4 @@
+// src/pages/OnlineReport.tsx
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { supabase } from "../supabaseClient";
@@ -15,41 +16,45 @@ export default function OnlineReport() {
     try {
       setSaving(true);
 
+      // 1) Check if we already have a signed-in user
       let user = await getCurrentUser();
 
-      // If not logged in → ask for email + send magic link
       if (!user) {
-        console.log("User not signed in — prompting email login");
-
+        // Not signed in yet — ask for email and send magic link
         const email = window.prompt(
           "Enter your email so we can save this scan to your account"
         );
+
         if (!email) {
-          console.log("User cancelled email prompt");
           setSaving(false);
           return;
         }
 
         const redirectUrl = `${window.location.origin}/my-scans`;
+
         console.log("Requesting magic link →", redirectUrl);
 
         const { error } = await supabase.auth.signInWithOtp({
           email,
-          options: { emailRedirectTo: redirectUrl },
+          options: {
+            emailRedirectTo: redirectUrl,
+          },
         });
 
-        if (error) throw error;
-
-        alert(
-          "Check your email for a login link. After opening it, return to this page and tap Save again."
-        );
+        if (error) {
+          console.error("Error sending magic link:", error);
+          alert("There was a problem sending the email. Please try again.");
+        } else {
+          alert(
+            "Check your email for a login link. After opening it, return here and press Save again."
+          );
+        }
 
         setSaving(false);
         return;
       }
 
-      console.log("User is signed in — saving scan");
-
+      // 2) User is signed in — actually save the scan
       const summaryParts: string[] = [];
       if (listingUrl) summaryParts.push(`Listing: ${listingUrl}`);
       if (kilometres) summaryParts.push(`KMs: ${kilometres}`);
@@ -70,7 +75,7 @@ export default function OnlineReport() {
 
       if (error) throw error;
 
-      // Clear saved draft data
+      // Clear local progress after successful cloud save
       localStorage.removeItem("carverity_listing_url");
       localStorage.removeItem("carverity_kms");
       localStorage.removeItem("carverity_owners");
@@ -93,9 +98,21 @@ export default function OnlineReport() {
         details you provided.
       </p>
 
-      {listingUrl && <p>Listing: {listingUrl}</p>}
-      {kilometres && <p>Kilometres: {kilometres}</p>}
-      {owners && <p>Owners: {owners}</p>}
+      {listingUrl && (
+        <p>
+          <strong>Listing:</strong> {listingUrl}
+        </p>
+      )}
+      {kilometres && (
+        <p>
+          <strong>Kilometres:</strong> {kilometres}
+        </p>
+      )}
+      {owners && (
+        <p>
+          <strong>Owners:</strong> {owners}
+        </p>
+      )}
 
       <button
         onClick={handleSaveScan}
