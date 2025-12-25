@@ -19,11 +19,8 @@ export default function OnlineResults() {
   useEffect(() => {
     const stored = loadOnlineResults();
 
-    // ▸ Guard against malformed / old data
-    if (
-      stored &&
-      Array.isArray(stored.sections)
-    ) {
+    // 🛡️ Guard against old / invalid data
+    if (stored && Array.isArray(stored.sections)) {
       setResult(stored);
     } else {
       setResult(null);
@@ -48,6 +45,8 @@ export default function OnlineResults() {
     );
   }
 
+  const sections = result.sections ?? []; // 🛡️ final safety fallback
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
       <header className="mb-8">
@@ -58,7 +57,7 @@ export default function OnlineResults() {
       </header>
 
       <div className="space-y-4">
-        {result.sections.map((s, i) => (
+        {sections.map((s, i) => (
           <div
             key={i}
             className="rounded-xl border bg-card px-4 py-4 shadow-sm"
