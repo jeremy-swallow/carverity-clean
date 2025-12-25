@@ -1,3 +1,4 @@
+// src/pages/OnlineAnalyzing.tsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { saveProgress } from "../utils/scanProgress";
@@ -13,10 +14,42 @@ export default function OnlineAnalyzing() {
       startedAt: new Date().toISOString(),
     });
 
-    // Simulate analysis time before moving to report
+    // ⭐ Build a basic placeholder report (for now)
+    const generatedReport = {
+      version: "v1",
+      createdAt: new Date().toISOString(),
+      source: "placeholder-analysis",
+      summary:
+        "This is a temporary sample report. The next upgrade will replace this with real AI-generated insights.",
+      sections: [
+        {
+          title: "Listing Overview",
+          content:
+            "Placeholder content — listing extraction & vehicle signals will appear here.",
+        },
+        {
+          title: "Risk Factors",
+          content:
+            "Placeholder content — potential concerns or red flags will appear here.",
+        },
+        {
+          title: "Next Actions",
+          content:
+            "Placeholder content — recommended steps for inspection and verification.",
+        },
+      ],
+    };
+
+    // 💾 Save to session storage so the report page can read it
+    sessionStorage.setItem(
+      "active_report",
+      JSON.stringify(generatedReport)
+    );
+
+    // Simulate processing delay, then open report page
     const timer = setTimeout(() => {
       navigate("/scan/online/report");
-    }, 2500);
+    }, 1800);
 
     return () => clearTimeout(timer);
   }, [navigate]);
@@ -33,7 +66,6 @@ export default function OnlineAnalyzing() {
         alignItems: "flex-start",
       }}
     >
-      {/* Step context */}
       <span
         style={{
           fontSize: 13,
@@ -51,11 +83,10 @@ export default function OnlineAnalyzing() {
 
       <p style={{ color: "#cbd5f5", fontSize: 15 }}>
         CarVerity is reviewing the details you’ve provided — including listing
-        context, kilometres and ownership signals — to prepare insights that can
+        context, kilometres and ownership signals — to prepare insights that
         help you decide whether this vehicle is worth pursuing.
       </p>
 
-      {/* Visual loading element */}
       <div
         style={{
           marginTop: 12,
@@ -72,7 +103,6 @@ export default function OnlineAnalyzing() {
         This usually takes a few seconds. Your report will appear next.
       </p>
 
-      {/* Inline keyframes */}
       <style>
         {`
           @keyframes spin {
