@@ -13,9 +13,6 @@ import StartScan from "./pages/StartScan";
 /* My Scans */
 import MyScans from "./pages/MyScans";
 
-/* Scan Details */
-import ScanDetails from "./pages/ScanDetails";
-
 /* Online flow */
 import OnlineScan from "./pages/OnlineScan";
 import OnlineKilometres from "./pages/OnlineKilometres";
@@ -29,6 +26,12 @@ import InPersonPhotos from "./pages/InPersonPhotos";
 import InPersonChecks from "./pages/InPersonChecks";
 import InPersonSummary from "./pages/InPersonSummary";
 
+/* Scan details */
+import ScanDetails from "./pages/ScanDetails";
+
+/* Auth fallback (NEW) */
+import AuthLinkExpired from "./pages/AuthLinkExpired";
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -40,8 +43,6 @@ export default function App() {
 
           {/* My Scans */}
           <Route path="/my-scans" element={<MyScans />} />
-
-          {/* Scan Details */}
           <Route path="/scan/:id" element={<ScanDetails />} />
 
           {/* ONLINE SCAN FLOW */}
@@ -56,6 +57,9 @@ export default function App() {
           <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
           <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
           <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
+
+          {/* AUTH LINK EXPIRED (NEW) */}
+          <Route path="/auth/link-expired" element={<AuthLinkExpired />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
