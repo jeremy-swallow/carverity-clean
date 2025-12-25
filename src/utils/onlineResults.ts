@@ -1,38 +1,37 @@
-/**
- * Online Results Storage
- *
- * Handles saving, loading and clearing the results
- * generated from the online vehicle scan flow.
- */
+// src/utils/onlineResults.ts
 
 export interface StoredResult {
   createdAt: string;
-  source: "online";
+  source: "online" | "in-person";
   sections: {
     title: string;
     content: string;
   }[];
 }
 
-const STORAGE_KEY = "carverity_online_results";
+const STORAGE_KEY = "carverity_online_result";
 
 /**
- * Save results to localStorage
- */
-export function saveOnlineResults(results: StoredResult) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
-}
-
-/**
- * Load saved results (or null if none exist)
+ * Load the last saved online scan result
  */
 export function loadOnlineResults(): StoredResult | null {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  return raw ? (JSON.parse(raw) as StoredResult) : null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as StoredResult) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Clear stored results
+ * Save a single online scan result
+ */
+export function saveOnlineResults(result: StoredResult) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(result));
+}
+
+/**
+ * Clear saved scan result
  */
 export function clearOnlineResults() {
   localStorage.removeItem(STORAGE_KEY);

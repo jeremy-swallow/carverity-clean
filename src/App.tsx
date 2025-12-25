@@ -7,6 +7,9 @@ import {
 
 import Layout from "./components/Layout";
 
+/* Home */
+import Home from "./pages/Home";
+
 /* Entry */
 import StartScan from "./pages/StartScan";
 
@@ -19,7 +22,6 @@ import OnlineKilometres from "./pages/OnlineKilometres";
 import OnlineOwners from "./pages/OnlineOwners";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
 import OnlineReport from "./pages/OnlineReport";
-import OnlineResults from "./pages/OnlineResults";   // 👈 NEW
 
 /* In-person flow */
 import InPersonStart from "./pages/InPersonStart";
@@ -30,7 +32,7 @@ import InPersonSummary from "./pages/InPersonSummary";
 /* Scan details */
 import ScanDetails from "./pages/ScanDetails";
 
-/* Auth fallback */
+/* Auth fallback (NEW) */
 import AuthLinkExpired from "./pages/AuthLinkExpired";
 
 export default function App() {
@@ -39,7 +41,7 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           {/* Home / entry */}
-          <Route path="/" element={<StartScan />} />
+          <Route path="/" element={<Home />} />
           <Route path="/start-scan" element={<StartScan />} />
 
           {/* My Scans */}
@@ -48,21 +50,27 @@ export default function App() {
 
           {/* ONLINE SCAN FLOW */}
           <Route path="/scan/online" element={<OnlineScan />} />
-          <Route path="/scan/online/kilometres" element={<OnlineKilometres />} />
+          <Route
+            path="/scan/online/kilometres"
+            element={<OnlineKilometres />}
+          />
           <Route path="/scan/online/owners" element={<OnlineOwners />} />
           <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
           <Route path="/scan/online/report" element={<OnlineReport />} />
 
-          {/* ONLINE RESULTS (NEW) */}
-          <Route path="/online-results" element={<OnlineResults />} />   {/* 👈 FIX */}
-
           {/* IN-PERSON SCAN FLOW */}
           <Route path="/scan/in-person" element={<InPersonStart />} />
-          <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
+          <Route
+            path="/scan/in-person/photos"
+            element={<InPersonPhotos />}
+          />
           <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
-          <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
+          <Route
+            path="/scan/in-person/summary"
+            element={<InPersonSummary />}
+          />
 
-          {/* AUTH LINK EXPIRED */}
+          {/* AUTH LINK EXPIRED (NEW) */}
           <Route path="/auth/link-expired" element={<AuthLinkExpired />} />
 
           {/* Fallback */}

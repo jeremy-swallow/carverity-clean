@@ -1,227 +1,54 @@
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { Search, ClipboardList, ArrowRight, ShieldCheck } from "lucide-react";
 
 export default function Home() {
-  const navigate = useNavigate();
-
   return (
-    <div
-      style={{
-        maxWidth: 1100,
-        margin: "0 auto",
-        padding: "clamp(24px, 6vw, 72px)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 56,
-      }}
-    >
-      {/* HERO */}
-      <section style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-        <h1
-          style={{
-            fontSize: "clamp(28px, 4vw, 44px)",
-            fontWeight: 800,
-            lineHeight: 1.1,
-          }}
-        >
-          Buy a used car with confidence
-        </h1>
+    <div className="min-h-[calc(100vh-64px)] bg-background">
+      <div className="max-w-4xl mx-auto px-4 py-12">
+        <header className="mb-10">
+          <h1 className="text-4xl font-bold mb-3">CarVerity</h1>
+          <p className="text-muted-foreground text-lg">
+            Smarter used-car checks — scan listings, spot risks, and inspect
+            with confidence.
+          </p>
+        </header>
 
-        <p style={{ fontSize: 18, maxWidth: 760, color: "#cbd5f5" }}>
-          Make smarter car-buying decisions before you spend a dollar. CarVerity
-          helps you assess a vehicle online or in person by highlighting
-          condition clues, risk signals and details that are easy to miss.
-        </p>
+        <div className="grid gap-4">
 
-        <div style={{ display: "flex", gap: 12, marginTop: 6, flexWrap: "wrap" }}>
-          <button
-            onClick={() => navigate("/start-scan")}
-            style={{
-              padding: "14px 22px",
-              borderRadius: 14,
-              fontWeight: 700,
-              fontSize: 16,
-              background: "#7aa2ff",
-              color: "#0b1020",
-              border: "none",
-            }}
+          <Link
+            to="/online-start"
+            className="border rounded-xl p-4 flex items-center justify-between hover:bg-accent"
           >
-            Start a scan
-          </button>
+            <div className="flex items-center gap-3">
+              <Search />
+              <div>
+                <h2 className="font-semibold">Online Listing Scan</h2>
+                <p className="text-sm text-muted-foreground">
+                  Paste a car listing to analyse risks instantly
+                </p>
+              </div>
+            </div>
+            <ArrowRight />
+          </Link>
 
-          <button
-            onClick={() => {
-              const el = document.getElementById("modes");
-              if (el) el.scrollIntoView({ behavior: "smooth" });
-            }}
-            style={{
-              padding: "14px 22px",
-              borderRadius: 14,
-              fontWeight: 600,
-              fontSize: 16,
-              background: "transparent",
-              border: "1px solid rgba(255,255,255,0.25)",
-              color: "#cbd5f5",
-            }}
+          <Link
+            to="/inperson-start"
+            className="border rounded-xl p-4 flex items-center justify-between hover:bg-accent"
           >
-            Explore scan options
-          </button>
+            <div className="flex items-center gap-3">
+              <ClipboardList />
+              <div>
+                <h2 className="font-semibold">In-Person Inspection</h2>
+                <p className="text-sm text-muted-foreground">
+                  Guided on-site checks while viewing the car
+                </p>
+              </div>
+            </div>
+            <ShieldCheck />
+          </Link>
+
         </div>
-      </section>
-
-      {/* TWO MODES */}
-      <section id="modes" style={{ display: "grid", gap: 18 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 700 }}>
-          Two ways to use CarVerity when checking a vehicle
-        </h2>
-
-        <div
-          style={{
-            display: "grid",
-            gap: 16,
-            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-          }}
-        >
-          <ModeCard
-            title="Online listing scan"
-            description="Paste the link to a car listing and CarVerity helps you spot price signals, ownership clues, risk indicators and listing details worth questioning — before you travel to see the car."
-            action="Start online scan"
-            onClick={() => navigate("/start-scan")}
-          />
-
-          <ModeCard
-            title="In-person inspection assist"
-            description="Use CarVerity while you’re with the car — in a driveway, yard or dealership — to guide you through photos, visual checks and important details that are easy to overlook."
-            action="Start in-person scan"
-            onClick={() => navigate('/scan/in-person')}
-          />
-        </div>
-      </section>
-
-      {/* HOW IT WORKS */}
-      <section id="how-it-works" style={{ display: "grid", gap: 18 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 700 }}>How CarVerity works</h2>
-
-        <div
-          style={{
-            display: "grid",
-            gap: 16,
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-          }}
-        >
-          <Card
-            title="1. Choose your scan type"
-            body="Start online from a listing link, or switch to in-person mode when you’re physically with the car."
-          />
-
-          <Card
-            title="2. Answer guided questions"
-            body="We ask focused questions to reveal condition clues, usage patterns and potential risks."
-          />
-
-          <Card
-            title="3. Get clearer buying confidence"
-            body="Your scan highlights insights and red flags to help you decide whether the car is worth pursuing."
-          />
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-        <button
-          onClick={() => navigate("/start-scan")}
-          style={{
-            padding: "16px 24px",
-            borderRadius: 14,
-            background: "#7aa2ff",
-            color: "#0b1020",
-            border: "none",
-            fontWeight: 800,
-            fontSize: 16,
-          }}
-        >
-          Start a scan now
-        </button>
-
-        <p style={{ color: "#9aa3c7", fontSize: 14 }}>
-          No account required. Quick, simple and privacy-friendly.
-        </p>
-      </section>
-
-      {/* FOOTER */}
-      <footer
-        style={{
-          marginTop: 40,
-          paddingTop: 24,
-          borderTop: "1px solid rgba(255,255,255,0.1)",
-          color: "#9aa3c7",
-          fontSize: 14,
-        }}
-      >
-        © {new Date().getFullYear()} CarVerity — All rights reserved.
-      </footer>
-    </div>
-  );
-}
-
-function Card({ title, body }: { title: string; body: string }) {
-  return (
-    <div
-      style={{
-        padding: 18,
-        borderRadius: 14,
-        background: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(255,255,255,0.1)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-      }}
-    >
-      <strong style={{ fontWeight: 700 }}>{title}</strong>
-      <p style={{ color: "#cbd5f5" }}>{body}</p>
-    </div>
-  );
-}
-
-function ModeCard({
-  title,
-  description,
-  action,
-  onClick,
-}: {
-  title: string;
-  description: string;
-  action: string;
-  onClick: () => void;
-}) {
-  return (
-    <div
-      style={{
-        padding: 20,
-        borderRadius: 14,
-        background: "rgba(255,255,255,0.06)",
-        border: "1px solid rgba(255,255,255,0.15)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-      }}
-    >
-      <strong style={{ fontSize: 18 }}>{title}</strong>
-      <p style={{ color: "#cbd5f5" }}>{description}</p>
-
-      <button
-        onClick={onClick}
-        style={{
-          marginTop: 6,
-          padding: "12px 18px",
-          borderRadius: 12,
-          background: "#7aa2ff",
-          color: "#0b1020",
-          border: "none",
-          fontWeight: 700,
-        }}
-      >
-        {action}
-      </button>
+      </div>
     </div>
   );
 }
