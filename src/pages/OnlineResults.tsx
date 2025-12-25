@@ -18,7 +18,16 @@ export default function OnlineResults() {
 
   useEffect(() => {
     const stored = loadOnlineResults();
-    setResult(stored ?? null);
+
+    // ▸ Guard against malformed / old data
+    if (
+      stored &&
+      Array.isArray(stored.sections)
+    ) {
+      setResult(stored);
+    } else {
+      setResult(null);
+    }
   }, []);
 
   if (!result) {
