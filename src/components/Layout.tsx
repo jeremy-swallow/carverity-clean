@@ -1,78 +1,45 @@
-import { Outlet, Link } from "react-router-dom";
-
-const HEADER_HEIGHT = 64;
+import { Link, Outlet } from "react-router-dom";
 
 export default function Layout() {
   return (
-    <>
-      {/* Header */}
-      <header
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: HEADER_HEIGHT,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 20px",
-          background: "rgba(6, 10, 30, 0.85)",
-          backdropFilter: "blur(10px)",
-          zIndex: 1000,
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
-        }}
-      >
-        <Link
-          to="/"
-          style={{
-            fontWeight: 700,
-            fontSize: 18,
-            color: "white",
-            textDecoration: "none",
-          }}
-        >
-          CarVerity
-        </Link>
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      {/* HEADER */}
+      <header className="border-b bg-card">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
 
-        <nav
-          style={{
-            display: "flex",
-            gap: 18,
-            fontSize: 14,
-          }}
-        >
-          <Link
-            to="/start-scan"
-            style={{
-              color: "#cbd5f5",
-              textDecoration: "none",
-            }}
-          >
-            Start scan
+          <Link to="/" className="flex items-center gap-3">
+            <img
+              src="/logo.png"
+              alt="CarVerity logo"
+              className="h-10 w-auto rounded-md shadow-sm"
+            />
+            <span className="text-xl font-semibold tracking-tight">
+              CarVerity
+            </span>
           </Link>
 
-          <Link
-            to="/my-scans"
-            style={{
-              color: "#cbd5f5",
-              textDecoration: "none",
-            }}
-          >
-            My scans
-          </Link>
-        </nav>
+          <nav className="flex items-center gap-6">
+            <Link
+              to="/start-scan"
+              className="text-sm font-medium hover:underline"
+            >
+              Start scan
+            </Link>
+            <Link
+              to="/my-scans"
+              className="text-sm font-medium hover:underline"
+            >
+              My scans
+            </Link>
+          </nav>
+
+        </div>
       </header>
 
-      {/* Page content */}
-      <main
-        style={{
-          paddingTop: HEADER_HEIGHT,
-          minHeight: "100vh",
-        }}
-      >
+      {/* MAIN APP CONTENT */}
+      <main className="flex-1">
         <Outlet />
       </main>
-    </>
+    </div>
   );
 }
