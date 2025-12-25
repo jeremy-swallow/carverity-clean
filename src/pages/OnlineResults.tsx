@@ -1,81 +1,109 @@
-interface ResultItem {
-  title: string;
-  description: string;
-  action?: string;
-  confidence?: string;
-}
+// src/pages/OnlineResults.tsx
+
+import { useEffect, useState } from "react";
+import { loadOnlineResults } from "../utils/onlineResults";
+import type { StoredResult } from "../utils/onlineResults";
+import { Link } from "react-router-dom";
 
 export default function OnlineResults() {
-  const results: ResultItem[] = [
-    {
-      title: "Price alignment",
-      description:
-        "This vehicle is priced slightly above similar listings in the same market segment.",
-      action:
-        "Consider negotiating the price or requesting a service history report.",
-      confidence: "82%"
-    },
-    {
-      title: "Ownership signals",
-      description:
-        "Listing and VIN pattern indicate the vehicle has likely had a single private owner.",
-      confidence: "91%"
-    },
-    {
-      title: "Listing consistency",
-      description:
-        "No major wording or detail discrepancies detected in the advertisement.",
-      confidence: "88%"
-    }
-  ];
+  const [results, setResults] = useState<StoredResult[] | null>(null);
+
+  useEffect(() => {
+    const stored = loadOnlineResults();
+    setResults(stored.length > 0 ? stored : null);
+  }, []);
+
+  if (!results) {
+    return (
+      <div
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          padding: "clamp(24px, 6vw, 64px)",
+          textAlign: "center",
+        }}
+      >
+        <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>
+          No results yet
+        </h1>
+        <p style={{ color: "#9aa3c7", fontSize: 15, marginBottom: 24 }}>
+          Run an online scan first and your results will appear here.
+        </p>
+
+        <Link
+          to="/online-start"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "12px 20px",
+            borderRadius: 999,
+            background: "#7aa2ff",
+            color: "#050816",
+            fontWeight: 600,
+            textDecoration: "none",
+          }}
+        >
+          Start a new online scan
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div
       style={{
-        maxWidth: 760,
+        maxWidth: 720,
         margin: "0 auto",
         padding: "clamp(24px, 6vw, 64px)",
         display: "flex",
         flexDirection: "column",
-        gap: 24
+        gap: 24,
       }}
     >
       <div>
         <span
           style={{
             fontSize: 13,
-            textTransform: "uppercase",
             letterSpacing: 0.8,
-            color: "#9aa3c7"
+            textTransform: "uppercase",
+            color: "#9aa3c7",
           }}
         >
           Online scan · Results
         </span>
-
-        <h1 style={{ fontSize: 24, fontWeight: 800, marginTop: 6 }}>
-          Your preliminary analysis
+        <h1 style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>
+          How this listing looks on paper
         </h1>
-
-        <p style={{ color: "#cbd5f5", fontSize: 15 }}>
-          These insights are based on the information provided so far. They help
-          you decide whether this vehicle is worth continuing to inspect.
+        <p style={{ color: "#cbd5f5", fontSize: 15, marginTop: 8 }}>
+          These are early signals based on the details you’ve provided. Use them
+          as a guide only — always confirm with an in-person inspection and
+          independent mechanic.
         </p>
       </div>
 
-      <div style={{ display: "grid", gap: 16 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {results.map((item, index) => (
           <div
             key={index}
             style={{
+              borderRadius: 16,
               padding: 16,
-              borderRadius: 14,
-              background: "rgba(7,10,25,0.9)",
-              border: "1px solid rgba(255,255,255,0.12)"
+              background:
+                "linear-gradient(135deg, rgba(148,163,255,0.08), rgba(15,23,42,0.9))",
+              border: "1px solid rgba(148,163,255,0.25)",
             }}
           >
-            <h2 style={{ fontSize: 18, marginBottom: 6 }}>{item.title}</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 700 }}>{item.title}</h2>
 
-            <p style={{ color: "#e5ebff", opacity: 0.9 }}>
+            <p
+              style={{
+                color: "#e5ebff",
+                fontSize: 15,
+                marginTop: 6,
+                lineHeight: 1.5,
+              }}
+            >
               {item.description}
             </p>
 
@@ -83,46 +111,51 @@ export default function OnlineResults() {
               <p
                 style={{
                   marginTop: 8,
-                  fontSize: 13,
-                  color: "#9aa3c7"
+                  fontSize: 14,
+                  color: "#fbbf24",
+                  fontWeight: 500,
                 }}
               >
-                <strong>Suggested action: </strong>
-                {item.action}
+                Next step: {item.action}
               </p>
             )}
 
             {item.confidence && (
               <p
                 style={{
-                  marginTop: 10,
-                  fontSize: 12,
-                  color: "#9aa3c7"
+                  marginTop: 4,
+                  fontSize: 13,
+                  color: "#9aa3c7",
                 }}
               >
-                Confidence score: {item.confidence}
+                Confidence: {item.confidence}
               </p>
             )}
           </div>
         ))}
       </div>
 
-      <div style={{ marginTop: 20 }}>
-        <button
-          onClick={() => (window.location.href = "/online/next-actions")}
+      <div
+        style={{
+          marginTop: 16,
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 12,
+        }}
+      >
+        <Link
+          to="/scan/online/next-actions"
           style={{
-            padding: "14px 22px",
-            borderRadius: 12,
-            fontSize: 16,
-            fontWeight: 600,
+            padding: "10px 18px",
+            borderRadius: 999,
             background: "#7aa2ff",
-            color: "#0b1020",
-            border: "none",
-            cursor: "pointer"
+            color: "#050816",
+            fontWeight: 600,
+            textDecoration: "none",
           }}
         >
           Continue to next actions
-        </button>
+        </Link>
       </div>
     </div>
   );
