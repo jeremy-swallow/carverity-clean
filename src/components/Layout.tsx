@@ -11,7 +11,12 @@ export default function Layout() {
             <img
               src="/logo.png"
               alt="CarVerity logo"
-              className="h-10 w-10 object-contain rounded-md shadow-sm"
+              style={{
+                height: "44px",
+                width: "auto",
+                objectFit: "contain",
+                borderRadius: "8px",
+              }}
             />
             <span className="text-xl font-semibold tracking-tight">
               CarVerity
