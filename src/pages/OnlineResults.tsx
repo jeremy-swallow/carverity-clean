@@ -19,7 +19,6 @@ export default function OnlineResults() {
   useEffect(() => {
     const stored = loadOnlineResults();
 
-    // 🛡️ Guard against old / invalid data
     if (stored && Array.isArray(stored.sections)) {
       setResult(stored);
     } else {
@@ -45,7 +44,7 @@ export default function OnlineResults() {
     );
   }
 
-  const sections = result.sections ?? []; // 🛡️ final safety fallback
+  const sections = result.sections ?? [];
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
@@ -60,10 +59,12 @@ export default function OnlineResults() {
         {sections.map((s, i) => (
           <div
             key={i}
-            className="rounded-xl border bg-card px-4 py-4 shadow-sm"
+            className="rounded-xl border bg-card px-5 py-4 shadow-sm"
           >
-            <h2 className="font-semibold text-lg mb-2">{s.title}</h2>
-            <p className="text-sm text-muted-foreground">{s.content}</p>
+            <h2 className="font-semibold text-lg mb-1">{s.title}</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {s.content}
+            </p>
           </div>
         ))}
       </div>
@@ -76,7 +77,10 @@ export default function OnlineResults() {
           View next actions
         </Link>
 
-        <Link to="/my-scans" className="px-4 py-2 rounded-md border">
+        <Link
+          to="/my-scans"
+          className="px-4 py-2 rounded-md border bg-background"
+        >
           Back to My Scans
         </Link>
       </div>
