@@ -2,12 +2,6 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
 
-/**
- * Temporary local AI engine (mock)
- * In a later milestone we will replace this with a
- * real OpenAI or server-side call — this keeps the
- * structure identical so no UI rewrite is needed.
- */
 function generateMockAnalysis(listingUrl: string) {
   return {
     riskRating: "Low",
@@ -19,28 +13,21 @@ function generateMockAnalysis(listingUrl: string) {
     sections: {
       pricing: [
         "No unrealistic discount claims detected.",
-        "No anchor-pricing or urgency-based pricing wording.",
-        "Price tone appears neutral and descriptive.",
+        "No urgency-based pricing language.",
+        "Price tone appears neutral.",
       ],
       language: [
-        "No avoidance language such as “ran well last time”.",
-        "No repair-avoidance or condition masking patterns detected.",
-        "No strong emotional lead-in phrases.",
+        "No avoidance language detected.",
+        "No repair-avoidance patterns found.",
       ],
       sellerTrust: [
-        "Description structure suggests a private sale.",
-        "No marketplace reposting pattern detected.",
-        "Contact language appears consistent.",
+        "Description suggests a private seller.",
+        "Contact tone appears consistent.",
       ],
-      missingInfo: [
-        "Odometer details not explicitly stated in text.",
-        "Service history not confirmed.",
-        "Ownership history not stated.",
-      ],
+      missingInfo: ["Service history not stated"],
       recommendations: [
-        "Request service records before inspection.",
-        "Confirm roadworthy or inspection status.",
-        "Proceed to in-person inspection checklist.",
+        "Request service records",
+        "Confirm roadworthy or inspection status",
       ],
     },
     source: listingUrl,
@@ -52,20 +39,38 @@ export default function OnlineResults() {
   const listingUrl = progress?.listingUrl ?? "(missing link)";
 
   const [report, setReport] = useState<any>(progress?.analysis ?? null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">(
+    report ? "ready" : "loading"
+  );
 
-  // Generate analysis on first load if none exists
   useEffect(() => {
-    if (!report && listingUrl) {
-      const generated = generateMockAnalysis(listingUrl);
+    if (report || !listingUrl) return;
 
-      // Persist into progress so results survive refresh
-      saveProgress({
-        ...progress,
-        analysis: generated,
-      });
+    async function runAnalysis() {
+      try {
+        const res = await fetch("/api/analyze-listing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listingUrl }),
+        });
 
-      setReport(generated);
+        if (!res.ok) throw new Error("API failed");
+
+        const aiReport = await res.json();
+
+        saveProgress({ ...progress, analysis: aiReport });
+        setReport(aiReport);
+        setStatus("ready");
+      } catch {
+        // fallback to mock so UX never breaks
+        const fallback = generateMockAnalysis(listingUrl);
+        saveProgress({ ...progress, analysis: fallback });
+        setReport(fallback);
+        setStatus("error");
+      }
     }
+
+    runAnalysis();
   }, [report, listingUrl, progress]);
 
   function finishScan() {
@@ -74,17 +79,10 @@ export default function OnlineResults() {
 
   if (!report) {
     return (
-      <div
-        style={{
-          maxWidth: 720,
-          margin: "0 auto",
-          padding: "clamp(24px, 6vw, 64px)",
-        }}
-      >
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: 40 }}>
         <h1>Generating report…</h1>
         <p style={{ color: "#9aa7d9" }}>
-          Analysing listing text, pricing tone, seller patterns, and risk-related
-          wording…
+          Analysing listing details and building structured insights…
         </p>
       </div>
     );
@@ -101,7 +99,6 @@ export default function OnlineResults() {
         gap: 28,
       }}
     >
-      {/* ===== SUMMARY PANEL ===== */}
       <section
         style={{
           padding: 20,
@@ -121,7 +118,6 @@ export default function OnlineResults() {
           {report.source}
         </div>
 
-        {/* Risk rating */}
         <div
           style={{
             padding: 14,
@@ -133,62 +129,22 @@ export default function OnlineResults() {
           }}
         >
           <strong>Overall risk rating:</strong> {report.riskRating}
+          {status === "error" && " (AI offline — mock result)"}
         </div>
 
-        {/* Key insights */}
-        <div
-          style={{
-            padding: 14,
-            borderRadius: 12,
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            fontSize: 14,
-            color: "#cbd5f5",
-          }}
-        >
-          <strong>Key insights</strong>
-          <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-            {report.keyInsights.map((i: string, idx: number) => (
-              <li key={idx}>{i}</li>
-            ))}
-          </ul>
-        </div>
+        <ReportCard title="Key insights" items={report.keyInsights} />
       </section>
 
-      {/* ===== SECTION CARDS ===== */}
-      <ReportCard
-        title="Pricing & value signals"
-        items={report.sections.pricing}
-      />
-      <ReportCard
-        title="Listing language risk signals"
-        items={report.sections.language}
-      />
-      <ReportCard
-        title="Seller trust indicators"
-        items={report.sections.sellerTrust}
-      />
-      <ReportCard
-        title="Missing / unknown information"
-        items={report.sections.missingInfo}
-      />
-      <ReportCard
-        title="Recommended next steps"
-        items={report.sections.recommendations}
-      />
+      <ReportCard title="Pricing & value signals" items={report.sections.pricing} />
+      <ReportCard title="Listing language risk signals" items={report.sections.language} />
+      <ReportCard title="Seller trust indicators" items={report.sections.sellerTrust} />
+      <ReportCard title="Missing / unknown information" items={report.sections.missingInfo} />
+      <ReportCard title="Recommended next steps" items={report.sections.recommendations} />
 
       <Link
         to="/start-scan"
         onClick={finishScan}
-        style={{
-          fontSize: 14,
-          color: "#9aa7d9",
-          textDecoration: "none",
-          marginTop: 6,
-        }}
+        style={{ fontSize: 14, color: "#9aa7d9", marginTop: 6 }}
       >
         ← Back to start
       </Link>
@@ -196,7 +152,6 @@ export default function OnlineResults() {
   );
 }
 
-/* ========= Reusable report section ========= */
 function ReportCard(props: { title: string; items: string[] }) {
   return (
     <div
