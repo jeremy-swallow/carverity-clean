@@ -1,10 +1,29 @@
-import { Link } from "react-router-dom";
-import { loadProgress } from "../utils/scanProgress";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 export default function OnlineDetails() {
+  const navigate = useNavigate();
   const progress = loadProgress();
 
-  const listingUrl = progress?.listingUrl ?? "(no link saved)";
+  const listingUrl = progress?.listingUrl ?? "(missing link)";
+
+  // Automatically continue to analyzing step
+  useEffect(() => {
+    // Update progress and advance step
+    saveProgress({
+      ...progress,
+      type: "online",
+      step: "/online-analyzing",
+      listingUrl,
+    });
+
+    const timer = setTimeout(() => {
+      navigate("/online-analyzing");
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [navigate, listingUrl, progress]);
 
   return (
     <div
@@ -17,10 +36,10 @@ export default function OnlineDetails() {
         gap: 24,
       }}
     >
-      <h1 style={{ margin: 0 }}>Listing saved — next step coming soon</h1>
+      <h1 style={{ margin: 0 }}>Listing saved — preparing analysis…</h1>
 
       <p style={{ color: "#cbd5f5" }}>
-        This screen confirms the listing URL was stored correctly.
+        We’ve saved your listing and are getting ready to analyze it.
       </p>
 
       <div
@@ -33,21 +52,14 @@ export default function OnlineDetails() {
           color: "#9aa7d9",
         }}
       >
-        <strong>Saved listing:</strong>
+        <strong>Listing URL:</strong>
         <br />
         {listingUrl}
       </div>
 
-      <Link
-        to="/start-scan"
-        style={{
-          fontSize: 14,
-          color: "#9aa7d9",
-          textDecoration: "none",
-        }}
-      >
-        ← Back to start
-      </Link>
+      <div style={{ fontSize: 13, color: "#9aa7d9" }}>
+        You’ll be moved to the next step automatically…
+      </div>
     </div>
   );
 }
