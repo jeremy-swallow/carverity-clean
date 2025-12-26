@@ -27,7 +27,9 @@ export default function StartScan() {
     }
 
     clearProgress();
-    navigate("/scan/online");
+
+    // 👇 Begin real scan flow
+    navigate("/online-start");
   }
 
   return (
