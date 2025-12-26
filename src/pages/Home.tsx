@@ -6,6 +6,14 @@ export default function Home() {
     <div className="min-h-[calc(100vh-64px)]">
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-10 md:py-12">
 
+        {/* INTRO TAGLINE ROW */}
+        <div className="mb-6 sm:mb-8 flex items-center gap-2">
+          <span className="px-2.5 py-1 rounded-md text-xs font-medium
+                           bg-teal-300/10 text-teal-200/90 border border-teal-300/20">
+            Built to help buyers make smarter car decisions
+          </span>
+        </div>
+
         {/* HERO */}
         <header className="mb-10 sm:mb-12 md:mb-14">
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2 sm:mb-3">
@@ -40,14 +48,10 @@ export default function Home() {
                        hover:bg-card focus-visible:outline-none
                        active:scale-[0.99]"
           >
-            {/* accent glow ring */}
             <div className="pointer-events-none absolute inset-0 rounded-xl
-                            opacity-0 group-hover:opacity-80
-                            transition
-                            ring-0 group-hover:ring-1
-                            ring-teal-300/30" />
+                            opacity-0 group-hover:opacity-80 transition
+                            ring-0 group-hover:ring-1 ring-teal-300/30" />
 
-            {/* soft sheen */}
             <div className="pointer-events-none absolute inset-0 opacity-60
                             bg-[radial-gradient(120%_80%_at_0%_-10%,rgba(90,220,255,.12),transparent)]
                             group-hover:opacity-90 transition" />
@@ -82,14 +86,10 @@ export default function Home() {
                        hover:bg-card focus-visible:outline-none
                        active:scale-[0.99]"
           >
-            {/* accent glow ring */}
             <div className="pointer-events-none absolute inset-0 rounded-xl
-                            opacity-0 group-hover:opacity-80
-                            transition
-                            ring-0 group-hover:ring-1
-                            ring-sky-300/30" />
+                            opacity-0 group-hover:opacity-80 transition
+                            ring-0 group-hover:ring-1 ring-sky-300/30" />
 
-            {/* sheen */}
             <div className="pointer-events-none absolute inset-0 opacity-60
                             bg-[radial-gradient(120%_80%_at_100%_-10%,rgba(120,255,200,.12),transparent)]
                             group-hover:opacity-90 transition" />
