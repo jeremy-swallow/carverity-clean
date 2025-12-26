@@ -1,52 +1,30 @@
-export type ScanType = "online" | "in-person";
+/* =========================================================
+   Scan Progress — Local-only persistence (v1)
+   ========================================================= */
 
+const STORAGE_KEY = "carverity_scan_progress";
+
+/**
+ * Type describing in-progress scan state.
+ * Optional fields allow different scan types to store
+ * only what they need without breaking older data.
+ */
 export type ScanProgress = {
-  type: ScanType;
-  step: string;       // route path like "/scan/online/kilometres"
-  startedAt: string;  // ISO string
-  updatedAt: string;  // ISO string
+  type: "online" | "in-person";
+  step: string;
+
+  // Optional — used for online listing scans
+  listingUrl?: string;
 };
 
-const STORAGE_KEY = "carverity_scan_progress_v1";
-
-/**
- * Save scan progress (single active scan).
- */
-export function saveProgress(input: Omit<ScanProgress, "updatedAt">) {
-  const progress: ScanProgress = {
-    ...input,
-    updatedAt: new Date().toISOString(),
-  };
-
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-  } catch {
-    // ignore storage failures (private mode, quota, etc.)
-  }
-}
-
-/**
- * Load scan progress (returns null if missing/corrupt).
- */
+/** Load current progress (or null) */
 export function loadProgress(): ScanProgress | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
 
-    const parsed = JSON.parse(raw) as Partial<ScanProgress>;
-
-    if (
-      !parsed ||
-      (parsed.type !== "online" && parsed.type !== "in-person") ||
-      typeof parsed.step !== "string" ||
-      typeof parsed.startedAt !== "string" ||
-      typeof parsed.updatedAt !== "string"
-    ) {
-      return null;
-    }
-
-    // Basic route safety: must be an app path
-    if (!parsed.step.startsWith("/")) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
 
     return parsed as ScanProgress;
   } catch {
@@ -54,13 +32,12 @@ export function loadProgress(): ScanProgress | null {
   }
 }
 
-/**
- * Clear scan progress.
- */
+/** Save progress (upgrade-safe) */
+export function saveProgress(progress: ScanProgress) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+}
+
+/** Clear progress when user finishes or starts fresh */
 export function clearProgress() {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // ignore
-  }
+  localStorage.removeItem(STORAGE_KEY);
 }
