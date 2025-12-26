@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 
 import Layout from "./components/Layout";
 
@@ -14,37 +14,33 @@ import Account from "./pages/Account";
 
 import Landing from "./pages/Landing";
 
-
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <Routes>
 
-        {/* Main app routes */}
-        <Route element={<Layout />}>
+      {/* Main app layout */}
+      <Route element={<Layout />}>
 
-          {/* Dashboard homepage */}
-          <Route path="/" element={<Home />} />
+        <Route path="/" element={<Home />} />
 
-          <Route path="/start-scan" element={<StartScan />} />
-          <Route path="/online-start" element={<OnlineStart />} />
-          <Route path="/inperson-start" element={<InPersonStart />} />
+        <Route path="/start-scan" element={<StartScan />} />
+        <Route path="/online-start" element={<OnlineStart />} />
+        <Route path="/inperson-start" element={<InPersonStart />} />
 
-          <Route path="/my-scans" element={<MyScans />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/faq" element={<FAQ />} />
-          <Route path="/credits-history" element={<CreditsHistory />} />
-          <Route path="/account" element={<Account />} />
+        <Route path="/my-scans" element={<MyScans />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/faq" element={<FAQ />} />
+        <Route path="/credits-history" element={<CreditsHistory />} />
+        <Route path="/account" element={<Account />} />
 
-        </Route>
+      </Route>
 
-        {/* Optional marketing page */}
-        <Route path="/landing" element={<Landing />} />
+      {/* Marketing page */}
+      <Route path="/landing" element={<Landing />} />
 
-        {/* Fallback */}
-        <Route path="*" element={<Home />} />
+      {/* Fallback */}
+      <Route path="*" element={<Home />} />
 
-      </Routes>
-    </BrowserRouter>
+    </Routes>
   );
 }
