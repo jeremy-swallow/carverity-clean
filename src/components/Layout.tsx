@@ -1,10 +1,31 @@
 import { Outlet, NavLink } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 export default function Layout() {
+  const [credits, setCredits] = useState<number>(0);
+
+  // Load credits from storage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("carverity_scan_credits");
+      if (stored) setCredits(parseInt(stored, 10));
+    } catch {
+      setCredits(0);
+    }
+
+    // Listen for credit changes across app
+    const handler = (e: StorageEvent) => {
+      if (e.key === "carverity_scan_credits" && e.newValue) {
+        setCredits(parseInt(e.newValue, 10));
+      }
+    };
+
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
+
   return (
     <div className="bg-slate-950 text-white min-h-screen flex flex-col">
-
-      {/* HEADER */}
       <header className="fixed top-0 left-0 w-full z-40">
         <div className="bg-slate-900/80 backdrop-blur border-b border-white/10">
           <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -14,34 +35,24 @@ export default function Layout() {
               CarVerity
             </NavLink>
 
-            {/* NAV LINKS */}
+            {/* NAV */}
             <nav className="flex items-center gap-5 text-sm">
-              <NavLink to="/start-scan" className="hover:text-indigo-300 transition">
-                Start scan
-              </NavLink>
-              <NavLink to="/my-scans" className="hover:text-indigo-300 transition">
-                My scans
-              </NavLink>
-              <NavLink to="/pricing" className="hover:text-indigo-300 transition">
-                Pricing
-              </NavLink>
-              <NavLink to="/faq" className="hover:text-indigo-300 transition">
-                FAQ
-              </NavLink>
-              <NavLink to="/credits-history" className="hover:text-indigo-300 transition">
-                Credits history
-              </NavLink>
+              <NavLink to="/start-scan">Start scan</NavLink>
+              <NavLink to="/my-scans">My scans</NavLink>
+              <NavLink to="/pricing">Pricing</NavLink>
+              <NavLink to="/faq">FAQ</NavLink>
+              <NavLink to="/credits-history">Credits history</NavLink>
             </nav>
 
             {/* ACTIONS */}
             <div className="flex items-center gap-3">
 
-              {/* Credits pill */}
+              {/* REAL CREDIT BALANCE */}
               <span className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs">
-                Scan credits: 3
+                Scan credits: {credits}
               </span>
 
-              {/* Buy credits */}
+              {/* BUY MORE */}
               <NavLink
                 to="/pricing"
                 className="px-3 py-1 rounded-full bg-indigo-900/40 border border-indigo-500/40 text-indigo-300 text-xs hover:bg-indigo-800/40"
@@ -55,7 +66,7 @@ export default function Layout() {
                 🔔
               </button>
 
-              {/* Profile badge */}
+              {/* Profile */}
               <div className="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-xs font-semibold">
                 JS
               </div>
@@ -64,10 +75,7 @@ export default function Layout() {
         </div>
       </header>
 
-      {/* Space for fixed header */}
       <div className="h-14" />
-
-      {/* MAIN CONTENT */}
       <main className="flex-1">
         <Outlet />
       </main>
