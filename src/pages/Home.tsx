@@ -8,7 +8,7 @@ export default function Home() {
 
         {/* PAGE ENTRY CONTAINER */}
         <div className="opacity-0 translate-y-2 animate-[fadeUp_0.45s_ease-out_forwards]">
-          
+
           {/* INTRO TAGLINE ROW */}
           <div className="mb-4 sm:mb-5 flex items-center gap-2">
             <span className="px-2.5 py-1 rounded-md text-xs font-medium
@@ -69,13 +69,13 @@ export default function Home() {
               <div className="pointer-events-none absolute inset-0 opacity-70
                               bg-[radial-gradient(120%_80%_at_0%_-10%,rgba(90,220,255,.14),transparent)]
                               group-hover:opacity-100 transition" />
+
               <div className="pointer-events-none absolute inset-0 rounded-xl
                               border border-white/10" />
 
               <div className="relative flex items-center gap-3 sm:gap-4">
-                <Search
-                  className="transition opacity-90 group-hover:opacity-100
-                             text-teal-200 group-hover:text-teal-100" />
+                <Search className="transition opacity-90 group-hover:opacity-100
+                                   text-teal-200 group-hover:text-teal-100" />
                 <div>
                   <h2 className="font-semibold text-base sm:text-lg mb-0.5 sm:mb-1">
                     Online Listing Scan
@@ -112,13 +112,13 @@ export default function Home() {
               <div className="pointer-events-none absolute inset-0 opacity-70
                               bg-[radial-gradient(120%_80%_at_100%_-10%,rgba(120,255,200,.14),transparent)]
                               group-hover:opacity-100 transition" />
+
               <div className="pointer-events-none absolute inset-0 rounded-xl
                               border border-white/10" />
 
               <div className="relative flex items-center gap-3 sm:gap-4">
-                <ClipboardList
-                  className="transition opacity-90 group-hover:opacity-100
-                             text-sky-200 group-hover:text-sky-100" />
+                <ClipboardList className="transition opacity-90 group-hover:opacity-100
+                                         text-sky-200 group-hover:text-sky-100" />
                 <div>
                   <h2 className="font-semibold text-base sm:text-lg mb-0.5 sm:mb-1">
                     In-Person Inspection
@@ -130,12 +130,21 @@ export default function Home() {
                 </div>
               </div>
 
-              <ShieldCheck
-                className="relative transition group-hover:scale-105
-                           text-sky-200 group-hover:text-sky-100" />
+              <ShieldCheck className="relative transition group-hover:scale-105
+                                     text-sky-200 group-hover:text-sky-100" />
             </Link>
 
           </div>
+
+          {/* ROADMAP HINT ROW */}
+          <div className="mt-8 sm:mt-10 p-3 sm:p-4 rounded-lg border border-white/10 bg-card/50">
+            <p className="text-xs sm:text-sm text-muted-foreground/85 leading-relaxed">
+              Coming soon: saved vehicle profiles, shareable reports, export
+              options, and deeper listing intelligence. Your feedback helps
+              shape what we build next.
+            </p>
+          </div>
+
         </div>
       </div>
     </div>
