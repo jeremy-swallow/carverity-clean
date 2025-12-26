@@ -1,12 +1,93 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { loadProgress, clearProgress } from "../utils/scanProgress";
+import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
+
+/**
+ * Temporary local AI engine (mock)
+ * In a later milestone we will replace this with a
+ * real OpenAI or server-side call — this keeps the
+ * structure identical so no UI rewrite is needed.
+ */
+function generateMockAnalysis(listingUrl: string) {
+  return {
+    riskRating: "Low",
+    keyInsights: [
+      "No immediate wording-based risk indicators detected.",
+      "Seller tone appears factual rather than emotional or urgent.",
+      "No contradictory condition statements found in listing text.",
+    ],
+    sections: {
+      pricing: [
+        "No unrealistic discount claims detected.",
+        "No anchor-pricing or urgency-based pricing wording.",
+        "Price tone appears neutral and descriptive.",
+      ],
+      language: [
+        "No avoidance language such as “ran well last time”.",
+        "No repair-avoidance or condition masking patterns detected.",
+        "No strong emotional lead-in phrases.",
+      ],
+      sellerTrust: [
+        "Description structure suggests a private sale.",
+        "No marketplace reposting pattern detected.",
+        "Contact language appears consistent.",
+      ],
+      missingInfo: [
+        "Odometer details not explicitly stated in text.",
+        "Service history not confirmed.",
+        "Ownership history not stated.",
+      ],
+      recommendations: [
+        "Request service records before inspection.",
+        "Confirm roadworthy or inspection status.",
+        "Proceed to in-person inspection checklist.",
+      ],
+    },
+    source: listingUrl,
+  };
+}
 
 export default function OnlineResults() {
   const progress = loadProgress();
   const listingUrl = progress?.listingUrl ?? "(missing link)";
 
+  const [report, setReport] = useState<any>(progress?.analysis ?? null);
+
+  // Generate analysis on first load if none exists
+  useEffect(() => {
+    if (!report && listingUrl) {
+      const generated = generateMockAnalysis(listingUrl);
+
+      // Persist into progress so results survive refresh
+      saveProgress({
+        ...progress,
+        analysis: generated,
+      });
+
+      setReport(generated);
+    }
+  }, [report, listingUrl, progress]);
+
   function finishScan() {
     clearProgress();
+  }
+
+  if (!report) {
+    return (
+      <div
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          padding: "clamp(24px, 6vw, 64px)",
+        }}
+      >
+        <h1>Generating report…</h1>
+        <p style={{ color: "#9aa7d9" }}>
+          Analysing listing text, pricing tone, seller patterns, and risk-related
+          wording…
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -20,7 +101,7 @@ export default function OnlineResults() {
         gap: 28,
       }}
     >
-      {/* ===== TOP SUMMARY PANEL ===== */}
+      {/* ===== SUMMARY PANEL ===== */}
       <section
         style={{
           padding: 20,
@@ -32,15 +113,15 @@ export default function OnlineResults() {
           gap: 14,
         }}
       >
-        <h1 style={{ margin: 0 }}>Scan results — online listing review</h1>
+        <h1 style={{ margin: 0 }}>Scan results — AI analysis</h1>
 
         <div style={{ color: "#9aa7d9", fontSize: 14 }}>
-          Listing analyzed:
+          Listing analysed:
           <br />
-          {listingUrl}
+          {report.source}
         </div>
 
-        {/* RISK STATUS */}
+        {/* Risk rating */}
         <div
           style={{
             padding: 14,
@@ -51,10 +132,10 @@ export default function OnlineResults() {
             fontSize: 14,
           }}
         >
-          <strong>Overall risk rating:</strong> Low (placeholder)
+          <strong>Overall risk rating:</strong> {report.riskRating}
         </div>
 
-        {/* KEY INSIGHTS */}
+        {/* Key insights */}
         <div
           style={{
             padding: 14,
@@ -68,75 +149,37 @@ export default function OnlineResults() {
             color: "#cbd5f5",
           }}
         >
-          <strong>Key insights (placeholder):</strong>
+          <strong>Key insights</strong>
           <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-            <li>No major red-flag wording detected.</li>
-            <li>Price tone appears neutral and factual.</li>
-            <li>Seller description suggests private sale.</li>
+            {report.keyInsights.map((i: string, idx: number) => (
+              <li key={idx}>{i}</li>
+            ))}
           </ul>
         </div>
       </section>
 
       {/* ===== SECTION CARDS ===== */}
-      <section
-        style={{
-          display: "grid",
-          gap: 18,
-          gridTemplateColumns: "1fr",
-        }}
-      >
-        {/* Pricing Signals */}
-        <ReportCard
-          title="Pricing & value signals"
-          items={[
-            "No aggressive urgency language detected",
-            "No unrealistic discount claims",
-            "No contradictory pricing statements",
-          ]}
-        />
+      <ReportCard
+        title="Pricing & value signals"
+        items={report.sections.pricing}
+      />
+      <ReportCard
+        title="Listing language risk signals"
+        items={report.sections.language}
+      />
+      <ReportCard
+        title="Seller trust indicators"
+        items={report.sections.sellerTrust}
+      />
+      <ReportCard
+        title="Missing / unknown information"
+        items={report.sections.missingInfo}
+      />
+      <ReportCard
+        title="Recommended next steps"
+        items={report.sections.recommendations}
+      />
 
-        {/* Listing Language Risk */}
-        <ReportCard
-          title="Listing language flags"
-          items={[
-            "Tone appears factual rather than sales-heavy",
-            "No avoidance wording like “ran well last time”",
-            "No negative repair-avoidance statements detected",
-          ]}
-        />
-
-        {/* Seller Trust Indicators */}
-        <ReportCard
-          title="Seller trust indicators"
-          items={[
-            "Description structure suggests private sale",
-            "No multiple-vehicle dealer pattern detected",
-            "Contact wording appears consistent",
-          ]}
-        />
-
-        {/* Missing Information */}
-        <ReportCard
-          title="Missing / unknown information"
-          items={[
-            "No odometer details in listing text",
-            "Service history not confirmed",
-            "Ownership history not stated",
-          ]}
-        />
-
-        {/* Next Steps */}
-        <ReportCard
-          title="Recommended next steps"
-          items={[
-            "Request service records before inspection",
-            "Confirm roadworthy or inspection history",
-            "Proceed to in-person checklist for validation",
-          ]}
-        />
-      </section>
-
-      {/* FOOTER ACTION */}
       <Link
         to="/start-scan"
         onClick={finishScan}
@@ -144,7 +187,7 @@ export default function OnlineResults() {
           fontSize: 14,
           color: "#9aa7d9",
           textDecoration: "none",
-          marginTop: 8,
+          marginTop: 6,
         }}
       >
         ← Back to start
@@ -153,9 +196,7 @@ export default function OnlineResults() {
   );
 }
 
-/* =========================================================
-   Reusable section component
-   ========================================================= */
+/* ========= Reusable report section ========= */
 function ReportCard(props: { title: string; items: string[] }) {
   return (
     <div
@@ -170,7 +211,6 @@ function ReportCard(props: { title: string; items: string[] }) {
       }}
     >
       <strong style={{ fontSize: 15 }}>{props.title}</strong>
-
       <ul
         style={{
           margin: 0,
@@ -180,8 +220,8 @@ function ReportCard(props: { title: string; items: string[] }) {
           color: "#cbd5f5",
         }}
       >
-        {props.items.map((item, i) => (
-          <li key={i}>{item}</li>
+        {props.items.map((x, i) => (
+          <li key={i}>{x}</li>
         ))}
       </ul>
     </div>
