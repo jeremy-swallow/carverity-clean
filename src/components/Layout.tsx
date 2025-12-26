@@ -56,6 +56,24 @@ export default function Layout() {
       <main className="flex-1">
         <Outlet />
       </main>
+
+      {/* TRUST FOOTER */}
+      <footer className="border-t bg-card/70 backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto px-4 py-6">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            CarVerity helps buyers make more informed vehicle decisions. We
+            never sell user data, and reports are stored securely and only for
+            your use. Insights are guidance only and should be considered along
+            with a professional mechanical inspection.
+          </p>
+
+          <div className="mt-3 text-xs text-muted-foreground/80 flex flex-wrap gap-4">
+            <span>© {new Date().getFullYear()} CarVerity</span>
+            <span>Privacy-minded by design</span>
+            <span>Independent & unbiased</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
