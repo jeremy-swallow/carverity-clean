@@ -17,7 +17,7 @@ export default function Layout() {
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
 
           {/* Logo + Title */}
-          <Link to="/" className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3 group">
             <img
               src="/logo.png"
               alt="CarVerity logo"
@@ -28,22 +28,25 @@ export default function Layout() {
                 borderRadius: "8px",
               }}
             />
-            <span className="text-xl font-semibold tracking-tight">
+            <span className="text-xl font-semibold tracking-tight transition
+                             group-hover:text-teal-300">
               CarVerity
             </span>
           </Link>
 
-          {/* Navigation */}
+          {/* Navigation with accent hover */}
           <nav className="flex items-center gap-6">
             <Link
               to="/start-scan"
-              className="text-sm font-medium hover:underline"
+              className="text-sm font-medium text-muted-foreground
+                         hover:text-teal-300 transition"
             >
               Start scan
             </Link>
             <Link
               to="/my-scans"
-              className="text-sm font-medium hover:underline"
+              className="text-sm font-medium text-muted-foreground
+                         hover:text-sky-300 transition"
             >
               My scans
             </Link>
@@ -69,8 +72,8 @@ export default function Layout() {
 
           <div className="mt-3 text-xs text-muted-foreground/80 flex flex-wrap gap-4">
             <span>© {new Date().getFullYear()} CarVerity</span>
-            <span>Privacy-minded by design</span>
-            <span>Independent & unbiased</span>
+            <span className="text-teal-300/80">Privacy-minded by design</span>
+            <span className="text-sky-300/80">Independent & unbiased</span>
           </div>
         </div>
       </footer>
