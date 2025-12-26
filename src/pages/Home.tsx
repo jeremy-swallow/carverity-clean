@@ -73,7 +73,9 @@ export default function Home() {
                               border border-white/10" />
 
               <div className="relative flex items-center gap-3 sm:gap-4">
-                <Search className="opacity-90 group-hover:opacity-100 transition" />
+                <Search
+                  className="transition opacity-90 group-hover:opacity-100
+                             text-teal-200 group-hover:text-teal-100" />
                 <div>
                   <h2 className="font-semibold text-base sm:text-lg mb-0.5 sm:mb-1">
                     Online Listing Scan
@@ -114,7 +116,9 @@ export default function Home() {
                               border border-white/10" />
 
               <div className="relative flex items-center gap-3 sm:gap-4">
-                <ClipboardList className="opacity-90 group-hover:opacity-100 transition" />
+                <ClipboardList
+                  className="transition opacity-90 group-hover:opacity-100
+                             text-sky-200 group-hover:text-sky-100" />
                 <div>
                   <h2 className="font-semibold text-base sm:text-lg mb-0.5 sm:mb-1">
                     In-Person Inspection
@@ -126,7 +130,9 @@ export default function Home() {
                 </div>
               </div>
 
-              <ShieldCheck className="relative transition group-hover:scale-105" />
+              <ShieldCheck
+                className="relative transition group-hover:scale-105
+                           text-sky-200 group-hover:text-sky-100" />
             </Link>
 
           </div>
