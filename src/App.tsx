@@ -1,82 +1,61 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
-
+import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 
-/* Home */
+// PAGE IMPORTS — these match your /src/pages folder
 import Home from "./pages/Home";
-
-/* Entry */
 import StartScan from "./pages/StartScan";
-
-/* My Scans */
 import MyScans from "./pages/MyScans";
-
-/* Online flow */
 import OnlineScan from "./pages/OnlineScan";
-import OnlineKilometres from "./pages/OnlineKilometres";
-import OnlineOwners from "./pages/OnlineOwners";
+import OnlineResults from "./pages/OnlineResults";
+import OnlineStart from "./pages/OnlineStart";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
+import OnlineOwners from "./pages/OnlineOwners";
+import OnlineKilometres from "./pages/OnlineKilometres";
+import OnlineNextActions from "./pages/OnlineNextActions";
 import OnlineReport from "./pages/OnlineReport";
 
-/* In-person flow */
 import InPersonStart from "./pages/InPersonStart";
-import InPersonPhotos from "./pages/InPersonPhotos";
+import InPersonScan from "./pages/InPersonScan";
 import InPersonChecks from "./pages/InPersonChecks";
+import InPersonPhotos from "./pages/InPersonPhotos";
 import InPersonSummary from "./pages/InPersonSummary";
 
-/* Scan details */
 import ScanDetails from "./pages/ScanDetails";
-
-/* Auth fallback (NEW) */
+import ScanMode from "./pages/ScanMode";
 import AuthLinkExpired from "./pages/AuthLinkExpired";
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <Layout>
       <Routes>
-        <Route element={<Layout />}>
-          {/* Home / entry */}
-          <Route path="/" element={<Home />} />
-          <Route path="/start-scan" element={<StartScan />} />
+        <Route path="/" element={<Home />} />
 
-          {/* My Scans */}
-          <Route path="/my-scans" element={<MyScans />} />
-          <Route path="/scan/:id" element={<ScanDetails />} />
+        {/* GENERAL */}
+        <Route path="/start-scan" element={<StartScan />} />
+        <Route path="/my-scans" element={<MyScans />} />
+        <Route path="/scan-mode" element={<ScanMode />} />
+        <Route path="/scan/:id" element={<ScanDetails />} />
 
-          {/* ONLINE SCAN FLOW */}
-          <Route path="/scan/online" element={<OnlineScan />} />
-          <Route
-            path="/scan/online/kilometres"
-            element={<OnlineKilometres />}
-          />
-          <Route path="/scan/online/owners" element={<OnlineOwners />} />
-          <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
-          <Route path="/scan/online/report" element={<OnlineReport />} />
+        {/* ONLINE FLOW */}
+        <Route path="/online/start" element={<OnlineStart />} />
+        <Route path="/online/scan" element={<OnlineScan />} />
+        <Route path="/online/analyzing" element={<OnlineAnalyzing />} />
+        <Route path="/online/owners" element={<OnlineOwners />} />
+        <Route path="/online/kilometres" element={<OnlineKilometres />} />
+        <Route path="/online/next-actions" element={<OnlineNextActions />} />
+        <Route path="/online/report" element={<OnlineReport />} />
+        <Route path="/online/results" element={<OnlineResults />} />
 
-          {/* IN-PERSON SCAN FLOW */}
-          <Route path="/scan/in-person" element={<InPersonStart />} />
-          <Route
-            path="/scan/in-person/photos"
-            element={<InPersonPhotos />}
-          />
-          <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
-          <Route
-            path="/scan/in-person/summary"
-            element={<InPersonSummary />}
-          />
+        {/* IN-PERSON FLOW */}
+        <Route path="/inperson/start" element={<InPersonStart />} />
+        <Route path="/inperson/scan" element={<InPersonScan />} />
+        <Route path="/inperson/checks" element={<InPersonChecks />} />
+        <Route path="/inperson/photos" element={<InPersonPhotos />} />
+        <Route path="/inperson/summary" element={<InPersonSummary />} />
 
-          {/* AUTH LINK EXPIRED (NEW) */}
-          <Route path="/auth/link-expired" element={<AuthLinkExpired />} />
-
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
+        {/* AUTH / MISC */}
+        <Route path="/auth/link-expired" element={<AuthLinkExpired />} />
       </Routes>
-    </BrowserRouter>
+    </Layout>
   );
 }
