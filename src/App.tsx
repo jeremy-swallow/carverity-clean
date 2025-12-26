@@ -18,11 +18,14 @@ export default function App() {
   return (
     <Routes>
 
-      {/* Main app layout */}
+      {/* Public marketing homepage */}
+      <Route path="/" element={<Home />} />
+
+      {/* Optional landing page */}
+      <Route path="/landing" element={<Landing />} />
+
+      {/* Auth / App area */}
       <Route element={<Layout />}>
-
-        <Route path="/" element={<Home />} />
-
         <Route path="/start-scan" element={<StartScan />} />
         <Route path="/online-start" element={<OnlineStart />} />
         <Route path="/inperson-start" element={<InPersonStart />} />
@@ -32,11 +35,7 @@ export default function App() {
         <Route path="/faq" element={<FAQ />} />
         <Route path="/credits-history" element={<CreditsHistory />} />
         <Route path="/account" element={<Account />} />
-
       </Route>
-
-      {/* Marketing page */}
-      <Route path="/landing" element={<Landing />} />
 
       {/* Fallback */}
       <Route path="*" element={<Home />} />
