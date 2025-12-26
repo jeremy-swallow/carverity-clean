@@ -7,10 +7,18 @@ export default function Home() {
       <div className="max-w-4xl mx-auto px-4 py-8 sm:py-10 md:py-12">
 
         {/* INTRO TAGLINE ROW */}
-        <div className="mb-6 sm:mb-8 flex items-center gap-2">
+        <div className="mb-4 sm:mb-5 flex items-center gap-2">
           <span className="px-2.5 py-1 rounded-md text-xs font-medium
                            bg-teal-300/10 text-teal-200/90 border border-teal-300/20">
             Built to help buyers make smarter car decisions
+          </span>
+        </div>
+
+        {/* EARLY ACCESS BADGE */}
+        <div className="mb-6 sm:mb-8">
+          <span className="px-2 py-1 rounded-md text-[11px] font-medium
+                           bg-white/5 text-muted-foreground border border-white/10">
+            Early Access — features and design are improving continuously
           </span>
         </div>
 
