@@ -18,14 +18,10 @@ export default function App() {
   return (
     <Routes>
 
-      {/* Public marketing homepage */}
-      <Route path="/" element={<Home />} />
-
-      {/* Optional landing page */}
-      <Route path="/landing" element={<Landing />} />
-
-      {/* Auth / App area */}
+      {/* Pages using the main app layout (header + nav) */}
       <Route element={<Layout />}>
+        <Route path="/" element={<Home />} />
+
         <Route path="/start-scan" element={<StartScan />} />
         <Route path="/online-start" element={<OnlineStart />} />
         <Route path="/inperson-start" element={<InPersonStart />} />
@@ -37,9 +33,11 @@ export default function App() {
         <Route path="/account" element={<Account />} />
       </Route>
 
-      {/* Fallback */}
-      <Route path="*" element={<Home />} />
+      {/* Optional marketing landing page */}
+      <Route path="/landing" element={<Landing />} />
 
+      {/* Fallback route */}
+      <Route path="*" element={<Home />} />
     </Routes>
   );
 }
