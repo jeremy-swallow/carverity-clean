@@ -1,75 +1,55 @@
-// src/pages/Home.tsx
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { loadScans, type SavedScan } from "../utils/scanStorage";
-
-type ScanFilter = "all" | "online" | "in-person";
-
-function formatDate(dateString: string) {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("en-AU", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
+import { loadScans } from "../utils/scanStorage";
+import type { SavedScan } from "../utils/scanStorage";
 
 export default function Home() {
   const [scans, setScans] = useState<SavedScan[]>([]);
-  const [filter, setFilter] = useState<ScanFilter>("all");
+  const [filter, setFilter] =
+    useState<"all" | "online" | "in-person" | "completed">("all");
 
   useEffect(() => {
-    try {
-      const saved = loadScans();
-      setScans(saved);
-    } catch (err) {
-      console.error("Failed to load scans:", err);
-      setScans([]);
-    }
+    const data = loadScans();
+    setScans(data ?? []);
   }, []);
 
-  const filteredScans =
-    filter === "all"
-      ? scans
-      : scans.filter((scan) => scan.type === filter);
-
-  const hasScans = scans.length > 0;
+  const displayScans =
+    filter === "all" ? scans : scans.filter((s) => s.type === filter);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      {/* HERO – calm, cropped image so no ghosted text */}
-      <section className="relative overflow-hidden border-b border-slate-800 bg-slate-950">
-        <img
-          src="/photo-guides/hero.png"
-          alt="Car interior dashboard"
-          className="absolute inset-0 h-full w-full object-cover object-[center_top]"
-        />
-        {/* darken so our text is always readable, especially on mobile */}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/85 to-slate-950/70" />
+    <div className="min-h-screen bg-slate-900 text-white">
 
-        <div className="relative max-w-5xl mx-auto px-4 py-12 sm:py-16">
-          <div className="max-w-2xl">
-            <h1 className="text-3xl sm:text-4xl font-semibold leading-tight">
-              Smarter used-car checks with CarVerity
+      {/* HERO */}
+      <section className="relative">
+        <img
+          src="/hero.png"
+          alt="Car interior driving hero"
+          className="w-full h-[520px] object-cover"
+        />
+        <div className="absolute inset-0 bg-slate-900/60" />
+
+        <div className="absolute inset-0 flex items-center">
+          <div className="max-w-5xl mx-auto px-6">
+            <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight mb-4">
+              Smarter used-car<br />checks with CarVerity
             </h1>
-            <p className="mt-3 text-slate-300 text-sm sm:text-base">
-              Analyse car listings, spot risks before you buy, and guide your
-              in-person inspections with confidence.
+
+            <p className="text-slate-200 max-w-xl mb-6">
+              Analyse car listings, spot risk signals before you buy,
+              and guide your in-person inspections with confidence.
             </p>
 
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="flex gap-3 flex-wrap">
               <Link
                 to="/start-scan"
-                className="inline-flex items-center justify-center rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/30 hover:bg-indigo-400 transition"
+                className="bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-medium"
               >
                 Start a scan
               </Link>
 
               <Link
                 to="/my-scans"
-                className="inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900/70 px-4 py-2.5 text-sm font-medium text-slate-100 hover:bg-slate-800/80 transition"
+                className="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl border border-white/10"
               >
                 My scans
               </Link>
@@ -78,173 +58,79 @@ export default function Home() {
         </div>
       </section>
 
-      {/* MAIN DASHBOARD */}
-      <main className="max-w-5xl mx-auto px-4 py-10 space-y-8">
-        {/* HEADING */}
-        <header className="space-y-2">
-          <h2 className="text-xl sm:text-2xl font-semibold">
-            {hasScans ? "Your scans" : "Start your first scan"}
-          </h2>
-          <p className="text-slate-400 text-sm sm:text-base max-w-2xl">
-            {hasScans
-              ? "Pick up where you left off or start a new online listing or in-person inspection."
-              : "No scans yet — begin with an online listing or in-person inspection."}
-          </p>
-        </header>
+      {/* SCAN PANEL */}
+      <section className="max-w-5xl mx-auto px-4 sm:px-6 mb-4 mt-6">
+        <div className="border border-white/10 rounded-2xl p-4 sm:p-5 bg-slate-800/40 backdrop-blur">
 
-        {/* SCAN FILTER TABS (only show when we have scans) */}
-        {hasScans && (
-          <div className="flex items-center justify-between gap-3">
-            <div className="inline-flex rounded-full bg-slate-900/80 p-1 border border-slate-700/70 text-xs sm:text-sm">
-              {(["all", "online", "in-person"] as ScanFilter[]).map((value) => {
-                const label =
-                  value === "all"
-                    ? "All"
-                    : value === "online"
-                    ? "Online"
-                    : "In-person";
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
+            <h3 className="font-semibold text-lg sm:text-base">
+              {displayScans.length ? "Recent scans" : "Start your first scan"}
+            </h3>
 
-                const isActive = filter === value;
-
-                return (
-                  <button
-                    key={value}
-                    onClick={() => setFilter(value)}
-                    className={`px-3 sm:px-4 py-1.5 rounded-full font-medium transition ${
-                      isActive
-                        ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-300 hover:text-white"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+            {/* FILTER TABS */}
+            <div className="flex gap-1 sm:gap-2 text-xs bg-slate-900/70 rounded-full p-1 border border-white/10 overflow-x-auto">
+              {[
+                { key: "all", label: "All" },
+                { key: "online", label: "Online" },
+                { key: "in-person", label: "In-person" },
+                { key: "completed", label: "Completed" },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setFilter(tab.key as any)}
+                  className={`px-3 py-1 rounded-full whitespace-nowrap ${
+                    filter === tab.key
+                      ? "bg-white text-slate-900"
+                      : "text-slate-300 hover:bg-slate-700/80"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </div>
-        )}
 
-        {/* SCAN LIST */}
-        {hasScans && (
-          <section className="space-y-3">
-            {filteredScans.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-700/80 bg-slate-900/60 px-4 py-6 text-sm text-slate-300">
-                No{" "}
-                <span className="font-medium">
-                  {filter === "online"
-                    ? "online"
-                    : filter === "in-person"
-                    ? "in-person"
-                    : ""}
-                </span>{" "}
-                scans yet. Start a new scan below.
-              </div>
-            ) : (
-              filteredScans.map((scan) => (
+          {/* EMPTY STATE */}
+          {displayScans.length === 0 ? (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-slate-300 text-sm">
+                No scans yet — begin with an online listing
+                or in-person inspection.
+              </p>
+
+              <Link
+                to="/start-scan"
+                className="px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-sm"
+              >
+                Start →
+              </Link>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {displayScans.map((scan) => (
                 <Link
                   key={scan.id}
                   to={`/scan/${scan.id}`}
-                  className="block rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3.5 sm:px-5 sm:py-4 hover:border-indigo-500/70 hover:bg-slate-900 transition shadow-sm shadow-black/20"
+                  className="border border-white/10 rounded-xl p-3 bg-slate-900/40 hover:bg-slate-800/60 transition"
                 >
-                  <div className="flex items-start gap-3">
-                    {/* TYPE DOT */}
-                    <div className="mt-1">
-                      <span
-                        className={`inline-block h-2.5 w-2.5 rounded-full ${
-                          scan.type === "online"
-                            ? "bg-indigo-400"
-                            : "bg-emerald-400"
-                        }`}
-                      />
+                  <div className="flex justify-between">
+                    <div>
+                      <strong className="text-sm">{scan.title}</strong>
+                      <p className="text-xs text-slate-300">
+                        {scan.createdAt}
+                      </p>
                     </div>
 
-                    <div className="flex-1 min-w-0">
-                      {/* TOP ROW: type + date */}
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
-                        <span className="font-medium">
-                          {scan.type === "online"
-                            ? "Online Listing Scan"
-                            : "In-Person Scan"}
-                        </span>
-                        {scan.createdAt && (
-                          <span className="text-slate-500">
-                            • {formatDate(scan.createdAt)}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* TITLE */}
-                      <div className="mt-1 text-sm sm:text-base font-medium text-slate-50 truncate">
-                        {scan.title || "Untitled scan"}
-                      </div>
-
-                      {/* OPTIONAL SUMMARY / URL */}
-                      {scan.summary && (
-                        <p className="mt-1 text-xs sm:text-sm text-slate-400 line-clamp-2">
-                          {scan.summary}
-                        </p>
-                      )}
-                      {!scan.summary && scan.listingUrl && (
-                        <p className="mt-1 text-xs sm:text-sm text-slate-400 truncate">
-                          {scan.listingUrl}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* ACTION LABEL */}
-                    <div className="mt-1 text-xs sm:text-sm font-medium text-indigo-300 whitespace-nowrap">
-                      Open →
-                    </div>
+                    <span className="text-xs px-2 py-1 rounded bg-slate-700">
+                      {scan.type}
+                    </span>
                   </div>
                 </Link>
-              ))
-            )}
-          </section>
-        )}
-
-        {/* ACTION CARDS – always visible, even when there are scans */}
-        <section className="space-y-4">
-          <h3 className="text-sm font-semibold text-slate-300">
-            Start a new scan
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Online listing card */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-5 sm:px-5 sm:py-6 shadow-sm shadow-black/20">
-              <h4 className="text-sm sm:text-base font-semibold text-slate-50">
-                Online Listing Scan
-              </h4>
-              <p className="mt-2 text-xs sm:text-sm text-slate-400">
-                Paste a listing link and instantly analyse pricing, wording
-                risks, and seller flags.
-              </p>
-              <Link
-                to="/online-start"
-                className="mt-4 inline-flex items-center text-xs sm:text-sm font-medium text-indigo-300 hover:text-indigo-200"
-              >
-                Start online scan →
-              </Link>
+              ))}
             </div>
-
-            {/* In-person card */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-5 sm:px-5 sm:py-6 shadow-sm shadow-black/20">
-              <h4 className="text-sm sm:text-base font-semibold text-slate-50">
-                In-Person Inspection Mode
-              </h4>
-              <p className="mt-2 text-xs sm:text-sm text-slate-400">
-                Guided on-site checklist with photos, prompts, and risk
-                highlights.
-              </p>
-              <Link
-                to="/in-person-start"
-                className="mt-4 inline-flex items-center text-xs sm:text-sm font-medium text-indigo-300 hover:text-indigo-200"
-              >
-                Start in-person scan →
-              </Link>
-            </div>
-          </div>
-        </section>
-      </main>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
