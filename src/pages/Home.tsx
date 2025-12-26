@@ -2,43 +2,36 @@ import { Link } from "react-router-dom";
 
 export default function Home() {
   return (
-    <main className="flex flex-col">
+    <div className="min-h-[calc(100vh-64px)] bg-background text-foreground">
 
       {/* HERO SECTION */}
-      <section className="relative w-full min-h-[380px] md:min-h-[460px] overflow-hidden">
+      <section
+        className="relative h-[420px] w-full bg-cover bg-center bg-no-repeat flex items-center"
+        style={{ backgroundImage: "url('/hero.png')" }}
+      >
+        <div className="absolute inset-0 bg-black/65 backdrop-blur-[1px]" />
 
-        {/* Background image */}
-        <img
-          src="/hero.png"
-          alt="Car interior dashboard at night"
-          className="absolute inset-0 w-full h-full object-cover opacity-70"
-        />
-
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-transparent" />
-
-        {/* Hero content */}
-        <div className="relative max-w-5xl mx-auto px-6 py-20 md:py-28">
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+        <div className="relative max-w-4xl mx-auto px-6">
+          <h1 className="text-4xl font-bold mb-4">
             Smarter used-car checks with CarVerity
           </h1>
 
-          <p className="mt-3 max-w-2xl text-slate-300">
+          <p className="text-muted-foreground max-w-2xl mb-6">
             Analyse car listings, spot risks before you buy, and guide your
             in-person inspections with confidence.
           </p>
 
-          <div className="mt-6 flex gap-3">
+          <div className="flex gap-3">
             <Link
-              to="/start-scan"
-              className="px-4 py-2 rounded-md bg-indigo-500 hover:bg-indigo-400 text-white"
+              to="/online-start"
+              className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-md"
             >
               Start a scan
             </Link>
 
             <Link
               to="/my-scans"
-              className="px-4 py-2 rounded-md bg-slate-800 hover:bg-slate-700"
+              className="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-md"
             >
               My scans
             </Link>
@@ -46,34 +39,31 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ======================= */}
-      {/* FEATURE SECTIONS BELOW  */}
-      {/* ======================= */}
-      <section className="max-w-5xl mx-auto px-6 py-16 space-y-14">
+      {/* ACTION CARDS */}
+      <div className="max-w-4xl mx-auto px-6 py-12 grid gap-6">
 
         <div>
-          <h2 className="text-lg font-semibold">Online Listing Scan</h2>
-          <p className="text-slate-400">
+          <h2 className="font-semibold text-lg">Online Listing Scan</h2>
+          <p className="text-muted-foreground text-sm">
             Paste a car listing URL and get instant insights into risks,
             pricing flags, and seller patterns.
           </p>
-          <Link to="/online-scan" className="mt-2 inline-block text-indigo-400">
+          <Link to="/online-start" className="text-indigo-400 text-sm mt-2 inline-block">
             Run online scan →
           </Link>
         </div>
 
         <div>
-          <h2 className="text-lg font-semibold">In-Person Inspection</h2>
-          <p className="text-slate-400">
-            Guided step-by-step checks while viewing a car on-site —
-            photos, condition prompts, and risk highlights.
+          <h2 className="font-semibold text-lg">In-Person Inspection</h2>
+          <p className="text-muted-foreground text-sm">
+            Guided step-by-step checks while viewing a car on-site — photos,
+            condition prompts, and risk highlights.
           </p>
-          <Link to="/inperson-start" className="mt-2 inline-block text-indigo-400">
+          <Link to="/inperson-start" className="text-indigo-400 text-sm mt-2 inline-block">
             Start in-person scan →
           </Link>
         </div>
-
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }
