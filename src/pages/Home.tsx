@@ -8,41 +8,62 @@ export default function Home() {
         {/* Background image */}
         <img
           src="/photo-guides/hero.png"
-          alt="Car interior dashboard at sunset"
+          alt="Car interior dashboard"
           className="
-            absolute inset-0 h-full w-full
-            object-cover
-            object-[center_60%]
+            absolute inset-0 h-full w-full object-cover
+            object-[center_68%]
+            sm:object-[center_60%]
             md:object-center
           "
         />
 
-        {/* Dark overlay for text readability */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/65 to-black/80" />
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/65 to-black/85" />
 
-        {/* Hero content */}
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-20 md:py-24">
+        {/* HERO CONTENT */}
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 
+                        py-12 sm:py-16 md:py-24">
           <div className="max-w-3xl">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-semibold md:font-bold leading-tight">
+
+            <h1 className="
+              font-bold leading-tight text-white
+              text-2xl
+              sm:text-3xl
+              md:text-5xl
+            ">
               Smarter used-car checks with CarVerity
             </h1>
 
-            <p className="mt-4 text-sm sm:text-base text-slate-200 max-w-xl">
+            <p className="
+              mt-3 sm:mt-4
+              text-slate-200
+              text-sm
+              sm:text-base
+              max-w-xl
+            ">
               Analyse car listings, spot risks before you buy, and guide your
               in-person inspections with confidence.
             </p>
 
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-5 sm:mt-6 flex flex-wrap gap-3">
               <Link
                 to="/start-scan"
-                className="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-md bg-indigo-500 hover:bg-indigo-600 text-sm sm:text-base font-medium text-white shadow-md shadow-indigo-500/30 transition"
+                className="inline-flex items-center justify-center
+                           px-4 sm:px-5 py-2.5
+                           rounded-md bg-indigo-500 hover:bg-indigo-600
+                           text-sm sm:text-base font-medium text-white
+                           shadow-md shadow-indigo-500/30 transition"
               >
                 Start a scan
               </Link>
 
               <Link
                 to="/my-scans"
-                className="inline-flex items-center justify-center px-4 sm:px-5 py-2.5 rounded-md bg-slate-900/80 hover:bg-slate-800/90 text-sm sm:text-base font-medium text-slate-100 border border-white/10 transition"
+                className="inline-flex items-center justify-center
+                           px-4 sm:px-5 py-2.5
+                           rounded-md bg-slate-900/80 hover:bg-slate-800/90
+                           text-sm sm:text-base font-medium text-slate-100
+                           border border-white/10 transition"
               >
                 My scans
               </Link>
@@ -53,7 +74,6 @@ export default function Home() {
 
       {/* MAIN OPTIONS SECTION */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-10">
-        {/* Online listing scan */}
         <div>
           <h2 className="text-base sm:text-lg font-semibold">
             Online Listing Scan
@@ -70,7 +90,6 @@ export default function Home() {
           </Link>
         </div>
 
-        {/* In-person inspection */}
         <div>
           <h2 className="text-base sm:text-lg font-semibold">
             In-Person Inspection
