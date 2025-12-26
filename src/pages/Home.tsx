@@ -10,7 +10,7 @@ export default function Home() {
         <div className="opacity-0 translate-y-2 animate-[fadeUp_0.45s_ease-out_forwards]">
 
           {/* INTRO TAGLINE ROW */}
-          <div className="mb-4 sm:mb-5 flex items-center gap-2">
+          <div className="mb-3.5 sm:mb-4.5 flex items-center gap-2">
             <span className="px-2.5 py-1 rounded-md text-xs font-medium
                              bg-teal-300/10 text-teal-200 border border-teal-300/30">
               Built to help buyers make smarter car decisions
@@ -18,7 +18,7 @@ export default function Home() {
           </div>
 
           {/* EARLY ACCESS BADGE */}
-          <div className="mb-6 sm:mb-8">
+          <div className="mb-5 sm:mb-7">
             <span className="px-2 py-1 rounded-md text-[11px] font-medium
                              bg-white/8 text-muted-foreground border border-white/15">
               Early Access — features and design are improving continuously
@@ -26,8 +26,8 @@ export default function Home() {
           </div>
 
           {/* HERO */}
-          <header className="mb-10 sm:mb-12 md:mb-14">
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2 sm:mb-3">
+          <header className="mb-9 sm:mb-11 md:mb-13">
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2 sm:mb-2.5">
               Smarter used-car checks with CarVerity
             </h1>
             <p className="text-muted-foreground/90 text-base sm:text-lg leading-relaxed">
@@ -37,12 +37,12 @@ export default function Home() {
           </header>
 
           {/* SECTION HEADER + DIVIDER */}
-          <div className="mb-3 sm:mb-4">
+          <div className="mb-2.5 sm:mb-3.5">
             <h3 className="text-xs sm:text-sm font-medium tracking-wider uppercase text-muted-foreground/90">
               Start a scan
             </h3>
           </div>
-          <div className="border-t border-white/20 mb-5 sm:mb-6" />
+          <div className="border-t border-white/20 mb-4.5 sm:mb-5.5" />
 
           {/* ACTION CARDS */}
           <div className="grid gap-4 sm:gap-5 md:gap-6">
@@ -137,7 +137,7 @@ export default function Home() {
           </div>
 
           {/* ROADMAP HINT ROW */}
-          <div className="mt-8 sm:mt-10 p-3 sm:p-4 rounded-lg border border-white/10 bg-card/50">
+          <div className="mt-7 sm:mt-9 p-3.5 sm:p-4.5 rounded-lg border border-white/10 bg-card/50">
             <p className="text-xs sm:text-sm text-muted-foreground/85 leading-relaxed">
               Coming soon: saved vehicle profiles, shareable reports, export
               options, and deeper listing intelligence. Your feedback helps
