@@ -1,99 +1,78 @@
-import { Link, Outlet } from "react-router-dom";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import logo from "../public/logo.png";
 
-export default function Layout() {
+export default function Layout({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <div
-      className="min-h-screen text-foreground flex flex-col"
-      style={{
-        background: `
-          radial-gradient(1200px 500px at 10% -10%, rgba(72, 255, 199, 0.12), transparent),
-          radial-gradient(900px 400px at 90% 0%, rgba(87, 167, 255, 0.10), transparent),
-          linear-gradient(180deg, hsl(240 10% 7%) 0%, hsl(240 10% 4%) 100%)
-        `,
-      }}
-    >
-      {/* HEADER */}
-      <header className="border-b bg-card/70 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+    <div className="min-h-screen flex flex-col bg-slate-900 text-slate-100">
 
-          {/* Logo + Title */}
-          <Link to="/" className="flex items-center gap-3 group">
-            <img
-              src="/logo.png"
-              alt="CarVerity logo"
-              style={{
-                height: "44px",
-                width: "auto",
-                objectFit: "contain",
-                borderRadius: "8px",
-              }}
-            />
-            <span
-              className="text-xl font-semibold tracking-tight transition-all
-                         group-hover:text-teal-300 group-hover:-translate-y-[1px]"
-            >
-              CarVerity
-            </span>
+      {/* HEADER */}
+      <header className="w-full border-b border-white/10 bg-slate-900/90 backdrop-blur">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2">
+            <img src={logo} alt="CarVerity" className="h-8 rounded-md" />
+            <span className="text-lg font-semibold">CarVerity</span>
           </Link>
 
-          {/* Navigation */}
-          <nav className="flex items-center gap-6">
-            <Link
-              to="/start-scan"
-              className="relative text-sm font-medium text-muted-foreground
-                         transition-all hover:text-teal-300"
-            >
+          {/* DESKTOP NAV */}
+          <nav className="hidden md:flex items-center gap-6 text-sm">
+            <Link to="/start-scan" className="hover:text-indigo-300">
               Start scan
-              <span className="pointer-events-none absolute left-0 -bottom-1 h-[2px] w-0 bg-teal-300/80 rounded-full transition-all duration-200 group-hover:w-full" />
             </Link>
-
-            <Link
-              to="/my-scans"
-              className="relative text-sm font-medium text-muted-foreground
-                         transition-all hover:text-sky-300"
-            >
+            <Link to="/my-scans" className="hover:text-indigo-300">
               My scans
-              <span className="pointer-events-none absolute left-0 -bottom-1 h-[2px] w-0 bg-sky-300/80 rounded-full transition-all duration-200 group-hover:w-full" />
+            </Link>
+            <Link to="/pricing" className="hover:text-indigo-300">
+              Pricing
+            </Link>
+            <Link to="/faq" className="hover:text-indigo-300">
+              FAQ
+            </Link>
+            <Link to="/account" className="hover:text-indigo-300">
+              Account
             </Link>
           </nav>
 
+          {/* MOBILE MENU BUTTON */}
+          <button
+            onClick={() => setOpen(!open)}
+            className="md:hidden p-2 rounded-lg border border-white/20"
+          >
+            <span className="sr-only">Open menu</span>
+            ☰
+          </button>
         </div>
+
+        {/* MOBILE MENU PANEL */}
+        {open && (
+          <div className="md:hidden border-t border-white/10 bg-slate-900/95">
+            <nav className="flex flex-col px-6 py-4 gap-3 text-base">
+              <Link to="/start-scan" onClick={() => setOpen(false)}>
+                Start scan
+              </Link>
+              <Link to="/my-scans" onClick={() => setOpen(false)}>
+                My scans
+              </Link>
+              <Link to="/pricing" onClick={() => setOpen(false)}>
+                Pricing
+              </Link>
+              <Link to="/faq" onClick={() => setOpen(false)}>
+                FAQ
+              </Link>
+              <Link to="/account" onClick={() => setOpen(false)}>
+                Account
+              </Link>
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* PAGE CONTENT */}
-      <main className="flex-1">
-        <Outlet />
-      </main>
-
-      {/* TRUST FOOTER */}
-      <footer className="border-t bg-card/70 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-4 py-6">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            CarVerity helps buyers make more informed vehicle decisions. We
-            never sell user data, and reports are stored securely and only for
-            your use. Insights are guidance only and should be considered along
-            with a professional mechanical inspection.
-          </p>
-
-          <div className="mt-3 text-xs text-muted-foreground/80 flex flex-wrap gap-4">
-            <span>© {new Date().getFullYear()} CarVerity</span>
-            <span className="text-teal-300/80">Privacy-minded by design</span>
-            <span className="text-sky-300/80">Independent & unbiased</span>
-          </div>
-        </div>
-      </footer>
-
-      {/* SUPPORT LINE */}
-      <div className="border-t border-white/10 bg-card/60 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-4 py-4">
-          <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
-            CarVerity is an informational assistance tool and does not replace
-            professional advice or a licensed mechanical inspection. If you have
-            feedback or spot an issue, we’d love to hear from you as we continue
-            improving the experience.
-          </p>
-        </div>
-      </div>
+      <main className="flex-1">{children}</main>
     </div>
   );
 }
