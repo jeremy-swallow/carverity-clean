@@ -1,79 +1,75 @@
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100">
-      <div className="max-w-4xl mx-auto px-6 py-10">
+    <div className="flex flex-col min-h-screen">
 
-        {/* Header */}
-        <div className="text-center mb-10">
-          <img
-            src="/logo.png"
-            alt="CarVerity"
-            className="mx-auto h-16 mb-4 rounded-xl shadow-lg"
-          />
+      {/* HERO SECTION */}
+      <section className="relative h-[420px] md:h-[520px] overflow-hidden">
+        
+        {/* Background Image */}
+        <img
+          src="/hero.png"
+          alt="Car interior dashboard at night"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
 
-          <h1 className="text-3xl font-bold tracking-tight">
-            Smarter Used-Car Checks
+        {/* Gradient + Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/90" />
+
+        {/* Content */}
+        <div className="relative z-10 max-w-6xl mx-auto px-6 h-full flex flex-col justify-center">
+          <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+            Smarter used-car checks with CarVerity
           </h1>
 
-          <p className="text-slate-400 mt-2">
-            Scan listings, highlight risks, and guide your in-person inspections.
+          <p className="mt-4 text-slate-300 max-w-2xl">
+            Analyse car listings, spot risks before you buy, and guide your in-person
+            inspections with confidence.
           </p>
+
+          <div className="mt-6 flex gap-4">
+            <Link
+              to="/start-scan"
+              className="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 transition shadow-md"
+            >
+              Start a scan
+            </Link>
+
+            <Link
+              to="/my-scans"
+              className="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition"
+            >
+              My scans
+            </Link>
+          </div>
         </div>
+      </section>
 
-        {/* Action Cards */}
-        <div className="grid gap-6 sm:grid-cols-2">
+      {/* === REST OF THE HOMEPAGE CONTENT === */}
+      <main className="flex-1 max-w-5xl mx-auto px-6 py-10 space-y-10">
 
-          {/* Online Scan */}
-          <Link
-            to="/online-scan"
-            className="group block bg-slate-800/70 border border-slate-700 rounded-2xl p-6
-            hover:border-blue-400 hover:bg-slate-800 shadow-sm hover:shadow-blue-500/10
-            transition-all duration-200 hover:-translate-y-0.5"
-          >
-            <h2 className="text-lg font-semibold mb-1">
-              Online Listing Scan
-            </h2>
-
-            <p className="text-slate-400 mb-4">
-              Paste a vehicle listing link and get instant insights into risks and patterns.
-            </p>
-
-            <span className="flex items-center gap-2 text-blue-400 font-medium">
-              Start online scan
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </span>
+        <section>
+          <h2 className="text-xl font-semibold">Online Listing Scan</h2>
+          <p className="text-slate-300 mt-1">
+            Paste a car listing URL and get instant insights into risks, pricing flags, and seller patterns.
+          </p>
+          <Link to="/online-start" className="mt-3 inline-block underline">
+            Run online scan →
           </Link>
+        </section>
 
-          {/* In-Person Inspection */}
-          <Link
-            to="/in-person-scan"
-            className="group block bg-slate-800/70 border border-slate-700 rounded-2xl p-6
-            hover:border-blue-400 hover:bg-slate-800 shadow-sm hover:shadow-blue-500/10
-            transition-all duration-200 hover:-translate-y-0.5"
-          >
-            <h2 className="text-lg font-semibold mb-1">
-              In-Person Inspection
-            </h2>
-
-            <p className="text-slate-400 mb-4">
-              Guided photo prompts and condition checks while viewing the car on site.
-            </p>
-
-            <span className="flex items-center gap-2 text-blue-400 font-medium">
-              Start in-person scan
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </span>
+        <section>
+          <h2 className="text-xl font-semibold">In-Person Inspection</h2>
+          <p className="text-slate-300 mt-1">
+            Guided step-by-step checks while viewing a car on-site — photos, condition prompts, and risk highlights.
+          </p>
+          <Link to="/inperson-start" className="mt-3 inline-block underline">
+            Start in-person scan →
           </Link>
-        </div>
+        </section>
 
-        {/* Footer */}
-        <p className="text-center text-slate-500 mt-10 text-sm">
-          First online scan is free — no account required.
-        </p>
-      </div>
+      </main>
     </div>
   );
 }
