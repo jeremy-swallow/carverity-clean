@@ -12,20 +12,31 @@ export default function Layout({ children }: LayoutProps) {
 
   const isActive = (path: string) =>
     location.pathname === path
-      ? "text-indigo-400 font-semibold"
-      : "text-slate-300 hover:text-white";
+      ? "text-indigo-300 font-semibold drop-shadow-sm"
+      : "text-slate-300 hover:text-white transition";
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col">
 
-      {/* HEADER */}
-      <header className="border-b border-white/10 bg-slate-900/80 backdrop-blur">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      {/* GLASS NAVBAR */}
+      <header className="
+        sticky top-0 z-50
+        border-b border-white/10
+        bg-slate-900/70
+        backdrop-blur-xl
+        shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08)]
+      ">
+        <div className="
+          max-w-6xl mx-auto px-4 h-16
+          flex items-center justify-between
+        ">
 
           {/* LOGO */}
           <Link to="/" className="flex items-center gap-2">
             <img src="/logo.png" alt="CarVerity logo" className="h-8" />
-            <span className="font-bold text-lg">CarVerity</span>
+            <span className="font-bold text-lg tracking-wide">
+              CarVerity
+            </span>
           </Link>
 
           {/* DESKTOP NAV */}
@@ -49,16 +60,24 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* MOBILE MENU BUTTON */}
           <button
-            className="md:hidden p-2 border border-white/20 rounded-lg"
             onClick={() => setMenuOpen(!menuOpen)}
+            className="
+              md:hidden p-2 rounded-xl
+              border border-white/20
+              bg-white/5 hover:bg-white/10
+              transition
+            "
           >
             {menuOpen ? "✕" : "☰"}
           </button>
         </div>
 
-        {/* MOBILE MENU */}
+        {/* MOBILE MENU GLASS PANEL */}
         {menuOpen && (
-          <div className="md:hidden border-t border-white/10 bg-slate-900">
+          <div className="
+            md:hidden border-t border-white/10
+            bg-slate-900/80 backdrop-blur-xl
+          ">
             <nav className="flex flex-col p-3 gap-3">
 
               <Link
@@ -100,14 +119,15 @@ export default function Layout({ children }: LayoutProps) {
               >
                 Account
               </Link>
-
             </nav>
           </div>
         )}
       </header>
 
-      {/* MAIN PAGE CONTENT */}
-      <main className="flex-1">{children}</main>
+      {/* MAIN CONTENT */}
+      <main className="flex-1">
+        {children}
+      </main>
     </div>
   );
 }
