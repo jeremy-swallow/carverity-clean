@@ -30,14 +30,13 @@ export default function Layout() {
             />
             <span
               className="text-xl font-semibold tracking-tight transition-all
-                         group-hover:text-teal-300
-                         group-hover:translate-y-[-1px]"
+                         group-hover:text-teal-300 group-hover:-translate-y-[1px]"
             >
               CarVerity
             </span>
           </Link>
 
-          {/* Navigation — animated underline + accent hover */}
+          {/* Navigation */}
           <nav className="flex items-center gap-6">
             <Link
               to="/start-scan"
@@ -45,11 +44,7 @@ export default function Layout() {
                          transition-all hover:text-teal-300"
             >
               Start scan
-              <span
-                className="pointer-events-none absolute left-0 -bottom-1 h-[2px] w-0
-                           bg-teal-300/80 rounded-full transition-all duration-200
-                           group-hover:w-full"
-              />
+              <span className="pointer-events-none absolute left-0 -bottom-1 h-[2px] w-0 bg-teal-300/80 rounded-full transition-all duration-200 group-hover:w-full" />
             </Link>
 
             <Link
@@ -58,11 +53,7 @@ export default function Layout() {
                          transition-all hover:text-sky-300"
             >
               My scans
-              <span
-                className="pointer-events-none absolute left-0 -bottom-1 h-[2px] w-0
-                           bg-sky-300/80 rounded-full transition-all duration-200
-                           group-hover:w-full"
-              />
+              <span className="pointer-events-none absolute left-0 -bottom-1 h-[2px] w-0 bg-sky-300/80 rounded-full transition-all duration-200 group-hover:w-full" />
             </Link>
           </nav>
 
@@ -91,6 +82,18 @@ export default function Layout() {
           </div>
         </div>
       </footer>
+
+      {/* SUPPORT LINE */}
+      <div className="border-t border-white/10 bg-card/60 backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
+            CarVerity is an informational assistance tool and does not replace
+            professional advice or a licensed mechanical inspection. If you have
+            feedback or spot an issue, we’d love to hear from you as we continue
+            improving the experience.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
