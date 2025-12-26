@@ -7,14 +7,16 @@ export type ScanProgress = {
   type: "online" | "in-person";
   step: string;
 
+  // Timestamps (legacy field — kept for compatibility)
+  startedAt?: string;
+
   // Online scan fields
   listingUrl?: string;
 
-  // Analysis result (added v2)
-  // Optional so older sessions still load safely
+  // Analysis result (v2)
   analysis?: any;
 
-  // Future-proof fields can be added here safely
+  // Future fields can safely be added here
 };
 
 const STORAGE_KEY = "carverity_scan_progress";
