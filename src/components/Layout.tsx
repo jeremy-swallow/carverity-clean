@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 interface LayoutProps {
   children?: ReactNode;
@@ -8,6 +8,12 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+
+  const isActive = (path: string) =>
+    location.pathname === path
+      ? "text-indigo-400 font-semibold"
+      : "text-slate-300 hover:text-white";
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col">
@@ -24,19 +30,19 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* DESKTOP NAV */}
           <nav className="hidden md:flex gap-6 items-center">
-            <Link to="/start-scan" className="hover:text-indigo-400">
+            <Link to="/start-scan" className={isActive("/start-scan")}>
               Start scan
             </Link>
-            <Link to="/my-scans" className="hover:text-indigo-400">
+            <Link to="/my-scans" className={isActive("/my-scans")}>
               My scans
             </Link>
-            <Link to="/pricing" className="hover:text-indigo-400">
+            <Link to="/pricing" className={isActive("/pricing")}>
               Pricing
             </Link>
-            <Link to="/faq" className="hover:text-indigo-400">
+            <Link to="/faq" className={isActive("/faq")}>
               FAQ
             </Link>
-            <Link to="/account" className="hover:text-indigo-400">
+            <Link to="/account" className={isActive("/account")}>
               Account
             </Link>
           </nav>
@@ -55,23 +61,43 @@ export default function Layout({ children }: LayoutProps) {
           <div className="md:hidden border-t border-white/10 bg-slate-900">
             <nav className="flex flex-col p-3 gap-3">
 
-              <Link to="/start-scan" onClick={() => setMenuOpen(false)}>
+              <Link
+                to="/start-scan"
+                className={isActive("/start-scan")}
+                onClick={() => setMenuOpen(false)}
+              >
                 Start scan
               </Link>
 
-              <Link to="/my-scans" onClick={() => setMenuOpen(false)}>
+              <Link
+                to="/my-scans"
+                className={isActive("/my-scans")}
+                onClick={() => setMenuOpen(false)}
+              >
                 My scans
               </Link>
 
-              <Link to="/pricing" onClick={() => setMenuOpen(false)}>
+              <Link
+                to="/pricing"
+                className={isActive("/pricing")}
+                onClick={() => setMenuOpen(false)}
+              >
                 Pricing
               </Link>
 
-              <Link to="/faq" onClick={() => setMenuOpen(false)}>
+              <Link
+                to="/faq"
+                className={isActive("/faq")}
+                onClick={() => setMenuOpen(false)}
+              >
                 FAQ
               </Link>
 
-              <Link to="/account" onClick={() => setMenuOpen(false)}>
+              <Link
+                to="/account"
+                className={isActive("/account")}
+                onClick={() => setMenuOpen(false)}
+              >
                 Account
               </Link>
 
