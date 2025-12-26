@@ -1,250 +1,505 @@
-// src/pages/Home.tsx
-import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { loadScans, type SavedScan } from "../utils/scanStorage";
+import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
 
-type ScanFilter = "all" | "online" | "in-person";
+type ScanRecord = {
+  id: string;
+  type: "online" | "in-person";
+  title?: string;
+  thumbnail?: string;
+  updatedAt?: string;
+  progress?: number;
+  pinned?: boolean;
+  completed?: boolean;
+};
 
-function formatDate(dateString: string) {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("en-AU", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
+type StoredScansPayload =
+  | ScanRecord[]
+  | {
+      version?: number;
+      userId?: string;
+      scans: ScanRecord[];
+    };
 
 export default function Home() {
-  const [scans, setScans] = useState<SavedScan[]>([]);
-  const [filter, setFilter] = useState<ScanFilter>("all");
+  const heroRef = useRef<HTMLDivElement | null>(null);
+  const cardsRef = useRef<HTMLDivElement | null>(null);
+  const navigate = useNavigate();
+
+  const [offset, setOffset] = useState(0);
+  const [tiltX, setTiltX] = useState(0);
+  const [tiltY, setTiltY] = useState(0);
+  const [allowMotion, setAllowMotion] = useState(true);
+
+  const [fullScans, setFullScans] = useState<ScanRecord[]>([]);
+  const [filter, setFilter] = useState<"all" | "online" | "in-person" | "completed">(
+    "all"
+  );
+
+  const [lastDeleted, setLastDeleted] = useState<ScanRecord | null>(null);
+  const [showUndo, setShowUndo] = useState(false);
+
+  // ---------- Helpers ----------
+
+  const formatTimeAgo = (iso?: string) => {
+    if (!iso) return "Unknown";
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins} min ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs} hr ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  };
+
+  const getProgress = (n?: number) => Math.max(0, Math.min(n ?? 0, 100));
+  const getProgressColor = (n: number, completed?: boolean) => {
+    if (completed || n >= 100) return "bg-emerald-500";
+    if (n >= 80) return "bg-emerald-500";
+    if (n >= 40) return "bg-amber-400";
+    return "bg-indigo-400";
+  };
+
+  const sortScans = (list: ScanRecord[]) =>
+    [...list].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      const at = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const bt = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return bt - at;
+    });
+
+  const saveList = (list: ScanRecord[]) => {
+    const sorted = sortScans(list);
+    const payload: StoredScansPayload = {
+      version: 1,
+      userId: "local-anon",
+      scans: sorted,
+    };
+
+    localStorage.setItem("carverity_recent_scans", JSON.stringify(payload));
+    setFullScans(sorted);
+  };
+
+  // ---------- Load stored scans ----------
 
   useEffect(() => {
     try {
-      const saved = loadScans();
-      setScans(saved);
-    } catch (err) {
-      console.error("Failed to load scans:", err);
-      setScans([]);
+      const raw = localStorage.getItem("carverity_recent_scans");
+      if (!raw) return;
+
+      const parsed: StoredScansPayload = JSON.parse(raw);
+      let scans: ScanRecord[] = [];
+
+      if (Array.isArray(parsed)) scans = parsed;
+      else if (parsed?.scans) scans = parsed.scans;
+
+      setFullScans(sortScans(scans));
+    } catch {
+      setFullScans([]);
     }
   }, []);
 
-  const filteredScans =
-    filter === "all"
-      ? scans
-      : scans.filter((scan) => scan.type === filter);
+  // ---------- Motion rules ----------
 
-  const hasScans = scans.length > 0;
+  useEffect(() => {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const isLowEnd = navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2;
+    const isiOS =
+      /iPhone|iPad|iPod/i.test(navigator.userAgent) &&
+      !window.matchMedia("(hover: hover)").matches;
+
+    if (reduceMotion || isLowEnd || isiOS) {
+      setAllowMotion(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!allowMotion) return;
+    const handleScroll = () => setOffset(window.scrollY * 0.12);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [allowMotion]);
+
+  useEffect(() => {
+    if (!allowMotion) return;
+    const handleGyro = (e: DeviceOrientationEvent) => {
+      const beta = e.beta ?? 0;
+      const gamma = e.gamma ?? 0;
+      setTiltX(gamma * 0.25);
+      setTiltY(beta * 0.15);
+    };
+    window.addEventListener("deviceorientation", handleGyro, true);
+    return () => window.removeEventListener("deviceorientation", handleGyro, true);
+  }, [allowMotion]);
+
+  // ---------- Fade-in animations ----------
+
+  useEffect(() => {
+    const reveal = (el: Element) => {
+      el.classList.remove("opacity-0", "translate-y-6");
+      el.classList.add("opacity-100", "translate-y-0");
+    };
+
+    const observer = new IntersectionObserver(
+      entries => entries.forEach(e => e.isIntersecting && reveal(e.target)),
+      { threshold: 0.24 }
+    );
+
+    if (heroRef.current) observer.observe(heroRef.current);
+    if (cardsRef.current) {
+      Array.from(cardsRef.current.children).forEach((card, i) =>
+        setTimeout(() => observer.observe(card), i * 120)
+      );
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  // ---------- Actions ----------
+
+  const togglePin = (id: string) =>
+    saveList(fullScans.map(s => (s.id === id ? { ...s, pinned: !s.pinned } : s)));
+
+  const toggleCompleted = (id: string) =>
+    saveList(
+      fullScans.map(s =>
+        s.id === id
+          ? {
+              ...s,
+              completed: !s.completed,
+              progress: !s.completed ? 100 : s.progress ?? 0,
+            }
+          : s
+      )
+    );
+
+  const deleteScan = (id: string) => {
+    const target = fullScans.find(s => s.id === id) || null;
+    setLastDeleted(target);
+    setShowUndo(true);
+    saveList(fullScans.filter(s => s.id !== id));
+  };
+
+  const undoDelete = () => {
+    if (!lastDeleted) return;
+    saveList([lastDeleted, ...fullScans]);
+    setLastDeleted(null);
+    setShowUndo(false);
+  };
+
+  // ---------- Swipe delete ----------
+
+  const [swipeStartX, setSwipeStartX] = useState<number | null>(null);
+  const [swipeTarget, setSwipeTarget] = useState<string | null>(null);
+
+  const startSwipe = (id: string, x: number) => {
+    setSwipeTarget(id);
+    setSwipeStartX(x);
+  };
+
+  const moveSwipe = (x: number) => {
+    if (!swipeStartX || !swipeTarget) return;
+    const diff = x - swipeStartX;
+    if (diff < -60) {
+      deleteScan(swipeTarget);
+      setSwipeTarget(null);
+      setSwipeStartX(null);
+    }
+  };
+
+  const endSwipe = () => {
+    setSwipeTarget(null);
+    setSwipeStartX(null);
+  };
+
+  // ---------- Derived views ----------
+
+  const filteredScans = fullScans.filter(scan => {
+    if (filter === "all") return true;
+    if (filter === "completed") return !!scan.completed;
+    return scan.type === filter;
+  });
+
+  const displayScans = filteredScans.slice(0, 3);
+
+  // ---------- Render ----------
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      {/* HERO – calm, cropped image so no ghosted text */}
-      <section className="relative overflow-hidden border-b border-slate-800 bg-slate-950">
+    <div className="bg-slate-900 text-white">
+
+      {/* HERO */}
+      <section className="relative w-full overflow-hidden border-b border-white/10">
         <img
           src="/photo-guides/hero.png"
           alt="Car interior dashboard"
-          className="absolute inset-0 h-full w-full object-cover object-[center_top]"
+          className="absolute inset-0 w-full h-full object-cover will-change-transform"
+          style={
+            allowMotion
+              ? {
+                  transform: `
+                    translateY(${offset * 0.4}px)
+                    translateX(${tiltX}px)
+                    translateY(${tiltY * 0.3}px)
+                    scale(1.06)
+                  `,
+                }
+              : { transform: "none" }
+          }
         />
-        {/* darken so our text is always readable, especially on mobile */}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/85 to-slate-950/70" />
 
-        <div className="relative max-w-5xl mx-auto px-4 py-12 sm:py-16">
-          <div className="max-w-2xl">
-            <h1 className="text-3xl sm:text-4xl font-semibold leading-tight">
-              Smarter used-car checks with CarVerity
-            </h1>
-            <p className="mt-3 text-slate-300 text-sm sm:text-base">
-              Analyse car listings, spot risks before you buy, and guide your
-              in-person inspections with confidence.
-            </p>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/70 to-black/85" />
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                to="/start-scan"
-                className="inline-flex items-center justify-center rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/30 hover:bg-indigo-400 transition"
-              >
-                Start a scan
-              </Link>
+        <div
+          ref={heroRef}
+          className="relative max-w-5xl mx-auto px-6 py-24 sm:py-28 opacity-0 translate-y-6 transition-all duration-700 ease-out"
+        >
+          <h1 className="text-4xl sm:text-5xl font-bold leading-tight">
+            Smarter used-car checks with CarVerity
+          </h1>
 
-              <Link
-                to="/my-scans"
-                className="inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900/70 px-4 py-2.5 text-sm font-medium text-slate-100 hover:bg-slate-800/80 transition"
-              >
-                My scans
-              </Link>
-            </div>
+          <p className="mt-4 text-slate-300 max-w-xl">
+            Analyse car listings, spot risk signals before you buy, and guide your
+            in-person inspections with confidence.
+          </p>
+
+          <div className="mt-6 flex gap-4 flex-wrap">
+            <Link
+              to="/start-scan"
+              className="px-4 py-2 rounded-md bg-indigo-500 text-white transition hover:bg-indigo-600"
+            >
+              Start a scan
+            </Link>
+
+            <Link
+              to="/my-scans"
+              className="px-4 py-2 rounded-md bg-slate-800 text-white/90 transition hover:bg-slate-700"
+            >
+              My scans
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* MAIN DASHBOARD */}
-      <main className="max-w-5xl mx-auto px-4 py-10 space-y-8">
-        {/* HEADING */}
-        <header className="space-y-2">
-          <h2 className="text-xl sm:text-2xl font-semibold">
-            {hasScans ? "Your scans" : "Start your first scan"}
-          </h2>
-          <p className="text-slate-400 text-sm sm:text-base max-w-2xl">
-            {hasScans
-              ? "Pick up where you left off or start a new online listing or in-person inspection."
-              : "No scans yet — begin with an online listing or in-person inspection."}
-          </p>
-        </header>
+      <div className="h-6 sm:h-10" />
 
-        {/* SCAN FILTER TABS (only show when we have scans) */}
-        {hasScans && (
-          <div className="flex items-center justify-between gap-3">
-            <div className="inline-flex rounded-full bg-slate-900/80 p-1 border border-slate-700/70 text-xs sm:text-sm">
-              {(["all", "online", "in-person"] as ScanFilter[]).map((value) => {
-                const label =
-                  value === "all"
-                    ? "All"
-                    : value === "online"
-                    ? "Online"
-                    : "In-person";
+      {/* RECENT SCANS PANEL */}
+      <section className="max-w-5xl mx-auto px-6 mb-4">
+        <div className="border border-white/10 rounded-xl p-5 bg-slate-800/40 backdrop-blur">
 
-                const isActive = filter === value;
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
+            <h3 className="font-semibold">
+              {displayScans.length ? "Recent scans" : "Start your first scan"}
+            </h3>
+
+            <div className="flex gap-2 text-xs bg-slate-900/60 rounded-full p-1 border border-white/10">
+              {[
+                { key: "all", label: "All" },
+                { key: "online", label: "Online" },
+                { key: "in-person", label: "In-person" },
+                { key: "completed", label: "Completed" },
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() =>
+                    setFilter(tab.key as "all" | "online" | "in-person" | "completed")
+                  }
+                  className={`px-2.5 py-1 rounded-full transition ${
+                    filter === tab.key
+                      ? "bg-white text-slate-900"
+                      : "text-slate-300 hover:bg-slate-700/80"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {displayScans.length === 0 ? (
+            <div className="flex items-center justify-between">
+              <p className="text-slate-300 text-sm">
+                No scans yet — begin with an online listing or in-person inspection.
+              </p>
+              <Link
+                to="/start-scan"
+                className="px-4 py-2 rounded-md bg-indigo-500 hover:bg-indigo-600 text-white text-sm transition"
+              >
+                Start →
+              </Link>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {displayScans.map(scan => {
+                const p = getProgress(scan.progress);
+                const color = getProgressColor(p, scan.completed);
+                const badgeClass =
+                  scan.type === "online"
+                    ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                    : "bg-amber-500/20 text-amber-300 border border-amber-500/30";
 
                 return (
-                  <button
-                    key={value}
-                    onClick={() => setFilter(value)}
-                    className={`px-3 sm:px-4 py-1.5 rounded-full font-medium transition ${
-                      isActive
-                        ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-300 hover:text-white"
-                    }`}
+                  <div
+                    key={scan.id}
+                    className="group relative rounded-lg overflow-hidden"
+                    onTouchStart={e => startSwipe(scan.id, e.touches[0]?.clientX ?? 0)}
+                    onTouchMove={e => moveSwipe(e.touches[0]?.clientX ?? 0)}
+                    onTouchEnd={endSwipe}
                   >
-                    {label}
-                  </button>
+                    <div className="absolute inset-0 bg-red-500/40 flex items-center justify-end pr-4">
+                      <span className="text-white text-sm">Delete</span>
+                    </div>
+
+                    <div
+                      className="relative w-full flex items-center gap-4 text-left border border-white/10 rounded-lg p-3 bg-slate-800/30 hover:bg-slate-700/40 transition-all"
+                      style={
+                        swipeTarget === scan.id && swipeStartX
+                          ? { transform: "translateX(-60px)" }
+                          : undefined
+                      }
+                    >
+                      <button
+                        onClick={() => navigate(`/scan/${scan.id}`)}
+                        className="flex-1 flex items-center gap-4 text-left"
+                      >
+                        <div className="w-14 h-14 rounded-md overflow-hidden border border-white/10 bg-slate-700 flex items-center justify-center">
+                          {scan.thumbnail ? (
+                            <img src={scan.thumbnail} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-[10px] text-slate-300">No photo</span>
+                          )}
+                        </div>
+
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium">{scan.title || "Vehicle scan"}</p>
+
+                            <span className={`text-[10px] px-2 py-[2px] rounded-md ${badgeClass}`}>
+                              {scan.type === "online" ? "Online" : "In-Person"}
+                            </span>
+
+                            {scan.completed && (
+                              <span className="text-[10px] px-2 py-[2px] rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                Completed
+                              </span>
+                            )}
+
+                            {scan.pinned && (
+                              <span className="text-amber-300 text-xs">★ Pinned</span>
+                            )}
+                          </div>
+
+                          <p className="text-slate-300 text-xs mb-1">
+                            {formatTimeAgo(scan.updatedAt)}
+                          </p>
+
+                          <div className="w-full h-2 rounded-full bg-slate-700 overflow-hidden">
+                            <div
+                              className={`h-full ${color} transition-all duration-500`}
+                              style={{ width: `${p}%` }}
+                            />
+                          </div>
+
+                          <p className="text-[11px] mt-1 text-slate-400">
+                            {scan.completed || p >= 100
+                              ? "100% complete"
+                              : `${p}% complete`}
+                          </p>
+                        </div>
+                      </button>
+
+                      <div className="flex flex-col gap-1 items-end ml-2">
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            toggleCompleted(scan.id);
+                          }}
+                          className="text-[11px] px-2 py-1 rounded-md bg-slate-700/70 text-slate-200 hover:bg-slate-600"
+                        >
+                          {scan.completed || p >= 100 ? "Mark as active" : "Mark completed"}
+                        </button>
+
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            togglePin(scan.id);
+                          }}
+                          className="text-[11px] px-2 py-1 rounded-md bg-slate-700/70 text-slate-200 hover:bg-slate-600"
+                        >
+                          {scan.pinned ? "Unpin" : "Pin"}
+                        </button>
+
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            deleteScan(scan.id);
+                          }}
+                          className="text-[11px] text-red-300 hover:text-red-200"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
             </div>
+          )}
+        </div>
+      </section>
+
+      {/* FEATURE CARDS */}
+      <section
+        ref={cardsRef}
+        className="max-w-5xl mx-auto px-6 pb-16 pt-2 grid gap-6 md:grid-cols-3"
+      >
+        <div className="border border-white/10 rounded-xl p-5 bg-slate-800/30 backdrop-blur opacity-0 translate-y-6 transition-all duration-700 ease-out">
+          <h3 className="font-semibold mb-2">Online Listing Scan</h3>
+          <p className="text-slate-300 text-sm mb-3">
+            Paste a listing link and instantly analyse pricing, wording risks, and seller flags.
+          </p>
+          <Link to="/start-scan" className="text-indigo-300 hover:text-indigo-200 text-sm">
+            Start online scan →
+          </Link>
+        </div>
+
+        <div className="border border-white/10 rounded-xl p-5 bg-slate-800/30 backdrop-blur opacity-0 translate-y-6 transition-all duration-700 ease-out">
+          <h3 className="font-semibold mb-2">In-Person Inspection Mode</h3>
+          <p className="text-slate-300 text-sm mb-3">
+            Guided on-site checklist with photos, prompts, and risk highlights.
+          </p>
+          <Link to="/inperson-start" className="text-indigo-300 hover:text-indigo-200 text-sm">
+            Start in-person scan →
+          </Link>
+        </div>
+
+        <div className="border border-white/10 rounded-xl p-5 bg-slate-800/30 backdrop-blur opacity-0 translate-y-6 transition-all duration-700 ease-out">
+          <h3 className="font-semibold mb-2">Your Scan History</h3>
+          <p className="text-slate-300 text-sm mb-3">
+            Re-open reports and compare vehicles side-by-side.
+          </p>
+          <Link to="/my-scans" className="text-indigo-300 hover:text-indigo-200 text-sm">
+            View history →
+          </Link>
+        </div>
+      </section>
+
+      {/* UNDO SNACKBAR */}
+      {showUndo && lastDeleted && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+          <div className="flex items-center gap-4 px-4 py-2 rounded-full bg-slate-900/90 border border-white/10 shadow-lg text-sm">
+            <span>
+              Removed <strong>{lastDeleted.title || "scan"}</strong>
+            </span>
+            <button onClick={undoDelete} className="text-emerald-300 hover:text-emerald-200 font-semibold">
+              Undo
+            </button>
+            <button onClick={() => setShowUndo(false)} className="text-slate-400 hover:text-slate-200 text-xs">
+              Dismiss
+            </button>
           </div>
-        )}
-
-        {/* SCAN LIST */}
-        {hasScans && (
-          <section className="space-y-3">
-            {filteredScans.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-700/80 bg-slate-900/60 px-4 py-6 text-sm text-slate-300">
-                No{" "}
-                <span className="font-medium">
-                  {filter === "online"
-                    ? "online"
-                    : filter === "in-person"
-                    ? "in-person"
-                    : ""}
-                </span>{" "}
-                scans yet. Start a new scan below.
-              </div>
-            ) : (
-              filteredScans.map((scan) => (
-                <Link
-                  key={scan.id}
-                  to={`/scan/${scan.id}`}
-                  className="block rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3.5 sm:px-5 sm:py-4 hover:border-indigo-500/70 hover:bg-slate-900 transition shadow-sm shadow-black/20"
-                >
-                  <div className="flex items-start gap-3">
-                    {/* TYPE DOT */}
-                    <div className="mt-1">
-                      <span
-                        className={`inline-block h-2.5 w-2.5 rounded-full ${
-                          scan.type === "online"
-                            ? "bg-indigo-400"
-                            : "bg-emerald-400"
-                        }`}
-                      />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      {/* TOP ROW: type + date */}
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
-                        <span className="font-medium">
-                          {scan.type === "online"
-                            ? "Online Listing Scan"
-                            : "In-Person Scan"}
-                        </span>
-                        {scan.createdAt && (
-                          <span className="text-slate-500">
-                            • {formatDate(scan.createdAt)}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* TITLE */}
-                      <div className="mt-1 text-sm sm:text-base font-medium text-slate-50 truncate">
-                        {scan.title || "Untitled scan"}
-                      </div>
-
-                      {/* OPTIONAL SUMMARY / URL */}
-                      {scan.summary && (
-                        <p className="mt-1 text-xs sm:text-sm text-slate-400 line-clamp-2">
-                          {scan.summary}
-                        </p>
-                      )}
-                      {!scan.summary && scan.listingUrl && (
-                        <p className="mt-1 text-xs sm:text-sm text-slate-400 truncate">
-                          {scan.listingUrl}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* ACTION LABEL */}
-                    <div className="mt-1 text-xs sm:text-sm font-medium text-indigo-300 whitespace-nowrap">
-                      Open →
-                    </div>
-                  </div>
-                </Link>
-              ))
-            )}
-          </section>
-        )}
-
-        {/* ACTION CARDS – always visible, even when there are scans */}
-        <section className="space-y-4">
-          <h3 className="text-sm font-semibold text-slate-300">
-            Start a new scan
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Online listing card */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-5 sm:px-5 sm:py-6 shadow-sm shadow-black/20">
-              <h4 className="text-sm sm:text-base font-semibold text-slate-50">
-                Online Listing Scan
-              </h4>
-              <p className="mt-2 text-xs sm:text-sm text-slate-400">
-                Paste a listing link and instantly analyse pricing, wording
-                risks, and seller flags.
-              </p>
-              <Link
-                to="/online-start"
-                className="mt-4 inline-flex items-center text-xs sm:text-sm font-medium text-indigo-300 hover:text-indigo-200"
-              >
-                Start online scan →
-              </Link>
-            </div>
-
-            {/* In-person card */}
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-5 sm:px-5 sm:py-6 shadow-sm shadow-black/20">
-              <h4 className="text-sm sm:text-base font-semibold text-slate-50">
-                In-Person Inspection Mode
-              </h4>
-              <p className="mt-2 text-xs sm:text-sm text-slate-400">
-                Guided on-site checklist with photos, prompts, and risk
-                highlights.
-              </p>
-              <Link
-                to="/in-person-start"
-                className="mt-4 inline-flex items-center text-xs sm:text-sm font-medium text-indigo-300 hover:text-indigo-200"
-              >
-                Start in-person scan →
-              </Link>
-            </div>
-          </div>
-        </section>
-      </main>
+        </div>
+      )}
     </div>
   );
 }
