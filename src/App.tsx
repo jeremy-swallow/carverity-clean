@@ -13,7 +13,7 @@ import OnlineDetails from "./pages/OnlineDetails";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
 import OnlineResults from "./pages/OnlineResults";
 
-// --- In-person flow (WIP — disabled until pages are ready) ---
+// In-person flow — enable later when pages exist
 // import InPersonStart from "./pages/InPersonStart";
 // import InPersonPhotos from "./pages/InPersonPhotos";
 // import InPersonChecks from "./pages/InPersonChecks";
@@ -23,29 +23,44 @@ import OnlineResults from "./pages/OnlineResults";
 
 import CreditsHistory from "./pages/CreditsHistory";
 
+// Temporary test page removed (no file right now)
+// import DeployTest from "./pages/DeployTest";
+
 export default function App() {
   return (
     <Routes>
-      {/* Main layout pages */}
       <Route element={<Layout />}>
+
         <Route path="/" element={<Home />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/my-scans" element={<MyScans />} />
         <Route path="/faq" element={<FAQ />} />
         <Route path="/account" element={<Account />} />
+
+        {/* Entry */}
+        <Route path="/start-scan" element={<StartScan />} />
+
+        {/* Online scan flow */}
+        <Route path="/online-start" element={<OnlineStart />} />
+        <Route path="/online-details" element={<OnlineDetails />} />
+        <Route path="/online-analyzing" element={<OnlineAnalyzing />} />
+        <Route path="/online-results" element={<OnlineResults />} />
+
+        {/* In-person flow (coming later) */}
+        {/*
+        <Route path="/in-person/start" element={<InPersonStart />} />
+        <Route path="/in-person/photos" element={<InPersonPhotos />} />
+        <Route path="/in-person/checks" element={<InPersonChecks />} />
+        <Route path="/in-person/owners" element={<InPersonOwners />} />
+        <Route path="/in-person/kilometres" element={<InPersonKilometres />} />
+        <Route path="/in-person/results" element={<InPersonResults />} />
+        */}
+
         <Route path="/credits-history" element={<CreditsHistory />} />
+
+        {/* <Route path="/deploy-test" element={<DeployTest />} /> */}
+
       </Route>
-
-      {/* Scan entry */}
-      <Route path="/start-scan" element={<StartScan />} />
-
-      {/* Online scan flow */}
-      <Route path="/scan/online" element={<OnlineStart />} />
-      <Route path="/scan/online/details" element={<OnlineDetails />} />
-      <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
-      <Route path="/scan/online/results" element={<OnlineResults />} />
-
-      {/* In-person flow will be re-enabled later */}
     </Routes>
   );
 }
