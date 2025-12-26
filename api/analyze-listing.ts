@@ -1,68 +1,73 @@
-export default async function handler(req: any, res: any) {
+export default async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return new Response(
+      JSON.stringify({ error: "Method not allowed" }),
+      { status: 405, headers: { "Content-Type": "application/json" } }
+    );
   }
 
   try {
-    const { listingUrl } = req.body;
+    const body = await req.json();
+    const listingUrl = body?.listingUrl;
 
     if (!listingUrl) {
-      return res.status(400).json({ error: "Missing listingUrl" });
+      return new Response(
+        JSON.stringify({ error: "Missing listingUrl" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({ error: "OpenAI key not configured" });
+      return new Response(
+        JSON.stringify({ error: "OpenAI key not configured" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    // ---- Call OpenAI ----
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const prompt = `
+You are an automotive risk analysis assistant.
+
+Analyze the wording of this used-car listing URL and return structured findings only.
+Listing: ${listingUrl}
+
+Output JSON with:
+- rating (low | medium | high)
+- keyInsights[]
+- pricingSignals[]
+- languageRisks[]
+- sellerTrust[]
+
+Return ONLY valid JSON.
+`;
+
+    const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4.1-mini",
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content:
-              "You analyze used-car listings and return structured risk findings.",
-          },
-          {
-            role: "user",
-            content: `Analyze this car listing and return structured risk insights: ${listingUrl}`,
-          },
-        ],
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
       }),
     });
 
-    const data = await response.json();
+    const data = await aiResponse.json();
+    const content = data?.choices?.[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(content);
 
-    // ---- Normalise result into our structure ----
-    const parsed =
-      typeof data?.choices?.[0]?.message?.content === "string"
-        ? JSON.parse(data.choices[0].message.content)
-        : data?.choices?.[0]?.message?.content ?? {};
+    return new Response(
+      JSON.stringify({ ok: true, analysis: parsed }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
 
-    const report = {
-      riskRating: parsed.riskRating ?? "Unknown",
-      keyInsights: parsed.keyInsights ?? ["No structured output returned"],
-      sections: parsed.sections ?? {
-        pricing: [],
-        language: [],
-        sellerTrust: [],
-        missingInfo: [],
-        recommendations: [],
-      },
-      source: listingUrl,
-    };
-
-    return res.status(200).json(report);
   } catch (err) {
-    console.error("AI error", err);
-    return res.status(500).json({ error: "AI request failed" });
+    console.error("AI analysis error:", err);
+    return new Response(
+      JSON.stringify({ error: "Processing failed" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }
