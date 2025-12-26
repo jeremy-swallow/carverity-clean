@@ -1,33 +1,24 @@
 /* =========================================================
-   Scan Progress — Local-only persistence (v1)
-   Upgrade-safe and backward-compatible
+   Scan Progress Persistence (upgrade-safe)
+   Used to resume scans and pass data between steps
    ========================================================= */
 
-const STORAGE_KEY = "carverity_scan_progress";
-
-/**
- * Central scan progress shape.
- * Optional fields allow different steps to store only what
- * they need without breaking older or future steps.
- */
 export type ScanProgress = {
   type: "online" | "in-person";
   step: string;
 
-  // Common metadata (some flows already use these)
-  startedAt?: string;
-  completedAt?: string;
-
   // Online scan fields
   listingUrl?: string;
 
-  // In-person scan fields (future-safe)
-  vehicleTitle?: string;
-  odometer?: string;
-  photos?: string[];
+  // Analysis result (added v2)
+  // Optional so older sessions still load safely
+  analysis?: any;
+
+  // Future-proof fields can be added here safely
 };
 
-/** Load current progress (safe fallback) */
+const STORAGE_KEY = "carverity_scan_progress";
+
 export function loadProgress(): ScanProgress | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -42,12 +33,13 @@ export function loadProgress(): ScanProgress | null {
   }
 }
 
-/** Save progress to storage */
-export function saveProgress(progress: ScanProgress) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+export function saveProgress(progress: Partial<ScanProgress>) {
+  const existing = loadProgress() ?? {};
+  const merged = { ...existing, ...progress };
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
 }
 
-/** Clear progress entirely */
 export function clearProgress() {
   localStorage.removeItem(STORAGE_KEY);
 }
