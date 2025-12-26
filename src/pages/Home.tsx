@@ -23,14 +23,24 @@ export default function Home() {
           {/* ONLINE LISTING SCAN */}
           <Link
             to="/online-start"
-            className="group rounded-xl border bg-card/70 backdrop-blur-sm
+            className="group rounded-xl border relative overflow-hidden
+                       bg-card/70 backdrop-blur-sm
                        p-5 flex items-center justify-between
                        transition-all duration-200
                        hover:-translate-y-0.5 hover:border-primary/40
-                       hover:shadow-[0_8px_40px_-10px_rgba(80,200,255,.25)]
+                       hover:shadow-[0_10px_40px_-12px_rgba(80,200,255,.28)]
                        hover:bg-card"
           >
-            <div className="flex items-center gap-4">
+            {/* subtle sheen gradient */}
+            <div className="pointer-events-none absolute inset-0 opacity-60
+                            bg-[radial-gradient(120%_80%_at_0%_-10%,rgba(90,220,255,.12),transparent)]
+                            group-hover:opacity-90 transition" />
+
+            {/* fine outline layer */}
+            <div className="pointer-events-none absolute inset-0 rounded-xl
+                            border border-white/5" />
+
+            <div className="relative flex items-center gap-4">
               <Search className="opacity-80 group-hover:opacity-100 transition" />
               <div>
                 <h2 className="font-semibold text-lg mb-1">
@@ -42,20 +52,31 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <ArrowRight className="transition group-hover:translate-x-1" />
+
+            <ArrowRight className="relative transition group-hover:translate-x-1" />
           </Link>
 
           {/* IN-PERSON INSPECTION */}
           <Link
             to="/inperson-start"
-            className="group rounded-xl border bg-card/70 backdrop-blur-sm
+            className="group rounded-xl border relative overflow-hidden
+                       bg-card/70 backdrop-blur-sm
                        p-5 flex items-center justify-between
                        transition-all duration-200
                        hover:-translate-y-0.5 hover:border-primary/40
-                       hover:shadow-[0_8px_40px_-10px_rgba(120,255,200,.25)]
+                       hover:shadow-[0_10px_40px_-12px_rgba(120,255,200,.28)]
                        hover:bg-card"
           >
-            <div className="flex items-center gap-4">
+            {/* subtle sheen gradient */}
+            <div className="pointer-events-none absolute inset-0 opacity-60
+                            bg-[radial-gradient(120%_80%_at_100%_-10%,rgba(120,255,200,.12),transparent)]
+                            group-hover:opacity-90 transition" />
+
+            {/* fine outline layer */}
+            <div className="pointer-events-none absolute inset-0 rounded-xl
+                            border border-white/5" />
+
+            <div className="relative flex items-center gap-4">
               <ClipboardList className="opacity-80 group-hover:opacity-100 transition" />
               <div>
                 <h2 className="font-semibold text-lg mb-1">
@@ -67,7 +88,8 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <ShieldCheck className="transition group-hover:scale-105" />
+
+            <ShieldCheck className="relative transition group-hover:scale-105" />
           </Link>
 
         </div>
