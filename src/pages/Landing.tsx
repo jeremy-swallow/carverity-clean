@@ -20,14 +20,14 @@ export default function Landing() {
 
           <div className="flex gap-4">
             <Link
-              to="/app"
+              to="/start-scan"
               className="px-6 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-semibold"
             >
               Start a scan
             </Link>
 
             <Link
-              to="/app/my-scans"
+              to="/my-scans"
               className="px-6 py-3 rounded-xl bg-slate-900 border border-white/10 hover:bg-slate-800"
             >
               My scans

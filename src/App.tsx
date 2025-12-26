@@ -1,78 +1,50 @@
-import { Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Layout from "./components/Layout";
 
-// Core pages
 import Home from "./pages/Home";
 import StartScan from "./pages/StartScan";
+import OnlineStart from "./pages/OnlineStart";
+import InPersonStart from "./pages/InPersonStart";
 import MyScans from "./pages/MyScans";
 import Pricing from "./pages/Pricing";
 import FAQ from "./pages/FAQ";
-import Account from "./pages/Account";
 import CreditsHistory from "./pages/CreditsHistory";
+import Account from "./pages/Account";
 
-// Online flow
-import OnlineStart from "./pages/OnlineStart";
-import OnlineScan from "./pages/OnlineScan";
-import OnlineAnalyzing from "./pages/OnlineAnalyzing";
-import OnlineResults from "./pages/OnlineResults";
-import OnlineOwners from "./pages/OnlineOwners";
-import OnlineKilometres from "./pages/OnlineKilometres";
-import OnlineNextActions from "./pages/OnlineNextActions";
-import OnlineReport from "./pages/OnlineReport";
+import Landing from "./pages/Landing";
 
-// In-person flow
-import InPersonStart from "./pages/InPersonStart";
-import InPersonScan from "./pages/InPersonScan";
-import InPersonChecks from "./pages/InPersonChecks";
-import InPersonPhotos from "./pages/InPersonPhotos";
-import InPersonSummary from "./pages/InPersonSummary";
-
-// Shared / misc
-import ScanDetails from "./pages/ScanDetails";
-import ScanMode from "./pages/ScanMode";
-import AuthLinkExpired from "./pages/AuthLinkExpired";
 
 export default function App() {
   return (
-    <Routes>
-      {/* All main routes live inside the Layout shell */}
-      <Route element={<Layout />}>
-        {/* 🔹 MAIN ENTRY — the assistant-style dashboard home (RECOMMENDED) */}
-        <Route path="/" element={<Home />} />
+    <BrowserRouter>
+      <Routes>
 
-        {/* Core nav items */}
-        <Route path="/start-scan" element={<StartScan />} />
-        <Route path="/my-scans" element={<MyScans />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/faq" element={<FAQ />} />
-        <Route path="/account" element={<Account />} />
-        <Route path="/credits-history" element={<CreditsHistory />} />
+        {/* Main app routes */}
+        <Route element={<Layout />}>
 
-        {/* Online listing flow */}
-        <Route path="/online-start" element={<OnlineStart />} />
-        <Route path="/online-scan" element={<OnlineScan />} />
-        <Route path="/online-analyzing" element={<OnlineAnalyzing />} />
-        <Route path="/online-results" element={<OnlineResults />} />
-        <Route path="/online-owners" element={<OnlineOwners />} />
-        <Route path="/online-kilometres" element={<OnlineKilometres />} />
-        <Route path="/online-next-actions" element={<OnlineNextActions />} />
-        <Route path="/online-report" element={<OnlineReport />} />
+          {/* Dashboard homepage */}
+          <Route path="/" element={<Home />} />
 
-        {/* In-person inspection flow */}
-        <Route path="/inperson-start" element={<InPersonStart />} />
-        <Route path="/inperson-scan" element={<InPersonScan />} />
-        <Route path="/inperson-checks" element={<InPersonChecks />} />
-        <Route path="/inperson-photos" element={<InPersonPhotos />} />
-        <Route path="/inperson-summary" element={<InPersonSummary />} />
+          <Route path="/start-scan" element={<StartScan />} />
+          <Route path="/online-start" element={<OnlineStart />} />
+          <Route path="/inperson-start" element={<InPersonStart />} />
 
-        {/* Shared / misc screens */}
-        <Route path="/scan/:scanId" element={<ScanDetails />} />
-        <Route path="/scan-mode" element={<ScanMode />} />
-        <Route path="/auth/link-expired" element={<AuthLinkExpired />} />
+          <Route path="/my-scans" element={<MyScans />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/credits-history" element={<CreditsHistory />} />
+          <Route path="/account" element={<Account />} />
 
-        {/* Fallback — anything unknown goes to Home */}
+        </Route>
+
+        {/* Optional marketing page */}
+        <Route path="/landing" element={<Landing />} />
+
+        {/* Fallback */}
         <Route path="*" element={<Home />} />
-      </Route>
-    </Routes>
+
+      </Routes>
+    </BrowserRouter>
   );
 }
