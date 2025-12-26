@@ -14,11 +14,11 @@ export default function Home() {
           className="absolute inset-0 w-full h-full object-cover"
         />
 
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/75 to-black/90" />
+        {/* Improved Overlay — fully opaque at the bottom */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/80 to-black" />
 
-        {/* Content Wrapper */}
-        <div className="relative max-w-5xl mx-auto px-6 pt-20 pb-24 sm:pt-28 sm:pb-32 min-h-[460px] sm:min-h-[560px] flex flex-col justify-center">
+        {/* Content */}
+        <div className="relative max-w-5xl mx-auto px-6 pt-24 pb-28 sm:pt-32 sm:pb-40 min-h-[520px] sm:min-h-[640px] flex flex-col justify-center">
 
           <h1 className="text-4xl sm:text-5xl font-bold leading-tight text-white">
             Smarter used-car checks with CarVerity
@@ -29,7 +29,6 @@ export default function Home() {
             with confidence.
           </p>
 
-          {/* BUTTON ROW (with safety background on mobile) */}
           <div className="mt-6 inline-flex gap-4 bg-black/40 sm:bg-transparent p-2 rounded-xl">
             <Link
               to="/start-scan"
@@ -47,7 +46,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
 
       {/* FEATURES SECTION */}
       <main className="max-w-5xl mx-auto px-6 py-16">
