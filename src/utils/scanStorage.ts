@@ -12,17 +12,33 @@ export type SavedScan = {
   createdAt: string;
   listingUrl?: string;
   summary?: string;
+
+  // 👇 Added field (optional so old scans still load)
+  completed?: boolean;
 };
 
 const STORAGE_KEY = "carverity_saved_scans";
+
+/**
+ * Normalises scans — ensures new fields exist
+ */
+function normalizeScans(scans: any[]): SavedScan[] {
+  return scans.map((scan) => ({
+    ...scan,
+    // 👇 If missing, default to false
+    completed: scan.completed ?? false,
+  })) as SavedScan[];
+}
 
 export function loadScans(): SavedScan[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
+
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed as SavedScan[];
+
+    return normalizeScans(parsed);
   } catch {
     return [];
   }
@@ -30,7 +46,12 @@ export function loadScans(): SavedScan[] {
 
 export function saveScan(scan: SavedScan) {
   const existing = loadScans();
-  const updated = [scan, ...existing];
+  const updated = [
+    // ensure saved scans always include field
+    { completed: false, ...scan },
+    ...existing,
+  ];
+
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
 

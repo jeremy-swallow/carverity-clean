@@ -1,125 +1,110 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+
 import { loadScans } from "../utils/scanStorage";
-
-export type ScanType = "online" | "in-person";
-
-export type SavedScan = {
-  id: string;
-  type: ScanType;
-  title: string;
-  createdAt: string;
-  listingUrl?: string;
-  summary?: string;
-};
+import type { SavedScan } from "../utils/scanStorage";
 
 export default function Home() {
   const [scans, setScans] = useState<SavedScan[]>([]);
 
   useEffect(() => {
-    try {
-      const saved = loadScans();
-      setScans(Array.isArray(saved) ? (saved as SavedScan[]) : []);
-    } catch {
-      setScans([]);
-    }
+    setScans(loadScans());
   }, []);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-
-      {/* ===== HERO IMAGE (RESTORED) ===== */}
-      <div className="rounded-2xl overflow-hidden mb-10 border bg-white/5">
-        <img
-          src="/photo-guides/hero.png"
-          alt="CarVerity hero"
-          className="w-full h-60 object-cover"
-        />
-
-        <div className="p-6">
-          <h1 className="text-3xl font-bold mb-2">
-            Car buyer’s smart assistant
-          </h1>
-
-          <p className="text-muted-foreground">
-            Scan vehicle listings or inspect cars in person — get insights,
-            warnings and confidence before you buy.
-          </p>
-        </div>
+    <div className="max-w-4xl mx-auto px-4 py-10 text-slate-100">
+      {/* HEADER */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">
+          Start your first scan
+        </h1>
+        <p className="text-slate-400">
+          No scans yet — begin with an online listing or in-person inspection.
+        </p>
       </div>
 
-      {/* ===== START SCAN ACTIONS ===== */}
-      <h2 className="text-xl font-semibold mb-3">Start a new scan</h2>
+      {/* ==============================================
+          SCAN LIST (MOBILE CARD LAYOUT)
+      =============================================== */}
+      {scans.length > 0 && (
+        <div className="space-y-4 mb-10">
+          {scans.map((scan) => (
+            <Link
+              key={scan.id}
+              to={
+                scan.type === "online"
+                  ? `/online-results?id=${scan.id}`
+                  : `/in-person-summary?id=${scan.id}`
+              }
+            >
+              <div className="border border-white/10 rounded-2xl p-4 bg-slate-900/40 shadow-sm hover:border-indigo-400/40 transition">
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-        <Link
-          to="/scan/online"
-          className="rounded-xl border bg-white/5 hover:bg-white/10 transition shadow-sm p-5 flex items-center gap-4"
-        >
-          <div className="text-4xl">🌐</div>
-          <div>
-            <h3 className="font-semibold text-lg">Online Scan</h3>
-            <p className="text-sm text-muted-foreground">
-              Analyse a car listing URL
-            </p>
-          </div>
-        </Link>
+                {/* ROW 1 — TYPE + DATE */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        scan.type === "online"
+                          ? "bg-indigo-400"
+                          : "bg-emerald-400"
+                      }`}
+                    />
+                    <span className="text-sm font-medium capitalize">
+                      {scan.type === "online"
+                        ? "Online Listing Scan"
+                        : "In-Person Scan"}
+                    </span>
+                  </div>
 
-        <Link
-          to="/scan/in-person"
-          className="rounded-xl border bg-white/5 hover:bg-white/10 transition shadow-sm p-5 flex items-center gap-4"
-        >
-          <div className="text-4xl">🚗</div>
-          <div>
-            <h3 className="font-semibold text-lg">In-person Scan</h3>
-            <p className="text-sm text-muted-foreground">
-              Record details while inspecting on-site
-            </p>
-          </div>
-        </Link>
-      </div>
+                  <span className="text-xs text-slate-400">
+                    {new Date(scan.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
 
-      {/* ===== SAVED SCANS ===== */}
-      <h2 className="text-xl font-semibold mb-3">Saved scans</h2>
+                {/* ROW 2 — TITLE */}
+                <div className="text-base font-semibold mb-2">
+                  {scan.title || "Untitled scan"}
+                </div>
 
-      {scans.length === 0 && (
-        <div className="rounded-xl border bg-white/5 p-6 text-sm text-muted-foreground">
-          No scans saved yet. Start your first scan above.
+                {/* ROW 3 — FOOTER */}
+                <div className="flex justify-end">
+                  <span className="text-indigo-300 text-sm">
+                    {scan.completed ? "View report →" : "Resume →"}
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
       )}
 
-      <div className="space-y-3">
-        {scans.map((scan) => (
-          <Link
-            key={scan.id}
-            to={`/scan/${scan.id}`}
-            className="block rounded-xl border bg-white/5 hover:bg-white/10 transition shadow-sm p-4"
-          >
-            <div className="flex items-center gap-4">
-              <div className="text-2xl">
-                {scan.type === "online" ? "🌐" : "🚗"}
-              </div>
+      {/* ==============================================
+          ACTION CARDS
+      =============================================== */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-              <div className="flex-1">
-                <h3 className="font-semibold">
-                  {scan.title || "Untitled scan"}
-                </h3>
-
-                <p className="text-xs text-muted-foreground">
-                  {scan.type === "online"
-                    ? "Online listing analysis"
-                    : "In-person inspection"}
-                </p>
-
-                <p className="text-xs mt-1 text-muted-foreground">
-                  {scan.createdAt
-                    ? new Date(scan.createdAt).toLocaleString()
-                    : "Unknown date"}
-                </p>
-              </div>
-            </div>
+        {/* ONLINE SCAN */}
+        <div className="border border-white/10 rounded-2xl p-4 bg-slate-900/40">
+          <h3 className="font-semibold mb-2">Online Listing Scan</h3>
+          <p className="text-slate-400 mb-3">
+            Paste a listing link and instantly analyse pricing, wording risks,
+            and seller flags.
+          </p>
+          <Link to="/online-start" className="text-indigo-300">
+            Start online scan →
           </Link>
-        ))}
+        </div>
+
+        {/* IN-PERSON SCAN */}
+        <div className="border border-white/10 rounded-2xl p-4 bg-slate-900/40">
+          <h3 className="font-semibold mb-2">In-Person Inspection Mode</h3>
+          <p className="text-slate-400 mb-3">
+            Guided on-site checklist with photos, prompts, and risk highlights.
+          </p>
+          <Link to="/in-person-start" className="text-indigo-300">
+            Start in-person scan →
+          </Link>
+        </div>
       </div>
     </div>
   );
