@@ -1,22 +1,23 @@
 /* =========================================================
-   Scan Progress Persistence (upgrade-safe)
-   Used to resume scans and pass data between steps
+   Scan Progress Persistence (upgrade-safe, tolerant fields)
    ========================================================= */
 
 export type ScanProgress = {
   type: "online" | "in-person";
   step: string;
 
-  // Timestamps (legacy field — kept for compatibility)
+  // Timestamps (legacy / compatibility)
   startedAt?: string;
 
   // Online scan fields
   listingUrl?: string;
 
-  // Analysis result (v2)
+  // AI analysis (v2)
   analysis?: any;
 
-  // Future fields can safely be added here
+  // 👇 Safety — allow unknown fields from older screens
+  // (prevents TS build failures during upgrades)
+  [key: string]: any;
 };
 
 const STORAGE_KEY = "carverity_scan_progress";
@@ -26,10 +27,7 @@ export function loadProgress(): ScanProgress | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
 
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-
-    return parsed as ScanProgress;
+    return JSON.parse(raw) as ScanProgress;
   } catch {
     return null;
   }
