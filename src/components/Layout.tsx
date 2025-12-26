@@ -10,6 +10,19 @@ export default function Layout({ children }: LayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
 
+  // TEMP placeholder user — replace later with real auth
+  const user = {
+    name: "Jeremy Swallow",
+    email: "jeremy@example.com",
+  };
+
+  const initials = user?.name
+    ?.split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   const isActive = (path: string) =>
     location.pathname === path ? "text-indigo-400" : "text-white/90";
 
@@ -39,10 +52,18 @@ export default function Layout({ children }: LayoutProps) {
             <Link to="/faq" className={isActive("/faq")}>
               FAQ
             </Link>
-            <Link to="/account" className={isActive("/account")}>
-              Account
-            </Link>
           </nav>
+
+          {/* Avatar / Account Button */}
+          <Link
+            to="/account"
+            className="hidden sm:flex items-center gap-2 rounded-full border border-white/20 px-3 py-1.5 hover:bg-white/10"
+          >
+            <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-sm">
+              {initials}
+            </div>
+            <span className={isActive("/account")}>Account</span>
+          </Link>
 
           {/* Mobile Menu Button */}
           <button
@@ -89,11 +110,15 @@ export default function Layout({ children }: LayoutProps) {
                 FAQ
               </Link>
 
+              {/* Mobile Account Button */}
               <Link
                 to="/account"
-                className={`py-2 ${isActive("/account")}`}
+                className={`py-2 flex items-center gap-2 ${isActive("/account")}`}
                 onClick={() => setMenuOpen(false)}
               >
+                <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-sm">
+                  {initials}
+                </div>
                 Account
               </Link>
             </nav>
