@@ -15,7 +15,7 @@ export default function Home() {
 
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/70 to-black/85" />
 
-        <div className="relative max-w-5xl mx-auto px-6 py-24">
+        <div className="relative max-w-5xl mx-auto px-6 py-24 sm:py-28">
           <h1 className="text-4xl sm:text-5xl font-bold leading-tight">
             Smarter used-car checks with CarVerity
           </h1>
@@ -43,8 +43,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FEATURE CARDS — (no duplicate hero heading here anymore) */}
-      <section className="max-w-5xl mx-auto px-6 py-12 grid gap-6 md:grid-cols-3">
+      {/* SECTION SPACER — extra breathing room on mobile */}
+      <div className="h-6 sm:h-10" />
+
+      {/* FEATURE CARDS */}
+      <section className="max-w-5xl mx-auto px-6 pb-16 pt-4 grid gap-6 md:grid-cols-3">
 
         <div className="border border-white/10 rounded-xl p-5 bg-slate-800/30 backdrop-blur">
           <h3 className="font-semibold mb-2">Online Listing Scan</h3>
