@@ -3,41 +3,65 @@ import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 
 import Home from "./pages/Home";
+import Pricing from "./pages/Pricing";
+import MyScans from "./pages/MyScans";
+import FAQ from "./pages/FAQ";
+import Account from "./pages/Account";
+
 import StartScan from "./pages/StartScan";
 import OnlineStart from "./pages/OnlineStart";
 import OnlineDetails from "./pages/OnlineDetails";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
 import OnlineResults from "./pages/OnlineResults";
+
 import InPersonStart from "./pages/InPersonStart";
-import MyScans from "./pages/MyScans";
-import Pricing from "./pages/Pricing";
-import FAQ from "./pages/FAQ";
+import InPersonPhotos from "./pages/InPersonPhotos";
+import InPersonChecks from "./pages/InPersonChecks";
+import InPersonOwners from "./pages/InPersonOwners";
+// Temporarily unused pages (coming later)
+// import InPersonKilometres from "./pages/InPersonKilometres";
+// import InPersonResults from "./pages/InPersonResults";
+
 import CreditsHistory from "./pages/CreditsHistory";
-import Account from "./pages/Account";
-import Landing from "./pages/Landing";
+import DeployTest from "./pages/DeployTest";
 
 export default function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<Home />} />
 
+      {/* Pages inside main layout (header + nav) */}
+      <Route element={<Layout />}>
+
+        <Route path="/" element={<Home />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/my-scans" element={<MyScans />} />
+        <Route path="/faq" element={<FAQ />} />
+        <Route path="/account" element={<Account />} />
+
+        {/* Scan flows */}
         <Route path="/start-scan" element={<StartScan />} />
+
+        {/* Online scan flow */}
         <Route path="/online-start" element={<OnlineStart />} />
         <Route path="/online-details" element={<OnlineDetails />} />
         <Route path="/online-analyzing" element={<OnlineAnalyzing />} />
         <Route path="/online-results" element={<OnlineResults />} />
-        <Route path="/inperson-start" element={<InPersonStart />} />
 
-        <Route path="/my-scans" element={<MyScans />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/faq" element={<FAQ />} />
+        {/* In-person scan flow */}
+        <Route path="/inperson-start" element={<InPersonStart />} />
+        <Route path="/inperson-photos" element={<InPersonPhotos />} />
+        <Route path="/inperson-checks" element={<InPersonChecks />} />
+        <Route path="/inperson-owners" element={<InPersonOwners />} />
+
+        {/* Credits */}
         <Route path="/credits-history" element={<CreditsHistory />} />
-        <Route path="/account" element={<Account />} />
+
+        {/* 🔎 Deployment verification page */}
+        <Route path="/deploy-test" element={<DeployTest />} />
+
       </Route>
 
-      <Route path="/landing" element={<Landing />} />
-
+      {/* Fallback */}
       <Route path="*" element={<Home />} />
     </Routes>
   );
