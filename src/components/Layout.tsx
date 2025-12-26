@@ -28,27 +28,41 @@ export default function Layout() {
                 borderRadius: "8px",
               }}
             />
-            <span className="text-xl font-semibold tracking-tight transition
-                             group-hover:text-teal-300">
+            <span
+              className="text-xl font-semibold tracking-tight transition-all
+                         group-hover:text-teal-300
+                         group-hover:translate-y-[-1px]"
+            >
               CarVerity
             </span>
           </Link>
 
-          {/* Navigation with accent hover */}
+          {/* Navigation — animated underline + accent hover */}
           <nav className="flex items-center gap-6">
             <Link
               to="/start-scan"
-              className="text-sm font-medium text-muted-foreground
-                         hover:text-teal-300 transition"
+              className="relative text-sm font-medium text-muted-foreground
+                         transition-all hover:text-teal-300"
             >
               Start scan
+              <span
+                className="pointer-events-none absolute left-0 -bottom-1 h-[2px] w-0
+                           bg-teal-300/80 rounded-full transition-all duration-200
+                           group-hover:w-full"
+              />
             </Link>
+
             <Link
               to="/my-scans"
-              className="text-sm font-medium text-muted-foreground
-                         hover:text-sky-300 transition"
+              className="relative text-sm font-medium text-muted-foreground
+                         transition-all hover:text-sky-300"
             >
               My scans
+              <span
+                className="pointer-events-none absolute left-0 -bottom-1 h-[2px] w-0
+                           bg-sky-300/80 rounded-full transition-all duration-200
+                           group-hover:w-full"
+              />
             </Link>
           </nav>
 
