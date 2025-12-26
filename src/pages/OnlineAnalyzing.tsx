@@ -4,62 +4,46 @@ import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
-  const progress = loadProgress();
 
-  const listingUrl = progress?.listingUrl ?? "(missing link)";
-
-  // Simulated analysis → move to results step later
   useEffect(() => {
-    saveProgress({
-      ...progress,
-      type: "online",
-      step: "/online-results",
-      listingUrl,
-    });
+    const run = async () => {
+      const progress = loadProgress();
+      const listingUrl = progress?.listingUrl;
 
-    const timer = setTimeout(() => {
-      navigate("/online-results");
-    }, 2000);
+      if (!listingUrl) {
+        navigate("/scan/online");
+        return;
+      }
 
-    return () => clearTimeout(timer);
-  }, [navigate, progress, listingUrl]);
+      try {
+        const res = await fetch("/api/analyze-listing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listingUrl }),
+        });
+
+        const json = await res.json();
+
+        saveProgress({
+          ...progress,
+          analysis: json?.analysis ?? null,
+        });
+
+        navigate("/scan/online/results");
+      } catch {
+        navigate("/scan/online/results");
+      }
+    };
+
+    run();
+  }, [navigate]);
 
   return (
-    <div
-      style={{
-        maxWidth: 720,
-        margin: "0 auto",
-        padding: "clamp(24px, 6vw, 64px)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 28,
-      }}
-    >
-      <h1 style={{ margin: 0 }}>Analyzing listing…</h1>
-
-      <p style={{ color: "#cbd5f5" }}>
-        I’m reviewing the listing and looking for pricing signals, keywords,
-        risks, and seller patterns.
+    <div className="max-w-3xl mx-auto px-4 py-24 text-center">
+      <h1 className="text-2xl font-semibold mb-4">Analyzing listing…</h1>
+      <p className="text-muted-foreground">
+        We’re reviewing wording tone, pricing signals, trust indicators, and risk flags.
       </p>
-
-      <div
-        style={{
-          padding: 16,
-          borderRadius: 12,
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          fontSize: 14,
-          color: "#9aa7d9",
-        }}
-      >
-        <strong>Source:</strong>
-        <br />
-        {listingUrl}
-      </div>
-
-      <div style={{ color: "#9aa7d9", fontSize: 13 }}>
-        This only takes a moment…
-      </div>
     </div>
   );
 }
