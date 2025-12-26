@@ -1,82 +1,63 @@
-import { useEffect, useState } from "react";
-import { loadOnlineResults } from "../utils/onlineResults";
 import { Link } from "react-router-dom";
-
-interface ResultSection {
-  title: string;
-  content: string;
-}
-
-interface StoredResult {
-  createdAt: string;
-  source: string;
-  sections: ResultSection[];
-}
+import { loadProgress, clearProgress } from "../utils/scanProgress";
 
 export default function OnlineResults() {
-  const [result, setResult] = useState<StoredResult | null>(null);
+  const progress = loadProgress();
+  const listingUrl = progress?.listingUrl ?? "(missing link)";
 
-  useEffect(() => {
-    const stored = loadOnlineResults();
-    setResult(stored ?? null);
-  }, []);
-
-  if (!result) {
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <h1 className="text-2xl font-semibold mb-2">No results found</h1>
-        <p className="text-muted-foreground mb-6">
-          It looks like there are no saved scan results yet.
-        </p>
-
-        <Link
-          to="/scan/online"
-          className="inline-block px-4 py-2 rounded-md bg-blue-600 text-white"
-        >
-          Start a new scan
-        </Link>
-      </div>
-    );
+  function finishScan() {
+    // In v1 we simply clear progress
+    clearProgress();
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold mb-1">Online scan results</h1>
-        <p className="text-muted-foreground">
-          These findings were generated from your online vehicle listing.
-        </p>
-      </header>
+    <div
+      style={{
+        maxWidth: 800,
+        margin: "0 auto",
+        padding: "clamp(24px, 6vw, 64px)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 28,
+      }}
+    >
+      <h1 style={{ margin: 0 }}>Scan complete — results placeholder</h1>
 
-      <div className="space-y-4">
-        {result.sections.map((section, idx) => (
-          <div
-            key={idx}
-            className="rounded-xl border bg-card px-4 py-4 shadow-sm"
-          >
-            <h2 className="font-semibold text-lg mb-1">{section.title}</h2>
-            <p className="text-sm text-muted-foreground">
-              {section.content}
-            </p>
-          </div>
-        ))}
+      <p style={{ color: "#cbd5f5" }}>
+        This is a temporary results screen. The listing has been processed and
+        the stored URL confirms the flow worked successfully.
+      </p>
+
+      <div
+        style={{
+          padding: 16,
+          borderRadius: 12,
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          fontSize: 14,
+          color: "#9aa7d9",
+        }}
+      >
+        <strong>Listing analyzed:</strong>
+        <br />
+        {listingUrl}
       </div>
 
-      <div className="mt-10 flex items-center justify-between">
-        <Link
-          to="/online-next-actions"
-          className="px-4 py-2 rounded-md bg-emerald-600 text-white"
-        >
-          View next actions
-        </Link>
+      <p style={{ color: "#9aa7d9", fontSize: 13 }}>
+        (In the next milestone, this page will show real AI analysis output.)
+      </p>
 
-        <Link
-          to="/my-scans"
-          className="px-4 py-2 rounded-md border"
-        >
-          Back to My Scans
-        </Link>
-      </div>
+      <Link
+        to="/start-scan"
+        onClick={finishScan}
+        style={{
+          fontSize: 14,
+          color: "#9aa7d9",
+          textDecoration: "none",
+        }}
+      >
+        ← Back to start
+      </Link>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import StartScan from "./pages/StartScan";
 import OnlineStart from "./pages/OnlineStart";
 import OnlineDetails from "./pages/OnlineDetails";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
+import OnlineResults from "./pages/OnlineResults";
 import InPersonStart from "./pages/InPersonStart";
 import MyScans from "./pages/MyScans";
 import Pricing from "./pages/Pricing";
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/online-start" element={<OnlineStart />} />
         <Route path="/online-details" element={<OnlineDetails />} />
         <Route path="/online-analyzing" element={<OnlineAnalyzing />} />
+        <Route path="/online-results" element={<OnlineResults />} />
         <Route path="/inperson-start" element={<InPersonStart />} />
 
         <Route path="/my-scans" element={<MyScans />} />
