@@ -1,6 +1,32 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { saveProgress } from "../utils/scanProgress";
 
 export default function OnlineStart() {
+  const navigate = useNavigate();
+  const [url, setUrl] = useState("");
+  const [error, setError] = useState("");
+
+  function handleContinue() {
+    // Basic validation
+    if (!url || !url.startsWith("http")) {
+      setError("Please paste a valid listing link.");
+      return;
+    }
+
+    setError("");
+
+    // Save scan progress (upgrade-safe)
+    saveProgress({
+      type: "online",
+      step: "/online-details", // 👈 next step in the flow (placeholder)
+      listingUrl: url,
+    });
+
+    // Navigate to next screen in the flow
+    navigate("/online-details");
+  }
+
   return (
     <div
       style={{
@@ -58,6 +84,8 @@ export default function OnlineStart() {
 
         <input
           type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
           placeholder="https://www.carsales.com.au/..."
           style={{
             padding: "14px 16px",
@@ -69,6 +97,10 @@ export default function OnlineStart() {
             color: "#fff",
           }}
         />
+
+        {error && (
+          <div style={{ color: "#ff8a8a", fontSize: 13 }}>{error}</div>
+        )}
 
         <div
           style={{
@@ -85,6 +117,7 @@ export default function OnlineStart() {
       {/* Actions */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <button
+          onClick={handleContinue}
           style={{
             padding: "14px 22px",
             borderRadius: 12,
