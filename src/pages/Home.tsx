@@ -35,10 +35,19 @@ export default function Home() {
                        bg-card/70 backdrop-blur-sm
                        p-4 sm:p-5 flex items-center justify-between
                        transition-all duration-200
-                       hover:-translate-y-0.5 hover:border-primary/40
-                       hover:shadow-[0_10px_40px_-12px_rgba(80,200,255,.28)]
-                       hover:bg-card"
+                       hover:-translate-y-0.5 hover:border-teal-300/40
+                       hover:shadow-[0_12px_40px_-10px_rgba(80,200,255,.32)]
+                       hover:bg-card focus-visible:outline-none
+                       active:scale-[0.99]"
           >
+            {/* accent glow ring */}
+            <div className="pointer-events-none absolute inset-0 rounded-xl
+                            opacity-0 group-hover:opacity-80
+                            transition
+                            ring-0 group-hover:ring-1
+                            ring-teal-300/30" />
+
+            {/* soft sheen */}
             <div className="pointer-events-none absolute inset-0 opacity-60
                             bg-[radial-gradient(120%_80%_at_0%_-10%,rgba(90,220,255,.12),transparent)]
                             group-hover:opacity-90 transition" />
@@ -68,10 +77,19 @@ export default function Home() {
                        bg-card/70 backdrop-blur-sm
                        p-4 sm:p-5 flex items-center justify-between
                        transition-all duration-200
-                       hover:-translate-y-0.5 hover:border-primary/40
-                       hover:shadow-[0_10px_40px_-12px_rgba(120,255,200,.28)]
-                       hover:bg-card"
+                       hover:-translate-y-0.5 hover:border-sky-300/40
+                       hover:shadow-[0_12px_40px_-10px_rgba(120,255,200,.32)]
+                       hover:bg-card focus-visible:outline-none
+                       active:scale-[0.99]"
           >
+            {/* accent glow ring */}
+            <div className="pointer-events-none absolute inset-0 rounded-xl
+                            opacity-0 group-hover:opacity-80
+                            transition
+                            ring-0 group-hover:ring-1
+                            ring-sky-300/30" />
+
+            {/* sheen */}
             <div className="pointer-events-none absolute inset-0 opacity-60
                             bg-[radial-gradient(120%_80%_at_100%_-10%,rgba(120,255,200,.12),transparent)]
                             group-hover:opacity-90 transition" />
