@@ -1,22 +1,18 @@
 import { Outlet, NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { loadCredits } from "../utils/scanCredits";
 
 export default function Layout() {
   const [credits, setCredits] = useState<number>(0);
 
-  // Load credits from storage
+  // Load + subscribe to storage changes
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("carverity_scan_credits");
-      if (stored) setCredits(parseInt(stored, 10));
-    } catch {
-      setCredits(0);
-    }
+    setCredits(loadCredits());
 
-    // Listen for credit changes across app
     const handler = (e: StorageEvent) => {
       if (e.key === "carverity_scan_credits" && e.newValue) {
-        setCredits(parseInt(e.newValue, 10));
+        const parsed = parseInt(e.newValue, 10);
+        setCredits(Number.isFinite(parsed) ? parsed : 0);
       }
     };
 
@@ -47,12 +43,11 @@ export default function Layout() {
             {/* ACTIONS */}
             <div className="flex items-center gap-3">
 
-              {/* REAL CREDIT BALANCE */}
+              {/* LIVE CREDIT BALANCE */}
               <span className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs">
                 Scan credits: {credits}
               </span>
 
-              {/* BUY MORE */}
               <NavLink
                 to="/pricing"
                 className="px-3 py-1 rounded-full bg-indigo-900/40 border border-indigo-500/40 text-indigo-300 text-xs hover:bg-indigo-800/40"
@@ -60,13 +55,11 @@ export default function Layout() {
                 Buy more credits
               </NavLink>
 
-              {/* Bell */}
               <button className="relative px-2 py-1 rounded-full bg-slate-800 border border-white/10">
                 <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500" />
                 🔔
               </button>
 
-              {/* Profile */}
               <div className="w-8 h-8 rounded-full bg-amber-600 flex items-center justify-center text-xs font-semibold">
                 JS
               </div>

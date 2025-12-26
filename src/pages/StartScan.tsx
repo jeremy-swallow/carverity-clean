@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { loadProgress, clearProgress } from "../utils/scanProgress";
+import { useOneCredit } from "../utils/scanCredits";
 
 export default function StartScan() {
   const navigate = useNavigate();
@@ -17,6 +18,14 @@ export default function StartScan() {
   }
 
   function startFresh() {
+    const result = useOneCredit();
+
+    if (!result.ok) {
+      alert("You have no scan credits remaining.\nBuy more credits to continue.");
+      navigate("/pricing");
+      return;
+    }
+
     clearProgress();
     navigate("/scan/online");
   }
@@ -82,7 +91,7 @@ export default function StartScan() {
 
       {!isActiveScan && (
         <button
-          onClick={() => navigate("/scan/online")}
+          onClick={startFresh}
           style={{
             padding: "14px 22px",
             borderRadius: 14,
