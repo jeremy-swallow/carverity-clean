@@ -2,43 +2,43 @@ import { Link } from "react-router-dom";
 
 export default function Home() {
   return (
-    <div className="flex flex-col min-h-screen">
+    <main className="flex flex-col">
 
       {/* HERO SECTION */}
-      <section className="relative h-[420px] md:h-[520px] overflow-hidden">
-        
-        {/* Background Image */}
+      <section className="relative w-full min-h-[380px] md:min-h-[460px] overflow-hidden">
+
+        {/* Background image */}
         <img
           src="/hero.png"
           alt="Car interior dashboard at night"
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover opacity-70"
         />
 
-        {/* Gradient + Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/90" />
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-transparent" />
 
-        {/* Content */}
-        <div className="relative z-10 max-w-6xl mx-auto px-6 h-full flex flex-col justify-center">
+        {/* Hero content */}
+        <div className="relative max-w-5xl mx-auto px-6 py-20 md:py-28">
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
             Smarter used-car checks with CarVerity
           </h1>
 
-          <p className="mt-4 text-slate-300 max-w-2xl">
-            Analyse car listings, spot risks before you buy, and guide your in-person
-            inspections with confidence.
+          <p className="mt-3 max-w-2xl text-slate-300">
+            Analyse car listings, spot risks before you buy, and guide your
+            in-person inspections with confidence.
           </p>
 
-          <div className="mt-6 flex gap-4">
+          <div className="mt-6 flex gap-3">
             <Link
               to="/start-scan"
-              className="px-5 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 transition shadow-md"
+              className="px-4 py-2 rounded-md bg-indigo-500 hover:bg-indigo-400 text-white"
             >
               Start a scan
             </Link>
 
             <Link
               to="/my-scans"
-              className="px-5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition"
+              className="px-4 py-2 rounded-md bg-slate-800 hover:bg-slate-700"
             >
               My scans
             </Link>
@@ -46,30 +46,34 @@ export default function Home() {
         </div>
       </section>
 
-      {/* === REST OF THE HOMEPAGE CONTENT === */}
-      <main className="flex-1 max-w-5xl mx-auto px-6 py-10 space-y-10">
+      {/* ======================= */}
+      {/* FEATURE SECTIONS BELOW  */}
+      {/* ======================= */}
+      <section className="max-w-5xl mx-auto px-6 py-16 space-y-14">
 
-        <section>
-          <h2 className="text-xl font-semibold">Online Listing Scan</h2>
-          <p className="text-slate-300 mt-1">
-            Paste a car listing URL and get instant insights into risks, pricing flags, and seller patterns.
+        <div>
+          <h2 className="text-lg font-semibold">Online Listing Scan</h2>
+          <p className="text-slate-400">
+            Paste a car listing URL and get instant insights into risks,
+            pricing flags, and seller patterns.
           </p>
-          <Link to="/online-start" className="mt-3 inline-block underline">
+          <Link to="/online-scan" className="mt-2 inline-block text-indigo-400">
             Run online scan →
           </Link>
-        </section>
+        </div>
 
-        <section>
-          <h2 className="text-xl font-semibold">In-Person Inspection</h2>
-          <p className="text-slate-300 mt-1">
-            Guided step-by-step checks while viewing a car on-site — photos, condition prompts, and risk highlights.
+        <div>
+          <h2 className="text-lg font-semibold">In-Person Inspection</h2>
+          <p className="text-slate-400">
+            Guided step-by-step checks while viewing a car on-site —
+            photos, condition prompts, and risk highlights.
           </p>
-          <Link to="/inperson-start" className="mt-3 inline-block underline">
+          <Link to="/inperson-start" className="mt-2 inline-block text-indigo-400">
             Start in-person scan →
           </Link>
-        </section>
+        </div>
 
-      </main>
-    </div>
+      </section>
+    </main>
   );
 }
