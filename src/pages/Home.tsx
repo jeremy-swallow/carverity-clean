@@ -7,7 +7,7 @@ export default function Home() {
       <div className="max-w-4xl mx-auto px-4 py-12">
 
         {/* HERO */}
-        <header className="mb-12">
+        <header className="mb-14">
           <h1 className="text-4xl font-bold tracking-tight mb-3">
             Smarter used-car checks with CarVerity
           </h1>
@@ -16,6 +16,14 @@ export default function Home() {
             in-person inspections with confidence.
           </p>
         </header>
+
+        {/* SECTION HEADER + DIVIDER */}
+        <div className="mb-4">
+          <h3 className="text-sm font-medium tracking-wider uppercase text-muted-foreground">
+            Start a scan
+          </h3>
+        </div>
+        <div className="border-t border-white/10 mb-6" />
 
         {/* ACTION CARDS */}
         <div className="grid gap-6">
@@ -31,12 +39,9 @@ export default function Home() {
                        hover:shadow-[0_10px_40px_-12px_rgba(80,200,255,.28)]
                        hover:bg-card"
           >
-            {/* subtle sheen gradient */}
             <div className="pointer-events-none absolute inset-0 opacity-60
                             bg-[radial-gradient(120%_80%_at_0%_-10%,rgba(90,220,255,.12),transparent)]
                             group-hover:opacity-90 transition" />
-
-            {/* fine outline layer */}
             <div className="pointer-events-none absolute inset-0 rounded-xl
                             border border-white/5" />
 
@@ -67,12 +72,9 @@ export default function Home() {
                        hover:shadow-[0_10px_40px_-12px_rgba(120,255,200,.28)]
                        hover:bg-card"
           >
-            {/* subtle sheen gradient */}
             <div className="pointer-events-none absolute inset-0 opacity-60
                             bg-[radial-gradient(120%_80%_at_100%_-10%,rgba(120,255,200,.12),transparent)]
                             group-hover:opacity-90 transition" />
-
-            {/* fine outline layer */}
             <div className="pointer-events-none absolute inset-0 rounded-xl
                             border border-white/5" />
 
