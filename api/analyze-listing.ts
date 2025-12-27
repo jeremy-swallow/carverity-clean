@@ -1,7 +1,23 @@
 export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import classifySeller from "./sellerClassifier";
+
+/**
+ * Inline classifier to avoid cross-module TS import issues
+ */
+function classifySeller(html: string): string {
+  const text = html.toLowerCase();
+
+  if (text.includes("dealer") || text.includes("dealership")) {
+    return "dealer";
+  }
+
+  if (text.includes("private seller") || text.includes("owner")) {
+    return "private";
+  }
+
+  return "unknown";
+}
 
 export default async function handler(
   req: VercelRequest,
@@ -19,10 +35,11 @@ export default async function handler(
     }
 
     console.log("🔎 Fetching listing:", listingUrl);
+
     const response = await fetch(listingUrl);
     const html = await response.text();
 
-    const sellerType = classifySeller(html) ?? "unknown";
+    const sellerType = classifySeller(html);
 
     return res.status(200).json({
       ok: true,
