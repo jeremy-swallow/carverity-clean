@@ -1,8 +1,9 @@
+// api/analyze-listing.ts
+
 export const config = { runtime: "nodejs" };
 
-// api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import classifySeller from "../src/utils/sellerClassifier.ts";
+import classifySeller from "../src/utils/sellerClassifier";
 
 export default async function handler(
   req: VercelRequest,
@@ -13,13 +14,13 @@ export default async function handler(
   }
 
   try {
-    const { listingUrl } = req.body as { listingUrl?: string };
+    const { listingUrl } = req.body;
 
     if (!listingUrl) {
       return res.status(400).json({ error: "Missing listingUrl" });
     }
 
-    console.log("🔍 Fetching listing HTML…", listingUrl);
+    console.log("🔎 Fetching listing HTML…", listingUrl);
 
     const response = await fetch(listingUrl);
     const html = await response.text();
@@ -31,15 +32,14 @@ export default async function handler(
       ok: true,
       analysisSource: "live",
       sellerType,
-      htmlLength: html.length,
+      htmlLength: html.length
     });
   } catch (err: any) {
-    console.error("❌ Analyzer API error:", err?.message || err);
-
+    console.error("❌ API Error:", err?.message || err);
     return res.status(500).json({
       ok: false,
-      analysisSource: "mock",
-      error: err?.message || "Analyzer failed — using fallback",
+      error: "Analyzer failed",
+      message: err?.message || "Unknown error"
     });
   }
 }
