@@ -1,70 +1,82 @@
+// src/pages/OnlineAnalyzing.tsx
+
 import { useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { saveOnlineResults } from "../utils/onlineResults";
+import { useNavigate } from "react-router-dom";
+import {
+  saveOnlineResults,
+  type SavedResult,
+} from "../utils/onlineResults";
 
 const LISTING_URL_KEY = "carverity_online_listing_url";
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
-    let listingUrl = "";
-
-    // 1) Try to read from React Router state
-    const state = location.state as any | null;
-
-    if (state) {
-      listingUrl =
-        state.listingUrl ??
-        state.url ??
-        state.listingURL ??
-        state.link ??
-        "";
-    }
-
-    // 2) If that failed, try sessionStorage backup
-    if (!listingUrl && typeof window !== "undefined") {
-      try {
-        const stored = window.sessionStorage.getItem(LISTING_URL_KEY);
-        if (stored) {
-          listingUrl = stored;
-        }
-      } catch (err) {
-        console.error("Failed to read listing URL from sessionStorage:", err);
-      }
-    }
+    const listingUrl = localStorage.getItem(LISTING_URL_KEY);
 
     if (!listingUrl) {
-      console.warn("⚠️ No listing URL — aborting scan. state was:", location.state);
+      console.warn("⚠️ No listing URL in storage — aborting scan");
       navigate("/start-scan", { replace: true });
       return;
     }
 
-    console.log("🔎 Running scan on:", listingUrl);
+    console.log("🚀 Running scan for:", listingUrl);
+    runScan(listingUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    // For now: save a basic result object so the results page has something to render
-    saveOnlineResults({
-      createdAt: new Date().toISOString(),
-      source: "online",
-      sellerType: "unknown",
-      listingUrl,
-      signals: [],
-      sections: [],
-      analysisSource: "live",
-    });
+  async function runScan(listingUrl: string) {
+    try {
+      const res = await fetch("/api/analyze-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: listingUrl }),
+      });
 
-    navigate("/scan/online/results", { replace: true });
-  }, [location.state, navigate]);
+      if (!res.ok) {
+        throw new Error(`API returned ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      const normalized: SavedResult = {
+        createdAt: new Date().toISOString(),
+        source: "online", // valid union value
+        sellerType: data.sellerType ?? "dealer",
+        listingUrl,
+        signals: Array.isArray(data.signals) ? data.signals : [],
+        sections: Array.isArray(data.sections) ? data.sections : [],
+        analysisSource: data.analysisSource ?? "live",
+      };
+
+      saveOnlineResults(normalized);
+      console.log("💾 Saved analysis →", normalized);
+
+      navigate("/scan/online/results", { replace: true });
+    } catch (err) {
+      console.error("❌ Scan failed — saving fallback result", err);
+
+      const fallback: SavedResult = {
+        createdAt: new Date().toISOString(),
+        source: "online",
+        sellerType: "unknown",
+        listingUrl,
+        signals: [],
+        sections: [],
+        analysisSource: "fallback",
+      };
+
+      saveOnlineResults(fallback);
+      navigate("/scan/online/results", { replace: true });
+    }
+  }
 
   return (
-    <main className="min-h-screen flex items-center justify-center">
-      <div className="text-center space-y-2">
-        <p className="text-sm text-white/70">Analyzing listing…</p>
-        <p className="text-xs text-white/40">
-          This should only take a moment.
-        </p>
-      </div>
-    </main>
+    <div className="max-w-3xl mx-auto py-24 text-center">
+      <p className="text-lg text-muted-foreground">
+        Scanning listing…
+      </p>
+    </div>
   );
 }

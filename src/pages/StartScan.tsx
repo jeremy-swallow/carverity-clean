@@ -1,3 +1,6 @@
+// src/pages/StartScan.tsx
+
+import type { FormEvent } from "react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -5,62 +8,49 @@ const LISTING_URL_KEY = "carverity_online_listing_url";
 
 export default function StartScan() {
   const navigate = useNavigate();
-  const [listingUrl, setListingUrl] = useState("");
+  const [url, setUrl] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    const trimmed = listingUrl.trim();
+    const trimmed = url.trim();
 
     if (!trimmed) {
-      console.warn("⚠️ No URL entered");
+      console.warn("No URL entered — aborting");
       return;
     }
 
-    // Store in sessionStorage as a backup so the next page can always read it
-    try {
-      if (typeof window !== "undefined") {
-        window.sessionStorage.setItem(LISTING_URL_KEY, trimmed);
-      }
-    } catch (err) {
-      console.error("Failed to stash listing URL in sessionStorage:", err);
-    }
+    // Save URL for the analyzing page
+    localStorage.setItem(LISTING_URL_KEY, trimmed);
+    console.log("📌 Saved listing URL:", trimmed);
 
-    // Also pass it via React Router state
-    navigate("/scan/online/analyzing", {
-      state: { listingUrl: trimmed },
-    });
+    // Go to the analyzing step
+    navigate("/scan/online/analyzing", { replace: true });
   }
 
   return (
-    <main className="max-w-3xl mx-auto px-6 py-16">
-      <h1 className="text-2xl font-semibold mb-4">
+    <div className="max-w-2xl mx-auto py-16 px-4">
+      <h1 className="text-2xl font-semibold mb-6">
         Let’s start with the listing
       </h1>
 
-      <p className="text-sm text-white/70 mb-6">
-        Share the online listing you’re looking at and I’ll help you spot
-        potential issues before you inspect the car in person.
-      </p>
-
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm mb-2">Paste listing link</label>
-          <input
-            className="w-full p-3 rounded bg-zinc-900 border border-white/10 text-sm"
-            placeholder="https://www.carsales.com.au/..."
-            value={listingUrl}
-            onChange={(e) => setListingUrl(e.target.value)}
-          />
-        </div>
+        <input
+          type="url"
+          className="w-full rounded px-3 py-2 bg-black/30 border border-white/20"
+          placeholder="Paste listing link"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          required
+        />
 
         <button
           type="submit"
-          className="inline-flex items-center px-4 py-2 rounded bg-indigo-500 hover:bg-indigo-600 text-sm font-medium"
+          className="mt-2 px-4 py-2 rounded bg-blue-600 text-white"
         >
           Continue
         </button>
       </form>
-    </main>
+    </div>
   );
 }

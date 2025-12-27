@@ -1,3 +1,5 @@
+// src/utils/onlineResults.ts
+
 export interface SavedResult {
   createdAt: string;
   source: "online" | "in-person";
@@ -25,17 +27,28 @@ export function loadOnlineResults(): SavedResult | null {
 
     const parsed = JSON.parse(raw);
 
-    return {
+    // Safe, normalized object – never undefined / wrong types
+    const normalized: SavedResult = {
       createdAt: parsed.createdAt ?? "",
-      source: parsed.source ?? "online",
+      source: parsed.source === "in-person" ? "in-person" : "online",
       sellerType: parsed.sellerType ?? "unknown",
       listingUrl: parsed.listingUrl ?? "",
       signals: Array.isArray(parsed.signals) ? parsed.signals : [],
       sections: Array.isArray(parsed.sections) ? parsed.sections : [],
       analysisSource: parsed.analysisSource ?? "live",
     };
+
+    return normalized;
   } catch (err) {
     console.error("Failed to load results:", err);
     return null;
+  }
+}
+
+export function clearOnlineResults() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (err) {
+    console.error("Failed to clear results:", err);
   }
 }
