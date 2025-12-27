@@ -1,88 +1,72 @@
 // src/pages/OnlineAnalyzing.tsx
-
 import { useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import {
-  saveOnlineResults,
-  type SavedResult,
-} from "../utils/onlineResults";
+import { useNavigate } from "react-router-dom";
+import { saveOnlineResults } from "../utils/onlineResults";
+import type { SavedResult } from "../utils/onlineResults";
 
 const LISTING_URL_KEY = "carverity_online_listing_url";
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
-    const run = async () => {
-      const state = location.state as { listingUrl?: string } | null;
-      const fromState = state?.listingUrl?.trim();
-      const fromStorage = localStorage.getItem(LISTING_URL_KEY)?.trim();
+    const listingUrl = localStorage.getItem(LISTING_URL_KEY);
 
-      const listingUrl = fromState || fromStorage || "";
+    if (!listingUrl) {
+      console.warn("⚠️ No listing URL — aborting scan");
+      navigate("/start-scan", { replace: true });
+      return;
+    }
 
-      if (!listingUrl) {
-        console.warn("⚠️ No listing URL — aborting scan");
-        navigate("/start-scan", { replace: true });
-        return;
-      }
+    console.log("🚀 Running scan for:", listingUrl);
+    runScan(listingUrl);
+  }, []);
 
-      // Make sure it’s in storage for later steps
-      localStorage.setItem(LISTING_URL_KEY, listingUrl);
+  async function runScan(listingUrl: string) {
+    try {
+      const res = await fetch("/api/analyze-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listingUrl }),
+      });
 
-      try {
-        const res = await fetch("/api/analyze-listing", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: listingUrl }),
-        });
+      const data = await res.json();
 
-        if (!res.ok) {
-          throw new Error(`API returned ${res.status}`);
-        }
+      const normalized: SavedResult = {
+        createdAt: new Date().toISOString(),
+        source: "online",
+        sellerType: data.sellerType ?? "unknown",
+        listingUrl,
+        signals: Array.isArray(data.signals) ? data.signals : [],
+        sections: Array.isArray(data.sections) ? data.sections : [],
+        analysisSource: "ai",
+      };
 
-        const data = await res.json();
+      saveOnlineResults(normalized);
+      console.log("💾 Saved analysis →", normalized);
 
-        const normalized: SavedResult = {
-          createdAt: new Date().toISOString(),
-          source: "online",
-          sellerType: data.sellerType ?? "dealer",
-          listingUrl,
-          signals: Array.isArray(data.signals) ? data.signals : [],
-          sections: Array.isArray(data.sections) ? data.sections : [],
-          analysisSource: data.analysisSource ?? "live",
-        };
+      navigate("/scan/online/results", { replace: true });
+    } catch (err) {
+      console.error("❌ Scan failed — saving fallback", err);
 
-        saveOnlineResults(normalized);
-        console.log("💾 Saved analysis →", normalized);
+      const fallback: SavedResult = {
+        createdAt: new Date().toISOString(),
+        source: "online",
+        sellerType: "unknown",
+        listingUrl,
+        signals: [],
+        sections: [],
+        analysisSource: "ai",
+      };
 
-        navigate("/scan/online/results", { replace: true });
-      } catch (err) {
-        console.error("❌ Scan failed — saving fallback result", err);
-
-        const fallback: SavedResult = {
-          createdAt: new Date().toISOString(),
-          source: "online",
-          sellerType: "unknown",
-          listingUrl,
-          signals: [],
-          sections: [],
-          analysisSource: "fallback",
-        };
-
-        saveOnlineResults(fallback);
-        navigate("/scan/online/results", { replace: true });
-      }
-    };
-
-    void run();
-  }, [location, navigate]);
+      saveOnlineResults(fallback);
+      navigate("/scan/online/results", { replace: true });
+    }
+  }
 
   return (
     <div className="max-w-3xl mx-auto py-24 text-center">
-      <p className="text-lg text-muted-foreground">
-        Scanning listing…
-      </p>
+      <p>Scanning listing…</p>
     </div>
   );
 }
