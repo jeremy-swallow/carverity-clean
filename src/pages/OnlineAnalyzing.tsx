@@ -2,7 +2,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
-import { saveOnlineResults } from "../utils/onlineResults";
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
@@ -10,14 +9,19 @@ export default function OnlineAnalyzing() {
   useEffect(() => {
     const run = async () => {
       const progress = loadProgress();
+      console.log("🔎 Loaded scan progress:", progress);
+
       const listingUrl = progress?.listingUrl;
 
       if (!listingUrl) {
-        navigate("/scan/online/start");
+        console.warn("⚠️ No listingUrl found — redirecting user");
+        navigate("/scan/online/details");
         return;
       }
 
       try {
+        console.log("🚀 Sending request to /api/analyze-listing");
+
         const res = await fetch("/api/analyze-listing", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -25,22 +29,16 @@ export default function OnlineAnalyzing() {
         });
 
         const json = await res.json();
+        console.log("✅ API Response:", json);
 
-        // Save structured results for Results page
-        saveOnlineResults({
-          createdAt: new Date().toISOString(),
-          source: "online",
-          sections: json?.sections ?? [],
-        });
-
-        // Also keep in progress store
         saveProgress({
           ...progress,
-          analysis: json ?? null,
+          analysis: json?.analysis ?? null,
         });
 
         navigate("/scan/online/results");
-      } catch {
+      } catch (err) {
+        console.error("❌ Analyze request failed:", err);
         navigate("/scan/online/results");
       }
     };
