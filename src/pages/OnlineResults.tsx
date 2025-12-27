@@ -1,39 +1,52 @@
-// src/pages/OnlineResults.tsx
-
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { loadOnlineResults } from "../utils/onlineResults";
 
-interface ApiResult {
-  ok: boolean;
-  analysisSource: string;
-  sellerType?: string;
-  htmlLength?: number;
-  signals?: Array<{
-    id: string;
-    label: string;
-    severity: string;
-    description: string;
-  }>;
+interface Signal {
+  text?: string;
+}
+
+interface Section {
+  title?: string;
+  content?: string;
+}
+
+interface StoredResult {
+  createdAt: string;
+  source: string;
+  sellerType: string;
+  signals: Signal[];
+  sections: Section[];
+  listingUrl: string;
 }
 
 export default function OnlineResults() {
-  const location = useLocation();
-  const [result, setResult] = useState<ApiResult | null>(null);
+  const [result, setResult] = useState<StoredResult | null>(null);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("online_scan_result");
-    if (stored) {
-      try {
-        setResult(JSON.parse(stored));
-      } catch {
-        console.error("Failed to parse stored result");
-      }
+    const raw = loadOnlineResults();
+
+    // No saved result
+    if (!raw || typeof raw !== "object") {
+      setResult(null);
+      return;
     }
-  }, [location]);
+
+    // 🔒 Safe normalization layer
+    const stored: StoredResult = {
+      createdAt: (raw as any).createdAt ?? "",
+      source: (raw as any).source ?? "unknown",
+      sellerType: (raw as any).sellerType ?? "unknown",
+      signals: Array.isArray((raw as any).signals) ? (raw as any).signals : [],
+      sections: Array.isArray((raw as any).sections) ? (raw as any).sections : [],
+      listingUrl: (raw as any).listingUrl ?? "",
+    };
+
+    setResult(stored);
+  }, []);
 
   if (!result) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+      <div className="max-w-3xl mx-auto px-6 py-16 text-center">
         <h1 className="text-2xl font-semibold mb-2">No results available</h1>
         <p className="text-muted-foreground">
           Run a scan first to see your analysis results.
@@ -42,52 +55,55 @@ export default function OnlineResults() {
     );
   }
 
-  const signals = result.signals ?? []; // <-- SAFE DEFAULT
-
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12">
-      <h1 className="text-xl font-semibold mb-6">
-        Scan results — AI analysis
-      </h1>
+    <div className="max-w-3xl mx-auto px-6 py-10">
+      <h1 className="text-2xl font-semibold mb-4">Scan results — AI analysis</h1>
 
-      <div className="mb-6 p-4 rounded-lg border border-white/10 bg-black/20">
-        <p className="text-sm mb-1">
-          <strong>Analysis mode:</strong> {result.analysisSource}
-        </p>
-        <p className="text-sm mb-1">
-          <strong>Seller type:</strong> {result.sellerType ?? "Unknown"}
-        </p>
-        <p className="text-sm">
-          <strong>HTML size:</strong>{" "}
-          {result.htmlLength ? `${result.htmlLength} chars` : "N/A"}
-        </p>
+      <p className="mb-6 break-all text-sm text-muted-foreground">
+        Listing analysed:<br />{result.listingUrl}
+      </p>
+
+      {/* Signals */}
+      <div className="mb-8">
+        <h2 className="font-semibold mb-2">Key signals</h2>
+
+        {result.signals.length > 0 ? (
+          <ul className="list-disc pl-4">
+            {result.signals.map((s, i) => (
+              <li key={i}>{s?.text ?? "Unnamed signal"}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground">
+            No signals detected in this listing.
+          </p>
+        )}
       </div>
 
-      <h2 className="text-lg font-semibold mb-3">Risk signals</h2>
+      {/* Sections */}
+      <div>
+        <h2 className="font-semibold mb-2">Analysis sections</h2>
 
-      {/* SAFELY HANDLE EMPTY SIGNAL LIST */}
-      {signals.length === 0 && (
-        <div className="p-4 rounded-lg border border-white/10 bg-black/10">
-          <p>No risk signals were detected for this listing.</p>
-        </div>
-      )}
-
-      {signals.length > 0 && (
-        <div className="space-y-3">
-          {signals.map((s) => (
+        {result.sections.length > 0 ? (
+          result.sections.map((section, i) => (
             <div
-              key={s.id}
-              className="p-4 rounded-lg border border-white/10 bg-black/10"
+              key={i}
+              className="border border-white/10 rounded p-4 mb-4"
             >
-              <p className="font-medium">{s.label}</p>
-              <p className="text-sm opacity-80">{s.description}</p>
-              <p className="text-xs mt-1 opacity-60">
-                Severity: {s.severity}
+              <h3 className="font-medium mb-1">
+                {section?.title ?? "Untitled section"}
+              </h3>
+              <p className="text-muted-foreground">
+                {section?.content ?? ""}
               </p>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        ) : (
+          <p className="text-muted-foreground">
+            No analysis sections returned.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
