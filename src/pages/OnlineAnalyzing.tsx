@@ -1,4 +1,3 @@
-// src/pages/OnlineAnalyzing.tsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
@@ -8,19 +7,23 @@ export default function OnlineAnalyzing() {
 
   useEffect(() => {
     const run = async () => {
+      console.log("🔹 OnlineAnalyzing mounted");
+
       const progress = loadProgress();
-      console.log("🔎 Loaded scan progress:", progress);
+      console.log("🔹 Loaded progress:", progress);
 
       const listingUrl = progress?.listingUrl;
-
       if (!listingUrl) {
-        console.warn("⚠️ No listingUrl found — redirecting user");
-        navigate("/scan/online/details");
+        console.warn("⚠️ No listingUrl found — redirecting to /scan/online");
+        navigate("/scan/online");
         return;
       }
 
       try {
-        console.log("🚀 Sending request to /api/analyze-listing");
+        console.log("🚀 Sending request to API:", {
+          endpoint: "/api/analyze-listing",
+          body: { listingUrl }
+        });
 
         const res = await fetch("/api/analyze-listing", {
           method: "POST",
@@ -28,14 +31,17 @@ export default function OnlineAnalyzing() {
           body: JSON.stringify({ listingUrl }),
         });
 
+        console.log("📡 Response status:", res.status);
+
         const json = await res.json();
-        console.log("✅ API Response:", json);
+        console.log("📬 API JSON:", json);
 
         saveProgress({
           ...progress,
           analysis: json?.analysis ?? null,
         });
 
+        console.log("✅ Saved analysis — navigating to results");
         navigate("/scan/online/results");
       } catch (err) {
         console.error("❌ Analyze request failed:", err);
