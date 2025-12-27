@@ -40,10 +40,15 @@ export default function App() {
         <Route path="/credits-history" element={<CreditsHistory />} />
         <Route path="/deploy-test" element={<DeployTest />} />
 
-        {/* Start Scan Entry */}
+        {/* Public Start Entry */}
         <Route path="/start-scan" element={<OnlineStart />} />
 
-        {/* Online Scan */}
+        {/* Online Scan – friendly URLs */}
+        <Route path="/online-details" element={<OnlineDetails />} />
+        <Route path="/online-analyzing" element={<OnlineAnalyzing />} />
+        <Route path="/online-results" element={<OnlineResults />} />
+
+        {/* (Keep internal developer paths for compatibility) */}
         <Route path="/scan/online/start" element={<OnlineStart />} />
         <Route path="/scan/online/details" element={<OnlineDetails />} />
         <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
