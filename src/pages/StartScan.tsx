@@ -1,112 +1,41 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadProgress, clearProgress } from "../utils/scanProgress";
-import { useOneCredit } from "../utils/scanCredits";
 
 export default function StartScan() {
   const navigate = useNavigate();
-  const progress = loadProgress();
+  const [listingUrl, setListingUrl] = useState("");
 
-  const isActiveScan =
-    progress &&
-    progress.step &&
-    progress.type &&
-    progress.step.startsWith("/scan/");
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
 
-  function resumeScan() {
-    if (!isActiveScan) return;
-    navigate(progress.step);
-  }
+    if (!listingUrl.trim()) return;
 
-  function startFresh() {
-    const result = useOneCredit();
-
-    if (!result.ok) {
-      alert("You have no scan credits remaining.\nBuy more credits to continue.");
-      navigate("/pricing");
-      return;
-    }
-
-    clearProgress();
-
-    // 👇 Begin real scan flow
-    navigate("/online-start");
-  }
+    navigate("/scan/online/analyzing", {
+      state: { listingUrl }
+    });
+  };
 
   return (
-    <div
-      style={{
-        maxWidth: 720,
-        margin: "0 auto",
-        padding: "clamp(24px, 6vw, 64px)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 24,
-      }}
-    >
-      <h1>Let’s check the car together</h1>
+    <main className="max-w-3xl mx-auto px-6 py-16">
+      <h1 className="text-2xl font-semibold mb-4">
+        Let’s start with the listing
+      </h1>
 
-      {isActiveScan && (
-        <div
-          style={{
-            padding: 20,
-            borderRadius: 14,
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
-          }}
-        >
-          <strong>Resume your last scan?</strong>
-          <p style={{ color: "#cbd5f5", marginTop: 6 }}>
-            You were part-way through a{" "}
-            {progress.type === "online" ? "online" : "in-person"} scan.
-          </p>
+      <form onSubmit={handleSubmit}>
+        <input
+          className="w-full mb-4 p-3 rounded bg-zinc-900 border border-white/10"
+          placeholder="Paste listing link"
+          value={listingUrl}
+          onChange={(e) => setListingUrl(e.target.value)}
+        />
 
-          <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
-            <button
-              onClick={resumeScan}
-              style={{
-                padding: "10px 16px",
-                borderRadius: 12,
-                background: "#7aa2ff",
-                color: "#0b1020",
-                border: "none",
-                fontWeight: 600,
-              }}
-            >
-              Resume
-            </button>
-
-            <button
-              onClick={startFresh}
-              style={{
-                padding: "10px 16px",
-                borderRadius: 12,
-                background: "transparent",
-                color: "#9aa3c7",
-                border: "1px solid rgba(255,255,255,0.2)",
-              }}
-            >
-              Start new
-            </button>
-          </div>
-        </div>
-      )}
-
-      {!isActiveScan && (
         <button
-          onClick={startFresh}
-          style={{
-            padding: "14px 22px",
-            borderRadius: 14,
-            fontSize: 16,
-            fontWeight: 600,
-            background: "#7aa2ff",
-            color: "#0b1020",
-            border: "none",
-          }}
+          type="submit"
+          className="px-4 py-2 rounded bg-blue-500 hover:bg-blue-600"
         >
-          Start a scan
+          Continue
         </button>
-      )}
-    </div>
+      </form>
+    </main>
   );
 }
