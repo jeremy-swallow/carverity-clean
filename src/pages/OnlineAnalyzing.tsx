@@ -1,7 +1,7 @@
-// src/pages/OnlineAnalyzing.tsx
+/* src/pages/OnlineAnalyzing.tsx */
+
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import type { SavedResult } from "../utils/onlineResults";
 import { saveOnlineResults } from "../utils/onlineResults";
 
 const LISTING_URL_KEY = "carverity_online_listing_url";
@@ -32,9 +32,9 @@ export default function OnlineAnalyzing() {
 
       const data = await res.json();
 
-      const normalized: SavedResult = {
+      const normalized = {
         createdAt: new Date().toISOString(),
-        source: "online",
+        source: "online" as const,
         sellerType: data.sellerType ?? "unknown",
         listingUrl,
         signals: Array.isArray(data.signals) ? data.signals : [],
@@ -49,7 +49,7 @@ export default function OnlineAnalyzing() {
     } catch (err) {
       console.error("❌ Scan failed — saving fallback", err);
 
-      const fallback: SavedResult = {
+      saveOnlineResults({
         createdAt: new Date().toISOString(),
         source: "online",
         sellerType: "unknown",
@@ -57,9 +57,8 @@ export default function OnlineAnalyzing() {
         signals: [],
         sections: [],
         analysisSource: "fallback",
-      };
+      });
 
-      saveOnlineResults(fallback);
       navigate("/scan/online/results", { replace: true });
     }
   }

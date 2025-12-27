@@ -1,4 +1,4 @@
-// src/utils/onlineResults.ts
+/* src/utils/onlineResults.ts */
 
 export interface SavedResult {
   createdAt: string;
