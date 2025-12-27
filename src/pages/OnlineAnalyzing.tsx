@@ -1,29 +1,19 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { loadProgress, saveProgress } from "../utils/scanProgress";
+import { useNavigate, useLocation } from "react-router-dom";
+import { saveOnlineResults } from "../utils/onlineResults";
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const listingUrl = (location.state as any)?.listingUrl ?? "";
 
   useEffect(() => {
-    const run = async () => {
-      console.log("🔹 OnlineAnalyzing mounted");
+    let cancelled = false;
 
-      const progress = loadProgress();
-      console.log("🔹 Loaded progress:", progress);
-
-      const listingUrl = progress?.listingUrl;
-      if (!listingUrl) {
-        console.warn("⚠️ No listingUrl found — redirecting to /scan/online");
-        navigate("/scan/online");
-        return;
-      }
-
+    async function runAnalysis() {
       try {
-        console.log("🚀 Sending request to API:", {
-          endpoint: "/api/analyze-listing",
-          body: { listingUrl }
-        });
+        console.log("➡️ Calling /api/analyze-listing");
 
         const res = await fetch("/api/analyze-listing", {
           method: "POST",
@@ -31,32 +21,55 @@ export default function OnlineAnalyzing() {
           body: JSON.stringify({ listingUrl }),
         });
 
-        console.log("📡 Response status:", res.status);
-
         const json = await res.json();
-        console.log("📬 API JSON:", json);
+        console.log("🟢 API response:", json);
 
-        saveProgress({
-          ...progress,
-          analysis: json?.analysis ?? null,
-        });
+        if (!json?.ok) {
+          throw new Error("Invalid API response");
+        }
 
-        console.log("✅ Saved analysis — navigating to results");
-        navigate("/scan/online/results");
+        // ---- SAFE NORMALIZED RESULT ----
+        const stored = {
+          createdAt: new Date().toISOString(),
+          source: json.analysisSource ?? "live",
+          sellerType: json.sellerType ?? "unknown",
+          listingUrl,
+          signals: Array.isArray(json.signals) ? json.signals : [],
+          sections: Array.isArray(json.sections) ? json.sections : [],
+        };
+
+        console.log("💾 Saving result:", stored);
+        saveOnlineResults(stored);
+
       } catch (err) {
-        console.error("❌ Analyze request failed:", err);
-        navigate("/scan/online/results");
-      }
-    };
+        console.error("❌ API failed — saving fallback", err);
 
-    run();
-  }, [navigate]);
+        // Fallback only when real API fails
+        saveOnlineResults({
+          createdAt: new Date().toISOString(),
+          source: "offline-fallback",
+          sellerType: "unknown",
+          listingUrl,
+          signals: [],
+          sections: [],
+        });
+      }
+
+      if (!cancelled) {
+        navigate("/scan/online/results", { replace: true });
+      }
+    }
+
+    runAnalysis();
+    return () => { cancelled = true; };
+
+  }, [listingUrl, navigate]);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-24 text-center">
-      <h1 className="text-2xl font-semibold mb-4">Analyzing listing…</h1>
+    <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+      <h1 className="text-2xl font-semibold mb-2">Analyzing listing…</h1>
       <p className="text-muted-foreground">
-        We’re reviewing wording tone, pricing signals, trust indicators, and risk flags.
+        Please wait while we process the listing.
       </p>
     </div>
   );
