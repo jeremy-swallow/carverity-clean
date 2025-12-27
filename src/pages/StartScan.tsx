@@ -5,15 +5,18 @@ export default function StartScan() {
   const navigate = useNavigate();
   const [listingUrl, setListingUrl] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!listingUrl.trim()) return;
+    if (!listingUrl.trim()) {
+      console.warn("No URL entered");
+      return;
+    }
 
     navigate("/scan/online/analyzing", {
       state: { listingUrl }
     });
-  };
+  }
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-16">
