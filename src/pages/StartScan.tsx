@@ -20,11 +20,11 @@ export default function StartScan() {
       return;
     }
 
-    // Save URL for the analyzing page
+    // Save URL so the analyzing step can read it
     localStorage.setItem(LISTING_URL_KEY, trimmed);
     console.log("📌 Saved listing URL:", trimmed);
 
-    // Go to the analyzing step
+    // Navigate to analyzing step
     navigate("/scan/online/analyzing", { replace: true });
   }
 

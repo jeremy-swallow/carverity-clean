@@ -10,6 +10,9 @@ export interface SavedResult {
   analysisSource?: string;
 }
 
+// Alias so older code that imports StoredResult still compiles
+export type StoredResult = SavedResult;
+
 const STORAGE_KEY = "onlineResults";
 
 export function saveOnlineResults(result: SavedResult) {
@@ -27,7 +30,6 @@ export function loadOnlineResults(): SavedResult | null {
 
     const parsed = JSON.parse(raw);
 
-    // Safe, normalized object – never undefined / wrong types
     const normalized: SavedResult = {
       createdAt: parsed.createdAt ?? "",
       source: parsed.source === "in-person" ? "in-person" : "online",

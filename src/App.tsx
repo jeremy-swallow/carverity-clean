@@ -1,4 +1,5 @@
 // src/App.tsx
+
 import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 
@@ -10,10 +11,10 @@ import FAQ from "./pages/FAQ";
 import Account from "./pages/Account";
 
 /* ---------- ONLINE FLOW ---------- */
-import OnlineStart from "./pages/OnlineStart";
 import OnlineDetails from "./pages/OnlineDetails";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
 import OnlineResults from "./pages/OnlineResults";
+import StartScan from "./pages/StartScan";
 
 /* ---------- IN-PERSON FLOW (active steps) ---------- */
 import InPersonStart from "./pages/InPersonStart";
@@ -41,15 +42,15 @@ export default function App() {
         <Route path="/deploy-test" element={<DeployTest />} />
 
         {/* Public Start Entry */}
-        <Route path="/start-scan" element={<OnlineStart />} />
+        <Route path="/start-scan" element={<StartScan />} />
 
         {/* Online Scan – friendly URLs */}
         <Route path="/online-details" element={<OnlineDetails />} />
         <Route path="/online-analyzing" element={<OnlineAnalyzing />} />
         <Route path="/online-results" element={<OnlineResults />} />
 
-        {/* (Keep internal developer paths for compatibility) */}
-        <Route path="/scan/online/start" element={<OnlineStart />} />
+        {/* Internal developer paths for compatibility */}
+        <Route path="/scan/online/start" element={<StartScan />} />
         <Route path="/scan/online/details" element={<OnlineDetails />} />
         <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
         <Route path="/scan/online/results" element={<OnlineResults />} />
