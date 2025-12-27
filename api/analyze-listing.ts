@@ -18,18 +18,17 @@ export default async function handler(
       return res.status(400).json({ error: "Missing listingUrl" });
     }
 
-    console.log("🔎 Fetching listing HTML:", listingUrl);
+    console.log("🔎 Fetching listing:", listingUrl);
     const response = await fetch(listingUrl);
     const html = await response.text();
 
-    console.log("🧩 Classifying seller type…");
     const sellerType = classifySeller(html) ?? "unknown";
 
     return res.status(200).json({
       ok: true,
       analysisSource: "live",
       sellerType,
-      htmlLength: html.length,
+      htmlLength: html.length
     });
   } catch (err: any) {
     console.error("❌ API error:", err?.message || err);
