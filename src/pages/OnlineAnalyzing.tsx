@@ -1,55 +1,62 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { saveOnlineResults } from "../utils/onlineResults";
-import type { SavedResult } from "../utils/onlineResults";
+
+interface NormalizedResult {
+  createdAt: string;
+  source: "online" | "in-person";
+  sellerType: string;
+  listingUrl: string;
+  signals: any[];
+  sections: any[];
+  analysisSource?: string;
+}
 
 export default function OnlineAnalyzing() {
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const run = async () => {
-      const listingUrl = (location.state as any)?.listingUrl ?? "";
+    const listingUrl = (location.state as any)?.listingUrl;
 
-      if (!listingUrl) {
-        console.warn("No listing URL — aborting scan");
-        navigate("/scan/online");
-        return;
-      }
+    if (!listingUrl) {
+      console.warn("⚠️ No listing URL — aborting scan");
+      navigate("/start-scan", { replace: true });
+      return;
+    }
 
-      console.log("🟡 Sending scan request →", listingUrl);
+    console.log("▶️ Running analysis for", listingUrl);
 
+    (async () => {
       try {
         const res = await fetch("/api/analyze-listing", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: listingUrl }),
+          body: JSON.stringify({ listingUrl }),
         });
 
-        const data = await res.json();
-        console.log("🟢 API response:", data);
+        const json = await res.json();
+        console.log("API Response:", json);
 
-        const normalized: SavedResult = {
+        const normalized: NormalizedResult = {
           createdAt: new Date().toISOString(),
           source: "online",
-          sellerType: data.sellerType ?? "unknown",
+          sellerType: json.sellerType ?? "unknown",
           listingUrl,
-          signals: Array.isArray(data.signals) ? data.signals : [],
-          sections: Array.isArray(data.sections) ? data.sections : [],
-          analysisSource: data.analysisSource ?? "live",
+          signals: Array.isArray(json.signals) ? json.signals : [],
+          sections: Array.isArray(json.sections) ? json.sections : [],
+          analysisSource: json.analysisSource ?? "live",
         };
 
-        // Save the normalized result so OnlineResults can read it
         saveOnlineResults(normalized);
-
-        // Go to the results page
         navigate("/scan/online/results", { replace: true });
-      } catch (err) {
-        console.error("❌ API failed — using fallback result", err);
 
-        const fallback: SavedResult = {
+      } catch (err) {
+        console.error("❌ API failed — using fallback", err);
+
+        const fallback: NormalizedResult = {
           createdAt: new Date().toISOString(),
-          source: "online", // must match union type
+          source: "online",
           sellerType: "unknown",
           listingUrl,
           signals: [],
@@ -60,16 +67,14 @@ export default function OnlineAnalyzing() {
         saveOnlineResults(fallback);
         navigate("/scan/online/results", { replace: true });
       }
-    };
-
-    run();
-  }, [location, navigate]);
+    })();
+  }, [location.state, navigate]);
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-16 text-center">
       <h1 className="text-xl font-semibold mb-2">Analyzing listing…</h1>
       <p className="text-muted-foreground">
-        Please wait while we process the listing.
+        Please wait while we scan the listing.
       </p>
     </main>
   );
