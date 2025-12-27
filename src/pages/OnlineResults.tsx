@@ -1,184 +1,93 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
+// src/pages/OnlineResults.tsx
 
-function generateMockAnalysis(listingUrl: string) {
-  return {
-    riskRating: "Low",
-    keyInsights: [
-      "No immediate wording-based risk indicators detected.",
-      "Seller tone appears factual rather than emotional or urgent.",
-      "No contradictory condition statements found in listing text.",
-    ],
-    sections: {
-      pricing: [
-        "No unrealistic discount claims detected.",
-        "No urgency-based pricing language.",
-        "Price tone appears neutral.",
-      ],
-      language: [
-        "No avoidance language detected.",
-        "No repair-avoidance patterns found.",
-      ],
-      sellerTrust: [
-        "Description suggests a private seller.",
-        "Contact tone appears consistent.",
-      ],
-      missingInfo: ["Service history not stated"],
-      recommendations: [
-        "Request service records",
-        "Confirm roadworthy or inspection status",
-      ],
-    },
-    source: listingUrl,
-  };
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
+
+interface ApiResult {
+  ok: boolean;
+  analysisSource: string;
+  sellerType?: string;
+  htmlLength?: number;
+  signals?: Array<{
+    id: string;
+    label: string;
+    severity: string;
+    description: string;
+  }>;
 }
 
 export default function OnlineResults() {
-  const progress = loadProgress();
-  const listingUrl = progress?.listingUrl ?? "(missing link)";
-
-  const [report, setReport] = useState<any>(progress?.analysis ?? null);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">(
-    report ? "ready" : "loading"
-  );
+  const location = useLocation();
+  const [result, setResult] = useState<ApiResult | null>(null);
 
   useEffect(() => {
-    if (report || !listingUrl) return;
-
-    async function runAnalysis() {
+    const stored = sessionStorage.getItem("online_scan_result");
+    if (stored) {
       try {
-        const res = await fetch("/api/analyze-listing", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ listingUrl }),
-        });
-
-        if (!res.ok) throw new Error("API failed");
-
-        const aiReport = await res.json();
-
-        saveProgress({ ...progress, analysis: aiReport });
-        setReport(aiReport);
-        setStatus("ready");
+        setResult(JSON.parse(stored));
       } catch {
-        // fallback to mock so UX never breaks
-        const fallback = generateMockAnalysis(listingUrl);
-        saveProgress({ ...progress, analysis: fallback });
-        setReport(fallback);
-        setStatus("error");
+        console.error("Failed to parse stored result");
       }
     }
+  }, [location]);
 
-    runAnalysis();
-  }, [report, listingUrl, progress]);
-
-  function finishScan() {
-    clearProgress();
-  }
-
-  if (!report) {
+  if (!result) {
     return (
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: 40 }}>
-        <h1>Generating report…</h1>
-        <p style={{ color: "#9aa7d9" }}>
-          Analysing listing details and building structured insights…
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+        <h1 className="text-2xl font-semibold mb-2">No results available</h1>
+        <p className="text-muted-foreground">
+          Run a scan first to see your analysis results.
         </p>
       </div>
     );
   }
 
+  const signals = result.signals ?? []; // <-- SAFE DEFAULT
+
   return (
-    <div
-      style={{
-        maxWidth: 920,
-        margin: "0 auto",
-        padding: "clamp(24px, 6vw, 64px)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 28,
-      }}
-    >
-      <section
-        style={{
-          padding: 20,
-          borderRadius: 14,
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 14,
-        }}
-      >
-        <h1 style={{ margin: 0 }}>Scan results — AI analysis</h1>
+    <div className="max-w-3xl mx-auto px-4 py-12">
+      <h1 className="text-xl font-semibold mb-6">
+        Scan results — AI analysis
+      </h1>
 
-        <div style={{ color: "#9aa7d9", fontSize: 14 }}>
-          Listing analysed:
-          <br />
-          {report.source}
+      <div className="mb-6 p-4 rounded-lg border border-white/10 bg-black/20">
+        <p className="text-sm mb-1">
+          <strong>Analysis mode:</strong> {result.analysisSource}
+        </p>
+        <p className="text-sm mb-1">
+          <strong>Seller type:</strong> {result.sellerType ?? "Unknown"}
+        </p>
+        <p className="text-sm">
+          <strong>HTML size:</strong>{" "}
+          {result.htmlLength ? `${result.htmlLength} chars` : "N/A"}
+        </p>
+      </div>
+
+      <h2 className="text-lg font-semibold mb-3">Risk signals</h2>
+
+      {/* SAFELY HANDLE EMPTY SIGNAL LIST */}
+      {signals.length === 0 && (
+        <div className="p-4 rounded-lg border border-white/10 bg-black/10">
+          <p>No risk signals were detected for this listing.</p>
         </div>
+      )}
 
-        <div
-          style={{
-            padding: 14,
-            borderRadius: 12,
-            background: "rgba(34,197,94,0.08)",
-            border: "1px solid rgba(34,197,94,0.35)",
-            color: "#a7f3d0",
-            fontSize: 14,
-          }}
-        >
-          <strong>Overall risk rating:</strong> {report.riskRating}
-          {status === "error" && " (AI offline — mock result)"}
+      {signals.length > 0 && (
+        <div className="space-y-3">
+          {signals.map((s) => (
+            <div
+              key={s.id}
+              className="p-4 rounded-lg border border-white/10 bg-black/10"
+            >
+              <p className="font-medium">{s.label}</p>
+              <p className="text-sm opacity-80">{s.description}</p>
+              <p className="text-xs mt-1 opacity-60">
+                Severity: {s.severity}
+              </p>
+            </div>
+          ))}
         </div>
-
-        <ReportCard title="Key insights" items={report.keyInsights} />
-      </section>
-
-      <ReportCard title="Pricing & value signals" items={report.sections.pricing} />
-      <ReportCard title="Listing language risk signals" items={report.sections.language} />
-      <ReportCard title="Seller trust indicators" items={report.sections.sellerTrust} />
-      <ReportCard title="Missing / unknown information" items={report.sections.missingInfo} />
-      <ReportCard title="Recommended next steps" items={report.sections.recommendations} />
-
-      <Link
-        to="/start-scan"
-        onClick={finishScan}
-        style={{ fontSize: 14, color: "#9aa7d9", marginTop: 6 }}
-      >
-        ← Back to start
-      </Link>
-    </div>
-  );
-}
-
-function ReportCard(props: { title: string; items: string[] }) {
-  return (
-    <div
-      style={{
-        padding: 18,
-        borderRadius: 14,
-        background: "rgba(255,255,255,0.04)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-      }}
-    >
-      <strong style={{ fontSize: 15 }}>{props.title}</strong>
-      <ul
-        style={{
-          margin: 0,
-          paddingLeft: 18,
-          fontSize: 14,
-          lineHeight: 1.6,
-          color: "#cbd5f5",
-        }}
-      >
-        {props.items.map((x, i) => (
-          <li key={i}>{x}</li>
-        ))}
-      </ul>
+      )}
     </div>
   );
 }
