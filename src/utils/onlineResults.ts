@@ -11,9 +11,6 @@ export interface StoredResult {
 
 const STORAGE_KEY = "carverity_online_result";
 
-/**
- * Load the last saved online scan result
- */
 export function loadOnlineResults(): StoredResult | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -23,16 +20,10 @@ export function loadOnlineResults(): StoredResult | null {
   }
 }
 
-/**
- * Save a single online scan result
- */
 export function saveOnlineResults(result: StoredResult) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(result));
 }
 
-/**
- * Clear saved scan result
- */
 export function clearOnlineResults() {
   localStorage.removeItem(STORAGE_KEY);
 }

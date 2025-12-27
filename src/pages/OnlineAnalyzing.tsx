@@ -1,8 +1,8 @@
 // src/pages/OnlineAnalyzing.tsx
-
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
+import { saveOnlineResults } from "../utils/onlineResults";
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
@@ -18,32 +18,25 @@ export default function OnlineAnalyzing() {
       }
 
       try {
-        // 🚧 TEMP FIX — API endpoint is not deployed yet
-        // Instead of calling /api/analyze-listing (which 404s),
-        // we simulate a response so the flow continues.
+        const res = await fetch("/api/analyze-listing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listingUrl }),
+        });
 
-        await new Promise((r) => setTimeout(r, 1500));
+        const json = await res.json();
 
-        const mockAnalysis = {
-          sections: [
-            {
-              title: "Listing tone",
-              content: "No obvious scam signals detected in wording.",
-            },
-            {
-              title: "Pricing signals",
-              content: "Price appears consistent with similar vehicles.",
-            },
-            {
-              title: "Risk indicators",
-              content: "No major red flags identified.",
-            },
-          ],
-        };
+        // Save structured results for Results page
+        saveOnlineResults({
+          createdAt: new Date().toISOString(),
+          source: "online",
+          sections: json?.sections ?? [],
+        });
 
+        // Also keep in progress store
         saveProgress({
           ...progress,
-          analysis: mockAnalysis,
+          analysis: json ?? null,
         });
 
         navigate("/scan/online/results");
