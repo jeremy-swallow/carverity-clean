@@ -1,9 +1,11 @@
-// api/analyze-listing.ts
+// /api/analyze-listing.ts
 
-export const config = { runtime: "nodejs" };
+export const config = {
+  runtime: "nodejs"
+};
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import classifySeller from "../src/utils/sellerClassifier";
+import classifySeller from "../src/utils/sellerClassifier.ts";
 
 export default async function handler(
   req: VercelRequest,
@@ -16,7 +18,7 @@ export default async function handler(
   try {
     const { listingUrl } = req.body;
 
-    if (!listingUrl) {
+    if (!listingUrl || typeof listingUrl !== "string") {
       return res.status(400).json({ error: "Missing listingUrl" });
     }
 
@@ -35,11 +37,11 @@ export default async function handler(
       htmlLength: html.length
     });
   } catch (err: any) {
-    console.error("❌ API Error:", err?.message || err);
+    console.error("❌ Analyzer error:", err?.message || err);
     return res.status(500).json({
       ok: false,
       error: "Analyzer failed",
-      message: err?.message || "Unknown error"
+      details: err?.message || "Unknown error"
     });
   }
 }
