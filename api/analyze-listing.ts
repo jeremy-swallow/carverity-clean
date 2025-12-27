@@ -1,7 +1,7 @@
 export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import classifySeller from "../src/utils/sellerClassifier.ts";
+import classifySeller from "../src/utils/sellerClassifier";
 
 export default async function handler(
   req: VercelRequest,
