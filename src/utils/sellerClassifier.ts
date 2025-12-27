@@ -1,52 +1,47 @@
-// src/utils/sellerClassifier.ts
+// /src/utils/sellerClassifier.ts
 
-export type SellerType = 'private' | 'dealer';
+export type SellerType = "private" | "dealer" | "unknown";
 
 /**
- * Very simple HTML heuristic to guess whether the listing is
- * from a dealer or a private seller.
- *
- * Returns:
- *   - 'dealer'
- *   - 'private'
- *   - null if we can't tell
+ * Very simple, rule-based seller classifier.
+ * This does NOT use your paid AI key yet – it's just heuristics
+ * so we can prove the pipeline end-to-end.
  */
-export default function classifySeller(html: string): SellerType | null {
+export default function classifySeller(html: string): SellerType {
   const lower = html.toLowerCase();
 
-  // Phrases that usually show up on dealer sites
-  const dealerHints = [
-    'dealer licence',
-    'dealer license',
-    'dealer license number',
-    'abn',
-    'pty ltd',
-    'our dealership',
-    'our team',
-    'finance available',
-    'trade-in welcome',
-    'fixed price',
-    'workshop tested',
-    'warranty available',
+  // Heuristic keywords for dealerships
+  const dealerKeywords = [
+    "dealer licence",
+    "dealer license",
+    "lmct",
+    "pty ltd",
+    "pty. ltd",
+    "abn",
+    "registered motor dealer",
+    "dealer number",
+    "licence number",
+    "licensed motor car trader",
   ];
 
-  // Phrases that often show up on private listings
-  const privateHints = [
-    'private seller',
-    'no dealers',
-    'genuine reason for sale',
-    'rego',
-    'rego till',
-    'rwc supplied',
-    'roadworthy included',
-  ];
-
-  const dealerScore = dealerHints.filter((h) => lower.includes(h)).length;
-  const privateScore = privateHints.filter((h) => lower.includes(h)).length;
-
-  if (dealerScore === 0 && privateScore === 0) {
-    return null;
+  if (dealerKeywords.some((k) => lower.includes(k))) {
+    return "dealer";
   }
 
-  return dealerScore >= privateScore ? 'dealer' : 'private';
+  // Heuristic keywords for private sellers
+  const privateKeywords = [
+    "genuine reason for sale",
+    "no time wasters",
+    "no swaps",
+    "no dealers",
+    "rego until",
+    "priced to sell",
+    "one owner",
+  ];
+
+  if (privateKeywords.some((k) => lower.includes(k))) {
+    return "private";
+  }
+
+  return "unknown";
 }
