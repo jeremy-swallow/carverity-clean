@@ -20,15 +20,21 @@ export default function OnlineAnalyzing() {
 
     console.log("🚀 Running scan for:", listingUrl);
     runScan(listingUrl);
-  }, []);
+  }, [navigate]);
 
   async function runScan(listingUrl: string) {
     try {
       const res = await fetch("/api/analyze-listing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listingUrl }),
+        body: JSON.stringify({ listingUrl }), // ✅ API expects listingUrl
       });
+
+      if (!res.ok) {
+        // Surface the API failure so we drop into the catch block
+        const text = await res.text().catch(() => "");
+        throw new Error(`API returned ${res.status} ${res.statusText}: ${text}`);
+      }
 
       const data = await res.json();
 
@@ -39,7 +45,7 @@ export default function OnlineAnalyzing() {
         listingUrl,
         signals: Array.isArray(data.signals) ? data.signals : [],
         sections: Array.isArray(data.sections) ? data.sections : [],
-        analysisSource: "ai",
+        analysisSource: data.analysisSource ?? "ai",
       };
 
       saveOnlineResults(normalized);
@@ -56,7 +62,7 @@ export default function OnlineAnalyzing() {
         listingUrl,
         signals: [],
         sections: [],
-        analysisSource: "ai",
+        analysisSource: "fallback",
       };
 
       saveOnlineResults(fallback);
