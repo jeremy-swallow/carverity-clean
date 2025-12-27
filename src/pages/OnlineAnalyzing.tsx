@@ -1,8 +1,8 @@
 // src/pages/OnlineAnalyzing.tsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { saveOnlineResults } from "../utils/onlineResults";
 import type { SavedResult } from "../utils/onlineResults";
+import { saveOnlineResults } from "../utils/onlineResults";
 
 const LISTING_URL_KEY = "carverity_online_listing_url";
 
@@ -20,21 +20,15 @@ export default function OnlineAnalyzing() {
 
     console.log("🚀 Running scan for:", listingUrl);
     runScan(listingUrl);
-  }, [navigate]);
+  }, []);
 
   async function runScan(listingUrl: string) {
     try {
       const res = await fetch("/api/analyze-listing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listingUrl }), // ✅ API expects listingUrl
+        body: JSON.stringify({ listingUrl }),
       });
-
-      if (!res.ok) {
-        // Surface the API failure so we drop into the catch block
-        const text = await res.text().catch(() => "");
-        throw new Error(`API returned ${res.status} ${res.statusText}: ${text}`);
-      }
 
       const data = await res.json();
 
@@ -45,7 +39,7 @@ export default function OnlineAnalyzing() {
         listingUrl,
         signals: Array.isArray(data.signals) ? data.signals : [],
         sections: Array.isArray(data.sections) ? data.sections : [],
-        analysisSource: data.analysisSource ?? "ai",
+        analysisSource: "ai",
       };
 
       saveOnlineResults(normalized);
