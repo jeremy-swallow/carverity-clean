@@ -1,4 +1,12 @@
+// src/utils/aiInsights.ts
 import type { ScanType } from "./scanStorage";
+
+export type VehicleContext = {
+  make?: string;
+  model?: string;
+  year?: string | number;
+  isImport?: boolean;
+};
 
 export type AIScanInsight = {
   summary: string;
@@ -6,12 +14,18 @@ export type AIScanInsight = {
   confidence: "low" | "medium" | "high";
 };
 
+function hasEnoughImportContext(v: VehicleContext): boolean {
+  return Boolean(v?.isImport && v?.make && v?.model);
+}
+
 export function generateAIScanInsight(
   type: ScanType,
-  concern?: string
+  concern?: string,
+  vehicle?: VehicleContext
 ): AIScanInsight {
+  // 🌏 ONLINE LISTING ANALYSIS
   if (type === "online") {
-    return {
+    const baseInsight: AIScanInsight = {
       summary:
         "This listing appears generally consistent, but there are a few areas worth verifying in person before committing.",
       focusPoints: [
@@ -21,15 +35,33 @@ export function generateAIScanInsight(
       ],
       confidence: concern ? "medium" : "low",
     };
+
+    // 🚗 Conditional import-parts guidance
+    if (vehicle && hasEnoughImportContext(vehicle)) {
+      const label = [
+        vehicle.year,
+        vehicle.make,
+        vehicle.model,
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      baseInsight.focusPoints.push(
+        `Because this appears to be an imported ${label}, some replacement parts may be harder to source locally and may cost more or take longer to obtain. If the car interests you, ask the seller about servicing history and parts availability for this model.`
+      );
+    }
+
+    return baseInsight;
   }
 
+  // 👟 IN-PERSON INSPECTION
   return {
     summary:
       "This in-person inspection focused on visible condition and immediate risk signals that are difficult to judge from a listing alone.",
     focusPoints: [
       "Overall condition relative to age and usage",
       "Signs of neglect or cosmetic masking",
-      "Whether a professional inspection is justified",
+      "Whether a professional mechanical inspection is justified",
     ],
     confidence: "high",
   };
