@@ -1,8 +1,9 @@
 /* src/pages/OnlineVehicleDetails.tsx */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
+import { AU_MAKES_MODELS } from "../data/auMakesModels";
 
 type ImportStatus =
   | "au-new"
@@ -18,29 +19,6 @@ interface VehicleFormState {
   importStatus: ImportStatus;
 }
 
-const MAKES = [
-  "Mazda",
-  "Toyota",
-  "Hyundai",
-  "Kia",
-  "Nissan",
-  "Honda",
-  "Ford",
-  "Subaru",
-  "Volkswagen",
-];
-
-const MODELS = [
-  "CX-3",
-  "CX-30",
-  "Mazda 3",
-  "Mazda 6",
-  "Corolla",
-  "Yaris",
-  "i30",
-  "Civic",
-];
-
 export default function OnlineVehicleDetails() {
   const navigate = useNavigate();
 
@@ -52,23 +30,29 @@ export default function OnlineVehicleDetails() {
     importStatus: "unknown",
   });
 
-  const [showMakeSuggestions, setShowMakeSuggestions] = useState(false);
-  const [showModelSuggestions, setShowModelSuggestions] = useState(false);
+  const [showMakeList, setShowMakeList] = useState(false);
+  const [showModelList, setShowModelList] = useState(false);
 
-  const filteredMakes = MAKES.filter((m) =>
-    m.toLowerCase().includes(vehicle.make.toLowerCase())
-  );
+  const allMakes = useMemo(() => Object.keys(AU_MAKES_MODELS), []);
 
-  const filteredModels = MODELS.filter((m) =>
-    m.toLowerCase().includes(vehicle.model.toLowerCase())
-  );
+  const filteredMakes = useMemo(() => {
+    const q = vehicle.make.toLowerCase();
+    if (!q) return allMakes;
+    return allMakes.filter((m) => m.toLowerCase().includes(q));
+  }, [vehicle.make, allMakes]);
+
+  const filteredModels = useMemo(() => {
+    const models = AU_MAKES_MODELS[vehicle.make] ?? [];
+    const q = vehicle.model.toLowerCase();
+    if (!q) return models;
+    return models.filter((m) => m.toLowerCase().includes(q));
+  }, [vehicle.make, vehicle.model]);
 
   const canContinue =
     vehicle.make.trim() !== "" &&
     vehicle.model.trim() !== "" &&
     vehicle.year.trim() !== "";
 
-  // Restore saved vehicle details safely
   useEffect(() => {
     saveProgress({
       type: "online",
@@ -77,15 +61,14 @@ export default function OnlineVehicleDetails() {
     });
 
     const raw = loadProgress();
-    const existingVehicle = (raw as any)?.vehicle ?? {};
+    const v = (raw as any)?.vehicle ?? {};
 
     setVehicle({
-      make: existingVehicle.make ?? "",
-      model: existingVehicle.model ?? "",
-      year: existingVehicle.year ?? "",
-      variant: existingVehicle.variant ?? "",
-      importStatus:
-        (existingVehicle.importStatus as ImportStatus) ?? "unknown",
+      make: v.make ?? "",
+      model: v.model ?? "",
+      year: v.year ?? "",
+      variant: v.variant ?? "",
+      importStatus: v.importStatus ?? "unknown",
     });
   }, []);
 
@@ -122,14 +105,11 @@ export default function OnlineVehicleDetails() {
         <span className="text-xs tracking-wider uppercase text-slate-400">
           Online scan · Step 2 of 5
         </span>
-
         <h1 className="text-2xl font-extrabold text-white">
           Tell us a bit about the car
         </h1>
-
         <p className="text-slate-300 text-sm">
-          These details help improve your AI guidance. If you’re not sure about
-          a field, just enter your best guess.
+          Start typing — you can pick from suggestions or enter details manually.
         </p>
       </div>
 
@@ -141,30 +121,26 @@ export default function OnlineVehicleDetails() {
 
         <input
           value={vehicle.make}
-          placeholder="e.g. Mazda, Toyota"
+          placeholder="Start typing (e.g. Toyota, Mercedes-Benz)"
           onChange={(e) => {
-            const v = e.target.value;
-            update("make", v);
-            setShowMakeSuggestions(v.trim().length > 0);
+            update("make", e.target.value);
+            setShowMakeList(true);
           }}
-          onFocus={() => {
-            if (vehicle.make.trim().length > 0) {
-              setShowMakeSuggestions(true);
-            }
-          }}
-          onBlur={() => setTimeout(() => setShowMakeSuggestions(false), 120)}
+          onFocus={() => setShowMakeList(true)}
+          onBlur={() => setTimeout(() => setShowMakeList(false), 120)}
           className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
         />
 
-        {showMakeSuggestions && filteredMakes.length > 0 && (
-          <div className="absolute top-full mt-1 w-full border border-white/10 rounded-xl bg-slate-900/95 max-h-48 overflow-auto shadow-lg z-50">
+        {showMakeList && filteredMakes.length > 0 && (
+          <div className="absolute top-full mt-1 w-full border border-white/10 rounded-xl bg-slate-900/95 max-h-56 overflow-auto shadow-lg z-50">
             {filteredMakes.map((m) => (
               <button
                 key={m}
                 type="button"
                 onMouseDown={() => {
                   update("make", m);
-                  setShowMakeSuggestions(false);
+                  update("model", ""); // reset model when make changes
+                  setShowMakeList(false);
                 }}
                 className="w-full text-left px-4 py-2 hover:bg-slate-800/70"
               >
@@ -183,30 +159,25 @@ export default function OnlineVehicleDetails() {
 
         <input
           value={vehicle.model}
-          placeholder="e.g. CX-30, Corolla"
+          placeholder="e.g. RAV4, CX-5, i30"
           onChange={(e) => {
-            const v = e.target.value;
-            update("model", v);
-            setShowModelSuggestions(v.trim().length > 0);
+            update("model", e.target.value);
+            setShowModelList(true);
           }}
-          onFocus={() => {
-            if (vehicle.model.trim().length > 0) {
-              setShowModelSuggestions(true);
-            }
-          }}
-          onBlur={() => setTimeout(() => setShowModelSuggestions(false), 120)}
+          onFocus={() => setShowModelList(true)}
+          onBlur={() => setTimeout(() => setShowModelList(false), 120)}
           className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
         />
 
-        {showModelSuggestions && filteredModels.length > 0 && (
-          <div className="absolute top-full mt-1 w-full border border-white/10 rounded-xl bg-slate-900/95 max-h-48 overflow-auto shadow-lg z-50">
+        {showModelList && filteredModels.length > 0 && (
+          <div className="absolute top-full mt-1 w-full border border-white/10 rounded-xl bg-slate-900/95 max-h-56 overflow-auto shadow-lg z-50">
             {filteredModels.map((m) => (
               <button
                 key={m}
                 type="button"
                 onMouseDown={() => {
                   update("model", m);
-                  setShowModelSuggestions(false);
+                  setShowModelList(false);
                 }}
                 className="w-full text-left px-4 py-2 hover:bg-slate-800/70"
               >
@@ -222,10 +193,9 @@ export default function OnlineVehicleDetails() {
         <label className="text-sm font-medium">
           Year<span className="text-red-400"> *</span>
         </label>
-
         <input
           value={vehicle.year}
-          placeholder="e.g. 2020"
+          placeholder="e.g. 2018"
           onChange={(e) => update("year", e.target.value)}
           className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
         />
@@ -234,10 +204,9 @@ export default function OnlineVehicleDetails() {
       {/* VARIANT */}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium">Variant (optional)</label>
-
         <input
           value={vehicle.variant}
-          placeholder="e.g. G20 Evolve (FWD)"
+          placeholder="e.g. GXL, SR Premium, Hybrid"
           onChange={(e) => update("variant", e.target.value)}
           className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
         />
@@ -246,7 +215,6 @@ export default function OnlineVehicleDetails() {
       {/* IMPORT STATUS */}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium">Import status (optional)</label>
-
         <select
           value={vehicle.importStatus}
           onChange={(e) =>
@@ -261,13 +229,8 @@ export default function OnlineVehicleDetails() {
           <option value="grey-import">Grey import</option>
           <option value="au-new">Australian delivered — confirmed</option>
         </select>
-
-        <p className="text-xs text-slate-400">
-          Grey imports can have higher parts and repair costs.
-        </p>
       </div>
 
-      {/* ACTIONS */}
       <div className="mt-2">
         <button
           disabled={!canContinue}
