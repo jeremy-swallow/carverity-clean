@@ -7,8 +7,19 @@ import {
   type SavedResult,
 } from "../utils/onlineResults";
 
+type SummaryBlock = {
+  overallRecommendation?: "ok" | "caution" | "high-risk" | "unknown";
+  rationale?: string;
+};
+
+type RiskSignal = { title?: string; message?: string };
+
 export default function OnlineResults() {
   const [result, setResult] = useState<SavedResult | null>(null);
+
+  // Extra richer fields (NOT part of SavedResult schema)
+  const [summary, setSummary] = useState<SummaryBlock | null>(null);
+  const [riskSignals, setRiskSignals] = useState<RiskSignal[] | null>(null);
 
   useEffect(() => {
     const raw = loadOnlineResults();
@@ -18,7 +29,7 @@ export default function OnlineResults() {
       return;
     }
 
-    // 🔒 Safe normalization layer (future-proof)
+    // ---- Normalise base SavedResult (unchanged shape) ----
     const stored: SavedResult = {
       createdAt: raw.createdAt ?? "",
       source: raw.source ?? "unknown",
@@ -31,6 +42,11 @@ export default function OnlineResults() {
     };
 
     setResult(stored);
+
+    // ---- Read richer optional fields safely ----
+    const asAny = raw as any;
+    if (asAny?.summary) setSummary(asAny.summary);
+    if (Array.isArray(asAny?.riskSignals)) setRiskSignals(asAny.riskSignals);
   }, []);
 
   if (!result) {
@@ -50,6 +66,35 @@ export default function OnlineResults() {
     unlockOnlineResults();
     const updated = loadOnlineResults();
     setResult(updated);
+
+    // reload richer fields too
+    const asAny = updated as any;
+    if (asAny?.summary) setSummary(asAny.summary);
+    if (Array.isArray(asAny?.riskSignals)) setRiskSignals(asAny.riskSignals);
+  }
+
+  function badgeForRecommendation(state?: string) {
+    switch (state) {
+      case "ok":
+        return (
+          <span className="px-2 py-1 rounded bg-green-500/20 text-green-300 text-xs font-semibold">
+            Looks reasonable
+          </span>
+        );
+      case "high-risk":
+        return (
+          <span className="px-2 py-1 rounded bg-red-500/20 text-red-300 text-xs font-semibold">
+            High-risk listing
+          </span>
+        );
+      case "caution":
+      default:
+        return (
+          <span className="px-2 py-1 rounded bg-amber-400/20 text-amber-300 text-xs font-semibold">
+            Proceed with caution
+          </span>
+        );
+    }
   }
 
   return (
@@ -64,39 +109,82 @@ export default function OnlineResults() {
         {result.listingUrl}
       </p>
 
-      {/* Signals */}
-      <div className="mb-8">
-        <h2 className="font-semibold mb-2">Key signals</h2>
+      {/* ===== Headline Summary ===== */}
+      {summary && (
+        <div
+          className={`mb-8 rounded-xl border border-white/10 p-4 ${
+            locked ? "blur-sm pointer-events-none" : ""
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-semibold">Overall assessment</h2>
+            {badgeForRecommendation(summary.overallRecommendation)}
+          </div>
 
-        {result.signals.length > 0 ? (
-          <ul className={`list-disc pl-4 ${locked ? "blur-sm" : ""}`}>
-            {result.signals.map((s, i) => (
-              <li key={i}>{s?.text ?? "Unnamed signal"}</li>
+          <p className="text-sm text-muted-foreground">
+            {summary.rationale ?? ""}
+          </p>
+        </div>
+      )}
+
+      {/* ===== Risk Signals ===== */}
+      <div className="mb-8">
+        <h2 className="font-semibold mb-2">Key risk signals</h2>
+
+        {riskSignals && riskSignals.length > 0 ? (
+          <ul className={`space-y-2 ${locked ? "blur-sm" : ""}`}>
+            {riskSignals.map((s, i) => (
+              <li
+                key={i}
+                className="border border-white/10 rounded-lg p-3 text-sm"
+              >
+                <div className="font-medium">
+                  {s?.title ?? "Unlabeled signal"}
+                </div>
+                <div className="text-muted-foreground">
+                  {s?.message ?? ""}
+                </div>
+              </li>
             ))}
           </ul>
         ) : (
-          <p className="text-muted-foreground">
-            No signals detected in this listing.
+          <p className="text-muted-foreground text-sm">
+            No explicit risk signals detected in this listing.
           </p>
         )}
       </div>
 
-      {/* Sections */}
+      {/* ===== Analysis Sections (existing behaviour) ===== */}
       <div className={locked ? "blur-sm pointer-events-none" : ""}>
-        <h2 className="font-semibold mb-2">Analysis sections</h2>
+        <h2 className="font-semibold mb-2">Analysis details</h2>
 
         {result.sections.length > 0 ? (
-          result.sections.map((section, i) => (
+          result.sections.map((section: any, i: number) => (
             <div
               key={i}
-              className="border border-white/10 rounded p-4 mb-4"
+              className="border border-white/10 rounded p-4 mb-4 bg-black/20"
             >
               <h3 className="font-medium mb-1">
                 {section?.title ?? "Untitled section"}
               </h3>
-              <p className="text-muted-foreground">
-                {section?.content ?? ""}
-              </p>
+
+              {Array.isArray(section?.items) ? (
+                <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-1">
+                  {section.items.map((it: any, j: number) => (
+                    <li key={j}>{it}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {section?.content ?? ""}
+                </p>
+              )}
+
+              {section?.disclaimer && (
+                <p className="mt-2 text-xs text-muted-foreground/80">
+                  {section.disclaimer}
+                </p>
+              )}
             </div>
           ))
         ) : (
@@ -106,7 +194,7 @@ export default function OnlineResults() {
         )}
       </div>
 
-      {/* Unlock banner */}
+      {/* ===== Unlock Banner ===== */}
       {locked && (
         <div className="mt-6 p-4 border border-white/20 rounded-lg bg-black/30">
           <p className="mb-3 text-sm text-muted-foreground">
