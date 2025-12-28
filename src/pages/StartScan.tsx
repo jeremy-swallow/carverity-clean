@@ -25,8 +25,8 @@ export default function StartScan() {
     const trimmed = link.trim();
     localStorage.setItem("carverity_listing_url", trimmed);
 
-    // 👉 NEXT STEP (Kilometres)
-    navigate("/scan/online/kilometres");
+    // 👉 NEXT STEP — Vehicle details
+    navigate("/online-vehicle-details");
   }
 
   return (

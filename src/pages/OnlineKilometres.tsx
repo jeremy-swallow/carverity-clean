@@ -1,3 +1,5 @@
+// src/pages/OnlineKilometres.tsx
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { saveProgress } from "../utils/scanProgress";
@@ -8,14 +10,12 @@ export default function OnlineKilometres() {
   const canContinue = kms.trim().length > 0;
 
   useEffect(() => {
-    // Track that the user reached this step
     saveProgress({
       type: "online",
       step: "/scan/online/kilometres",
       startedAt: new Date().toISOString(),
     });
 
-    // Restore previously entered value if present
     const existing = localStorage.getItem("carverity_kilometres");
     if (existing) setKms(existing);
   }, []);
@@ -38,7 +38,6 @@ export default function OnlineKilometres() {
         gap: 24,
       }}
     >
-      {/* Step context */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <span
           style={{
@@ -48,7 +47,7 @@ export default function OnlineKilometres() {
             color: "#9aa3c7",
           }}
         >
-          Online scan · Step 2 of 5
+          Online scan · Step 3 of 5
         </span>
 
         <h1 style={{ fontSize: 24, fontWeight: 800 }}>
@@ -56,13 +55,12 @@ export default function OnlineKilometres() {
         </h1>
 
         <p style={{ color: "#cbd5f5", fontSize: 15 }}>
-          Enter the odometer reading shown in the listing. If it’s not exact,
+          Enter the odometer reading shown in the listing. If it isn’t exact,
           a close estimate is fine — we’ll still use it to help assess usage
           and wear.
         </p>
       </div>
 
-      {/* Input */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <label
           htmlFor="kms"
@@ -89,12 +87,10 @@ export default function OnlineKilometres() {
         />
 
         <p style={{ color: "#9aa3c7", fontSize: 13 }}>
-          Tip: Large jumps in kilometres compared to age can indicate heavy
-          use — while very low kilometres may be worth double-checking.
+          Tip: Very low or very high kilometres for age may warrant extra checks.
         </p>
       </div>
 
-      {/* Actions */}
       <div style={{ marginTop: 12 }}>
         <button
           disabled={!canContinue}
