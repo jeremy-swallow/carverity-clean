@@ -1,44 +1,33 @@
+/* src/pages/OnlineResults.tsx */
+
 import { useEffect, useState } from "react";
-import { loadOnlineResults } from "../utils/onlineResults";
-
-interface Signal {
-  text?: string;
-}
-
-interface Section {
-  title?: string;
-  content?: string;
-}
-
-interface StoredResult {
-  createdAt: string;
-  source: string;
-  sellerType: string;
-  signals: Signal[];
-  sections: Section[];
-  listingUrl: string;
-}
+import {
+  loadOnlineResults,
+  unlockOnlineResults,
+  type SavedResult,
+} from "../utils/onlineResults";
 
 export default function OnlineResults() {
-  const [result, setResult] = useState<StoredResult | null>(null);
+  const [result, setResult] = useState<SavedResult | null>(null);
 
   useEffect(() => {
     const raw = loadOnlineResults();
 
-    // No saved result
     if (!raw || typeof raw !== "object") {
       setResult(null);
       return;
     }
 
-    // 🔒 Safe normalization layer
-    const stored: StoredResult = {
-      createdAt: (raw as any).createdAt ?? "",
-      source: (raw as any).source ?? "unknown",
-      sellerType: (raw as any).sellerType ?? "unknown",
-      signals: Array.isArray((raw as any).signals) ? (raw as any).signals : [],
-      sections: Array.isArray((raw as any).sections) ? (raw as any).sections : [],
-      listingUrl: (raw as any).listingUrl ?? "",
+    // 🔒 Safe normalization layer (future-proof)
+    const stored: SavedResult = {
+      createdAt: raw.createdAt ?? "",
+      source: raw.source ?? "unknown",
+      sellerType: raw.sellerType ?? "unknown",
+      listingUrl: raw.listingUrl ?? "",
+      signals: Array.isArray(raw.signals) ? raw.signals : [],
+      sections: Array.isArray(raw.sections) ? raw.sections : [],
+      analysisSource: raw.analysisSource,
+      isUnlocked: raw.isUnlocked ?? false,
     };
 
     setResult(stored);
@@ -55,12 +44,24 @@ export default function OnlineResults() {
     );
   }
 
+  const locked = !result.isUnlocked;
+
+  function handleUnlock() {
+    unlockOnlineResults();
+    const updated = loadOnlineResults();
+    setResult(updated);
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
-      <h1 className="text-2xl font-semibold mb-4">Scan results — AI analysis</h1>
+      <h1 className="text-2xl font-semibold mb-4">
+        Scan results — AI analysis
+      </h1>
 
       <p className="mb-6 break-all text-sm text-muted-foreground">
-        Listing analysed:<br />{result.listingUrl}
+        Listing analysed:
+        <br />
+        {result.listingUrl}
       </p>
 
       {/* Signals */}
@@ -68,7 +69,7 @@ export default function OnlineResults() {
         <h2 className="font-semibold mb-2">Key signals</h2>
 
         {result.signals.length > 0 ? (
-          <ul className="list-disc pl-4">
+          <ul className={`list-disc pl-4 ${locked ? "blur-sm" : ""}`}>
             {result.signals.map((s, i) => (
               <li key={i}>{s?.text ?? "Unnamed signal"}</li>
             ))}
@@ -81,7 +82,7 @@ export default function OnlineResults() {
       </div>
 
       {/* Sections */}
-      <div>
+      <div className={locked ? "blur-sm pointer-events-none" : ""}>
         <h2 className="font-semibold mb-2">Analysis sections</h2>
 
         {result.sections.length > 0 ? (
@@ -104,6 +105,23 @@ export default function OnlineResults() {
           </p>
         )}
       </div>
+
+      {/* Unlock banner */}
+      {locked && (
+        <div className="mt-6 p-4 border border-white/20 rounded-lg bg-black/30">
+          <p className="mb-3 text-sm text-muted-foreground">
+            You’re viewing a preview. Unlock the full report without using
+            another credit.
+          </p>
+
+          <button
+            onClick={handleUnlock}
+            className="px-4 py-2 rounded bg-blue-500 text-black font-semibold"
+          >
+            Unlock full report
+          </button>
+        </div>
+      )}
     </div>
   );
 }
