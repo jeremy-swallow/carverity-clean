@@ -1,65 +1,88 @@
-import { useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadProgress, saveProgress } from "../utils/scanProgress";
+import { saveProgress, loadProgress } from "../utils/scanProgress";
 
 export default function OnlineDetails() {
   const navigate = useNavigate();
   const progress = loadProgress();
 
-  const listingUrl = progress?.listingUrl ?? "(missing link)";
+  const [form, setForm] = useState({
+    title: "",
+    price: "",
+    kms: "",
+    notes: "",
+  });
 
-  // Automatically continue to analyzing step
-  useEffect(() => {
-    // Update progress and advance step
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  }
+
+  function handleContinue() {
     saveProgress({
       ...progress,
       type: "online",
-      step: "/online-analyzing",
-      listingUrl,
+      step: "/scan/online/analyzing",
+      details: form,
     });
 
-    const timer = setTimeout(() => {
-      navigate("/online-analyzing");
-    }, 800);
-
-    return () => clearTimeout(timer);
-  }, [navigate, listingUrl, progress]);
+    navigate("/scan/online/analyzing");
+  }
 
   return (
-    <div
-      style={{
-        maxWidth: 720,
-        margin: "0 auto",
-        padding: "clamp(24px, 6vw, 64px)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 24,
-      }}
-    >
-      <h1 style={{ margin: 0 }}>Listing saved — preparing analysis…</h1>
+    <div style={{ maxWidth: 720, margin: "0 auto", padding: "clamp(24px,6vw,64px)", display: "flex", flexDirection: "column", gap: 18 }}>
+      <span style={{ fontSize: 13, letterSpacing: 0.8, textTransform: "uppercase", color: "#9aa3c7" }}>
+        Online scan · Step 2 of 3
+      </span>
 
-      <p style={{ color: "#cbd5f5" }}>
-        We’ve saved your listing and are getting ready to analyze it.
-      </p>
+      <h1 style={{ fontSize: 24, fontWeight: 800 }}>Add basic vehicle details</h1>
 
-      <div
+      <input
+        name="title"
+        placeholder="Vehicle (e.g. 2018 Mazda CX-5 Touring)"
+        value={form.title}
+        onChange={handleChange}
+        style={{ padding: 14, borderRadius: 12 }}
+      />
+
+      <input
+        name="price"
+        placeholder="Price (optional)"
+        value={form.price}
+        onChange={handleChange}
+        style={{ padding: 14, borderRadius: 12 }}
+      />
+
+      <input
+        name="kms"
+        placeholder="Kilometres (optional)"
+        value={form.kms}
+        onChange={handleChange}
+        style={{ padding: 14, borderRadius: 12 }}
+      />
+
+      <textarea
+        name="notes"
+        placeholder="Anything you want AI to consider…"
+        value={form.notes}
+        onChange={handleChange}
+        style={{ padding: 14, borderRadius: 12, minHeight: 120 }}
+      />
+
+      <button
+        onClick={handleContinue}
         style={{
-          padding: 16,
+          padding: "14px 22px",
           borderRadius: 12,
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          fontSize: 14,
-          color: "#9aa7d9",
+          fontSize: 16,
+          fontWeight: 600,
+          background: "#7aa2ff",
+          color: "#0b1020",
+          border: "none",
+          cursor: "pointer",
         }}
       >
-        <strong>Listing URL:</strong>
-        <br />
-        {listingUrl}
-      </div>
-
-      <div style={{ fontSize: 13, color: "#9aa7d9" }}>
-        You’ll be moved to the next step automatically…
-      </div>
+        Continue to AI analysis
+      </button>
     </div>
   );
 }
