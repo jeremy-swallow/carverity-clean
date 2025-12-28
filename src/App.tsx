@@ -12,11 +12,10 @@ import Account from "./pages/Account";
 
 /* ---------- ONLINE FLOW ---------- */
 import StartScan from "./pages/StartScan";
-import OnlineScan from "./pages/OnlineScan";
-import OnlineKilometres from "./pages/OnlineKilometres";
-import OnlineOwners from "./pages/OnlineOwners";
+import OnlineDetails from "./pages/OnlineDetails";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
 import OnlineResults from "./pages/OnlineResults";
+import OnlineVehicleDetails from "./pages/OnlineVehicleDetails";
 
 /* ---------- IN-PERSON FLOW ---------- */
 import InPersonStart from "./pages/InPersonStart";
@@ -32,41 +31,39 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        {/* ---------- MAIN ---------- */}
+        {/* Main */}
         <Route path="/" element={<Home />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/my-scans" element={<MyScans />} />
         <Route path="/faq" element={<FAQ />} />
         <Route path="/account" element={<Account />} />
 
-        {/* ---------- UTIL ---------- */}
+        {/* Utilities */}
         <Route path="/credits-history" element={<CreditsHistory />} />
         <Route path="/deploy-test" element={<DeployTest />} />
 
-        {/* ---------- ENTRY ---------- */}
+        {/* Public Online Scan Entry */}
         <Route path="/start-scan" element={<StartScan />} />
 
-        {/* =========================================================
-           ONLINE SCAN — PRIMARY FLOW (user-visible)
-           ========================================================= */}
-        <Route path="/scan/online" element={<OnlineScan />} />
-        <Route path="/scan/online/kilometres" element={<OnlineKilometres />} />
-        <Route path="/scan/online/owners" element={<OnlineOwners />} />
+        {/* Online Scan — user flow */}
+        <Route path="/scan/online/details" element={<OnlineDetails />} />
+        <Route
+          path="/scan/online/vehicle-details"
+          element={<OnlineVehicleDetails />}
+        />
         <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
         <Route path="/scan/online/results" element={<OnlineResults />} />
 
-        {/* =========================================================
-           FRIENDLY ALIASES (back-compat / bookmarks)
-           ========================================================= */}
-        <Route path="/online" element={<OnlineScan />} />
-        <Route path="/online/kilometres" element={<OnlineKilometres />} />
-        <Route path="/online/owners" element={<OnlineOwners />} />
-        <Route path="/online/analyzing" element={<OnlineAnalyzing />} />
-        <Route path="/online/results" element={<OnlineResults />} />
+        {/* Friendly aliases (optional public URLs) */}
+        <Route path="/online-details" element={<OnlineDetails />} />
+        <Route
+          path="/online-vehicle-details"
+          element={<OnlineVehicleDetails />}
+        />
+        <Route path="/online-analyzing" element={<OnlineAnalyzing />} />
+        <Route path="/online-results" element={<OnlineResults />} />
 
-        {/* =========================================================
-           IN-PERSON FLOW
-           ========================================================= */}
+        {/* In-person Scan */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
         <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
         <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
