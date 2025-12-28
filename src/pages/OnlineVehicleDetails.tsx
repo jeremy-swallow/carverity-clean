@@ -24,10 +24,6 @@ type VehicleLibraryEntry = {
   yearHint?: string;
 };
 
-/**
- * Simple local library for suggestions.
- * This is intentionally small for now – can be swapped for a real data source later.
- */
 const VEHICLE_LIBRARY: VehicleLibraryEntry[] = [
   { make: "Mazda", model: "CX-3" },
   { make: "Mazda", model: "CX-30" },
@@ -58,7 +54,6 @@ export default function OnlineVehicleDetails() {
     vehicle.model.trim() !== "" &&
     vehicle.year.trim() !== "";
 
-  // Restore from scanProgress on mount
   useEffect(() => {
     saveProgress({
       type: "online",
@@ -129,7 +124,6 @@ export default function OnlineVehicleDetails() {
       },
     });
 
-    // Use the internal /scan route that we know exists
     navigate("/scan/online/kilometres");
   }
 
@@ -162,7 +156,7 @@ export default function OnlineVehicleDetails() {
           required
         />
 
-        {/* Model with suggestions */}
+        {/* Model with suggestions (dropdown directly under input) */}
         <div className="flex flex-col gap-1.5">
           <label className="text-sm text-slate-200 font-medium">
             Model<span className="text-red-400"> *</span>
@@ -173,13 +167,9 @@ export default function OnlineVehicleDetails() {
             onChange={(e) => update("model", e.target.value)}
             className="px-4 py-3 rounded-xl text-sm bg-slate-900/80 border border-white/10 text-slate-100"
           />
-          <p className="text-xs text-slate-400">
-            Start typing and pick your car from the suggestions below, or enter
-            it manually.
-          </p>
 
           {suggestions.length > 0 && (
-            <div className="mt-2 border border-white/10 rounded-xl bg-slate-900/90 max-h-48 overflow-auto text-sm">
+            <div className="mt-1 border border-white/10 rounded-xl bg-slate-900/90 max-h-48 overflow-auto text-sm">
               {suggestions.map((entry, idx) => (
                 <button
                   key={`${entry.make}-${entry.model}-${idx}`}
@@ -199,6 +189,11 @@ export default function OnlineVehicleDetails() {
               ))}
             </div>
           )}
+
+          <p className="text-xs text-slate-400">
+            Start typing and pick your car from the suggestions above, or enter
+            it manually.
+          </p>
         </div>
 
         {/* Year */}
