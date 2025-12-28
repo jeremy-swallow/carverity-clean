@@ -1,6 +1,6 @@
 /* src/pages/OnlineVehicleDetails.tsx */
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
@@ -18,23 +18,27 @@ interface VehicleFormState {
   importStatus: ImportStatus;
 }
 
-type VehicleLibraryEntry = {
-  make: string;
-  model: string;
-};
+const MAKES = [
+  "Mazda",
+  "Toyota",
+  "Hyundai",
+  "Kia",
+  "Nissan",
+  "Honda",
+  "Ford",
+  "Subaru",
+  "Volkswagen",
+];
 
-const VEHICLE_LIBRARY: VehicleLibraryEntry[] = [
-  { make: "Mazda", model: "CX-3" },
-  { make: "Mazda", model: "CX-30" },
-  { make: "Mazda", model: "3" },
-  { make: "Mazda", model: "6" },
-  { make: "Toyota", model: "Corolla" },
-  { make: "Toyota", model: "Camry" },
-  { make: "Toyota", model: "RAV4" },
-  { make: "Hyundai", model: "i30" },
-  { make: "Hyundai", model: "Tucson" },
-  { make: "Kia", model: "Sportage" },
-  { make: "Kia", model: "Cerato" },
+const MODELS = [
+  "CX-3",
+  "CX-30",
+  "Mazda 3",
+  "Mazda 6",
+  "Corolla",
+  "Yaris",
+  "i30",
+  "Civic",
 ];
 
 export default function OnlineVehicleDetails() {
@@ -51,8 +55,20 @@ export default function OnlineVehicleDetails() {
   const [showMakeSuggestions, setShowMakeSuggestions] = useState(false);
   const [showModelSuggestions, setShowModelSuggestions] = useState(false);
 
-  const canContinue = !!(vehicle.make && vehicle.model && vehicle.year);
+  const filteredMakes = MAKES.filter((m) =>
+    m.toLowerCase().includes(vehicle.make.toLowerCase())
+  );
 
+  const filteredModels = MODELS.filter((m) =>
+    m.toLowerCase().includes(vehicle.model.toLowerCase())
+  );
+
+  const canContinue =
+    vehicle.make.trim() !== "" &&
+    vehicle.model.trim() !== "" &&
+    vehicle.year.trim() !== "";
+
+  // Restore saved vehicle details safely
   useEffect(() => {
     saveProgress({
       type: "online",
@@ -60,243 +76,211 @@ export default function OnlineVehicleDetails() {
       startedAt: new Date().toISOString(),
     });
 
-    const existing: any = loadProgress();
-    if (existing?.vehicle) {
-      const v = existing.vehicle as Partial<VehicleFormState>;
-      setVehicle({
-        make: v.make ?? "",
-        model: v.model ?? "",
-        year: v.year ?? "",
-        variant: v.variant ?? "",
-        importStatus: v.importStatus ?? "unknown",
-      });
-    }
+    const raw = loadProgress();
+    const existingVehicle = (raw as any)?.vehicle ?? {};
+
+    setVehicle({
+      make: existingVehicle.make ?? "",
+      model: existingVehicle.model ?? "",
+      year: existingVehicle.year ?? "",
+      variant: existingVehicle.variant ?? "",
+      importStatus:
+        (existingVehicle.importStatus as ImportStatus) ?? "unknown",
+    });
   }, []);
 
   function update<K extends keyof VehicleFormState>(
     key: K,
     value: VehicleFormState[K]
   ) {
-    setVehicle((prev) => ({ ...prev, [key]: value }));
+    setVehicle((v) => ({ ...v, [key]: value }));
   }
 
-  // ---------- Suggestions ----------
-
-  const makeSuggestions = useMemo(() => {
-    const q = vehicle.make.toLowerCase().trim();
-    if (!q) return [];
-    return [...new Set(VEHICLE_LIBRARY.map((v) => v.make))]
-      .filter((m) => m.toLowerCase().startsWith(q))
-      .slice(0, 6);
-  }, [vehicle.make]);
-
-  const modelSuggestions = useMemo(() => {
-    const q = vehicle.model.toLowerCase().trim();
-    if (!q) return [];
-    return VEHICLE_LIBRARY.filter(
-      (v) =>
-        v.model.toLowerCase().startsWith(q) &&
-        (!vehicle.make || v.make === vehicle.make)
-    )
-      .map((v) => v.model)
-      .slice(0, 6);
-  }, [vehicle.model, vehicle.make]);
-
   function handleContinue() {
-    const existing: any = loadProgress() ?? {};
-    saveProgress({ ...existing, vehicle: { ...vehicle } });
+    if (!canContinue) return;
+
+    const raw = (loadProgress() ?? {}) as any;
+
+    saveProgress({
+      ...raw,
+      vehicle: {
+        ...(raw.vehicle ?? {}),
+        make: vehicle.make.trim(),
+        model: vehicle.model.trim(),
+        year: vehicle.year.trim(),
+        variant: vehicle.variant.trim(),
+        importStatus: vehicle.importStatus,
+      },
+    });
+
     navigate("/scan/online/kilometres");
   }
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-10 flex flex-col gap-8">
-      {/* Step header */}
       <div className="flex flex-col gap-1">
-        <span className="text-xs uppercase text-slate-400">
+        <span className="text-xs tracking-wider uppercase text-slate-400">
           Online scan · Step 2 of 5
         </span>
-        <h1 className="text-2xl font-extrabold">Tell us a bit about the car</h1>
+
+        <h1 className="text-2xl font-extrabold text-white">
+          Tell us a bit about the car
+        </h1>
+
         <p className="text-slate-300 text-sm">
-          These details help improve your AI guidance.
+          These details help improve your AI guidance. If you’re not sure about
+          a field, just enter your best guess.
         </p>
       </div>
 
-      {/* Form */}
-      <div className="grid gap-4">
+      {/* MAKE */}
+      <div className="flex flex-col gap-1.5 relative">
+        <label className="text-sm font-medium">
+          Make<span className="text-red-400"> *</span>
+        </label>
 
-        {/* MAKE */}
-        <div className="flex flex-col gap-1.5 relative">
-          <label className="text-sm font-medium">
-            Make<span className="text-red-400"> *</span>
-          </label>
-
-          <input
-            value={vehicle.make}
-            placeholder="e.g. Mazda, Toyota"
-            onChange={(e) => {
-              update("make", e.target.value);
+        <input
+          value={vehicle.make}
+          placeholder="e.g. Mazda, Toyota"
+          onChange={(e) => {
+            const v = e.target.value;
+            update("make", v);
+            setShowMakeSuggestions(v.trim().length > 0);
+          }}
+          onFocus={() => {
+            if (vehicle.make.trim().length > 0) {
               setShowMakeSuggestions(true);
-            }}
-            onFocus={() => setShowMakeSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowMakeSuggestions(false), 120)}
-            className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
-          />
+            }
+          }}
+          onBlur={() => setTimeout(() => setShowMakeSuggestions(false), 120)}
+          className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
+        />
 
-          {showMakeSuggestions && makeSuggestions.length > 0 && (
-            <div className="absolute top-full mt-1 w-full border border-white/10 rounded-xl bg-slate-900/95 max-h-48 overflow-auto">
-              {makeSuggestions.map((m: string) => (
-                <button
-                  key={m}
-                  type="button"
-                  onMouseDown={() => {
-                    update("make", m);
-                    setShowMakeSuggestions(false);
-                  }}
-                  className="w-full text-left px-4 py-2 hover:bg-slate-800/80"
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {showMakeSuggestions && filteredMakes.length > 0 && (
+          <div className="absolute top-full mt-1 w-full border border-white/10 rounded-xl bg-slate-900/95 max-h-48 overflow-auto shadow-lg z-50">
+            {filteredMakes.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onMouseDown={() => {
+                  update("make", m);
+                  setShowMakeSuggestions(false);
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-slate-800/70"
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-        {/* MODEL */}
-        <div className="flex flex-col gap-1.5 relative">
-          <label className="text-sm font-medium">
-            Model<span className="text-red-400"> *</span>
-          </label>
+      {/* MODEL */}
+      <div className="flex flex-col gap-1.5 relative">
+        <label className="text-sm font-medium">
+          Model<span className="text-red-400"> *</span>
+        </label>
 
-          <input
-            value={vehicle.model}
-            placeholder="e.g. CX-30, Corolla"
-            onChange={(e) => {
-              update("model", e.target.value);
+        <input
+          value={vehicle.model}
+          placeholder="e.g. CX-30, Corolla"
+          onChange={(e) => {
+            const v = e.target.value;
+            update("model", v);
+            setShowModelSuggestions(v.trim().length > 0);
+          }}
+          onFocus={() => {
+            if (vehicle.model.trim().length > 0) {
               setShowModelSuggestions(true);
-            }}
-            onFocus={() => setShowModelSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowModelSuggestions(false), 120)}
-            className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
-          />
+            }
+          }}
+          onBlur={() => setTimeout(() => setShowModelSuggestions(false), 120)}
+          className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
+        />
 
-          {showModelSuggestions && modelSuggestions.length > 0 && (
-            <div className="absolute top-full mt-1 w-full border border-white/10 rounded-xl bg-slate-900/95 max-h-48 overflow-auto">
-              {modelSuggestions.map((m: string) => (
-                <button
-                  key={m}
-                  type="button"
-                  onMouseDown={() => {
-                    update("model", m);
-                    setShowModelSuggestions(false);
-                  }}
-                  className="w-full text-left px-4 py-2 hover:bg-slate-800/80"
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {showModelSuggestions && filteredModels.length > 0 && (
+          <div className="absolute top-full mt-1 w-full border border-white/10 rounded-xl bg-slate-900/95 max-h-48 overflow-auto shadow-lg z-50">
+            {filteredModels.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onMouseDown={() => {
+                  update("model", m);
+                  setShowModelSuggestions(false);
+                }}
+                className="w-full text-left px-4 py-2 hover:bg-slate-800/70"
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-        {/* YEAR */}
-        <Field
-          label="Year"
+      {/* YEAR */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium">
+          Year<span className="text-red-400"> *</span>
+        </label>
+
+        <input
           value={vehicle.year}
           placeholder="e.g. 2020"
-          required
-          onChange={(v) => update("year", v)}
-        />
-
-        {/* VARIANT */}
-        <Field
-          label="Variant (optional)"
-          value={vehicle.variant}
-          placeholder="e.g. G20 Evolve"
-          onChange={(v) => update("variant", v)}
-        />
-
-        {/* IMPORT STATUS */}
-        <FieldSelect
-          label="Import status (optional)"
-          value={vehicle.importStatus}
-          onChange={(v) => update("importStatus", v as ImportStatus)}
-          options={[
-            ["unknown", "Not sure"],
-            ["au-new", "Sold new in Australia"],
-            [
-              "au-delivered-import-brand",
-              "Australian delivered but imported brand",
-            ],
-            ["grey-import", "Grey import / private import"],
-          ]}
+          onChange={(e) => update("year", e.target.value)}
+          className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
         />
       </div>
 
-      {/* Continue */}
-      <div className="mt-4">
+      {/* VARIANT */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium">Variant (optional)</label>
+
+        <input
+          value={vehicle.variant}
+          placeholder="e.g. G20 Evolve (FWD)"
+          onChange={(e) => update("variant", e.target.value)}
+          className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
+        />
+      </div>
+
+      {/* IMPORT STATUS */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium">Import status (optional)</label>
+
+        <select
+          value={vehicle.importStatus}
+          onChange={(e) =>
+            update("importStatus", e.target.value as ImportStatus)
+          }
+          className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
+        >
+          <option value="unknown">Sold new in Australia (default)</option>
+          <option value="au-delivered-import-brand">
+            Parallel import via manufacturer
+          </option>
+          <option value="grey-import">Grey import</option>
+          <option value="au-new">Australian delivered — confirmed</option>
+        </select>
+
+        <p className="text-xs text-slate-400">
+          Grey imports can have higher parts and repair costs.
+        </p>
+      </div>
+
+      {/* ACTIONS */}
+      <div className="mt-2">
         <button
           disabled={!canContinue}
           onClick={handleContinue}
-          className="px-5 py-3 rounded-xl bg-blue-400 text-black font-semibold disabled:opacity-40"
+          className={`px-5 py-3 rounded-xl font-semibold ${
+            canContinue
+              ? "bg-blue-400 text-black"
+              : "bg-slate-700 text-slate-400 cursor-not-allowed"
+          }`}
         >
           Continue
         </button>
       </div>
-    </div>
-  );
-}
-
-/* ---------- Shared field components ---------- */
-
-interface FieldProps {
-  label: string;
-  value: string;
-  placeholder?: string;
-  required?: boolean;
-  onChange: (v: string) => void;
-}
-
-function Field({ label, value, placeholder, required, onChange }: FieldProps) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium">
-        {label}
-        {required && <span className="text-red-400"> *</span>}
-      </label>
-      <input
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
-      />
-    </div>
-  );
-}
-
-type FieldSelectOption = [value: string, label: string];
-
-interface FieldSelectProps {
-  label: string;
-  value: string;
-  options: FieldSelectOption[];
-  onChange: (v: string) => void;
-}
-
-function FieldSelect({ label, value, onChange, options }: FieldSelectProps) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
-      >
-        {options.map(([val, text]) => (
-          <option key={val} value={val}>
-            {text}
-          </option>
-        ))}
-      </select>
     </div>
   );
 }
