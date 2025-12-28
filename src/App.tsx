@@ -1,5 +1,3 @@
-// src/App.tsx
-
 import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 
@@ -10,12 +8,20 @@ import MyScans from "./pages/MyScans";
 import FAQ from "./pages/FAQ";
 import Account from "./pages/Account";
 
-/* ---------- ONLINE FLOW ---------- */
+/* ---------- UTIL PAGES ---------- */
+import CreditsHistory from "./pages/CreditsHistory";
+import DeployTest from "./pages/DeployTest";
+
+/* ---------- START ENTRY ---------- */
 import StartScan from "./pages/StartScan";
+
+/* ---------- ONLINE FLOW ---------- */
 import OnlineDetails from "./pages/OnlineDetails";
+import OnlineKilometres from "./pages/OnlineKilometres";
+import OnlineOwners from "./pages/OnlineOwners";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
 import OnlineResults from "./pages/OnlineResults";
-import OnlineVehicleDetails from "./pages/OnlineVehicleDetails";
+import OnlineVehicleDetails from "./pages/OnlineVehicleDetails"; // (future step)
 
 /* ---------- IN-PERSON FLOW ---------- */
 import InPersonStart from "./pages/InPersonStart";
@@ -23,47 +29,41 @@ import InPersonPhotos from "./pages/InPersonPhotos";
 import InPersonChecks from "./pages/InPersonChecks";
 import InPersonOwners from "./pages/InPersonOwners";
 
-/* ---------- UTIL PAGES ---------- */
-import CreditsHistory from "./pages/CreditsHistory";
-import DeployTest from "./pages/DeployTest";
-
 export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        {/* Main */}
+        {/* ---------- MAIN ---------- */}
         <Route path="/" element={<Home />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/my-scans" element={<MyScans />} />
         <Route path="/faq" element={<FAQ />} />
         <Route path="/account" element={<Account />} />
 
-        {/* Utilities */}
+        {/* ---------- UTILITIES ---------- */}
         <Route path="/credits-history" element={<CreditsHistory />} />
         <Route path="/deploy-test" element={<DeployTest />} />
 
-        {/* Public Online Scan Entry */}
+        {/* ---------- PUBLIC ENTRY ---------- */}
         <Route path="/start-scan" element={<StartScan />} />
 
-        {/* Online Scan — user flow */}
+        {/* ---------- ONLINE SCAN (friendly URLs) ---------- */}
+        <Route path="/online/details" element={<OnlineDetails />} />
+        <Route path="/online/kilometres" element={<OnlineKilometres />} />
+        <Route path="/online/owners" element={<OnlineOwners />} />
+        <Route path="/online/analyzing" element={<OnlineAnalyzing />} />
+        <Route path="/online/results" element={<OnlineResults />} />
+        <Route path="/online/vehicle-details" element={<OnlineVehicleDetails />} />
+
+        {/* ---------- BACKWARD-COMPAT /scan/* ---------- */}
         <Route path="/scan/online/details" element={<OnlineDetails />} />
-        <Route
-          path="/scan/online/vehicle-details"
-          element={<OnlineVehicleDetails />}
-        />
+        <Route path="/scan/online/kilometres" element={<OnlineKilometres />} />
+        <Route path="/scan/online/owners" element={<OnlineOwners />} />
         <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
         <Route path="/scan/online/results" element={<OnlineResults />} />
+        <Route path="/scan/online/vehicle-details" element={<OnlineVehicleDetails />} />
 
-        {/* Friendly aliases (optional public URLs) */}
-        <Route path="/online-details" element={<OnlineDetails />} />
-        <Route
-          path="/online-vehicle-details"
-          element={<OnlineVehicleDetails />}
-        />
-        <Route path="/online-analyzing" element={<OnlineAnalyzing />} />
-        <Route path="/online-results" element={<OnlineResults />} />
-
-        {/* In-person Scan */}
+        {/* ---------- IN-PERSON FLOW ---------- */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
         <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
         <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
