@@ -11,12 +11,14 @@ import FAQ from "./pages/FAQ";
 import Account from "./pages/Account";
 
 /* ---------- ONLINE FLOW ---------- */
-import OnlineDetails from "./pages/OnlineDetails";
+import StartScan from "./pages/StartScan";
+import OnlineScan from "./pages/OnlineScan";
+import OnlineKilometres from "./pages/OnlineKilometres";
+import OnlineOwners from "./pages/OnlineOwners";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
 import OnlineResults from "./pages/OnlineResults";
-import StartScan from "./pages/StartScan";
 
-/* ---------- IN-PERSON FLOW (active steps) ---------- */
+/* ---------- IN-PERSON FLOW ---------- */
 import InPersonStart from "./pages/InPersonStart";
 import InPersonPhotos from "./pages/InPersonPhotos";
 import InPersonChecks from "./pages/InPersonChecks";
@@ -30,32 +32,41 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        {/* Main */}
+        {/* ---------- MAIN ---------- */}
         <Route path="/" element={<Home />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/my-scans" element={<MyScans />} />
         <Route path="/faq" element={<FAQ />} />
         <Route path="/account" element={<Account />} />
 
-        {/* Utilities */}
+        {/* ---------- UTIL ---------- */}
         <Route path="/credits-history" element={<CreditsHistory />} />
         <Route path="/deploy-test" element={<DeployTest />} />
 
-        {/* Public Start Entry */}
+        {/* ---------- ENTRY ---------- */}
         <Route path="/start-scan" element={<StartScan />} />
 
-        {/* Online Scan – friendly URLs */}
-        <Route path="/online-details" element={<OnlineDetails />} />
-        <Route path="/online-analyzing" element={<OnlineAnalyzing />} />
-        <Route path="/online-results" element={<OnlineResults />} />
-
-        {/* Internal developer paths for compatibility */}
-        <Route path="/scan/online/start" element={<StartScan />} />
-        <Route path="/scan/online/details" element={<OnlineDetails />} />
+        {/* =========================================================
+           ONLINE SCAN — PRIMARY FLOW (user-visible)
+           ========================================================= */}
+        <Route path="/scan/online" element={<OnlineScan />} />
+        <Route path="/scan/online/kilometres" element={<OnlineKilometres />} />
+        <Route path="/scan/online/owners" element={<OnlineOwners />} />
         <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
         <Route path="/scan/online/results" element={<OnlineResults />} />
 
-        {/* In-Person Scan (enabled steps) */}
+        {/* =========================================================
+           FRIENDLY ALIASES (back-compat / bookmarks)
+           ========================================================= */}
+        <Route path="/online" element={<OnlineScan />} />
+        <Route path="/online/kilometres" element={<OnlineKilometres />} />
+        <Route path="/online/owners" element={<OnlineOwners />} />
+        <Route path="/online/analyzing" element={<OnlineAnalyzing />} />
+        <Route path="/online/results" element={<OnlineResults />} />
+
+        {/* =========================================================
+           IN-PERSON FLOW
+           ========================================================= */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
         <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
         <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
