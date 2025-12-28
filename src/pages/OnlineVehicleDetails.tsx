@@ -1,6 +1,6 @@
 /* src/pages/OnlineVehicleDetails.tsx */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
@@ -18,6 +18,30 @@ interface VehicleFormState {
   importStatus: ImportStatus;
 }
 
+type VehicleLibraryEntry = {
+  make: string;
+  model: string;
+  yearHint?: string;
+};
+
+/**
+ * Simple local library for suggestions.
+ * This is intentionally small for now – can be swapped for a real data source later.
+ */
+const VEHICLE_LIBRARY: VehicleLibraryEntry[] = [
+  { make: "Mazda", model: "CX-3" },
+  { make: "Mazda", model: "CX-30" },
+  { make: "Mazda", model: "3" },
+  { make: "Mazda", model: "6" },
+  { make: "Toyota", model: "Corolla" },
+  { make: "Toyota", model: "Camry" },
+  { make: "Toyota", model: "RAV4" },
+  { make: "Hyundai", model: "i30" },
+  { make: "Hyundai", model: "Tucson" },
+  { make: "Kia", model: "Sportage" },
+  { make: "Kia", model: "Cerato" },
+];
+
 export default function OnlineVehicleDetails() {
   const navigate = useNavigate();
 
@@ -34,27 +58,23 @@ export default function OnlineVehicleDetails() {
     vehicle.model.trim() !== "" &&
     vehicle.year.trim() !== "";
 
+  // Restore from scanProgress on mount
   useEffect(() => {
-    // Mark step reached
     saveProgress({
       type: "online",
       step: "/scan/online/vehicle-details",
       startedAt: new Date().toISOString(),
     });
 
-    // Restore values if returning to this step
     const existing: any = loadProgress();
-
     if (existing?.vehicle) {
+      const v = existing.vehicle as any;
       setVehicle({
-        make: existing.vehicle.make ?? "",
-        model: existing.vehicle.model ?? "",
-        year: existing.vehicle.year ?? "",
-        variant: existing.vehicle.variant ?? "",
-        importStatus:
-          typeof existing.vehicle.importStatus === "string"
-            ? (existing.vehicle.importStatus as ImportStatus)
-            : "unknown",
+        make: v.make ?? "",
+        model: v.model ?? "",
+        year: v.year ?? "",
+        variant: v.variant ?? "",
+        importStatus: (v.importStatus as ImportStatus) ?? "unknown",
       });
     }
   }, []);
@@ -63,8 +83,34 @@ export default function OnlineVehicleDetails() {
     key: K,
     value: VehicleFormState[K]
   ) {
-    setVehicle((v) => ({ ...v, [key]: value }));
+    setVehicle((prev) => ({ ...prev, [key]: value }));
   }
+
+  function handleSuggestionClick(entry: VehicleLibraryEntry) {
+    setVehicle((prev) => ({
+      ...prev,
+      make: entry.make,
+      model: entry.model,
+      year: prev.year || entry.yearHint || "",
+    }));
+  }
+
+  const suggestions = useMemo(() => {
+    const makeSearch = vehicle.make.trim().toLowerCase();
+    const modelSearch = vehicle.model.trim().toLowerCase();
+
+    if (!makeSearch && !modelSearch) return [];
+
+    return VEHICLE_LIBRARY.filter((entry) => {
+      const m = entry.make.toLowerCase();
+      const mdl = entry.model.toLowerCase();
+
+      const matchMake = makeSearch && m.startsWith(makeSearch);
+      const matchModel = modelSearch && mdl.startsWith(modelSearch);
+
+      return matchMake || matchModel;
+    }).slice(0, 6);
+  }, [vehicle.make, vehicle.model]);
 
   function handleContinue() {
     if (!canContinue) return;
@@ -83,7 +129,8 @@ export default function OnlineVehicleDetails() {
       },
     });
 
-    navigate("/online-kilometres");
+    // Use the internal /scan route that we know exists
+    navigate("/scan/online/kilometres");
   }
 
   return (
@@ -106,37 +153,72 @@ export default function OnlineVehicleDetails() {
 
       {/* Form */}
       <div className="grid gap-4">
+        {/* Make */}
         <Field
           label="Make"
-          placeholder="e.g. Toyota"
+          placeholder="e.g. Mazda, Toyota"
           value={vehicle.make}
           onChange={(v) => update("make", v)}
           required
         />
 
-        <Field
-          label="Model"
-          placeholder="e.g. Corolla"
-          value={vehicle.model}
-          onChange={(v) => update("model", v)}
-          required
-        />
+        {/* Model with suggestions */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm text-slate-200 font-medium">
+            Model<span className="text-red-400"> *</span>
+          </label>
+          <input
+            value={vehicle.model}
+            placeholder="e.g. CX-30, Corolla"
+            onChange={(e) => update("model", e.target.value)}
+            className="px-4 py-3 rounded-xl text-sm bg-slate-900/80 border border-white/10 text-slate-100"
+          />
+          <p className="text-xs text-slate-400">
+            Start typing and pick your car from the suggestions below, or enter
+            it manually.
+          </p>
 
+          {suggestions.length > 0 && (
+            <div className="mt-2 border border-white/10 rounded-xl bg-slate-900/90 max-h-48 overflow-auto text-sm">
+              {suggestions.map((entry, idx) => (
+                <button
+                  key={`${entry.make}-${entry.model}-${idx}`}
+                  type="button"
+                  onClick={() => handleSuggestionClick(entry)}
+                  className="w-full text-left px-4 py-2 hover:bg-slate-800/80 flex flex-col"
+                >
+                  <span className="text-slate-100">
+                    {entry.make} {entry.model}
+                  </span>
+                  {entry.yearHint && (
+                    <span className="text-xs text-slate-400">
+                      Common around {entry.yearHint}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Year */}
         <Field
           label="Year"
-          placeholder="e.g. 2016"
+          placeholder="e.g. 2020"
           value={vehicle.year}
           onChange={(v) => update("year", v)}
           required
         />
 
+        {/* Variant */}
         <Field
           label="Variant (optional)"
-          placeholder="e.g. ZR / Sport / Premium"
+          placeholder="e.g. G20 Touring / Sport / GT"
           value={vehicle.variant}
           onChange={(v) => update("variant", v)}
         />
 
+        {/* Import status */}
         <div className="flex flex-col gap-2">
           <label className="text-sm text-slate-200 font-medium">
             Import status (optional)
@@ -156,6 +238,11 @@ export default function OnlineVehicleDetails() {
             </option>
             <option value="grey-import">Grey import / private import</option>
           </select>
+
+          <p className="text-xs text-slate-400">
+            Grey imports can have higher parts and repair costs. We’ll factor
+            this into your guidance.
+          </p>
         </div>
       </div>
 
