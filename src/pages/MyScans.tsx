@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { loadScans } from "../utils/scanStorage";
+import { loadScans, saveScan } from "../utils/scanStorage";
 import { saveProgress, loadProgress } from "../utils/scanProgress";
+
+interface ScanHistoryEvent {
+  at: string;
+  event: string;
+}
 
 interface SavedScan {
   id: string;
@@ -11,18 +16,25 @@ interface SavedScan {
   isUnlocked?: boolean;
   listingUrl?: string;
   fromOnlineScan?: boolean;
+
   vehicle?: {
     make?: string;
     model?: string;
     year?: string;
     variant?: string;
-    importStatus?: string;
   };
+
+  // 🟢 Added and typed correctly
+  history?: ScanHistoryEvent[];
 }
 
 export default function MyScans() {
   const navigate = useNavigate();
   const [scans, setScans] = useState<SavedScan[]>([]);
+  const [query, setQuery] = useState("");
+  const [filterType, setFilterType] = useState<"all" | "online" | "in-person">("all");
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [newTitle, setNewTitle] = useState("");
 
   useEffect(() => {
     const stored = loadScans();
@@ -30,6 +42,11 @@ export default function MyScans() {
   }, []);
 
   const progress = loadProgress();
+
+  function refresh() {
+    const stored = loadScans();
+    setScans(stored ?? []);
+  }
 
   function resumeScan() {
     if (!progress?.step) return;
@@ -49,17 +66,68 @@ export default function MyScans() {
     navigate("/scan/in-person/start");
   }
 
+  function addHistory(scan: SavedScan, event: string) {
+    const updated: SavedScan = {
+      ...scan,
+      history: [
+        ...(scan.history ?? []),
+        { at: new Date().toISOString(), event },
+      ],
+    };
+
+    saveScan(updated);
+    refresh();
+  }
+
+  function renameScan(scan: SavedScan) {
+    const updated: SavedScan = {
+      ...scan,
+      title: newTitle.trim(),
+      history: [
+        ...(scan.history ?? []),
+        { at: new Date().toISOString(), event: "Renamed scan" },
+      ],
+    };
+
+    saveScan(updated);
+    setRenameId(null);
+    setNewTitle("");
+    refresh();
+  }
+
+  function exportAsPDF(scan: SavedScan) {
+    addHistory(scan, "Exported scan as PDF");
+    window.print();
+  }
+
   const sorted = useMemo(
     () =>
       [...scans].sort(
         (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          new Date(b.createdAt).getTime() -
+          new Date(a.createdAt).getTime()
       ),
     [scans]
   );
 
-  const onlineScans = sorted.filter((s) => s.type === "online");
-  const inPersonScans = sorted.filter((s) => s.type === "in-person");
+  const filtered = sorted.filter((s) => {
+    const text = [
+      s.title,
+      s.vehicle?.make,
+      s.vehicle?.model,
+      s.vehicle?.year,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    const matchesQuery = text.includes(query.toLowerCase());
+    const matchesType = filterType === "all" || s.type === filterType;
+
+    return matchesQuery && matchesType;
+  });
+
+  const onlineScans = filtered.filter((s) => s.type === "online");
+  const inPersonScans = filtered.filter((s) => s.type === "in-person");
 
   function VehicleLabel(scan: SavedScan) {
     const v = scan.vehicle ?? {};
@@ -68,14 +136,50 @@ export default function MyScans() {
   }
 
   function ScanCard(scan: SavedScan) {
+    const isRenaming = renameId === scan.id;
+
     return (
       <div className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4">
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
+
+          {isRenaming ? (
+            <div className="flex gap-2">
+              <input
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                className="px-2 py-1 rounded bg-slate-800 border border-white/20"
+              />
+              <button
+                onClick={() => renameScan(scan)}
+                className="px-3 py-1 rounded bg-emerald-400 text-black font-semibold"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setRenameId(null)}
+                className="px-3 py-1 rounded bg-slate-600"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">{VehicleLabel(scan)}</h3>
+              <button
+                onClick={() => {
+                  setRenameId(scan.id);
+                  setNewTitle(scan.title);
+                }}
+                className="text-sm text-slate-300 underline"
+              >
+                Rename
+              </button>
+            </div>
+          )}
+
           <span className="text-sm text-slate-400">
             {new Date(scan.createdAt).toLocaleString()}
           </span>
-
-          <h3 className="text-lg font-semibold">{VehicleLabel(scan)}</h3>
 
           {scan.listingUrl && (
             <a
@@ -88,52 +192,71 @@ export default function MyScans() {
             </a>
           )}
 
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-1 flex flex-wrap gap-2">
             <span className="px-2 py-1 rounded-lg text-xs bg-slate-700/70">
-              {scan.type === "online" ? "Online scan" : "In-person scan"}
+              {scan.type === "online" ? "Online scan" : "In-person inspection"}
             </span>
-
-            {scan.isUnlocked && (
-              <span className="px-2 py-1 rounded-lg text-xs bg-emerald-700/60">
-                Unlocked report
-              </span>
-            )}
 
             {scan.fromOnlineScan && scan.type === "in-person" && (
               <span className="px-2 py-1 rounded-lg text-xs bg-purple-700/60">
-                Follow-up inspection
+                Follow-up
               </span>
             )}
           </div>
 
-          {/* CTA — only on ONLINE scans */}
-          {scan.type === "online" && (
-            <div className="mt-4">
+          <div className="flex gap-2 mt-3">
+            {scan.type === "online" && (
               <button
-                onClick={() => startInPerson(scan)}
-                className="px-4 py-2 rounded-xl bg-blue-400 text-black font-semibold hover:bg-blue-300"
+                onClick={() => {
+                  addHistory(scan, "Started in-person inspection");
+                  startInPerson(scan);
+                }}
+                className="px-3 py-2 rounded-xl bg-blue-400 text-black font-semibold"
               >
-                Start in-person inspection for this car
+                Start in-person inspection
               </button>
-            </div>
+            )}
+
+            <button
+              onClick={() => exportAsPDF(scan)}
+              className="px-3 py-2 rounded-xl bg-slate-300 text-black font-semibold"
+            >
+              Export / Share PDF
+            </button>
+          </div>
+
+          {!!scan.history?.length && (
+            <details className="mt-3">
+              <summary className="text-sm text-slate-300 cursor-pointer">
+                View scan activity timeline
+              </summary>
+
+              <ul className="mt-2 text-sm text-slate-400">
+                {scan.history.map((h, i) => (
+                  <li key={i}>
+                    {new Date(h.at).toLocaleString()} — {h.event}
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
         </div>
       </div>
     );
   }
 
-  if (!sorted.length) {
+  if (!filtered.length) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-16 text-center">
         <h1 className="text-2xl font-semibold mb-2">My scans</h1>
         <p className="text-slate-400 mb-6">
-          You haven’t saved any scans yet.
+          No scans match your search or filters.
         </p>
 
         <Link
           to="/start-scan"
           className="px-4 py-2 rounded-xl bg-blue-400 text-black font-medium"
-          >
+        >
           Start a new scan
         </Link>
       </div>
@@ -155,7 +278,25 @@ export default function MyScans() {
         )}
       </div>
 
-      {/* Online scans */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        <input
+          placeholder="Search make, model, or title…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="px-3 py-2 rounded-xl bg-slate-800 border border-white/10"
+        />
+
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value as any)}
+          className="px-3 py-2 rounded-xl bg-slate-800 border border-white/10"
+        >
+          <option value="all">All scans</option>
+          <option value="online">Online only</option>
+          <option value="in-person">In-person only</option>
+        </select>
+      </div>
+
       {!!onlineScans.length && (
         <>
           <h2 className="text-lg font-semibold mb-2">Online scans</h2>
@@ -167,12 +308,9 @@ export default function MyScans() {
         </>
       )}
 
-      {/* In-person scans */}
       {!!inPersonScans.length && (
         <>
-          <h2 className="text-lg font-semibold mb-2">
-            In-person inspections
-          </h2>
+          <h2 className="text-lg font-semibold mb-2">In-person inspections</h2>
           <div className="flex flex-col gap-3">
             {inPersonScans.map((s) => (
               <ScanCard key={s.id} {...s} />
