@@ -42,6 +42,30 @@ function SellerBadge({ type }: { type?: string }) {
   );
 }
 
+function RiskBadge({ level }: { level?: string }) {
+  const severity = level ?? "medium";
+
+  const styles =
+    severity === "high"
+      ? "bg-red-400 text-black"
+      : severity === "low"
+      ? "bg-emerald-400 text-black"
+      : "bg-amber-300 text-black";
+
+  const label =
+    severity === "high"
+      ? "High risk"
+      : severity === "low"
+      ? "Low risk"
+      : "Medium risk";
+
+  return (
+    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${styles}`}>
+      {label}
+    </span>
+  );
+}
+
 export default function OnlineResults() {
   const [result, setResult] = useState<SavedResult | null>(null);
   const [photoScore, setPhotoScore] =
@@ -76,6 +100,7 @@ export default function OnlineResults() {
 
   const locked = !result.isUnlocked;
   const photos: string[] = result.photos?.listing ?? [];
+  const vehicle = result.vehicle ?? {};
 
   function handleUnlock() {
     unlockOnlineResults();
@@ -83,16 +108,10 @@ export default function OnlineResults() {
     setResult(updated);
   }
 
-  const vehicle = result.vehicle ?? {};
-
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
-      {/* Header row */}
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-semibold">
-          Scan results — AI analysis
-        </h1>
-
+        <h1 className="text-2xl font-semibold">Scan results — AI analysis</h1>
         <SellerBadge type={result.sellerType} />
       </div>
 
@@ -102,7 +121,6 @@ export default function OnlineResults() {
         {result.listingUrl}
       </p>
 
-      {/* Photo transparency score */}
       {photoScore && (
         <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/30">
           <div className="flex justify-between">
@@ -115,7 +133,6 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* Listing photos */}
       {photos.length > 0 && (
         <div className="mb-8">
           <h2 className="font-semibold mb-2">Listing photos</h2>
@@ -138,7 +155,6 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* Lightbox */}
       {lightboxIndex !== null && (
         <PhotoLightbox
           photos={photos}
@@ -153,7 +169,6 @@ export default function OnlineResults() {
         />
       )}
 
-      {/* Vehicle details card */}
       <div className="mb-8 p-4 border border-white/10 rounded-lg bg-black/30">
         <h2 className="font-semibold mb-2">Vehicle details</h2>
 
@@ -202,16 +217,22 @@ export default function OnlineResults() {
         )}
       </div>
 
-      {/* Signals */}
+      {/* Risk signals with severity */}
       <div className="mb-8">
         <h2 className="font-semibold mb-2">Key risk signals</h2>
 
         {result.signals.length > 0 ? (
-          <ul className={`list-disc pl-4 ${locked ? "blur-sm" : ""}`}>
+          <div className={`${locked ? "blur-sm" : ""}`}>
             {result.signals.map((s, i) => (
-              <li key={i}>{s?.text ?? "Unnamed signal"}</li>
+              <div
+                key={i}
+                className="flex items-start gap-2 border border-white/10 rounded-lg p-3 mb-2 bg-black/20"
+              >
+                <RiskBadge level={s?.severity} />
+                <span>{s?.text ?? "Unnamed signal"}</span>
+              </div>
             ))}
-          </ul>
+          </div>
         ) : (
           <p className="text-muted-foreground">
             No explicit risk signals detected in this listing.
@@ -219,7 +240,6 @@ export default function OnlineResults() {
         )}
       </div>
 
-      {/* Sections */}
       <div className={locked ? "blur-sm pointer-events-none" : ""}>
         <h2 className="font-semibold mb-2">Analysis details</h2>
 
@@ -244,7 +264,6 @@ export default function OnlineResults() {
         )}
       </div>
 
-      {/* Unlock banner */}
       {locked && (
         <div className="mt-6 p-4 border border-white/20 rounded-lg bg-black/30">
           <p className="mb-3 text-sm text-muted-foreground">
