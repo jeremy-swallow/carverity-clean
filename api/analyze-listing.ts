@@ -2,8 +2,26 @@ export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-// NOTE: API folder is outside /src, so we must walk up into it
-import { classifySeller } from "../src/utils/sellerClassifier";
+/**
+ * Minimal inline classifier — avoids build-time import crashes on Vercel
+ */
+function classifySeller(html: string): string {
+  const lower = html.toLowerCase();
+
+  if (lower.includes("dealer") || lower.includes("dealership")) {
+    return "dealer";
+  }
+
+  if (
+    lower.includes("private seller") ||
+    lower.includes("private sale") ||
+    lower.includes("owner")
+  ) {
+    return "private";
+  }
+
+  return "unknown";
+}
 
 export default async function handler(
   req: VercelRequest,
@@ -29,17 +47,18 @@ export default async function handler(
     }
 
     console.log("🔍 Fetching listing:", listingUrl);
-    const response = await fetch(listingUrl);
-    const html = await response.text();
 
+    const response = await fetch(listingUrl, {
+      headers: { "user-agent": "CarVerityBot/1.0" },
+    });
+
+    const html = await response.text();
     const sellerType = classifySeller(html);
 
     const photoFlags: string[] = [];
 
     if (!photos?.count || photos.count < 4) {
-      photoFlags.push(
-        "Low photo count — seller may be hiding important angles."
-      );
+      photoFlags.push("Low photo count — seller may be hiding key angles.");
     }
 
     if (photos?.count > 12) {
@@ -58,7 +77,9 @@ export default async function handler(
       sections: [
         {
           title: "Photo transparency",
-          content: `This listing contains ${photos?.count ?? 0} photos. The AI considers photo coverage, angles, and diversity when assessing transparency.`,
+          content: `This listing contains ${
+            photos?.count ?? 0
+          } photos. The AI considers photo coverage, angles and variety when assessing transparency.`,
         },
         {
           title: "Vehicle context provided",
