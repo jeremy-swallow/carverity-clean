@@ -96,7 +96,8 @@ export default function OnlineVehicleDetails() {
       },
     });
 
-    navigate("/scan/online/kilometres");
+    // 🔹 Correct next step — go to details + photos
+    navigate("/scan/online/details");
   }
 
   return (
@@ -109,7 +110,8 @@ export default function OnlineVehicleDetails() {
           Tell us a bit about the car
         </h1>
         <p className="text-slate-300 text-sm">
-          Start typing — you can pick from suggestions or enter details manually.
+          Start typing — you can pick from suggestions or enter details
+          manually.
         </p>
       </div>
 
@@ -139,7 +141,7 @@ export default function OnlineVehicleDetails() {
                 type="button"
                 onMouseDown={() => {
                   update("make", m);
-                  update("model", ""); // reset model when make changes
+                  update("model", "");
                   setShowMakeList(false);
                 }}
                 className="w-full text-left px-4 py-2 hover:bg-slate-800/70"
@@ -193,6 +195,7 @@ export default function OnlineVehicleDetails() {
         <label className="text-sm font-medium">
           Year<span className="text-red-400"> *</span>
         </label>
+
         <input
           value={vehicle.year}
           placeholder="e.g. 2018"
@@ -204,6 +207,7 @@ export default function OnlineVehicleDetails() {
       {/* VARIANT */}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium">Variant (optional)</label>
+
         <input
           value={vehicle.variant}
           placeholder="e.g. GXL, SR Premium, Hybrid"
@@ -215,6 +219,7 @@ export default function OnlineVehicleDetails() {
       {/* IMPORT STATUS */}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium">Import status (optional)</label>
+
         <select
           value={vehicle.importStatus}
           onChange={(e) =>
