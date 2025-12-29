@@ -60,14 +60,12 @@ export default function OnlineAnalyzing() {
     const listingPhotos: string[] =
       progress?.photos?.listing ?? [];
 
+    // ---- Photo metadata for AI ----
     const photoMeta = await Promise.all(
       listingPhotos.map(async (p, i) => ({
         index: i,
         hash: await hashImage(p),
-        approxSizeKB:
-          Math.round(
-            (p.length * (3 / 4)) / 1024
-          ) ?? undefined,
+        approxSizeKB: Math.round((p.length * (3 / 4)) / 1024),
       }))
     );
 
@@ -104,17 +102,14 @@ export default function OnlineAnalyzing() {
       conditionSummary,
       notes,
 
+      // ---- Store BOTH images + metadata ----
       photos: {
-        count: listingPhotos.length,
-        hashes: photoMeta,
+        listing: listingPhotos,   // 👈 actual images for UI + scoring
+        meta: photoMeta,          // 👈 hashes for AI transparency
       },
 
-      signals: Array.isArray(data.signals)
-        ? data.signals
-        : [],
-      sections: Array.isArray(data.sections)
-        ? data.sections
-        : [],
+      signals: Array.isArray(data.signals) ? data.signals : [],
+      sections: Array.isArray(data.sections) ? data.sections : [],
 
       summary: data.summary ?? "",
       sellerType: data.sellerType ?? "unknown",

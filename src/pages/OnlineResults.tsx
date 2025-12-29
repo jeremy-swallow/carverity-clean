@@ -1,5 +1,3 @@
-/* src/pages/OnlineResults.tsx */
-
 import { useEffect, useState } from "react";
 
 import {
@@ -17,9 +15,8 @@ import PhotoLightbox from "../components/PhotoLightbox";
 
 export default function OnlineResults() {
   const [result, setResult] = useState<SavedResult | null>(null);
-  const [photoScore, setPhotoScore] = useState<PhotoTransparencyResult | null>(
-    null
-  );
+  const [photoScore, setPhotoScore] =
+    useState<PhotoTransparencyResult | null>(null);
 
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
@@ -29,8 +26,11 @@ export default function OnlineResults() {
 
     setResult(stored);
 
-    if (Array.isArray(stored.photos) && stored.photos.length > 0) {
-      const score = calculatePhotoTransparency(stored.photos);
+    const listingPhotos: string[] = stored.photos?.listing ?? [];
+
+    if (listingPhotos.length > 0) {
+      // transparency analyser now receives base64 strings
+      const score = calculatePhotoTransparency(listingPhotos);
       setPhotoScore(score);
     }
   }, []);
@@ -49,14 +49,13 @@ export default function OnlineResults() {
   }
 
   const locked = !result.isUnlocked;
+  const photos: string[] = result.photos?.listing ?? [];
 
   function handleUnlock() {
     unlockOnlineResults();
     const updated = loadOnlineResults();
     setResult(updated);
   }
-
-  const photos = Array.isArray(result.photos) ? result.photos : [];
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
@@ -77,7 +76,6 @@ export default function OnlineResults() {
             <span className="font-medium">Photo transparency score</span>
             <span className="font-semibold">{photoScore.score}/10</span>
           </div>
-
           <p className="text-xs mt-1 text-muted-foreground">
             {photoScore.summary}
           </p>

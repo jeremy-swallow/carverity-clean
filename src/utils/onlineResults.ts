@@ -1,4 +1,7 @@
-/* src/utils/onlineResults.ts */
+export interface SavedResultPhotos {
+  listing: string[]; // base64 images
+  meta?: any[];      // metadata hashes
+}
 
 export interface SavedResultVehicle {
   make?: string;
@@ -16,21 +19,19 @@ export interface SavedResult {
   sellerType: string;
   listingUrl: string;
 
-  // Core AI output
   summary?: string;
   signals: any[];
   sections: any[];
   analysisSource?: string;
 
-  // Extra context
   vehicle?: SavedResultVehicle;
   conditionSummary?: string;
   notes?: string;
 
-  /** v2 flag — track unlock state so user doesn’t spend a second credit */
+  photos?: SavedResultPhotos;
+
   isUnlocked?: boolean;
 
-  // Forward-compat escape hatch
   [key: string]: any;
 }
 
