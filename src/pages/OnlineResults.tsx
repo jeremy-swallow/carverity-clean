@@ -13,6 +13,35 @@ import {
 
 import PhotoLightbox from "../components/PhotoLightbox";
 
+function SellerBadge({ type }: { type?: string }) {
+  const label =
+    type === "dealer"
+      ? "Dealer"
+      : type === "private"
+      ? "Private seller"
+      : type === "marketplace"
+      ? "Marketplace vendor"
+      : "Unknown seller";
+
+  const color =
+    type === "dealer"
+      ? "bg-blue-400 text-black"
+      : type === "private"
+      ? "bg-emerald-400 text-black"
+      : type === "marketplace"
+      ? "bg-amber-300 text-black"
+      : "bg-slate-700 text-slate-200";
+
+  return (
+    <span
+      className={`px-2 py-0.5 rounded-lg text-xs font-semibold border border-white/20 ${color}`}
+      title="Seller type is inferred using listing structure, wording and page metadata."
+    >
+      {label}
+    </span>
+  );
+}
+
 export default function OnlineResults() {
   const [result, setResult] = useState<SavedResult | null>(null);
   const [photoScore, setPhotoScore] =
@@ -58,9 +87,14 @@ export default function OnlineResults() {
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
-      <h1 className="text-2xl font-semibold mb-4">
-        Scan results — AI analysis
-      </h1>
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-2xl font-semibold">
+          Scan results — AI analysis
+        </h1>
+
+        <SellerBadge type={result.sellerType} />
+      </div>
 
       <p className="mb-6 break-all text-sm text-muted-foreground">
         Listing analysed:
