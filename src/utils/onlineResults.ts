@@ -1,6 +1,17 @@
+/* src/utils/onlineResults.ts */
+
+export interface PhotoHashMeta {
+  index: number;
+  hash: string;
+  approxSizeKB?: number;
+}
+
 export interface SavedResultPhotos {
-  listing: string[]; // base64 images
-  meta?: any[];      // metadata hashes
+  /** Base64 listing images for UI + lightbox */
+  listing: string[];
+
+  /** Hash metadata used for transparency & authenticity checks */
+  meta: PhotoHashMeta[];
 }
 
 export interface SavedResultVehicle {
@@ -9,8 +20,6 @@ export interface SavedResultVehicle {
   year?: string;
   variant?: string;
   importStatus?: string;
-  kilometres?: string;
-  owners?: string | null;
 }
 
 export interface SavedResult {
@@ -19,19 +28,26 @@ export interface SavedResult {
   sellerType: string;
   listingUrl: string;
 
+  // Core AI output
   summary?: string;
   signals: any[];
   sections: any[];
   analysisSource?: string;
 
+  // Extra context
   vehicle?: SavedResultVehicle;
+  kilometres?: string | null;
+  owners?: string | null;
   conditionSummary?: string;
   notes?: string;
 
-  photos?: SavedResultPhotos;
+  /** New unified photos structure */
+  photos: SavedResultPhotos;
 
+  /** Prevent double-charging unlocks */
   isUnlocked?: boolean;
 
+  // Forward-compat escape hatch
   [key: string]: any;
 }
 
@@ -49,6 +65,7 @@ export function loadOnlineResults(): SavedResult | null {
 export function unlockOnlineResults() {
   const existing = loadOnlineResults();
   if (!existing) return;
+
   const updated: SavedResult = { ...existing, isUnlocked: true };
   saveOnlineResults(updated);
 }
