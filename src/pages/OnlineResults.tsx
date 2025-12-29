@@ -1,17 +1,20 @@
-// src/pages/OnlineResults.tsx
-
 import { useEffect, useState } from "react";
 import {
   loadOnlineResults,
   unlockOnlineResults,
   type SavedResult,
 } from "../utils/onlineResults";
-import { saveProgress } from "../utils/scanProgress";
 import { useNavigate } from "react-router-dom";
 
+type SellerBadgeInfo = {
+  label: string;
+  desc: string;
+  className: string;
+};
+
 export default function OnlineResults() {
-  const [result, setResult] = useState<SavedResult | null>(null);
   const navigate = useNavigate();
+  const [result, setResult] = useState<SavedResult | null>(null);
 
   useEffect(() => {
     const raw = loadOnlineResults();
@@ -23,16 +26,17 @@ export default function OnlineResults() {
 
     const stored: SavedResult = {
       createdAt: raw.createdAt ?? "",
-      source: raw.source ?? "online",
+      source: raw.source ?? "unknown",
       sellerType: raw.sellerType ?? "unknown",
       listingUrl: raw.listingUrl ?? "",
-      summary: raw.summary ?? "",
+      vehicle: raw.vehicle ?? {},
+      kilometres: raw.kilometres,
+      owners: raw.owners,
+      photos: raw.photos,
       signals: Array.isArray(raw.signals) ? raw.signals : [],
       sections: Array.isArray(raw.sections) ? raw.sections : [],
       analysisSource: raw.analysisSource,
-      vehicle: raw.vehicle ?? {},
-      conditionSummary: raw.conditionSummary,
-      notes: raw.notes,
+      summary: raw.summary ?? "",
       isUnlocked: raw.isUnlocked ?? false,
     };
 
@@ -59,42 +63,80 @@ export default function OnlineResults() {
   }
 
   function startInPersonScan() {
-    // Extra safety — never run if somehow result is missing
-    if (!result) return;
-
-    saveProgress({
-      type: "in-person",
-      step: "/scan/in-person/start",
-      startedAt: new Date().toISOString(),
-      listingUrl: result.listingUrl,
-      vehicle: result.vehicle ?? {},
-      fromOnlineScan: true,
+    navigate("/scan/in-person/start", {
+      state: {
+        fromOnlineScan: true,
+        listingUrl: result?.listingUrl ?? "",
+        vehicle: result?.vehicle ?? {},
+      },
     });
-
-    navigate("/scan/in-person/start");
   }
+
+  // 🎯 Guaranteed seller badge (never undefined)
+  const sellerType = result.sellerType ?? "unknown";
+
+  const sellerBadgeMap: Record<string, SellerBadgeInfo> = {
+    dealer: {
+      label: "Dealer Sale",
+      desc: "Dealer listings generally include consumer protections and statutory warranties.",
+      className: "bg-emerald-300 text-black",
+    },
+    private: {
+      label: "Private Seller",
+      desc: "Private sales may offer better negotiation leverage but fewer protections.",
+      className: "bg-amber-300 text-black",
+    },
+    unknown: {
+      label: "Seller Type Unknown",
+      desc: "The listing did not include enough information to determine the seller type.",
+      className: "bg-slate-400 text-black",
+    },
+  };
+
+  const sellerBadge: SellerBadgeInfo =
+    sellerBadgeMap[sellerType] ?? sellerBadgeMap.unknown;
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
-      <h1 className="text-2xl font-semibold mb-4">
-        Scan results — AI analysis
-      </h1>
+      <h1 className="text-2xl font-semibold mb-4">Scan results — AI analysis</h1>
 
+      {/* Seller badge */}
+      <div className="mb-4">
+        <span
+          className={`px-3 py-1 rounded-lg text-sm font-semibold ${sellerBadge.className}`}
+        >
+          {sellerBadge.label}
+        </span>
+        <p className="text-xs mt-1 text-muted-foreground">
+          {sellerBadge.desc}
+        </p>
+      </div>
+
+      {/* Listing URL */}
       <p className="mb-6 break-all text-sm text-muted-foreground">
         Listing analysed:
         <br />
         {result.listingUrl}
       </p>
 
-      {result.summary && (
-        <div className="mb-6 border border-white/10 rounded-lg p-4">
-          <h2 className="font-semibold mb-1">Overview</h2>
-          <p className="text-muted-foreground">{result.summary}</p>
+      {/* Vehicle info */}
+      {result.vehicle && (
+        <div className="mb-6 text-sm text-muted-foreground">
+          <strong>Vehicle:</strong>{" "}
+          {[
+            result.vehicle?.year,
+            result.vehicle?.make,
+            result.vehicle?.model,
+            result.vehicle?.variant,
+          ]
+            .filter(Boolean)
+            .join(" ")}
         </div>
       )}
 
+      {/* Signals */}
       <div className="mb-8">
-        <h2 className="font-semibold mb-2">Key risk signals</h2>
+        <h2 className="font-semibold mb-2">Key signals</h2>
 
         {result.signals.length > 0 ? (
           <ul className={`list-disc pl-4 ${locked ? "blur-sm" : ""}`}>
@@ -104,11 +146,12 @@ export default function OnlineResults() {
           </ul>
         ) : (
           <p className="text-muted-foreground">
-            No explicit risk signals detected in this listing.
+            No signals detected in this listing.
           </p>
         )}
       </div>
 
+      {/* Sections */}
       <div className={locked ? "blur-sm pointer-events-none" : ""}>
         <h2 className="font-semibold mb-2">Analysis details</h2>
 
@@ -133,6 +176,7 @@ export default function OnlineResults() {
         )}
       </div>
 
+      {/* Unlock banner */}
       {locked && (
         <div className="mt-6 p-4 border border-white/20 rounded-lg bg-black/30">
           <p className="mb-3 text-sm text-muted-foreground">
@@ -149,28 +193,20 @@ export default function OnlineResults() {
         </div>
       )}
 
-      <div className="mt-10 p-4 border border-white/10 rounded-lg bg-black/20">
-        <h3 className="font-semibold mb-1">Limitations of this report</h3>
-        <p className="text-sm text-muted-foreground">
-          This online scan is based on the information available in the listing
-          and the details you provided. It is designed to highlight potential
-          risk areas and help you decide whether the car is worth inspecting in
-          person.
-          <br />
-          <br />
-          For the most reliable outcome, we recommend continuing with an{" "}
-          <strong>in-person CarVerity inspection</strong> and, where
-          appropriate, seeking independent mechanical advice.
+      {/* Continue to in-person CTA */}
+      <div className="mt-10 border border-white/10 rounded-lg p-4 bg-black/20">
+        <h3 className="font-semibold mb-1">Next step</h3>
+        <p className="text-sm text-muted-foreground mb-3">
+          If you decide to inspect this vehicle in person, you can continue the
+          process and build a deeper condition report.
         </p>
 
-        <div className="mt-4">
-          <button
-            onClick={startInPersonScan}
-            className="px-4 py-2 rounded bg-emerald-400 text-black font-semibold"
-          >
-            Continue with in-person inspection →
-          </button>
-        </div>
+        <button
+          onClick={startInPersonScan}
+          className="px-4 py-2 rounded bg-emerald-400 text-black font-semibold"
+        >
+          Continue with in-person inspection
+        </button>
       </div>
     </div>
   );
