@@ -11,8 +11,8 @@ import {
   type PhotoTransparencyResult,
 } from "../utils/photoTransparency";
 
-import { analyseImageAuthenticity } from "../utils/imageAuthenticity";
 import PhotoLightbox from "../components/PhotoLightbox";
+import { analyseImageAuthenticity } from "../utils/imageAuthenticity";
 
 export default function OnlineResults() {
   const [result, setResult] = useState<SavedResult | null>(null);
@@ -28,10 +28,7 @@ export default function OnlineResults() {
 
     setResult(stored);
 
-    // ---- Photos for UI + scoring ----
     const listingPhotos: string[] = stored.photos?.listing ?? [];
-
-    // ---- Metadata for authenticity / duplicate detection ----
     const hashMeta: any[] = stored.photos?.meta ?? [];
 
     if (listingPhotos.length > 0) {
@@ -57,14 +54,9 @@ export default function OnlineResults() {
   }
 
   const locked = !result.isUnlocked;
-
-  function handleUnlock() {
-    unlockOnlineResults();
-    const updated = loadOnlineResults();
-    setResult(updated);
-  }
-
   const photos = result.photos?.listing ?? [];
+
+  const vehicle = result.vehicle ?? {};
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
@@ -91,15 +83,42 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* Authenticity signals */}
+      {/* Image authenticity */}
       {authCheck && (
         <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/30">
-          <span className="font-medium">Image authenticity check</span>
-          <p className="text-xs mt-1 text-muted-foreground">
+          <span className="font-medium block mb-1">
+            Image authenticity check
+          </span>
+          <p className="text-xs text-muted-foreground">
             {authCheck.summary}
           </p>
         </div>
       )}
+
+      {/* Vehicle details summary (clean + professional) */}
+      <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/20">
+        <h2 className="font-semibold mb-2">Vehicle details</h2>
+
+        <div className="grid grid-cols-2 gap-y-2 text-sm">
+          <span className="text-muted-foreground">Make</span>
+          <span>{vehicle.make || "—"}</span>
+
+          <span className="text-muted-foreground">Model</span>
+          <span>{vehicle.model || "—"}</span>
+
+          <span className="text-muted-foreground">Year</span>
+          <span>{vehicle.year || "—"}</span>
+
+          <span className="text-muted-foreground">Variant</span>
+          <span>{vehicle.variant || "—"}</span>
+
+          <span className="text-muted-foreground">Import status</span>
+          <span>{vehicle.importStatus || "—"}</span>
+
+          <span className="text-muted-foreground">Condition notes</span>
+          <span>{result.conditionSummary || "—"}</span>
+        </div>
+      </div>
 
       {/* Photo thumbnails */}
       {photos.length > 0 && (
@@ -124,15 +143,15 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* Lightbox viewer */}
+      {/* Lightbox */}
       {lightboxIndex !== null && (
         <PhotoLightbox
           photos={photos}
           index={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
-          onPrev={() => setLightboxIndex((i) => (i! > 0 ? i! - 1 : i))}
+          onPrev={() => setLightboxIndex(i => (i! > 0 ? i! - 1 : i))}
           onNext={() =>
-            setLightboxIndex((i) =>
+            setLightboxIndex(i =>
               i! < photos.length - 1 ? i! + 1 : i
             )
           }
@@ -181,7 +200,7 @@ export default function OnlineResults() {
         )}
       </div>
 
-      {/* Unlock banner */}
+      {/* Unlock */}
       {locked && (
         <div className="mt-6 p-4 border border-white/20 rounded-lg bg-black/30">
           <p className="mb-3 text-sm text-muted-foreground">
@@ -190,7 +209,10 @@ export default function OnlineResults() {
           </p>
 
           <button
-            onClick={handleUnlock}
+            onClick={() => {
+              unlockOnlineResults();
+              setResult(loadOnlineResults());
+            }}
             className="px-4 py-2 rounded bg-blue-500 text-black font-semibold"
           >
             Unlock full report
