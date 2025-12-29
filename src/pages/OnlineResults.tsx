@@ -101,7 +101,7 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* Vehicle details summary */}
+      {/* Vehicle details */}
       <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/20">
         <h2 className="font-semibold mb-2">Vehicle details</h2>
 
@@ -123,6 +123,22 @@ export default function OnlineResults() {
 
           <span className="text-muted-foreground">Condition notes</span>
           <span>{result.conditionSummary || "—"}</span>
+        </div>
+      </div>
+
+      {/* Vehicle context (CLEAN + PROFESSIONAL) */}
+      <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/20">
+        <h2 className="font-semibold mb-2">Vehicle context provided</h2>
+
+        <div className="grid grid-cols-2 gap-y-2 text-sm">
+          <span className="text-muted-foreground">Kilometres</span>
+          <span>{result.kilometres || "—"}</span>
+
+          <span className="text-muted-foreground">Previous owners</span>
+          <span>{result.owners || "—"}</span>
+
+          <span className="text-muted-foreground">Notes</span>
+          <span>{result.notes || "—"}</span>
         </div>
       </div>
 
