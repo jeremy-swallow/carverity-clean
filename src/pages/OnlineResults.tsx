@@ -29,7 +29,6 @@ export default function OnlineResults() {
     const listingPhotos: string[] = stored.photos?.listing ?? [];
 
     if (listingPhotos.length > 0) {
-      // transparency analyser now receives base64 strings
       const score = calculatePhotoTransparency(listingPhotos);
       setPhotoScore(score);
     }
@@ -38,9 +37,7 @@ export default function OnlineResults() {
   if (!result) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-16 text-center">
-        <h1 className="text-2xl font-semibold mb-2">
-          No results available
-        </h1>
+        <h1 className="text-2xl font-semibold mb-2">No results available</h1>
         <p className="text-muted-foreground">
           Run a scan first to see your analysis results.
         </p>
@@ -56,6 +53,8 @@ export default function OnlineResults() {
     const updated = loadOnlineResults();
     setResult(updated);
   }
+
+  const vehicle = result.vehicle ?? {};
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
@@ -82,7 +81,7 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* Photo thumbnails */}
+      {/* Listing photos */}
       {photos.length > 0 && (
         <div className="mb-8">
           <h2 className="font-semibold mb-2">Listing photos</h2>
@@ -105,20 +104,69 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* Lightbox viewer */}
+      {/* Lightbox */}
       {lightboxIndex !== null && (
         <PhotoLightbox
           photos={photos}
           index={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
-          onPrev={() => setLightboxIndex(i => (i! > 0 ? i! - 1 : i))}
+          onPrev={() => setLightboxIndex((i) => (i! > 0 ? i! - 1 : i))}
           onNext={() =>
-            setLightboxIndex(i =>
+            setLightboxIndex((i) =>
               i! < photos.length - 1 ? i! + 1 : i
             )
           }
         />
       )}
+
+      {/* Vehicle details card */}
+      <div className="mb-8 p-4 border border-white/10 rounded-lg bg-black/30">
+        <h2 className="font-semibold mb-2">Vehicle details</h2>
+
+        <div className="grid grid-cols-2 gap-y-2 text-sm">
+          <span className="text-slate-400">Make</span>
+          <span>{vehicle.make || "—"}</span>
+
+          <span className="text-slate-400">Model</span>
+          <span>{vehicle.model || "—"}</span>
+
+          <span className="text-slate-400">Year</span>
+          <span>{vehicle.year || "—"}</span>
+
+          <span className="text-slate-400">Variant</span>
+          <span>{vehicle.variant || "—"}</span>
+
+          <span className="text-slate-400">Import status</span>
+          <span>
+            <span className="px-2 py-0.5 rounded bg-slate-800/70 border border-white/10 text-xs">
+              {vehicle.importStatus || "Unknown"}
+            </span>
+          </span>
+
+          <span className="text-slate-400">Kilometres</span>
+          <span>{result.kilometres || "—"}</span>
+
+          <span className="text-slate-400">Owners</span>
+          <span>{result.owners ?? "—"}</span>
+        </div>
+
+        {(result.conditionSummary || result.notes) && (
+          <div className="mt-3">
+            {result.conditionSummary && (
+              <p className="text-sm mb-1">
+                <span className="text-slate-400">Condition:</span>{" "}
+                {result.conditionSummary}
+              </p>
+            )}
+            {result.notes && (
+              <p className="text-sm">
+                <span className="text-slate-400">Notes:</span>{" "}
+                {result.notes}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Signals */}
       <div className="mb-8">
