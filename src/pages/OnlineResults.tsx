@@ -35,7 +35,6 @@ function SellerBadge({ type }: { type?: string }) {
   return (
     <span
       className={`px-2 py-0.5 rounded-lg text-xs font-semibold border border-white/20 ${color}`}
-      title="Seller type is inferred using listing structure, wording and page metadata."
     >
       {label}
     </span>
@@ -64,6 +63,48 @@ function RiskBadge({ level }: { level?: string }) {
       {label}
     </span>
   );
+}
+
+function buildNextSteps(opts: {
+  sellerType?: string;
+  photoScore?: PhotoTransparencyResult | null;
+  signals: any[];
+}) {
+  const steps: string[] = [];
+
+  const hasHighRisk = opts.signals.some((s) => s?.severity === "high");
+
+  if (hasHighRisk) {
+    steps.push(
+      "Treat this listing cautiously — request missing details and avoid paying a deposit until inspection."
+    );
+  }
+
+  if (opts.photoScore && opts.photoScore.score < 6) {
+    steps.push(
+      "Ask the seller for additional photos including engine bay, interior, service book and under-body angles."
+    );
+  }
+
+  if (opts.sellerType === "private") {
+    steps.push(
+      "Confirm ownership details and request proof of service history or receipts."
+    );
+  }
+
+  if (opts.sellerType === "dealer") {
+    steps.push(
+      "Ask whether the vehicle includes statutory warranty and what is covered."
+    );
+  }
+
+  if (steps.length === 0) {
+    steps.push(
+      "No major risks detected — continue with usual due-diligence and consider arranging a pre-purchase inspection."
+    );
+  }
+
+  return steps;
 }
 
 export default function OnlineResults() {
@@ -107,6 +148,12 @@ export default function OnlineResults() {
     const updated = loadOnlineResults();
     setResult(updated);
   }
+
+  const nextSteps = buildNextSteps({
+    sellerType: result.sellerType,
+    photoScore,
+    signals: result.signals ?? [],
+  });
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
@@ -217,7 +264,20 @@ export default function OnlineResults() {
         )}
       </div>
 
-      {/* Risk signals with severity */}
+      {/* Suggested next steps */}
+      <div className="mb-8 p-4 border border-blue-300/30 rounded-lg bg-blue-900/20">
+        <h2 className="font-semibold mb-2">Suggested next steps</h2>
+
+        <ul className={`${locked ? "blur-sm" : ""} list-disc pl-5 text-sm`}>
+          {nextSteps.map((s, i) => (
+            <li key={i} className="mb-1">
+              {s}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Risk signals */}
       <div className="mb-8">
         <h2 className="font-semibold mb-2">Key risk signals</h2>
 
