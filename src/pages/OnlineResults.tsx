@@ -57,6 +57,19 @@ export default function OnlineResults() {
   const photos = result.photos?.listing ?? [];
   const vehicle = result.vehicle ?? {};
 
+  // ---- Helper: hide JSON vomit sections ----
+  function isJsonVomit(section: any) {
+    const t = (section?.title ?? "").toLowerCase();
+    const c = (section?.content ?? "").trim();
+    return (
+      t.includes("vehicle context") ||
+      c.startsWith("{") ||
+      c.startsWith("[")
+    );
+  }
+
+  const cleanSections = result.sections.filter((s) => !isJsonVomit(s));
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
       <h1 className="text-2xl font-semibold mb-4">
@@ -126,23 +139,7 @@ export default function OnlineResults() {
         </div>
       </div>
 
-      {/* Vehicle context (CLEAN + PROFESSIONAL) */}
-      <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/20">
-        <h2 className="font-semibold mb-2">Vehicle context provided</h2>
-
-        <div className="grid grid-cols-2 gap-y-2 text-sm">
-          <span className="text-muted-foreground">Kilometres</span>
-          <span>{result.kilometres || "—"}</span>
-
-          <span className="text-muted-foreground">Previous owners</span>
-          <span>{result.owners || "—"}</span>
-
-          <span className="text-muted-foreground">Notes</span>
-          <span>{result.notes || "—"}</span>
-        </div>
-      </div>
-
-      {/* Listing photo thumbnails */}
+      {/* Listing photos */}
       {photos.length > 0 && (
         <div className="mb-8">
           <h2 className="font-semibold mb-2">Listing photos</h2>
@@ -165,15 +162,15 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* Lightbox viewer */}
+      {/* Lightbox */}
       {lightboxIndex !== null && (
         <PhotoLightbox
           photos={photos}
           index={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
-          onPrev={() => setLightboxIndex(i => (i! > 0 ? i! - 1 : i))}
+          onPrev={() => setLightboxIndex((i) => (i! > 0 ? i! - 1 : i))}
           onNext={() =>
-            setLightboxIndex(i =>
+            setLightboxIndex((i) =>
               i! < photos.length - 1 ? i! + 1 : i
             )
           }
@@ -197,12 +194,12 @@ export default function OnlineResults() {
         )}
       </div>
 
-      {/* AI sections */}
+      {/* Clean analysis sections */}
       <div className={locked ? "blur-sm pointer-events-none" : ""}>
         <h2 className="font-semibold mb-2">Analysis details</h2>
 
-        {result.sections.length > 0 ? (
-          result.sections.map((section, i) => (
+        {cleanSections.length > 0 ? (
+          cleanSections.map((section, i) => (
             <div
               key={i}
               className="border border-white/10 rounded p-4 mb-4"

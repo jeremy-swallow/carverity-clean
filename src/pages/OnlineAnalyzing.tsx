@@ -1,3 +1,5 @@
+// src/pages/OnlineAnalyzing.tsx
+
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress } from "../utils/scanProgress";
@@ -5,6 +7,19 @@ import {
   saveOnlineResults,
   type SavedResult,
 } from "../utils/onlineResults";
+
+/**
+ * Create a short hash for each uploaded image
+ */
+async function hashImage(base64: string): Promise<string> {
+  const data = await fetch(base64).then((r) => r.arrayBuffer());
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 24);
+}
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
@@ -24,16 +39,7 @@ export default function OnlineAnalyzing() {
       console.error("❌ Scan failed:", err);
       navigate("/scan/online/results", { replace: true });
     });
-  }, []);
-
-  async function hashImage(base64: string): Promise<string> {
-    const data = await fetch(base64).then((r) => r.arrayBuffer());
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("")
-      .slice(0, 24);
-  }
+  }, [navigate]);
 
   async function runScan(listingUrl: string, progress: any) {
     const vehicle = {
@@ -57,10 +63,9 @@ export default function OnlineAnalyzing() {
     const conditionSummary = progress?.conditionSummary ?? "";
     const notes = progress?.notes ?? "";
 
-    const listingPhotos: string[] =
-      progress?.photos?.listing ?? [];
+    const listingPhotos: string[] = progress?.photos?.listing ?? [];
 
-    // ---- Photo metadata for AI ----
+    // Build image metadata
     const photoMeta = await Promise.all(
       listingPhotos.map(async (p, i) => ({
         index: i,
@@ -69,26 +74,30 @@ export default function OnlineAnalyzing() {
       }))
     );
 
-    console.log("📸 Photo metadata sent to AI:", photoMeta);
+    let data: any = {};
 
-    const aiResponse = await fetch("/api/analyze-listing", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        listingUrl,
-        vehicle,
-        kilometres,
-        owners,
-        conditionSummary,
-        notes,
-        photos: {
-          count: listingPhotos.length,
-          hashes: photoMeta,
-        },
-      }),
-    });
+    try {
+      const aiResponse = await fetch("/api/analyze-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listingUrl,
+          vehicle,
+          kilometres,
+          owners,
+          conditionSummary,
+          notes,
+          photos: {
+            count: listingPhotos.length,
+            hashes: photoMeta,
+          },
+        }),
+      });
 
-    const data = await aiResponse.json();
+      data = await aiResponse.json();
+    } catch {
+      console.warn("⚠️ AI request failed — fallback mode");
+    }
 
     const result: SavedResult = {
       createdAt: new Date().toISOString(),
@@ -102,10 +111,9 @@ export default function OnlineAnalyzing() {
       conditionSummary,
       notes,
 
-      // ---- Store BOTH images + metadata ----
       photos: {
-        listing: listingPhotos,   // 👈 actual images for UI + scoring
-        meta: photoMeta,          // 👈 hashes for AI transparency
+        listing: listingPhotos,
+        meta: photoMeta,
       },
 
       signals: Array.isArray(data.signals) ? data.signals : [],
