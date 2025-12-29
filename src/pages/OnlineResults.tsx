@@ -13,6 +13,8 @@ import {
 
 import PhotoLightbox from "../components/PhotoLightbox";
 
+/* ---------- Helpers ---------- */
+
 function SellerBadge({ type }: { type?: string }) {
   const label =
     type === "dealer"
@@ -65,6 +67,63 @@ function RiskBadge({ level }: { level?: string }) {
   );
 }
 
+/* ---------- Deal Score Logic ---------- */
+
+function computeDealScore(opts: {
+  photoScore?: PhotoTransparencyResult | null;
+  sellerType?: string;
+  signals: any[];
+}) {
+  let score = 0;
+
+  // 1) Photo score weight (40%)
+  const photoComponent = opts.photoScore ? opts.photoScore.score / 10 : 0.5;
+  score += photoComponent * 40;
+
+  // 2) Seller trust weight (20%)
+  const sellerWeight =
+    opts.sellerType === "dealer"
+      ? 0.9
+      : opts.sellerType === "private"
+      ? 0.6
+      : opts.sellerType === "marketplace"
+      ? 0.5
+      : 0.5;
+
+  score += sellerWeight * 20;
+
+  // 3) Risk penalty (40%)
+  const high = opts.signals.filter((s) => s?.severity === "high").length;
+  const medium = opts.signals.filter((s) => s?.severity === "medium").length;
+
+  const riskPenalty = Math.min(high * 0.25 + medium * 0.12, 1);
+  score += (1 - riskPenalty) * 40;
+
+  // Clamp
+  score = Math.round(Math.min(Math.max(score, 0), 100));
+
+  let label = "Fair";
+  let color = "bg-amber-300 text-black";
+
+  if (score >= 85) {
+    label = "Excellent";
+    color = "bg-emerald-400 text-black";
+  } else if (score >= 70) {
+    label = "Good";
+    color = "bg-blue-400 text-black";
+  } else if (score >= 50) {
+    label = "Fair";
+    color = "bg-amber-300 text-black";
+  } else {
+    label = "Caution";
+    color = "bg-red-400 text-black";
+  }
+
+  return { score, label, color };
+}
+
+/* ---------- Next Steps Generator ---------- */
+
 function buildNextSteps(opts: {
   sellerType?: string;
   photoScore?: PhotoTransparencyResult | null;
@@ -107,6 +166,8 @@ function buildNextSteps(opts: {
   return steps;
 }
 
+/* ---------- Page Component ---------- */
+
 export default function OnlineResults() {
   const [result, setResult] = useState<SavedResult | null>(null);
   const [photoScore, setPhotoScore] =
@@ -121,7 +182,6 @@ export default function OnlineResults() {
     setResult(stored);
 
     const listingPhotos: string[] = stored.photos?.listing ?? [];
-
     if (listingPhotos.length > 0) {
       const score = calculatePhotoTransparency(listingPhotos);
       setPhotoScore(score);
@@ -140,6 +200,7 @@ export default function OnlineResults() {
   }
 
   const locked = !result.isUnlocked;
+
   const photos: string[] = result.photos?.listing ?? [];
   const vehicle = result.vehicle ?? {};
 
@@ -148,6 +209,12 @@ export default function OnlineResults() {
     const updated = loadOnlineResults();
     setResult(updated);
   }
+
+  const deal = computeDealScore({
+    sellerType: result.sellerType,
+    photoScore,
+    signals: result.signals ?? [],
+  });
 
   const nextSteps = buildNextSteps({
     sellerType: result.sellerType,
@@ -168,6 +235,30 @@ export default function OnlineResults() {
         {result.listingUrl}
       </p>
 
+      {/* DEAL SCORE */}
+      <div className="mb-6 p-5 border border-white/10 rounded-xl bg-black/30">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold">Deal score</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Weighted assessment based on transparency, seller profile and risks
+            </p>
+          </div>
+
+          <div
+            className={`px-4 py-2 rounded-xl font-bold text-xl border border-white/20 ${deal.color}`}
+          >
+            {deal.score}/100
+          </div>
+        </div>
+
+        <p className="mt-2 text-sm">
+          Confidence rating:{" "}
+          <span className="font-semibold">{deal.label}</span>
+        </p>
+      </div>
+
+      {/* PHOTO SCORE */}
       {photoScore && (
         <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/30">
           <div className="flex justify-between">
@@ -180,6 +271,7 @@ export default function OnlineResults() {
         </div>
       )}
 
+      {/* PHOTOS */}
       {photos.length > 0 && (
         <div className="mb-8">
           <h2 className="font-semibold mb-2">Listing photos</h2>
@@ -216,6 +308,7 @@ export default function OnlineResults() {
         />
       )}
 
+      {/* VEHICLE CONTEXT */}
       <div className="mb-8 p-4 border border-white/10 rounded-lg bg-black/30">
         <h2 className="font-semibold mb-2">Vehicle details</h2>
 
@@ -264,7 +357,7 @@ export default function OnlineResults() {
         )}
       </div>
 
-      {/* Suggested next steps */}
+      {/* SUGGESTED NEXT STEPS */}
       <div className="mb-8 p-4 border border-blue-300/30 rounded-lg bg-blue-900/20">
         <h2 className="font-semibold mb-2">Suggested next steps</h2>
 
@@ -277,7 +370,7 @@ export default function OnlineResults() {
         </ul>
       </div>
 
-      {/* Risk signals */}
+      {/* RISK SIGNALS */}
       <div className="mb-8">
         <h2 className="font-semibold mb-2">Key risk signals</h2>
 
@@ -300,6 +393,7 @@ export default function OnlineResults() {
         )}
       </div>
 
+      {/* ANALYSIS SECTIONS */}
       <div className={locked ? "blur-sm pointer-events-none" : ""}>
         <h2 className="font-semibold mb-2">Analysis details</h2>
 
@@ -324,6 +418,7 @@ export default function OnlineResults() {
         )}
       </div>
 
+      {/* UNLOCK */}
       {locked && (
         <div className="mt-6 p-4 border border-white/20 rounded-lg bg-black/30">
           <p className="mb-3 text-sm text-muted-foreground">
