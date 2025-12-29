@@ -20,6 +20,24 @@ export type ScanProgress = {
     isImport?: boolean;
   };
 
+  // Optional photos
+  photos?: {
+    /**
+     * Photos taken from the online listing (screenshots, copied images, uploads)
+     * Stored as data URLs for now.
+     */
+    listing?: string[];
+
+    /**
+     * Photos taken during the in-person inspection (future use)
+     */
+    inPerson?: string[];
+  };
+
+  // Free-form condition + notes for AI
+  conditionSummary?: string;
+  notes?: string;
+
   // AI analysis (future)
   analysis?: any;
 

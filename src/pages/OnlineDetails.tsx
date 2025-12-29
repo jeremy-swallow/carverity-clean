@@ -1,12 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { saveProgress } from "../utils/scanProgress";
+import { loadProgress, saveProgress } from "../utils/scanProgress";
+
+type ListingPhoto = {
+  id: string;
+  dataUrl: string;
+};
+
+const MAX_PHOTOS = 12;
 
 export default function OnlineDetails() {
   const navigate = useNavigate();
 
   const [condition, setCondition] = useState("");
   const [notes, setNotes] = useState("");
+  const [photos, setPhotos] = useState<ListingPhoto[]>([]);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const canContinue = condition.trim().length > 0;
 
@@ -24,11 +34,103 @@ export default function OnlineDetails() {
 
     if (existingCondition) setCondition(existingCondition);
     if (existingNotes) setNotes(existingNotes);
+
+    const progress = loadProgress();
+    if (progress) {
+      if (progress.conditionSummary && !existingCondition) {
+        setCondition(progress.conditionSummary);
+      }
+      if (progress.notes && !existingNotes) {
+        setNotes(progress.notes);
+      }
+
+      const listingPhotos = progress.photos?.listing ?? [];
+      if (listingPhotos.length) {
+        setPhotos(
+          listingPhotos.map((url, index) => ({
+            id: `loaded-${index}-${Date.now()}`,
+            dataUrl: url,
+          }))
+        );
+      }
+    }
   }, []);
 
+  function handleFiles(inputFiles: FileList | File[]) {
+    const currentCount = photos.length;
+    if (currentCount >= MAX_PHOTOS) return;
+
+    const filesArray = Array.from(inputFiles).filter((file) =>
+      file.type.startsWith("image/")
+    );
+
+    const remainingSlots = MAX_PHOTOS - currentCount;
+    const limitedFiles = filesArray.slice(0, remainingSlots);
+
+    limitedFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = typeof reader.result === "string" ? reader.result : "";
+        if (!dataUrl) return;
+
+        setPhotos((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            dataUrl,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files);
+    }
+  }
+
+  function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
+    const items = e.clipboardData.items;
+    const files: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    if (files.length) {
+      handleFiles(files);
+    }
+  }
+
+  function removePhoto(id: string) {
+    setPhotos((prev) => prev.filter((p) => p.id !== id));
+  }
+
   function handleContinue() {
-    localStorage.setItem("carverity_condition", condition.trim());
-    localStorage.setItem("carverity_notes", notes.trim());
+    const trimmedCondition = condition.trim();
+    const trimmedNotes = notes.trim();
+
+    localStorage.setItem("carverity_condition", trimmedCondition);
+    localStorage.setItem("carverity_notes", trimmedNotes);
+
+    const listingPhotoUrls = photos.map((p) => p.dataUrl);
+
+    // Persist into scan progress for the analyzing step / future AI
+    saveProgress({
+      type: "online",
+      step: "/scan/online/details",
+      startedAt: new Date().toISOString(),
+      conditionSummary: trimmedCondition,
+      notes: trimmedNotes,
+      photos: {
+        listing: listingPhotoUrls,
+      },
+    });
 
     // Proceed to the analysis stage
     navigate("/scan/online/analyzing");
@@ -55,7 +157,7 @@ export default function OnlineDetails() {
             color: "#9aa3c7",
           }}
         >
-          Online scan · Step 4 of 5
+          Online scan · Listing details
         </span>
 
         <h1 style={{ fontSize: 24, fontWeight: 800 }}>
@@ -65,6 +167,7 @@ export default function OnlineDetails() {
         <p style={{ color: "#cbd5f5", fontSize: 15 }}>
           Add any details from the listing that may affect value or risk — such
           as service history, accident damage, modifications, or seller notes.
+          You can also attach photos from the listing to help guide your report.
         </p>
       </div>
 
@@ -122,6 +225,135 @@ export default function OnlineDetails() {
             color: "#e5ebff",
           }}
         />
+      </div>
+
+      {/* Listing photos */}
+      <div
+        onDrop={handleDrop}
+        onDragOver={(e) => e.preventDefault()}
+        onPaste={handlePaste}
+        style={{
+          borderRadius: 16,
+          border: "1px dashed rgba(148,163,255,0.6)",
+          background: "rgba(15,23,42,0.8)",
+          padding: 16,
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span
+              style={{
+                fontSize: 14,
+                color: "#e5ebff",
+                fontWeight: 500,
+              }}
+            >
+              Listing photos (optional)
+            </span>
+            <span style={{ fontSize: 13, color: "#9aa3c7" }}>
+              Drag in photos from the listing, paste copied images, or upload
+              from your device. Up to {MAX_PHOTOS} images.
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              alignSelf: "flex-start",
+              padding: "8px 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,255,0.7)",
+              background: "rgba(15,23,42,0.9)",
+              color: "#e5ebff",
+              fontSize: 13,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Upload photos
+          </button>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: "none" }}
+          onChange={(e) => {
+            if (e.target.files) handleFiles(e.target.files);
+          }}
+        />
+
+        {photos.length === 0 ? (
+          <div
+            style={{
+              marginTop: 8,
+              padding: 12,
+              borderRadius: 12,
+              border: "1px dashed rgba(148,163,255,0.35)",
+              fontSize: 13,
+              color: "#9aa3c7",
+              textAlign: "center",
+            }}
+          >
+            Drop images here, paste from the clipboard, or use “Upload photos”.
+          </div>
+        ) : (
+          <div
+            style={{
+              marginTop: 10,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))",
+              gap: 8,
+            }}
+          >
+            {photos.map((photo) => (
+              <div
+                key={photo.id}
+                style={{
+                  position: "relative",
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  border: "1px solid rgba(148,163,255,0.5)",
+                }}
+              >
+                <img
+                  src={photo.dataUrl}
+                  alt="Listing"
+                  style={{
+                    width: "100%",
+                    height: 80,
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(photo.id)}
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    background: "rgba(15,23,42,0.8)",
+                    borderRadius: 999,
+                    border: "none",
+                    color: "#e5ebff",
+                    fontSize: 11,
+                    padding: "2px 6px",
+                    cursor: "pointer",
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Actions */}
