@@ -96,8 +96,8 @@ export default function OnlineVehicleDetails() {
       },
     });
 
-    // ✅ Correct next step: ask for kilometres
-    navigate("/scan/online/kilometres");
+    // ✅ Correct next step — go to LISTING DETAILS + PHOTOS
+    navigate("/scan/online/details");
   }
 
   return (
