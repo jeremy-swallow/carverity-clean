@@ -13,11 +13,15 @@ import {
   type PhotoTransparencyResult,
 } from "../utils/photoTransparency";
 
+import PhotoLightbox from "../components/PhotoLightbox";
+
 export default function OnlineResults() {
   const [result, setResult] = useState<SavedResult | null>(null);
   const [photoScore, setPhotoScore] = useState<PhotoTransparencyResult | null>(
     null
   );
+
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const stored = loadOnlineResults();
@@ -52,6 +56,8 @@ export default function OnlineResults() {
     setResult(updated);
   }
 
+  const photos = Array.isArray(result.photos) ? result.photos : [];
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
       <h1 className="text-2xl font-semibold mb-4">
@@ -76,6 +82,44 @@ export default function OnlineResults() {
             {photoScore.summary}
           </p>
         </div>
+      )}
+
+      {/* Photo thumbnails */}
+      {photos.length > 0 && (
+        <div className="mb-8">
+          <h2 className="font-semibold mb-2">Listing photos</h2>
+
+          <div className="grid grid-cols-3 gap-3">
+            {photos.map((src, i) => (
+              <button
+                key={i}
+                onClick={() => setLightboxIndex(i)}
+                className="aspect-square overflow-hidden rounded-lg border border-white/10 bg-black/20"
+              >
+                <img
+                  src={src}
+                  alt={`Photo ${i + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox viewer */}
+      {lightboxIndex !== null && (
+        <PhotoLightbox
+          photos={photos}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onPrev={() => setLightboxIndex(i => (i! > 0 ? i! - 1 : i))}
+          onNext={() =>
+            setLightboxIndex(i =>
+              i! < photos.length - 1 ? i! + 1 : i
+            )
+          }
+        />
       )}
 
       {/* Signals */}
