@@ -1,123 +1,138 @@
-// src/utils/photoTransparency.ts
+export type PhotoCategory =
+  | "exterior"
+  | "interior"
+  | "dash"
+  | "engine"
+  | "wheels"
+  | "damage"
+  | "unknown";
 
-export type PhotoMeta = {
-  url?: string;
-  label?: string;
+export type ListingPhoto = {
+  url: string;
+  category?: PhotoCategory;
+  hash?: string; // reused / duplicate detection
+};
+
+export type PhotoTransparencyCounts = {
+  total: number;
+  exterior: number;
+  interior: number;
+  dash: number;
+  engine: number;
+  wheels: number;
+  damage: number;
 };
 
 export type PhotoTransparencyResult = {
   score: number;
-  grade: "low" | "medium" | "high";
+  grade: "poor" | "fair" | "good" | "excellent";
   summary: string;
+  counts: PhotoTransparencyCounts;
   missing: string[];
-  counts: {
-    total: number;
-    exterior: number;
-    interior: number;
-    engine: number;
-    dash: number;
-    unknown: number;
-  };
+  reusedPhotos: string[];
+  recommendations: string[];
 };
 
-const EXTERIOR_HINTS = [
-  "front",
-  "rear",
-  "side",
-  "left",
-  "right",
-  "exterior",
-  "body",
-];
-
-const INTERIOR_HINTS = ["interior", "seat", "cabin", "inside"];
-
-const ENGINE_HINTS = ["engine", "bay", "motor"];
-
-const DASH_HINTS = ["dash", "cluster", "odo", "odometer", "speedo"];
-
-/**
- * Basic heuristic scoring (MVP)
- * Later this can be upgraded to AI / vision analysis
- */
-export function calculatePhotoTransparency(
-  photos: PhotoMeta[] = []
-): PhotoTransparencyResult {
-  if (!Array.isArray(photos) || photos.length === 0) {
-    return {
-      score: 0,
-      grade: "low",
-      summary: "No photos were provided with this listing.",
-      missing: ["Most key photo angles are unavailable"],
-      counts: {
-        total: 0,
-        exterior: 0,
-        interior: 0,
-        engine: 0,
-        dash: 0,
-        unknown: 0,
-      },
-    };
-  }
-
-  let exterior = 0;
-  let interior = 0;
-  let engine = 0;
-  let dash = 0;
-  let unknown = 0;
+function detectDuplicateHashes(photos: ListingPhoto[]): string[] {
+  const seen = new Map<string, number>();
+  const reused: string[] = [];
 
   for (const p of photos) {
-    const text = (p?.label ?? "").toLowerCase();
-
-    if (EXTERIOR_HINTS.some(k => text.includes(k))) exterior++;
-    else if (INTERIOR_HINTS.some(k => text.includes(k))) interior++;
-    else if (ENGINE_HINTS.some(k => text.includes(k))) engine++;
-    else if (DASH_HINTS.some(k => text.includes(k))) dash++;
-    else unknown++;
+    if (!p.hash) continue;
+    const count = seen.get(p.hash) ?? 0;
+    seen.set(p.hash, count + 1);
+    if (count > 0) reused.push(p.url);
   }
 
-  // ---- scoring heuristic ----
-  let score = 20; // baseline
+  return reused;
+}
 
-  if (photos.length >= 4) score += 15;
-  if (photos.length >= 8) score += 20;
+export function calculatePhotoTransparency(
+  photos: ListingPhoto[]
+): PhotoTransparencyResult {
+  const counts: PhotoTransparencyCounts = {
+    total: photos.length,
+    exterior: 0,
+    interior: 0,
+    dash: 0,
+    engine: 0,
+    wheels: 0,
+    damage: 0,
+  };
 
-  if (exterior >= 3) score += 15;
-  if (interior >= 2) score += 10;
-  if (dash >= 1) score += 5;
-  if (engine >= 1) score += 5;
-
-  score = Math.min(score, 100);
+  for (const p of photos) {
+    switch (p.category) {
+      case "exterior":
+        counts.exterior++;
+        break;
+      case "interior":
+        counts.interior++;
+        break;
+      case "dash":
+        counts.dash++;
+        break;
+      case "engine":
+        counts.engine++;
+        break;
+      case "wheels":
+        counts.wheels++;
+        break;
+      case "damage":
+        counts.damage++;
+        break;
+      default:
+        break;
+    }
+  }
 
   const missing: string[] = [];
-  if (exterior < 3) missing.push("Not enough exterior coverage");
-  if (interior < 2) missing.push("Few or no interior photos");
-  if (dash < 1) missing.push("No dashboard / odometer photo");
-  if (engine < 1) missing.push("No engine bay photo");
+  if (counts.exterior < 3) missing.push("More exterior angles recommended");
+  if (counts.interior < 2) missing.push("Interior seating / trim photos missing");
+  if (counts.dash < 1) missing.push("Dashboard / odometer photo missing");
+  if (counts.engine < 1) missing.push("No engine bay photo");
+  if (counts.wheels < 1) missing.push("No wheel / tyre photos");
+  if (counts.damage < 1) missing.push("No close-ups of wear or damage areas");
 
-  let grade: "low" | "medium" | "high" = "low";
-  if (score >= 70) grade = "high";
-  else if (score >= 40) grade = "medium";
+  const reusedPhotos = detectDuplicateHashes(photos);
 
-  const summary =
-    grade === "high"
-      ? "This listing provides strong visual transparency."
-      : grade === "medium"
-      ? "This listing includes some helpful photos, but coverage is incomplete."
-      : "Very limited photo coverage — you may be missing important details.";
+  let score = 50;
+  score += counts.exterior * 6;
+  score += counts.interior * 4;
+  score += counts.engine * 4;
+  score -= reusedPhotos.length * 6;
+
+  score = Math.max(0, Math.min(100, score));
+
+  const grade =
+    score >= 85 ? "excellent" : score >= 70 ? "good" : score >= 50 ? "fair" : "poor";
+
+  const recommendations: string[] = [];
+
+  if (reusedPhotos.length > 0)
+    recommendations.push(
+      "Ask the seller for new photos — some images appear reused or duplicated."
+    );
+
+  if (missing.length > 0)
+    recommendations.push(
+      "Request the missing photo areas before travelling to inspect the car."
+    );
 
   return {
     score,
     grade,
-    summary,
+    summary:
+      grade === "excellent"
+        ? "Strong visual transparency — good confidence in listing accuracy."
+        : grade === "good"
+        ? "Most key photo areas are covered — reasonable transparency."
+        : grade === "fair"
+        ? "Limited photo coverage — recommended to request more images."
+        : "Very limited or repeated photos — strong caution advised.",
+
+    counts,
     missing,
-    counts: {
-      total: photos.length,
-      exterior,
-      interior,
-      engine,
-      dash,
-      unknown,
-    },
+    reusedPhotos,
+    recommendations,
   };
 }
