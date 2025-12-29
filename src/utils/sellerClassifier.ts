@@ -1,45 +1,37 @@
-// /src/utils/sellerClassifier.ts
-
-export type SellerType = "private" | "dealer" | "unknown";
-
 /**
- * Very simple, rule-based seller classifier.
- * This does NOT use your paid AI key yet – it's just heuristics
- * so we can prove the pipeline end-to-end.
+ * Very lightweight seller-type heuristic based on listing HTML text
+ * Works offline and does not rely on AI — safe fallback classifier
  */
-export default function classifySeller(html: string): SellerType {
+
+export type SellerType = "dealer" | "private" | "unknown";
+
+export function classifySeller(html: string): SellerType {
   const lower = html.toLowerCase();
 
-  // Heuristic keywords for dealerships
-  const dealerKeywords = [
-    "dealer licence",
-    "dealer license",
-    "lmct",
-    "pty ltd",
-    "pty. ltd",
+  const dealerTerms = [
+    "dealer",
+    "dealership",
     "abn",
-    "registered motor dealer",
-    "dealer number",
-    "licence number",
-    "licensed motor car trader",
+    "warranty",
+    "statutory warranty",
+    "licensed motor dealer",
+    "drive away",
+    "on-road costs",
   ];
 
-  if (dealerKeywords.some((k) => lower.includes(k))) {
+  const privateTerms = [
+    "rego",
+    "genuine reason for sale",
+    "no warranty",
+    "needs gone",
+    "priced to sell",
+  ];
+
+  if (dealerTerms.some((t) => lower.includes(t))) {
     return "dealer";
   }
 
-  // Heuristic keywords for private sellers
-  const privateKeywords = [
-    "genuine reason for sale",
-    "no time wasters",
-    "no swaps",
-    "no dealers",
-    "rego until",
-    "priced to sell",
-    "one owner",
-  ];
-
-  if (privateKeywords.some((k) => lower.includes(k))) {
+  if (privateTerms.some((t) => lower.includes(t))) {
     return "private";
   }
 
