@@ -1,112 +1,133 @@
-// src/pages/MyScans.tsx
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "../supabaseClient";
-import { getCurrentUser, signOut } from "../supabaseAuth";
+import { Link, useNavigate } from "react-router-dom";
+import { loadScans } from "../utils/scanStorage";
+import { saveProgress } from "../utils/scanProgress";
 
-interface Scan {
+interface SavedScan {
   id: string;
-  scan_id: string;
-  created_at: string;
-  plan: string;
-  scan_type: string;
-  report: any;
+  type: "online" | "in-person";
+  title: string;
+  createdAt: string;
+  listingUrl?: string;
+  vehicle?: {
+    make?: string;
+    model?: string;
+    year?: string;
+    variant?: string;
+    importStatus?: string;
+  };
+  fromOnlineScan?: boolean;
 }
 
 export default function MyScans() {
-  const [scans, setScans] = useState<Scan[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [userMissing, setUserMissing] = useState(false);
   const navigate = useNavigate();
+  const [scans, setScans] = useState<SavedScan[]>([]);
 
   useEffect(() => {
-    async function load() {
-      const user = await getCurrentUser();
-
-      // ❗ Do NOT redirect — just mark user as not signed in
-      if (!user) {
-        setUserMissing(true);
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("scans")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Load scans error:", error.message);
-        setError("Failed to load scans");
-      } else {
-        setScans(data as Scan[]);
-      }
-
-      setLoading(false);
-    }
-
-    load();
+    const stored = loadScans();
+    setScans(stored ?? []);
   }, []);
 
-  function openScan(scan: Scan) {
-    if (scan.scan_type === "online") {
-      sessionStorage.setItem("active_report", JSON.stringify(scan.report));
-      navigate(`/scan/online/report?scan_id=${scan.scan_id}`);
-    } else {
-      alert("In-person scan viewer not implemented yet");
-    }
+  function startInPersonFromOnline(scan: SavedScan) {
+    saveProgress({
+      type: "in-person",
+      step: "/scan/in-person/start",
+      startedAt: new Date().toISOString(),
+      listingUrl: scan.listingUrl ?? "",
+      vehicle: scan.vehicle ?? {},
+      fromOnlineScan: true,
+    });
+
+    navigate("/scan/in-person/start");
   }
 
-  async function doSignOut() {
-    await signOut();
-    navigate("/scan/online/start");
-  }
+  if (!scans.length) {
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-16 text-center">
+        <h1 className="text-2xl font-semibold mb-2">My scans</h1>
+        <p className="text-slate-400 mb-6">
+          You haven’t saved any scans yet.
+        </p>
 
-  if (loading) return <p className="p-4">Loading…</p>;
-  if (error) return <p className="p-4 text-red-400">{error}</p>;
+        <Link
+          to="/start-scan"
+          className="px-4 py-2 rounded-xl bg-blue-400 text-black font-medium"
+        >
+          Start a new scan
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between mb-4">
-        <h1 className="text-2xl font-bold">My Scans</h1>
+    <div className="max-w-3xl mx-auto px-6 py-12">
+      <h1 className="text-2xl font-semibold mb-6">My scans</h1>
 
-        {!userMissing && (
-          <button onClick={doSignOut}>Sign out</button>
-        )}
-      </div>
+      <div className="flex flex-col gap-4">
+        {scans.map((scan) => {
+          const vehicleLabel = [
+            scan?.vehicle?.year,
+            scan?.vehicle?.make,
+            scan?.vehicle?.model,
+          ]
+            .filter(Boolean)
+            .join(" ");
 
-      {userMissing && (
-        <p className="opacity-80">
-          You’re not signed in — no saved scans yet.
-        </p>
-      )}
-
-      {!userMissing && scans.length === 0 && (
-        <p>No scans saved yet.</p>
-      )}
-
-      {!userMissing && (
-        <div className="space-y-3">
-          {scans.map((scan) => (
-            <button
+          return (
+            <div
               key={scan.id}
-              onClick={() => openScan(scan)}
-              className="w-full text-left p-3 rounded-lg border border-white/20 hover:bg-white/10"
+              className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4"
             >
-              <div className="font-semibold">
-                {scan.scan_type === "online"
-                  ? "Online scan"
-                  : "In-person scan"}
+              <div className="flex flex-col gap-1">
+                <span className="text-sm text-slate-400">
+                  {new Date(scan.createdAt).toLocaleString()}
+                </span>
+
+                <h2 className="text-lg font-semibold">
+                  {vehicleLabel || scan.title}
+                </h2>
+
+                {scan.listingUrl && (
+                  <a
+                    href={scan.listingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 text-sm underline"
+                  >
+                    View listing
+                  </a>
+                )}
+
+                <div className="mt-2 flex flex-wrap gap-2 items-center">
+                  <span className="px-2 py-1 rounded-lg text-xs bg-slate-700/70">
+                    {scan.type === "online"
+                      ? "Online scan"
+                      : "In-person scan"}
+                  </span>
+
+                  {scan.fromOnlineScan && scan.type === "in-person" && (
+                    <span className="px-2 py-1 rounded-lg text-xs bg-emerald-700/60">
+                      Follow-up inspection
+                    </span>
+                  )}
+                </div>
+
+                {/* CTA — only for online scans */}
+                {scan.type === "online" && (
+                  <div className="mt-4">
+                    <button
+                      onClick={() => startInPersonFromOnline(scan)}
+                      className="px-4 py-2 rounded-xl bg-blue-400 text-black font-semibold hover:bg-blue-300"
+                    >
+                      Start in-person inspection for this car
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="text-sm opacity-70">
-                {new Date(scan.created_at).toLocaleString()}
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
