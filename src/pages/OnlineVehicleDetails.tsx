@@ -96,8 +96,8 @@ export default function OnlineVehicleDetails() {
       },
     });
 
-    // 🔹 Correct next step — go to details + photos
-    navigate("/scan/online/details");
+    // ✅ Correct next step: ask for kilometres
+    navigate("/scan/online/kilometres");
   }
 
   return (
@@ -110,8 +110,7 @@ export default function OnlineVehicleDetails() {
           Tell us a bit about the car
         </h1>
         <p className="text-slate-300 text-sm">
-          Start typing — you can pick from suggestions or enter details
-          manually.
+          Start typing — you can pick from suggestions or enter details manually.
         </p>
       </div>
 
