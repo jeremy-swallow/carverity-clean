@@ -55,7 +55,6 @@ export default function OnlineResults() {
 
   const locked = !result.isUnlocked;
   const photos = result.photos?.listing ?? [];
-
   const vehicle = result.vehicle ?? {};
 
   return (
@@ -67,7 +66,14 @@ export default function OnlineResults() {
       <p className="mb-6 break-all text-sm text-muted-foreground">
         Listing analysed:
         <br />
-        {result.listingUrl}
+        <a
+          href={result.listingUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-400 underline"
+        >
+          {result.listingUrl}
+        </a>
       </p>
 
       {/* Photo transparency score */}
@@ -95,7 +101,7 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* Vehicle details summary (clean + professional) */}
+      {/* Vehicle details summary */}
       <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/20">
         <h2 className="font-semibold mb-2">Vehicle details</h2>
 
@@ -120,7 +126,7 @@ export default function OnlineResults() {
         </div>
       </div>
 
-      {/* Photo thumbnails */}
+      {/* Listing photo thumbnails */}
       {photos.length > 0 && (
         <div className="mb-8">
           <h2 className="font-semibold mb-2">Listing photos</h2>
@@ -143,7 +149,7 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* Lightbox */}
+      {/* Lightbox viewer */}
       {lightboxIndex !== null && (
         <PhotoLightbox
           photos={photos}
@@ -158,7 +164,7 @@ export default function OnlineResults() {
         />
       )}
 
-      {/* Signals */}
+      {/* Risk signals */}
       <div className="mb-8">
         <h2 className="font-semibold mb-2">Key risk signals</h2>
 
@@ -175,7 +181,7 @@ export default function OnlineResults() {
         )}
       </div>
 
-      {/* Sections */}
+      {/* AI sections */}
       <div className={locked ? "blur-sm pointer-events-none" : ""}>
         <h2 className="font-semibold mb-2">Analysis details</h2>
 
@@ -200,7 +206,7 @@ export default function OnlineResults() {
         )}
       </div>
 
-      {/* Unlock */}
+      {/* Unlock CTA */}
       {locked && (
         <div className="mt-6 p-4 border border-white/20 rounded-lg bg-black/30">
           <p className="mb-3 text-sm text-muted-foreground">
