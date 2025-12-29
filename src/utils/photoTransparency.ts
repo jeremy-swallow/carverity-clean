@@ -5,45 +5,40 @@ export interface PhotoTransparencyResult {
   summary: string;
 }
 
-/**
- * Accepts an array of photo URLs / base64 strings
- * and produces a transparency score based on count + variety.
- */
-export function calculatePhotoTransparency(
-  photos: string[]
-): PhotoTransparencyResult {
-  const count = photos.length;
+export function calculatePhotoTransparency(photos: string[]): PhotoTransparencyResult {
+  const count = Array.isArray(photos) ? photos.length : 0;
 
   if (count === 0) {
     return {
-      score: 0,
-      summary: "No photos provided — transparency cannot be assessed.",
+      score: 2,
+      summary: "No photos supplied — extremely high risk.",
     };
   }
 
-  if (count <= 3) {
+  if (count <= 2) {
     return {
       score: 3,
-      summary: "Limited photo coverage — key angles may be missing.",
+      summary: "Very limited photo coverage — key angles are missing.",
+    };
+  }
+
+  if (count <= 4) {
+    return {
+      score: 5,
+      summary: "Basic coverage — only some key angles visible.",
     };
   }
 
   if (count <= 6) {
     return {
-      score: 5,
-      summary: "Photo coverage is reasonable but could be better.",
+      score: 7,
+      summary: "Good coverage — most key angles are provided.",
     };
   }
 
-  if (count <= 12) {
-    return {
-      score: 8,
-      summary: "Good photo coverage across major viewing angles.",
-    };
-  }
-
+  // 7–8 photos (maximum supported)
   return {
-    score: 10,
-    summary: "Excellent and comprehensive photo coverage.",
+    score: 9,
+    summary: "Strong photo coverage with good transparency.",
   };
 }
