@@ -49,7 +49,7 @@ export default async function handler(
     let aiSignals: { text: string }[] = [];
     let analysisSource: "google-ai" | "fallback" = "fallback";
 
-    // --- AI ANALYSIS BLOCK (instrumented) ---
+    // --- AI ANALYSIS BLOCK (balanced, structured output) ---
     if (GOOGLE_API_KEY) {
       try {
         const modelUrl =
@@ -57,6 +57,47 @@ export default async function handler(
           GOOGLE_API_KEY;
 
         console.log("🤖 Using Google AI endpoint:", modelUrl);
+
+        const isImport =
+          vehicle?.importStatus === "imported" ||
+          vehicle?.importStatus === "grey-import";
+
+        const aiPrompt = `
+You are assisting a used-car buyer. Analyse the listing details and provide
+calm, practical, buyer-friendly guidance. Avoid alarmist or legal-tone language.
+
+Only highlight risks that are actually supported by the information provided.
+If data is missing, do NOT assume problems — simply suggest sensible checks.
+
+Return your response in the following compact structure:
+
+KEY RISKS (max 3–4 short bullet points, or say "No obvious risks identified")
+• …
+
+WHAT TO CHECK NEXT (2–3 practical buyer actions)
+• …
+
+TONE RULES:
+- Neutral, factual, supportive
+- No dramatic language
+- No legal warnings
+- Keep sentences short and scannable
+
+IMPORTANT:
+Only mention import-vehicle risks if importStatus is true. If import is unknown
+or not provided, DO NOT warn about import issues.
+
+Vehicle details:
+${JSON.stringify(vehicle, null, 2)}
+
+User notes:
+${conditionSummary || "None provided"}
+
+Other context:
+Kilometres: ${kilometres ?? "unknown"}
+Previous owners: ${owners ?? "unknown"}
+Photos uploaded: ${photos?.count ?? 0}
+        `;
 
         const aiRes = await fetch(modelUrl, {
           method: "POST",
@@ -66,18 +107,7 @@ export default async function handler(
               {
                 parts: [
                   {
-                    text: `
-Analyze this used car listing for buyer risks, transparency issues,
-and potential fraud or safety concerns.
-
-Vehicle:
-${JSON.stringify(vehicle, null, 2)}
-
-User notes:
-${conditionSummary || "None"}
-
-Photos uploaded: ${photos?.count ?? 0}
-                    `,
+                    text: aiPrompt,
                   },
                 ],
               },
@@ -95,6 +125,7 @@ Photos uploaded: ${photos?.count ?? 0}
 
           if (aiSummary) {
             analysisSource = "google-ai";
+
             aiSignals = aiSummary
               .split("\n")
               .map((l) => l.trim())
