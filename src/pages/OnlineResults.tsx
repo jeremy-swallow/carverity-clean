@@ -57,7 +57,7 @@ export default function OnlineResults() {
   const photos = result.photos?.listing ?? [];
   const vehicle = result.vehicle ?? {};
 
-  // ---- Helper: hide JSON-vomit sections ----
+  // ---- Remove JSON noise blocks ----
   function isJsonVomit(section: any) {
     const t = (section?.title ?? "").toLowerCase();
     const c = (section?.content ?? "").trim();
@@ -68,42 +68,42 @@ export default function OnlineResults() {
     );
   }
 
-  // ---- Extract AI buyer insights for structured display ----
-  const aiInsightsSection = (result.sections ?? []).find(
-    (s) =>
-      (s?.title ?? "").toLowerCase().includes("ai buyer insights")
+  // ---- Extract AI buyer insights block ----
+  const aiInsightsSection = (result.sections ?? []).find((s) =>
+    (s?.title ?? "").toLowerCase().includes("ai buyer insights")
   );
 
-  /** Parse Gemini output format:
-   *   KEY RISKS
-   *   • item
-   *   • item
-   *
-   *   WHAT TO CHECK NEXT
-   *   • item
-   *   • item
-   */
+  /** Robust parser — supports multiline OR inline bullet output */
   function parseAiInsights(text: string) {
     const risks: string[] = [];
     const checks: string[] = [];
 
+    // Normalise whitespace + separators
+    const normalized = text
+      .replace(/\s+/g, " ")
+      .replace(/•/g, "\n•")
+      .replace(/KEY RISKS/gi, "\nKEY RISKS\n")
+      .replace(/WHAT TO CHECK NEXT/gi, "\nWHAT TO CHECK NEXT\n");
+
     let mode: "risks" | "checks" | null = null;
 
-    text.split("\n").forEach((line) => {
-      const l = line.trim();
+    normalized.split("\n").forEach((raw) => {
+      const line = raw.trim();
+      if (!line) return;
 
-      if (l.toUpperCase().startsWith("KEY RISKS")) {
+      if (line.toUpperCase().startsWith("KEY RISKS")) {
         mode = "risks";
         return;
       }
 
-      if (l.toUpperCase().startsWith("WHAT TO CHECK")) {
+      if (line.toUpperCase().startsWith("WHAT TO CHECK")) {
         mode = "checks";
         return;
       }
 
-      if (l.startsWith("•")) {
-        const cleaned = l.replace(/^•\s*/, "").trim();
+      if (line.startsWith("•")) {
+        const cleaned = line.replace(/^•\s*/, "").trim();
+        if (!cleaned) return;
         if (mode === "risks") risks.push(cleaned);
         if (mode === "checks") checks.push(cleaned);
       }
@@ -117,7 +117,7 @@ export default function OnlineResults() {
       ? parseAiInsights(aiInsightsSection.content)
       : { risks: [], checks: [] };
 
-  // ---- Remove AI insights from generic sections list (avoid duplication) ----
+  // ---- Remove AI block from generic sections (avoid duplication) ----
   const cleanSections = (result.sections ?? []).filter(
     (s) =>
       !isJsonVomit(s) &&
@@ -143,7 +143,7 @@ export default function OnlineResults() {
         </a>
       </p>
 
-      {/* Photo transparency score */}
+      {/* Photo transparency */}
       {photoScore && (
         <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/30">
           <div className="flex justify-between">
@@ -156,7 +156,7 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* Image authenticity */}
+      {/* Authenticity */}
       {authCheck && (
         <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/30">
           <span className="font-medium block mb-1">
@@ -197,7 +197,7 @@ export default function OnlineResults() {
         </div>
       </div>
 
-      {/* Listing photos */}
+      {/* Photos */}
       {photos.length > 0 && (
         <div className="mb-8">
           <h2 className="font-semibold mb-2">Listing photos</h2>
@@ -235,7 +235,7 @@ export default function OnlineResults() {
         />
       )}
 
-      {/* Structured AI insights */}
+      {/* Key risks */}
       <div className="mb-8">
         <h2 className="font-semibold mb-2">Key risk signals</h2>
 
@@ -252,6 +252,7 @@ export default function OnlineResults() {
         )}
       </div>
 
+      {/* Follow-up actions */}
       <div className={`mb-8 ${locked ? "blur-sm pointer-events-none" : ""}`}>
         <h2 className="font-semibold mb-2">What to check next</h2>
 
@@ -263,12 +264,12 @@ export default function OnlineResults() {
           </ul>
         ) : (
           <p className="text-muted-foreground">
-            No specific follow-up actions were identified for this listing.
+            No specific follow-up actions identified.
           </p>
         )}
       </div>
 
-      {/* Remaining analysis sections (non-AI) */}
+      {/* Remaining analysis sections */}
       <div className={locked ? "blur-sm pointer-events-none" : ""}>
         <h2 className="font-semibold mb-2">Analysis details</h2>
 
