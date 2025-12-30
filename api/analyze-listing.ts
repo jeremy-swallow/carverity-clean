@@ -4,7 +4,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const API_KEY = process.env.GOOGLE_API_KEY;
 
-/** Basic fallback classifier */
+/** Basic fallback classifier so the API still works if AI fails */
 function classifySeller(html: string): string {
   const lower = html.toLowerCase();
   if (lower.includes("dealer")) return "dealer";
@@ -46,14 +46,15 @@ export default async function handler(
 
     let aiSummary = "";
     let aiSignals: any[] = [];
-    let analysisSource = "fallback";
 
+    // ✅ Only run AI if API key exists
     if (API_KEY) {
       console.log("🤖 Calling Google AI…");
 
+      const MODEL = "gemini-1.5-flash-latest";
+
       const aiRes = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" +
-          API_KEY,
+        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -66,12 +67,12 @@ export default async function handler(
 Analyze this used car listing and return:
 - Buyer risk signals
 - Honesty / transparency insights
-- Safety & fraud warnings
+- Safety & fraud warnings if relevant
 
 Vehicle:
 ${JSON.stringify(vehicle, null, 2)}
 
-Condition:
+Listing notes:
 ${conditionSummary || "None"}
 
 Photos supplied: ${photos?.count ?? 0}
@@ -84,19 +85,13 @@ Photos supplied: ${photos?.count ?? 0}
         }
       );
 
-      const raw = await aiRes.text();
-      console.log("📩 AI response:", raw);
+      const aiJson = await aiRes.json();
 
-      if (!aiRes.ok) {
-        throw new Error("Google AI error: " + raw);
+      if (aiJson?.error) {
+        throw new Error("Google AI error: " + JSON.stringify(aiJson, null, 2));
       }
 
-      const aiJson = JSON.parse(raw);
-
-      aiSummary =
-        aiJson?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-
-      analysisSource = aiSummary ? "google-ai" : "fallback";
+      aiSummary = aiJson?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
       aiSignals = aiSummary
         .split("\n")
@@ -106,15 +101,15 @@ Photos supplied: ${photos?.count ?? 0}
 
     return res.status(200).json({
       ok: true,
-      analysisSource,
+      analysisSource: API_KEY ? "google-ai" : "fallback",
       sellerType,
+
       signals: aiSignals,
+
       sections: [
         {
           title: "Photo transparency",
-          content: `This listing contains ${
-            photos?.count ?? 0
-          } photos. More photos generally improve confidence.`,
+          content: `This listing contains ${photos?.count ?? 0} photos. More photos generally improve confidence.`,
         },
         ...(aiSummary
           ? [
