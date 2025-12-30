@@ -24,6 +24,23 @@ function parseTitleFallback(title: string) {
   };
 }
 
+function extractFromCarsalesPayload(data: any) {
+  const vehicle =
+    data?.listingDetails?.data?.listing ||
+    data?.vehicle ||
+    data?.ad ||
+    null;
+
+  if (!vehicle) return null;
+
+  return {
+    make: vehicle?.make || "",
+    model: vehicle?.model || "",
+    variant: vehicle?.badge || vehicle?.variant || "",
+    year: String(vehicle?.year || ""),
+  };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const url = (req.body as any)?.url || req.query?.url;
@@ -33,40 +50,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    /* ---------- 🎯 CARSALeS — STRUCTURED PAYLOAD ---------- */
+    /*
+     * ---------- 🎯 CARSALeS STRUCTURED SOURCES ----------
+     * Try in this order:
+     * 1) __INITIAL_STATE__
+     * 2) __NEXT_DATA__
+     * 3) fallback title parsing
+     */
+
     if (url.includes("carsales.com.au")) {
-      const script = $("script")
+      // 1) window.__INITIAL_STATE__
+      const stateScript = $("script")
         .toArray()
         .map(s => $(s).html() || "")
         .find(s => s.includes("__INITIAL_STATE__"));
 
-      if (script) {
+      if (stateScript) {
         try {
-          const jsonText = script
+          const jsonText = stateScript
             .replace(/^window\.__INITIAL_STATE__\s*=\s*/, "")
             .replace(/;$/, "");
 
-          const data = JSON.parse(jsonText);
+          const parsed = JSON.parse(jsonText);
+          const extracted = extractFromCarsalesPayload(parsed);
 
-          const vehicle =
-            data?.listingDetails?.data?.listing ??
-            data?.search?.vehicle ??
-            null;
-
-          if (vehicle) {
-            return res.json({
-              ok: true,
-              source: "carsales:structured",
-              extracted: {
-                make: vehicle?.make || "",
-                model: vehicle?.model || "",
-                variant: vehicle?.badge || "",
-                year: String(vehicle?.year || ""),
-              },
-            });
+          if (extracted) {
+            return res.json({ ok: true, source: "carsales:state", extracted });
           }
         } catch {
-          // fall back below
+          // ignore and continue to next strategy
+        }
+      }
+
+      // 2) React __NEXT_DATA__
+      const nextData = $("#__NEXT_DATA__").html();
+      if (nextData) {
+        try {
+          const parsed = JSON.parse(nextData);
+
+          const extracted =
+            extractFromCarsalesPayload(parsed?.props?.pageProps) ||
+            extractFromCarsalesPayload(parsed);
+
+          if (extracted) {
+            return res.json({ ok: true, source: "carsales:nextdata", extracted });
+          }
+        } catch {
+          // ignore and fallback
         }
       }
     }
