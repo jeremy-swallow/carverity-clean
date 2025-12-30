@@ -1,79 +1,89 @@
-// /api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import * as cheerio from "cheerio";
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { url } = req.body || {};
+/** Normalise whitespace */
+function normalise(t: string) {
+  return t.replace(/\s+/g, " ").trim();
+}
 
-  if (!url) {
-    return res.status(400).json({ ok: false, error: "Missing URL" });
+/**
+ * Extract fields from a listing title like:
+ * "2021 Mazda CX-30 G20 Touring Auto"
+ */
+function parseTitle(title: string) {
+  title = normalise(title).toLowerCase();
+
+  const yearMatch = title.match(/\b(20[0-9]{2}|19[0-9]{2})\b/);
+  const year = yearMatch ? yearMatch[0] : "";
+
+  // remove year for easier parsing
+  const cleaned = title.replace(year, "").trim();
+
+  const parts = cleaned.split(" ");
+
+  // first word after year should be make
+  const make = parts[0] || "";
+
+  // model = next token(s) until variant trigger words
+  const VARIANT_TRIGGERS = [
+    "g20",
+    "g25",
+    "touring",
+    "maxx",
+    "ascent",
+    "sport",
+    "gt",
+    "sp",
+    "x",
+    "hybrid"
+  ];
+
+  const modelTokens: string[] = [];
+  const variantTokens: string[] = [];
+
+  for (const p of parts.slice(1)) {
+    if (VARIANT_TRIGGERS.includes(p)) {
+      variantTokens.push(p);
+    } else {
+      modelTokens.push(p);
+    }
   }
 
+  return {
+    make,
+    model: modelTokens.join(" "),
+    variant: variantTokens.join(" "),
+    year
+  };
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const html = await fetch(url, {
-      headers: { "user-agent": "CarVerityBot/1.0" }
-    }).then(r => r.text());
-
-    const $ = cheerio.load(html);
-
-    // ---------- SMART TITLE SOURCES ----------
-    const metaTitle =
-      $('meta[property="og:title"]').attr("content") ||
-      $('meta[name="twitter:title"]').attr("content");
-
-    const heading =
-      $("h1").first().text() ||
-      $("h2").first().text();
-
-    const rawTitle = (metaTitle || heading || "").trim();
-
-    // ---------- NORMALISATION ----------
-    function clean(t: string) {
-      return t
-        .replace(/\s+/g, " ")
-        .replace(/[,|–-]+/g, " ")
-        .trim();
+    const url = req.body?.url || req.query?.url;
+    if (!url) {
+      return res.status(400).json({ error: "Missing URL" });
     }
 
-    const title = clean(rawTitle).toLowerCase();
+    const response = await fetch(url);
+    const html = await response.text();
+    const $ = cheerio.load(html);
 
-    const tokens = title.split(" ");
+    const title =
+      $("meta[property='og:title']").attr("content") ||
+      $("title").text() ||
+      "";
 
-    // ---------- BASIC PARSE ----------
-    let make = "";
-    let model = "";
-    let year = "";
-    let variant = "";
-
-    // year
-    const yearToken = tokens.find(t => /^[12][0-9]{3}$/.test(t));
-    if (yearToken) year = yearToken;
-
-    // make = first non-year token
-    make = tokens.find(t => t !== year && t.length > 2) || "";
-
-    // model = next token after make
-    const idx = tokens.indexOf(make);
-    model = tokens[idx + 1] || "";
-
-    // variant = rest
-    variant = tokens.slice(idx + 2).join(" ");
+    const extracted = parseTitle(title);
 
     return res.json({
       ok: true,
-      extracted: {
-        make,
-        model,
-        year,
-        variant
-      }
+      title,
+      extracted
     });
-
-  } catch (err) {
-    console.error("EXTRACTION ERROR", err);
+  } catch (err: any) {
     return res.status(500).json({
       ok: false,
-      error: "SCRAPE_FAILED"
+      error: err?.message || "Unexpected error"
     });
   }
 }
