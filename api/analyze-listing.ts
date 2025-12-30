@@ -7,21 +7,27 @@ function normalise(t: string) {
   return t.replace(/\s+/g, " ").trim();
 }
 
-function parseTitleFallback(title: string) {
-  title = normalise(title).toLowerCase();
+/**
+ * Fallback smart title parser
+ * Handles formats like:
+ *  "2021 Mazda CX-30 G20 Touring DM Series Auto"
+ */
+function parseTitleSmart(title: string) {
+  const t = normalise(title);
 
-  const yearMatch = title.match(/\b(20[0-9]{2}|19[0-9]{2})\b/);
+  const yearMatch = t.match(/\b(19|20)\d{2}\b/);
   const year = yearMatch?.[0] ?? "";
+  const rest = year ? t.replace(year, "").trim() : t;
 
-  const cleaned = year ? title.replace(year, "").trim() : title;
-  const parts = cleaned.split(" ");
+  const parts = rest.split(" ");
 
-  return {
-    make: parts[0] ?? "",
-    model: parts.slice(1, 2).join(" "),
-    variant: parts.slice(2).join(" "),
-    year,
-  };
+  const make = parts[0] ?? "";
+  const model = parts.slice(1, 2).join(" ");
+
+  // Everything after model → variant
+  const variant = parts.slice(2).join(" ");
+
+  return { year, make, model, variant };
 }
 
 function extractFromCarsalesPayload(data: any) {
@@ -44,22 +50,17 @@ function extractFromCarsalesPayload(data: any) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const url = (req.body as any)?.url || req.query?.url;
-    if (!url) return res.status(400).json({ ok: false, error: "Missing URL" });
+    if (!url)
+      return res.status(400).json({ ok: false, error: "Missing URL" });
 
     const response = await fetch(String(url));
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    /*
-     * ---------- 🎯 CARSALeS STRUCTURED SOURCES ----------
-     * Try in this order:
-     * 1) __INITIAL_STATE__
-     * 2) __NEXT_DATA__
-     * 3) fallback title parsing
-     */
+    /* ---------- Carsales structured sources ---------- */
 
     if (url.includes("carsales.com.au")) {
-      // 1) window.__INITIAL_STATE__
+      // __INITIAL_STATE__
       const stateScript = $("script")
         .toArray()
         .map(s => $(s).html() || "")
@@ -75,14 +76,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const extracted = extractFromCarsalesPayload(parsed);
 
           if (extracted) {
-            return res.json({ ok: true, source: "carsales:state", extracted });
+            return res.json({
+              ok: true,
+              source: "carsales:state",
+              extracted,
+            });
           }
-        } catch {
-          // ignore and continue to next strategy
-        }
+        } catch {}
       }
 
-      // 2) React __NEXT_DATA__
+      // __NEXT_DATA__
       const nextData = $("#__NEXT_DATA__").html();
       if (nextData) {
         try {
@@ -93,15 +96,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             extractFromCarsalesPayload(parsed);
 
           if (extracted) {
-            return res.json({ ok: true, source: "carsales:nextdata", extracted });
+            return res.json({
+              ok: true,
+              source: "carsales:nextdata",
+              extracted,
+            });
           }
-        } catch {
-          // ignore and fallback
-        }
+        } catch {}
       }
     }
 
-    /* ---------- 🌍 GENERIC TITLE FALLBACK ---------- */
+    /* ---------- Smart TITLE fallback ---------- */
+
     let title =
       $("h1").first().text() ||
       $("meta[property='og:title']").attr("content") ||
@@ -112,8 +118,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.json({
       ok: true,
-      source: "fallback:title",
-      extracted: parseTitleFallback(title),
+      source: "fallback:smart-title",
+      extracted: parseTitleSmart(title),
     });
   } catch (err: any) {
     return res.status(500).json({
