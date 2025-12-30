@@ -1,4 +1,3 @@
-// api/analyze-listing.ts
 export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
@@ -22,15 +21,8 @@ export default async function handler(
   }
 
   try {
-    const {
-      listingUrl,
-      vehicle,
-      kilometres,
-      owners,
-      conditionSummary,
-      notes,
-      photos,
-    } = req.body ?? {};
+    const { listingUrl, vehicle, kilometres, owners, conditionSummary, notes, photos } =
+      req.body ?? {};
 
     if (!listingUrl) {
       return res.status(400).json({ error: "Missing listingUrl" });
@@ -49,13 +41,13 @@ export default async function handler(
     let aiSignals: { text: string }[] = [];
     let analysisSource: "google-ai" | "fallback" = "fallback";
 
-    // ✅ Only run AI if API key exists
+    // Only run AI when key exists
     if (GOOGLE_API_KEY) {
       try {
         console.log("🤖 Calling Google AI…");
 
         const aiRes = await fetch(
-          "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" +
+          "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=" +
             GOOGLE_API_KEY,
           {
             method: "POST",
@@ -68,20 +60,18 @@ export default async function handler(
                       text: `
 You are helping an everyday car buyer evaluate a used car listing.
 
-Analyze this used car listing and return:
-- Buyer risk signals
-- Honesty / transparency insights
-- Safety & fraud warnings if relevant
-- Suggested follow-up questions to ask the seller
+Return clear, practical insights:
+
+• Buyer risk signals
+• Transparency / trust indicators
+• Possible red flags
+• Suggested follow-up questions for the seller
 
 Vehicle:
 ${JSON.stringify(vehicle, null, 2)}
 
-Listing notes (from user):
+User-supplied notes:
 ${conditionSummary || "None"}
-
-Internal notes:
-${notes || "None"}
 
 Photos supplied: ${photos?.count ?? 0}
                       `,
@@ -93,32 +83,30 @@ Photos supplied: ${photos?.count ?? 0}
           }
         );
 
-        const aiJson = await aiRes.json();
+        const json = await aiRes.json();
 
         if (!aiRes.ok) {
-          console.error("❌ Google AI error response:", aiJson);
+          console.error("❌ Google AI error:", json);
         } else {
           aiSummary =
-            aiJson?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+            json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
 
           if (aiSummary) {
             analysisSource = "google-ai";
             aiSignals = aiSummary
               .split("\n")
-              .map((l: string) => l.trim())
-              .filter((l: string) => l.length > 2 && !l.startsWith("#"))
-              .map((text: string) => ({ text }));
+              .map((l) => l.trim())
+              .filter((l) => l.length > 2)
+              .map((text) => ({ text }));
           }
         }
-      } catch (aiErr: any) {
-        console.error("❌ Google AI call failed:", aiErr?.message || aiErr);
-        // We just fall back gracefully below.
+      } catch (err: any) {
+        console.error("❌ AI call failed:", err?.message || err);
       }
     } else {
-      console.warn("⚠️ GOOGLE_API_KEY is not set — using fallback analysis.");
+      console.warn("⚠️ GOOGLE_API_KEY missing — fallback mode.");
     }
 
-    // ✅ Always return a successful response, even if AI failed
     return res.status(200).json({
       ok: true,
       analysisSource,
@@ -142,7 +130,7 @@ Photos supplied: ${photos?.count ?? 0}
               {
                 title: "AI buyer insights",
                 content:
-                  "AI insights were not available for this scan. You can still use the photo transparency score and other checks to guide your decision.",
+                  "AI insights were not available for this scan.",
               },
             ]),
       ],
