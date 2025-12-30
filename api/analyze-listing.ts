@@ -1,136 +1,79 @@
+// /api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import * as cheerio from "cheerio";
 
-function normalise(t: string) {
-  return t.replace(/\s+/g, " ").trim();
-}
-
-const STOP_WORDS = [
-  "used",
-  "new",
-  "demo",
-  "automatic",
-  "auto",
-  "manual",
-  "for sale",
-  "car",
-  "cars",
-];
-
-const VARIANT_WORDS = [
-  "gx",
-  "gxl",
-  "touring",
-  "ascent",
-  "sport",
-  "premium",
-  "hybrid",
-  "gt",
-  "gts",
-  "sr",
-  "zr",
-  "base",
-  "xl",
-  "xli",
-  "trend",
-  "ambiente",
-  "platinum",
-  "ultimate",
-  "r-line",
-  "pro",
-  "ti",
-  "st",
-  "s-line",
-];
-
-function stripStopWords(text: string) {
-  let out = text.toLowerCase();
-  for (const w of STOP_WORDS) {
-    out = out.replace(new RegExp(`\\b${w}\\b`, "gi"), "");
-  }
-  return normalise(out);
-}
-
-function detectYear(text: string) {
-  const m = text.match(/\b(19|20)\d{2}\b/);
-  return m ? m[0] : "";
-}
-
-/**
- * NEW smarter model / variant logic
- */
-function detectModelAndVariant(tokens: string[]) {
-  let model = "";
-  let variant = "";
-
-  // Example: "CX-30 Touring" → model="CX-30" / variant="Touring"
-  for (const t of tokens) {
-    // Mazda CX-30 / CX-5 / CX-9 style
-    if (/^cx[-\s]?\d+/i.test(t)) {
-      model = t.toUpperCase();
-      continue;
-    }
-
-    // Toyota / Hyundai style short codes (G20, GXL, SR, etc)
-    if (/^[a-z]{1,2}\d{1,2}$/i.test(t) && !model) {
-      model = t.toUpperCase();
-      continue;
-    }
-
-    // Detect variant keywords
-    if (VARIANT_WORDS.includes(t.toLowerCase())) {
-      variant = variant ? `${variant} ${t}` : t;
-    }
-  }
-
-  return {
-    model: model || "",
-    variant: variant || "",
-  };
-}
-
-function extractFromTitle(title: string) {
-  const cleaned = stripStopWords(title);
-  const parts = cleaned.split(/\s+/);
-
-  const year = detectYear(cleaned);
-  const { model, variant } = detectModelAndVariant(parts);
-
-  // First word is almost always make
-  const make = parts[0] || "";
-
-  return {
-    make,
-    model,
-    variant,
-    year,
-  };
-}
-
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { url } = req.body || {};
 
   if (!url) {
-    return res.status(400).json({ error: "Missing URL" });
+    return res.status(400).json({ ok: false, error: "Missing URL" });
   }
 
-  const html = await fetch(url).then((r) => r.text());
-  const $ = cheerio.load(html);
+  try {
+    const html = await fetch(url, {
+      headers: { "user-agent": "CarVerityBot/1.0" }
+    }).then(r => r.text());
 
-  const title =
-    $("h1").text() ||
-    $("title").text() ||
-    $(".heading").text() ||
-    "";
+    const $ = cheerio.load(html);
 
-  const extracted = extractFromTitle(title);
+    // ---------- SMART TITLE SOURCES ----------
+    const metaTitle =
+      $('meta[property="og:title"]').attr("content") ||
+      $('meta[name="twitter:title"]').attr("content");
 
-  return res.json({
-    ok: true,
-    title,
-    extracted,
-  });
+    const heading =
+      $("h1").first().text() ||
+      $("h2").first().text();
+
+    const rawTitle = (metaTitle || heading || "").trim();
+
+    // ---------- NORMALISATION ----------
+    function clean(t: string) {
+      return t
+        .replace(/\s+/g, " ")
+        .replace(/[,|–-]+/g, " ")
+        .trim();
+    }
+
+    const title = clean(rawTitle).toLowerCase();
+
+    const tokens = title.split(" ");
+
+    // ---------- BASIC PARSE ----------
+    let make = "";
+    let model = "";
+    let year = "";
+    let variant = "";
+
+    // year
+    const yearToken = tokens.find(t => /^[12][0-9]{3}$/.test(t));
+    if (yearToken) year = yearToken;
+
+    // make = first non-year token
+    make = tokens.find(t => t !== year && t.length > 2) || "";
+
+    // model = next token after make
+    const idx = tokens.indexOf(make);
+    model = tokens[idx + 1] || "";
+
+    // variant = rest
+    variant = tokens.slice(idx + 2).join(" ");
+
+    return res.json({
+      ok: true,
+      extracted: {
+        make,
+        model,
+        year,
+        variant
+      }
+    });
+
+  } catch (err) {
+    console.error("EXTRACTION ERROR", err);
+    return res.status(500).json({
+      ok: false,
+      error: "SCRAPE_FAILED"
+    });
+  }
 }
