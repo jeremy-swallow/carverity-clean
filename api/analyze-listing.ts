@@ -1,166 +1,150 @@
-// api/analyze-listing.ts
-
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import * as cheerio from "cheerio";
 
-/* -----------------------------------------
-   Basic normaliser
------------------------------------------- */
-function normalise(t: string): string {
-  return t.replace(/\s+/g, " ").trim();
-}
+/* =========================================================
+   Types
+========================================================= */
 
-/* -----------------------------------------
-   Utility formatters
------------------------------------------- */
-function titleCase(s: string): string {
-  const parts = s.split(" ");
-  const out: string[] = [];
-
-  for (const raw of parts) {
-    const word = raw.trim();
-    if (!word) continue;
-
-    if (word.length <= 2) {
-      out.push(word.toUpperCase());
-    } else {
-      out.push(word[0].toUpperCase() + word.slice(1));
-    }
-  }
-
-  return out.join(" ");
-}
-
-interface ParsedVehicle {
+type BasicVehicle = {
   year: string;
   make: string;
   model: string;
   variant: string;
+};
+
+type AnalyzeResponse = {
+  ok: boolean;
+  error?: string;
+  source?: string;
+  title?: string;
+  extracted?: BasicVehicle;
+};
+
+/* =========================================================
+   Helpers
+========================================================= */
+
+function normalise(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
-/* -----------------------------------------
-   Carsales refinement logic
------------------------------------------- */
-function refineCarsales(parsed: ParsedVehicle): ParsedVehicle {
-  let { year, make, model, variant } = parsed;
-
-  // Title-case make
-  make = titleCase(make);
-
-  // Normalise CX-30 / CX-5 / MX-5 spacing and casing
-  model = model
-    .replace(/\b(cx)\s*(\d+)\b/i, (_match: string, a: string, b: string) => {
-      return `${a.toUpperCase()}-${b}`;
-    })
-    .replace(/\b(mx)\s*(\d+)\b/i, (_match: string, a: string, b: string) => {
-      return `${a.toUpperCase()}-${b}`;
-    })
-    .replace(/\s+/g, " ")
-    .trim();
-
-  // Move engine code (G20, G25, X20, etc) into the front of variant
-  const engineMatch = variant.match(/\b[gx]\d{2}\b/i);
-  if (engineMatch) {
-    const engine = engineMatch[0].toUpperCase();
-    variant = variant.replace(engineMatch[0], "").trim();
-    variant = `${engine} ${variant}`.trim();
-  }
-
-  variant = titleCase(variant);
-
-  return { year, make, model, variant };
+function isYear(token: string): boolean {
+  return /^\d{4}$/.test(token);
 }
 
-/* -----------------------------------------
-   Carsales URL token parser
------------------------------------------- */
-function parseFromUrl(url: string): ParsedVehicle {
+function titleCase(str: string): string {
+  return str
+    .split(" ")
+    .filter(Boolean)
+    .map(w => (w.length <= 2 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1).toLowerCase()))
+    .join(" ");
+}
+
+/* =========================================================
+   Carsales URL parser
+========================================================= */
+
+function parseCarsalesFromUrl(url: string): BasicVehicle | null {
   try {
-    const decoded = decodeURIComponent(url);
-    const parts = decoded.split("/").filter((p) => p.length > 0);
+    const u = new URL(url);
+    const slug = u.pathname.split("/").find(p => /^\d{4}-/.test(p)) ?? "";
+    if (!slug) return null;
 
-    const slug = parts.find((p) => p.includes("-")) ?? "";
-    const slugWithoutHtml = slug.replace(/\.html?.*/i, "");
+    const parts = slug.split("-").filter(Boolean);
+    const year = parts[0];
+    if (!isYear(year)) return null;
 
-    const tokens = slugWithoutHtml
-      .split("-")
-      .map((t) => t.trim().toLowerCase())
-      .filter((t) => t.length > 0);
+    const make = titleCase(parts[1]);
+    const rest = parts.slice(2);
 
-    const yearToken = tokens.find((t) => /^\d{4}$/.test(t)) ?? "";
+    const model = titleCase(rest.slice(0, 2).join(" "));
+    const variant = titleCase(rest.slice(2).join(" "));
 
-    const make = tokens.length > 1 ? tokens[1] : "";
-    const model = tokens.length > 2 ? tokens[2] : "";
-
-    const variantTokens = tokens.slice(3);
-    const variant = variantTokens.join(" ").trim();
-
-    return {
-      year: yearToken,
-      make,
-      model,
-      variant,
-    };
+    return { year, make, model, variant };
   } catch {
-    return { year: "", make: "", model: "", variant: "" };
+    return null;
   }
 }
 
-/* -----------------------------------------
-   Main handler
------------------------------------------- */
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
-  const bodyUrl =
-    (req.body as any)?.url ?? (req.query?.url as string | undefined);
-  const url = typeof bodyUrl === "string" ? bodyUrl.trim() : "";
+/* =========================================================
+   HTML fallback parser
+========================================================= */
 
-  if (!url) {
-    return res.status(400).json({ ok: false, error: "Missing URL" });
+function parseFromHtml(html: string): { title: string; vehicle: BasicVehicle | null } {
+  const $ = cheerio.load(html);
+
+  const raw =
+    $('meta[property="og:title"]').attr("content") ||
+    $("title").text() ||
+    $("h1").first().text() ||
+    "";
+
+  const title = normalise(raw);
+  const parts = title.split(" ");
+
+  let vehicle: BasicVehicle | null = null;
+
+  if (parts.length >= 3 && isYear(parts[0])) {
+    vehicle = {
+      year: parts[0],
+      make: titleCase(parts[1]),
+      model: titleCase(parts.slice(2).join(" ")),
+      variant: "",
+    };
   }
 
-  try {
-    // 🔹 Carsales — handle via URL parsing + refinement
-    if (url.includes("carsales.com.au")) {
-      const parsed = parseFromUrl(url);
-      const refined = refineCarsales(parsed);
+  return { title, vehicle };
+}
 
-      return res.json({
-        ok: true,
-        source: "carsales:url-parser+refine",
-        title: "",
-        extracted: refined,
-      });
+/* =========================================================
+   Main handler
+========================================================= */
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
+    if (req.method !== "POST") {
+      return res.status(405).json({ ok: false, error: "Method not allowed" });
     }
 
-    // 🔹 Generic HTML fallback for other sites
+    const { url } = (req.body || {}) as { url?: string };
+
+    if (!url) {
+      return res.status(400).json({ ok: false, error: "Missing URL" });
+    }
+
     const response = await fetch(url);
     const html = await response.text();
-    const $ = cheerio.load(html);
 
-    let title =
-      $("h1").first().text() ||
-      $(`meta[property="og:title"]`).attr("content") ||
-      $("title").text() ||
-      "";
+    let extracted: BasicVehicle | null = null;
+    let source = "fallback";
 
-    title = normalise(title);
+    if (url.includes("carsales.com.au")) {
+      extracted = parseCarsalesFromUrl(url);
+      if (extracted) source = "carsales-url-parser";
+    }
 
-    return res.json({
+    const { title, vehicle: htmlVehicle } = parseFromHtml(html);
+
+    if (!extracted && htmlVehicle) {
+      extracted = htmlVehicle;
+      source = "html-title-parser";
+    }
+
+    const safeExtracted: BasicVehicle = extracted ?? {
+      year: "",
+      make: "",
+      model: "",
+      variant: "",
+    };
+
+    return res.status(200).json({
       ok: true,
-      source: "fallback",
+      source,
       title,
-      extracted: {
-        year: "",
-        make: "",
-        model: "",
-        variant: "",
-      },
+      extracted: safeExtracted,
     });
-  } catch (err) {
-    console.error("analyze-listing error:", err);
-    return res.status(500).json({ ok: false, error: "fetch failed" });
+  } catch (err: any) {
+    console.error(err);
+    return res.status(500).json({ ok: false, error: err?.message || "Unexpected error" });
   }
 }
