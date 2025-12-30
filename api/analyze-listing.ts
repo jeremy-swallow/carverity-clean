@@ -1,4 +1,4 @@
-// /api/analyze-listing.ts
+// api/analyze-listing.ts
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import * as cheerio from "cheerio";
@@ -7,99 +7,85 @@ function normalise(t: string) {
   return t.replace(/\s+/g, " ").trim();
 }
 
-function parseTitleSmart(title: string) {
-  const t = normalise(title);
+function parseTitle(title: string) {
+  const parts = title
+    .replace(/[,|]/g, " ")
+    .split(" ")
+    .map(t => t.trim())
+    .filter(Boolean);
 
-  const yearMatch = t.match(/\b(19|20)\d{2}\b/);
-  const year = yearMatch?.[0] ?? "";
-  const rest = year ? t.replace(year, "").trim() : t;
+  let make = "";
+  let model = "";
+  let year = "";
 
-  const parts = rest.split(" ");
-  const make = parts[0] ?? "";
-  const model = parts.slice(1, 2).join(" ");
-  const variant = parts.slice(2).join(" ");
+  for (const p of parts) {
+    if (!year && /^\d{4}$/.test(p)) year = p;
+    else if (!make) make = p;
+    else if (!model) model = p;
+  }
 
-  return { year, make, model, variant };
-}
-
-function extractFromCarsalesListing(obj: any) {
-  const v =
-    obj?.listingDetails?.data?.listing ??
-    obj?.retailAd ??
-    obj?.vehicle ??
-    obj ??
-    null;
-
-  if (!v) return null;
-
-  return {
-    make: v.make || v.makeDescription || "",
-    model: v.model || v.modelDescription || "",
-    variant: v.badge || v.series || v.trim || "",
-    year: String(v.year || v.buildYear || ""),
-  };
-}
-
-async function tryCarsalesApi(url: string) {
-  const idMatch = url.match(/OAG-AD-\d+/i);
-  if (!idMatch) return null;
-
-  const id = idMatch[0];
-
-  const apiUrl = `https://api.carsales.com.au/retail/listings/v3/${id}`;
-
-  const res = await fetch(apiUrl, {
-    headers: { Accept: "application/json" },
-  });
-
-  if (!res.ok) return null;
-
-  const json = await res.json();
-  return extractFromCarsalesListing(json);
+  return { make, model, year, variant: "" };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const url = (req.body as any)?.url || req.query?.url;
+    const url = (req.body?.url || req.query?.url || "").toString().trim();
     if (!url) return res.status(400).json({ ok: false, error: "Missing URL" });
 
-    /* ---------- Carsales API (most reliable) ---------- */
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Safari",
+        Accept: "text/html",
+      },
+      cache: "no-store",
+    });
 
-    if (String(url).includes("carsales.com.au")) {
-      const apiExtract = await tryCarsalesApi(String(url));
-
-      if (apiExtract) {
-        return res.json({
-          ok: true,
-          source: "carsales:api",
-          extracted: apiExtract,
-        });
-      }
+    if (!response.ok) {
+      return res
+        .status(500)
+        .json({ ok: false, error: `Failed to fetch (${response.status})` });
     }
 
-    /* ---------- HTML fallback ---------- */
-
-    const response = await fetch(String(url));
     const html = await response.text();
     const $ = cheerio.load(html);
 
+    // ---------------- Multi-source title extraction ----------------
     let title =
       $("h1").first().text() ||
       $("meta[property='og:title']").attr("content") ||
-      $("title").text() ||
       "";
 
+    // JSON-LD schema fallback
+    if (!title) {
+      const json = $("script[type='application/ld+json']")
+        .map((_, el) => $(el).text())
+        .toArray()
+        .map(s => String(s))        // <-- force string array
+        .filter(Boolean)
+        .find(s => s.includes("vehicle") || s.includes("Car"));
+
+      if (json) {
+        try {
+          const obj = JSON.parse(json);
+          title = obj?.name || obj?.headline || title;
+        } catch {
+          /* ignore malformed json */
+        }
+      }
+    }
+
     title = normalise(title);
+    const extracted = parseTitle(title);
 
     return res.json({
       ok: true,
-      source: "fallback:smart-title",
-      extracted: parseTitleSmart(title),
+      source: title ? "title" : "fallback",
+      extracted,
     });
   } catch (err: any) {
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Unexpected error",
-    });
+    return res
+      .status(500)
+      .json({ ok: false, error: err?.message || "Unknown error" });
   }
 }
