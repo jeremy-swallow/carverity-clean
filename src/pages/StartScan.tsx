@@ -13,7 +13,7 @@ export default function StartScan() {
   useEffect(() => {
     saveProgress({
       type: "online",
-      step: "/scan/online/start",
+      step: "/online/start",
       startedAt: new Date().toISOString(),
     });
 
@@ -25,66 +25,44 @@ export default function StartScan() {
     const trimmed = link.trim();
     localStorage.setItem("carverity_listing_url", trimmed);
 
-    // ✅ New flow: run AI → then prefill vehicle details
-    navigate("/scan/online/analyzing-listing");
+    navigate("/online/analyzing-listing");
   }
 
   return (
-    <div
-      style={{
-        maxWidth: 720,
-        margin: "0 auto",
-        padding: "clamp(24px, 6vw, 64px)",
-      }}
-    >
-      <span
-        style={{
-          fontSize: 13,
-          letterSpacing: 0.8,
-          textTransform: "uppercase",
-          color: "#9aa3c7",
-        }}
-      >
+    <div className="max-w-xl mx-auto px-6 py-20 flex flex-col gap-6 text-center">
+      <span className="text-xs tracking-wider uppercase text-slate-400">
         Online scan · Step 1 of 5
       </span>
 
-      <h1 style={{ fontSize: 24, fontWeight: 800 }}>
-        Let’s start with the listing
+      <h1 className="text-3xl font-extrabold text-white">
+        Paste the listing URL
       </h1>
 
-      <input
-        type="url"
-        placeholder="https://example.com/listing"
-        value={link}
-        onChange={(e) => setLink(e.target.value)}
-        style={{
-          marginTop: 12,
-          padding: 16,
-          borderRadius: 12,
-          fontSize: 16,
-          border: "1px solid rgba(255,255,255,0.18)",
-          background: "rgba(7,10,25,0.9)",
-          color: "#e5ebff",
-        }}
-      />
+      <p className="text-slate-300 text-sm -mt-2">
+        CarVerity will scan the listing and help you review it
+      </p>
 
-      <button
-        disabled={!canContinue}
-        onClick={handleContinue}
-        style={{
-          marginTop: 18,
-          padding: "14px 22px",
-          borderRadius: 12,
-          fontSize: 16,
-          fontWeight: 600,
-          background: canContinue ? "#7aa2ff" : "#3a3f55",
-          color: canContinue ? "#0b1020" : "#9aa3c7",
-          border: "none",
-          cursor: canContinue ? "pointer" : "default",
-        }}
-      >
-        Continue
-      </button>
+      <div className="bg-slate-900/80 border border-white/10 rounded-2xl p-6 flex flex-col gap-4">
+        <input
+          type="url"
+          placeholder="https://example.com/car-listing"
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
+          className="px-4 py-3 rounded-xl bg-slate-950/80 border border-white/15 text-slate-100 focus:outline-none"
+        />
+
+        <button
+          disabled={!canContinue}
+          onClick={handleContinue}
+          className={`px-5 py-3 rounded-xl font-semibold transition ${
+            canContinue
+              ? "bg-blue-400 text-black"
+              : "bg-slate-700 text-slate-400 cursor-not-allowed"
+          }`}
+        >
+          Scan listing
+        </button>
+      </div>
     </div>
   );
 }

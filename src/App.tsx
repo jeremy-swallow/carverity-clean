@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import { Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 
@@ -48,21 +50,21 @@ export default function App() {
         {/* ---------- PUBLIC ENTRY ---------- */}
         <Route path="/start-scan" element={<StartScan />} />
 
-        {/* ---------- ONLINE FLOW ---------- */}
+        {/* ---------- ONLINE FLOW (new friendly URLs) ---------- */}
+        <Route path="/online/analyzing-listing" element={<OnlineAnalyzingListing />} />
         <Route path="/online/details" element={<OnlineDetails />} />
         <Route path="/online/kilometres" element={<OnlineKilometres />} />
         <Route path="/online/owners" element={<OnlineOwners />} />
         <Route path="/online/analyzing" element={<OnlineAnalyzing />} />
-        <Route path="/online/analyzing-listing" element={<OnlineAnalyzingListing />} />
         <Route path="/online/results" element={<OnlineResults />} />
         <Route path="/online/vehicle-details" element={<OnlineVehicleDetails />} />
 
         {/* ---------- BACKWARD-COMPAT /scan/* ---------- */}
+        <Route path="/scan/online/analyzing-listing" element={<OnlineAnalyzingListing />} />
         <Route path="/scan/online/details" element={<OnlineDetails />} />
         <Route path="/scan/online/kilometres" element={<OnlineKilometres />} />
         <Route path="/scan/online/owners" element={<OnlineOwners />} />
         <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
-        <Route path="/scan/online/analyzing-listing" element={<OnlineAnalyzingListing />} />
         <Route path="/scan/online/results" element={<OnlineResults />} />
         <Route path="/scan/online/vehicle-details" element={<OnlineVehicleDetails />} />
 
