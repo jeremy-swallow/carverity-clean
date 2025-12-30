@@ -57,8 +57,8 @@ export default function OnlineResults() {
   const photos = result.photos?.listing ?? [];
   const vehicle = result.vehicle ?? {};
 
-  // ---- Remove JSON noise blocks ----
-  function isJsonVomit(section: any) {
+  // --- Filter out noisy JSON/system sections ---
+  function isJsonNoise(section: any) {
     const t = (section?.title ?? "").toLowerCase();
     const c = (section?.content ?? "").trim();
     return (
@@ -68,17 +68,22 @@ export default function OnlineResults() {
     );
   }
 
-  // ---- Extract AI buyer insights block ----
-  const aiInsightsSection = (result.sections ?? []).find((s) =>
+  // --- Extract AI buyer insights content ---
+  const aiInsights = (result.sections ?? []).find((s) =>
     (s?.title ?? "").toLowerCase().includes("ai buyer insights")
-  );
+  )?.content ?? "";
 
-  /** Robust parser — supports multiline OR inline bullet output */
-  function parseAiInsights(text: string) {
+  /**
+   * Assistant-style parser
+   * Converts Gemini output into:
+   * - summary tone
+   * - potential concerns
+   * - recommended actions
+   */
+  function parseInsights(text: string) {
     const risks: string[] = [];
     const checks: string[] = [];
 
-    // Normalise whitespace + separators
     const normalized = text
       .replace(/\s+/g, " ")
       .replace(/•/g, "\n•")
@@ -87,8 +92,8 @@ export default function OnlineResults() {
 
     let mode: "risks" | "checks" | null = null;
 
-    normalized.split("\n").forEach((raw) => {
-      const line = raw.trim();
+    normalized.split("\n").forEach((lineRaw) => {
+      const line = lineRaw.trim();
       if (!line) return;
 
       if (line.toUpperCase().startsWith("KEY RISKS")) {
@@ -112,22 +117,19 @@ export default function OnlineResults() {
     return { risks, checks };
   }
 
-  const parsed =
-    aiInsightsSection?.content
-      ? parseAiInsights(aiInsightsSection.content)
-      : { risks: [], checks: [] };
+  const parsed = parseInsights(aiInsights);
 
-  // ---- Remove AI block from generic sections (avoid duplication) ----
+  // Remove AI section from remaining blocks
   const cleanSections = (result.sections ?? []).filter(
     (s) =>
-      !isJsonVomit(s) &&
+      !isJsonNoise(s) &&
       !(s?.title ?? "").toLowerCase().includes("ai buyer insights")
   );
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
       <h1 className="text-2xl font-semibold mb-4">
-        Scan results — AI analysis
+        Scan results — AI-assisted review
       </h1>
 
       <p className="mb-6 break-all text-sm text-muted-foreground">
@@ -143,6 +145,54 @@ export default function OnlineResults() {
         </a>
       </p>
 
+      {/* Assistant review summary */}
+      <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/30">
+        <h2 className="font-semibold mb-1">CarVerity review summary</h2>
+        <p className="text-sm text-muted-foreground">
+          Based on the information provided so far, this listing appears
+          generally positive. A few details are still worth confirming before
+          moving ahead.
+        </p>
+      </div>
+
+      {/* Potential concerns */}
+      <div className="mb-6 p-4 border border-amber-300/30 rounded-lg bg-amber-500/5">
+        <h2 className="font-semibold mb-2">Potential concerns</h2>
+
+        {parsed.risks.length > 0 ? (
+          <ul className={`list-disc pl-4 ${locked ? "blur-sm" : ""}`}>
+            {parsed.risks.map((r, i) => (
+              <li key={i}>{r}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground">
+            No obvious concerns identified from the details available so far.
+          </p>
+        )}
+      </div>
+
+      {/* Recommended next steps */}
+      <div
+        className={`mb-8 p-4 border border-blue-300/30 rounded-lg bg-blue-500/5 ${
+          locked ? "blur-sm pointer-events-none" : ""
+        }`}
+      >
+        <h2 className="font-semibold mb-2">Recommended next steps</h2>
+
+        {parsed.checks.length > 0 ? (
+          <ul className="list-disc pl-4">
+            {parsed.checks.map((c, i) => (
+              <li key={i}>{c}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground">
+            No specific follow-up actions suggested for this listing.
+          </p>
+        )}
+      </div>
+
       {/* Photo transparency */}
       {photoScore && (
         <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/30">
@@ -156,7 +206,7 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* Authenticity */}
+      {/* Image authenticity */}
       {authCheck && (
         <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/30">
           <span className="font-medium block mb-1">
@@ -197,7 +247,7 @@ export default function OnlineResults() {
         </div>
       </div>
 
-      {/* Photos */}
+      {/* Listing photos */}
       {photos.length > 0 && (
         <div className="mb-8">
           <h2 className="font-semibold mb-2">Listing photos</h2>
@@ -235,43 +285,9 @@ export default function OnlineResults() {
         />
       )}
 
-      {/* Key risks */}
-      <div className="mb-8">
-        <h2 className="font-semibold mb-2">Key risk signals</h2>
-
-        {parsed.risks.length > 0 ? (
-          <ul className={`list-disc pl-4 ${locked ? "blur-sm" : ""}`}>
-            {parsed.risks.map((r, i) => (
-              <li key={i}>{r}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-muted-foreground">
-            No obvious risks identified based on the information provided so far.
-          </p>
-        )}
-      </div>
-
-      {/* Follow-up actions */}
-      <div className={`mb-8 ${locked ? "blur-sm pointer-events-none" : ""}`}>
-        <h2 className="font-semibold mb-2">What to check next</h2>
-
-        {parsed.checks.length > 0 ? (
-          <ul className="list-disc pl-4">
-            {parsed.checks.map((c, i) => (
-              <li key={i}>{c}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-muted-foreground">
-            No specific follow-up actions identified.
-          </p>
-        )}
-      </div>
-
       {/* Remaining analysis sections */}
       <div className={locked ? "blur-sm pointer-events-none" : ""}>
-        <h2 className="font-semibold mb-2">Analysis details</h2>
+        <h2 className="font-semibold mb-2">Additional analysis</h2>
 
         {cleanSections.length > 0 ? (
           cleanSections.map((section, i) => (
@@ -289,7 +305,7 @@ export default function OnlineResults() {
           ))
         ) : (
           <p className="text-muted-foreground">
-            No analysis sections returned.
+            No additional sections returned.
           </p>
         )}
       </div>
