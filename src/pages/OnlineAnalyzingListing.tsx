@@ -1,12 +1,11 @@
 // src/pages/OnlineAnalyzingListing.tsx
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 const STEPS = [
   "Reading listing content…",
   "Checking vehicle details…",
+  "Reviewing photo coverage…",
   "Extracting key information…",
   "Preparing suggestions…",
 ];
@@ -17,93 +16,68 @@ export default function OnlineAnalyzingListing() {
 
   useEffect(() => {
     const url = localStorage.getItem("carverity_listing_url");
+
+    // 🚦 If no URL → send user back to Step 1
     if (!url) {
       navigate("/start-scan", { replace: true });
       return;
     }
 
     async function runAnalysis() {
-      const res = await fetch("/api/analyze-listing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listingUrl: url }),
-      });
-
-      const json = await res.json();
-
-      if (json?.ok) {
-        const existing = loadProgress() ?? {};
-        saveProgress({
-          ...existing,
-          vehicle: {
-            ...(existing as any).vehicle,
-            make: json.extracted.make || "",
-            model: json.extracted.model || "",
-            year: json.extracted.year || "",
-            variant: json.extracted.variant || "",
-            importStatus:
-              (existing as any).vehicle?.importStatus ?? "unknown",
-          },
+      try {
+        const res = await fetch("/api/analyze-listing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),   // ✅ send URL correctly
         });
-      }
 
-      navigate("/online/vehicle-details", { replace: true });
+        const json = await res.json();
+        console.log("ANALYSIS RESULT >>>", json);
+
+        // 🚦 If API failed → stay safe instead of continuing
+        if (!json?.extracted) {
+          alert("Scan failed — please try again.");
+          navigate("/online/vehicle-details", { replace: true });
+          return;
+        }
+
+        // Save extracted data
+        localStorage.setItem(
+          "carverity_extracted_vehicle",
+          JSON.stringify(json.extracted)
+        );
+
+        // Continue to details page
+        navigate("/online/vehicle-details", { replace: true });
+
+      } catch (err) {
+        console.error("Analysis error", err);
+        navigate("/online/vehicle-details", { replace: true });
+      }
     }
 
+    // Fake progress animation
     const interval = setInterval(() => {
-      setStepIndex((i) =>
-        i + 1 < STEPS.length ? i + 1 : STEPS.length - 1
-      );
-    }, 800);
+      setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
+    }, 900);
 
     runAnalysis();
     return () => clearInterval(interval);
   }, [navigate]);
 
   return (
-    <div
-      style={{
-        maxWidth: 720,
-        margin: "0 auto",
-        padding: "clamp(28px, 6vw, 72px)",
-      }}
-    >
-      <span
-        style={{
-          fontSize: 13,
-          textTransform: "uppercase",
-          color: "#9aa3c7",
-          letterSpacing: 0.8,
-        }}
-      >
-        Online scan · Analyzing listing
-      </span>
+    <div className="max-w-2xl mx-auto px-6 py-16">
+      <h1 className="text-xl font-bold mb-6">Analyzing listing…</h1>
 
-      <h1 style={{ fontSize: 24, fontWeight: 800, marginTop: 8 }}>
-        Fetching details from the listing…
-      </h1>
-
-      <div style={{ marginTop: 24, display: "flex", flexDirection: "column" }}>
+      <div className="space-y-3">
         {STEPS.map((s, i) => (
           <div
             key={i}
-            style={{
-              padding: 12,
-              borderRadius: 10,
-              marginBottom: 8,
-              border:
-                i === stepIndex
-                  ? "1px solid rgba(148,163,255,0.8)"
-                  : "1px solid rgba(255,255,255,0.1)",
-              background:
-                i <= stepIndex
-                  ? "rgba(148,163,255,0.12)"
-                  : "rgba(15,23,42,0.6)",
-              color: i <= stepIndex ? "#cbd5ff" : "#9aa3c7",
-            }}
+            className={`text-sm ${
+              i <= stepIndex ? "text-white" : "text-muted-foreground"
+            }`}
           >
-            {i < stepIndex ? "✔︎ " : i === stepIndex ? "⋯ " : "○ "}
-            {s}
+            {i < stepIndex ? "✅" : "⏳"} {s}
           </div>
         ))}
       </div>
