@@ -1,42 +1,17 @@
 export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import crypto from "crypto";
 
-/**
- * Google AI SDK — server-side only
- */
-const API_KEY = process.env.GOOGLE_GENAI_API_KEY;
-const MODEL_NAME = "gemini-2.0-flash";
+const API_KEY = process.env.GOOGLE_API_KEY;
 
-if (!API_KEY) {
-  console.warn("⚠️ GOOGLE_GENAI_API_KEY is missing — AI mode disabled");
-}
-
-/**
- * Minimal seller classifier (fallback)
- */
+/** Basic fallback classifier so the API still works if AI fails */
 function classifySeller(html: string): string {
   const lower = html.toLowerCase();
-
-  if (lower.includes("dealer") || lower.includes("dealership")) return "dealer";
-  if (lower.includes("private seller") || lower.includes("private sale"))
-    return "private";
-
+  if (lower.includes("dealer")) return "dealer";
+  if (lower.includes("private")) return "private";
   return "unknown";
 }
 
-/**
- * Estimate API cost for finance + pricing analysis later
- */
-function estimateCost(tokens: number) {
-  // Approx: $0.35 per 1M tokens (Gemini Flash) — we will refine once we see logs
-  return +(tokens / 1_000_000 * 0.35).toFixed(4);
-}
-
-/**
- * ---- MAIN HANDLER ----
- */
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -46,149 +21,102 @@ export default async function handler(
   }
 
   try {
-    const {
-      listingUrl,
-      vehicle,
-      kilometres,
-      owners,
-      conditionSummary,
-      notes,
-      photos,
-    } = req.body ?? {};
+    const { listingUrl, vehicle, kilometres, owners, conditionSummary, notes, photos } =
+      req.body ?? {};
 
     if (!listingUrl) {
       return res.status(400).json({ error: "Missing listingUrl" });
     }
 
-    console.log("🔍 Fetching listing page:", listingUrl);
+    console.log("🔍 Fetching listing:", listingUrl);
 
-    const page = await fetch(listingUrl, {
+    const response = await fetch(listingUrl, {
       headers: { "user-agent": "CarVerityBot/1.0" },
     });
 
-    const html = await page.text();
+    const html = await response.text();
     const sellerType = classifySeller(html);
 
-    // ---------------------------
-    //  TRY REAL AI ANALYSIS
-    // ---------------------------
-    let aiData: any = null;
+    let aiSummary = "";
+    let aiSignals: any[] = [];
 
+    // ✅ Only run AI if API key exists
     if (API_KEY) {
-      try {
-        console.log("🤖 Sending request to Google AI…");
+      console.log("🤖 Calling Google AI…");
 
-        const body = {
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: `
-You are analysing a used-car listing to identify:
+      const aiRes = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" +
+          API_KEY,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: `
+Analyze this used car listing and return:
+- Buyer risk signals
+- Honesty / transparency insights
+- Safety & fraud warnings if relevant
 
-• transparency signals
-• risk indicators
-• potential red flags
-• what the buyer should verify in-person
+Vehicle:
+${JSON.stringify(vehicle, null, 2)}
 
-Return objective, helpful guidance — not sales language.
+Listing notes:
+${conditionSummary || "None"}
 
-Vehicle context:
-${JSON.stringify(
-  { vehicle, kilometres, owners, conditionSummary, notes },
-  null,
-  2
-)}
-
-Photo metadata:
-${JSON.stringify(photos, null, 2)}
-
-Provide your output as structured JSON in this exact shape:
-
-{
-  "summary": string,
-  "signals": [{ "text": string }],
-  "sections": [
-    { "title": string, "content": string }
-  ]
-}
+Photos supplied: ${photos?.count ?? 0}
                   `,
-                },
-              ],
-            },
-          ],
-        };
+                  },
+                ],
+              },
+            ],
+          }),
+        }
+      );
 
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          }
-        );
+      const aiJson = await aiRes.json();
 
-        const json = await response.json();
-        const text = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-
-        aiData = JSON.parse(text);
-
-        const tokensUsed = json?.usageMetadata?.totalTokenCount ?? 0;
-        const estCost = estimateCost(tokensUsed);
-
-        console.log("💰 Token usage:", tokensUsed, "≈$", estCost);
-      } catch (err) {
-        console.error("⚠️ AI call failed — falling back", err);
-      }
-    }
-
-    // ---------------------------
-    //  FALLBACK IF AI NOT AVAILABLE
-    // ---------------------------
-    if (!aiData) {
-      console.log("🛟 Using fallback logic instead of AI");
-
-      const flags: string[] = [];
-
-      if (!photos?.count || photos.count < 4) {
-        flags.push("Low photo count — seller may be hiding key angles.");
-      }
-
-      if (photos?.count > 12) {
-        flags.push(
-          "Unusually large number of photos — check for duplicates or reused images."
-        );
-      }
-
-      aiData = {
-        summary:
-          "This listing has been analysed for transparency, risk patterns and potential follow-up questions.",
-        signals: flags.map((t) => ({ text: t })),
-        sections: [
-          {
-            title: "Photo transparency",
-            content: `This listing contains ${
-              photos?.count ?? 0
-            } photos. Photo coverage, variety and angles are key when assessing transparency.`,
-          },
-        ],
-      };
+      aiSummary = aiJson?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      aiSignals = aiSummary
+        .split("\n")
+        .filter((l: string) => l.trim().length > 2)
+        .map((text: string) => ({ text }));
     }
 
     return res.status(200).json({
       ok: true,
       analysisSource: API_KEY ? "google-ai" : "fallback",
       sellerType,
-      ...aiData,
+
+      signals: aiSignals,
+
+      sections: [
+        {
+          title: "Photo transparency",
+          content: `This listing contains ${
+            photos?.count ?? 0
+          } photos. More photos generally improve confidence.`,
+        },
+        ...(aiSummary
+          ? [
+              {
+                title: "AI buyer insights",
+                content: aiSummary,
+              },
+            ]
+          : []),
+      ],
     });
   } catch (err: any) {
-    console.error("❌ API failure:", err);
+    console.error("❌ API error:", err?.message || err);
 
     return res.status(500).json({
       ok: false,
       error: "ANALYSIS_FAILED",
-      message: err?.message ?? "Unknown error",
+      detail: err?.message || "Unknown error",
     });
   }
 }
