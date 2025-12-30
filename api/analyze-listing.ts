@@ -1,3 +1,4 @@
+/* api/analyze-listing.ts */
 export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
@@ -51,10 +52,10 @@ export default async function handler(
     // ✅ Only run AI if API key exists
     if (GOOGLE_API_KEY) {
       try {
-        console.log("🤖 Calling Google AI (gemini-flash-latest)…");
+        console.log("🤖 Calling Google AI (gemini-2.5-flash)…");
 
         const aiRes = await fetch(
-          "https://generativelanguage.googleapis.com/v1/models/gemini-flash-latest:generateContent?key=" +
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
             GOOGLE_API_KEY,
           {
             method: "POST",
@@ -67,16 +68,16 @@ export default async function handler(
                       text: `
 You are helping an everyday car buyer evaluate a used car listing.
 
-Return clear, practical output:
-- key risk signals
-- honesty / transparency indicators
-- possible fraud or red-flag concerns
-- suggested follow-up questions for the seller
+Analyze this listing and return:
+- buyer risk signals
+- honesty / transparency insights
+- potential fraud or odometer concerns
+- suggested follow-up questions
 
-Vehicle info:
+Vehicle:
 ${JSON.stringify(vehicle, null, 2)}
 
-Buyer condition notes:
+User notes:
 ${conditionSummary || "None"}
 
 Internal notes:
@@ -92,30 +93,31 @@ Photos supplied: ${photos?.count ?? 0}
           }
         );
 
-        const json = await aiRes.json();
+        const aiJson = await aiRes.json();
 
         if (!aiRes.ok) {
-          console.error("❌ Google AI error:", json);
+          console.error("❌ Google AI error response:", aiJson);
         } else {
           aiSummary =
-            json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+            aiJson?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
 
           if (aiSummary) {
             analysisSource = "google-ai";
             aiSignals = aiSummary
               .split("\n")
-              .map((l) => l.trim())
-              .filter((l) => l.length > 2)
-              .map((text) => ({ text }));
+              .map((l: string) => l.trim())
+              .filter((l: string) => l.length > 2 && !l.startsWith("#"))
+              .map((text: string) => ({ text }));
           }
         }
-      } catch (err: any) {
-        console.error("❌ AI call failed:", err?.message || err);
+      } catch (aiErr: any) {
+        console.error("❌ Google AI call failed:", aiErr?.message || aiErr);
       }
     } else {
-      console.warn("⚠️ GOOGLE_API_KEY missing — fallback mode.");
+      console.warn("⚠️ GOOGLE_API_KEY is not set — using fallback analysis.");
     }
 
+    // ✅ Always return a successful response, even if AI failed
     return res.status(200).json({
       ok: true,
       analysisSource,
