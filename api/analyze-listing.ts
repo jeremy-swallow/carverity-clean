@@ -1,184 +1,136 @@
-/* api/analyze-listing.ts */
-export const config = { runtime: "nodejs" };
-
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import * as cheerio from "cheerio";
 
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-
-/* ------------------------
-   Common helper rules
--------------------------*/
+function normalise(t: string) {
+  return t.replace(/\s+/g, " ").trim();
+}
 
 const STOP_WORDS = [
-  "used", "buy", "for", "sale", "car", "cars", "vehicle", "price",
-  "new", "demo", "review", "details", "listing", "preowned"
+  "used",
+  "new",
+  "demo",
+  "automatic",
+  "auto",
+  "manual",
+  "for sale",
+  "car",
+  "cars",
 ];
 
 const VARIANT_WORDS = [
-  "gt", "gt-line", "sport", "premium", "limited", "amg", "rs",
-  "st", "trend", "xls", "xlt", "highlander", "evolve", "sle"
+  "gx",
+  "gxl",
+  "touring",
+  "ascent",
+  "sport",
+  "premium",
+  "hybrid",
+  "gt",
+  "gts",
+  "sr",
+  "zr",
+  "base",
+  "xl",
+  "xli",
+  "trend",
+  "ambiente",
+  "platinum",
+  "ultimate",
+  "r-line",
+  "pro",
+  "ti",
+  "st",
+  "s-line",
 ];
 
-const MAKES = [
-  "Mazda","Toyota","Hyundai","Kia","Mitsubishi","Honda","Subaru",
-  "Nissan","Volkswagen","BMW","Mercedes","Audi","Ford","Jeep",
-  "Land Rover","Peugeot","Skoda","Renault","Volvo","Mini"
-];
-
-function clean(t: string) {
-  return t.replace(/[^a-z0-9\-]/gi, "").toLowerCase();
+function stripStopWords(text: string) {
+  let out = text.toLowerCase();
+  for (const w of STOP_WORDS) {
+    out = out.replace(new RegExp(`\\b${w}\\b`, "gi"), "");
+  }
+  return normalise(out);
 }
 
-/* ------------------------
-   Marketplace-aware logic
--------------------------*/
-
-function extractFromUrl(url: string) {
-  const parts = url
-    .split("/")
-    .flatMap(p => p.split("-"))
-    .map(clean)
-    .filter(Boolean)
-    .filter(t => !STOP_WORDS.includes(t));
-
-  return parts;
+function detectYear(text: string) {
+  const m = text.match(/\b(19|20)\d{2}\b/);
+  return m ? m[0] : "";
 }
 
-function extractFromTitle(html: string) {
-  return (
-    html.match(/<title[^>]*>(.*?)<\/title>/i)?.[1] ??
-    html.match(/<h1[^>]*>(.*?)<\/h1>/i)?.[1] ??
-    ""
-  );
+/**
+ * NEW smarter model / variant logic
+ */
+function detectModelAndVariant(tokens: string[]) {
+  let model = "";
+  let variant = "";
+
+  // Example: "CX-30 Touring" → model="CX-30" / variant="Touring"
+  for (const t of tokens) {
+    // Mazda CX-30 / CX-5 / CX-9 style
+    if (/^cx[-\s]?\d+/i.test(t)) {
+      model = t.toUpperCase();
+      continue;
+    }
+
+    // Toyota / Hyundai style short codes (G20, GXL, SR, etc)
+    if (/^[a-z]{1,2}\d{1,2}$/i.test(t) && !model) {
+      model = t.toUpperCase();
+      continue;
+    }
+
+    // Detect variant keywords
+    if (VARIANT_WORDS.includes(t.toLowerCase())) {
+      variant = variant ? `${variant} ${t}` : t;
+    }
+  }
+
+  return {
+    model: model || "",
+    variant: variant || "",
+  };
 }
 
-function findMake(text: string): string {
-  return MAKES.find(m => text.toLowerCase().includes(m.toLowerCase())) ?? "";
+function extractFromTitle(title: string) {
+  const cleaned = stripStopWords(title);
+  const parts = cleaned.split(/\s+/);
+
+  const year = detectYear(cleaned);
+  const { model, variant } = detectModelAndVariant(parts);
+
+  // First word is almost always make
+  const make = parts[0] || "";
+
+  return {
+    make,
+    model,
+    variant,
+    year,
+  };
 }
-
-function findYear(text: string): string {
-  const y = text.match(/\b(19|20)\d{2}\b/);
-  return y ? y[0] : "";
-}
-
-function detectModel(tokens: string[], make: string) {
-  // handle CX-30 / MX-5 / X-TRAIL style tokens
-  const dashModel = tokens.find(t => /^[a-z]{1,3}\d{1,3}$/i.test(t));
-  if (dashModel) return dashModel.toUpperCase();
-
-  // next token after make
-  const i = tokens.indexOf(make.toLowerCase());
-  if (i >= 0 && tokens[i+1]) return tokens[i+1].toUpperCase();
-
-  // fallback first valid token
-  return tokens[0]?.toUpperCase() ?? "";
-}
-
-function detectVariant(tokens: string[]) {
-  const v = tokens.filter(t => VARIANT_WORDS.includes(t));
-  return v.join(" ");
-}
-
-/* ------------------------
-   Main extraction logic
--------------------------*/
-
-function extractStructured(html: string, url: string) {
-  const title = extractFromTitle(html);
-
-  const urlTokens = extractFromUrl(url);
-  const titleTokens = title
-    .split(/\s+/)
-    .map(clean)
-    .filter(Boolean)
-    .filter(t => !STOP_WORDS.includes(t));
-
-  const make = findMake(title) || findMake(url) || "";
-  const year = findYear(title);
-
-  const allTokens = [...urlTokens, ...titleTokens];
-
-  const model = detectModel(allTokens, make) || "";
-  const variant = detectVariant(allTokens) || "";
-
-  return { make, model, year, variant };
-}
-
-/* ------------------------
-   AI fallback (only if needed)
--------------------------*/
-
-async function aiExtract(text: string) {
-  if (!GOOGLE_API_KEY) return {};
-
-  const endpoint =
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
-    GOOGLE_API_KEY;
-
-  const prompt = `
-Extract vehicle details. Return ONLY JSON:
-
-{ "make": "", "model": "", "year": "", "variant": "" }
-
-Text:
-${text}
-`;
-
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-    }),
-  });
-
-  const json = await res.json();
-  const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
-  try { return JSON.parse(raw); } catch { return {}; }
-}
-
-/* ------------------------
-   API Handler
--------------------------*/
 
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "Method not allowed" });
+  const { url } = req.body || {};
 
-  const { listingUrl } = req.body ?? {};
-  if (!listingUrl)
-    return res.status(400).json({ error: "Missing listingUrl" });
-
-  try {
-    const response = await fetch(listingUrl, {
-      headers: { "user-agent": "CarVerityBot/1.1" },
-    });
-
-    const html = await response.text();
-
-    const basic = extractStructured(html, listingUrl);
-
-    // Only use AI if fields are missing
-    let ai = {};
-    if (!basic.make || !basic.model || !basic.year) {
-      ai = await aiExtract(html.slice(0, 5000));
-    }
-
-    return res.status(200).json({
-      ok: true,
-      extracted: {
-        make: (ai as any).make || basic.make || "",
-        model: (ai as any).model || basic.model || "",
-        year: (ai as any).year || basic.year || "",
-        variant: (ai as any).variant || basic.variant || "",
-      },
-    });
-  } catch (err: any) {
-    console.error("❌ analyze error", err?.message);
-    return res.status(500).json({ ok: false, error: "ANALYSIS_FAILED" });
+  if (!url) {
+    return res.status(400).json({ error: "Missing URL" });
   }
+
+  const html = await fetch(url).then((r) => r.text());
+  const $ = cheerio.load(html);
+
+  const title =
+    $("h1").text() ||
+    $("title").text() ||
+    $(".heading").text() ||
+    "";
+
+  const extracted = extractFromTitle(title);
+
+  return res.json({
+    ok: true,
+    title,
+    extracted,
+  });
 }
