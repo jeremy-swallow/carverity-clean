@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useScanProgress } from "../utils/scanProgress";
+import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 export default function OnlineVehicleDetails() {
   const navigate = useNavigate();
-  const { progress, update } = useScanProgress();
 
   const [vehicle, setVehicle] = useState({
     make: "",
@@ -14,8 +13,9 @@ export default function OnlineVehicleDetails() {
     importStatus: "Sold new in Australia (default)",
   });
 
-  // 🔹 Apply extracted values when page loads
+  // Load saved progress on mount
   useEffect(() => {
+    const progress = loadProgress();
     const extracted = progress?.vehicle;
 
     if (!extracted) return;
@@ -27,72 +27,78 @@ export default function OnlineVehicleDetails() {
       year: extracted.year || v.year,
       variant: extracted.variant || v.variant,
     }));
-  }, [progress]);
+  }, []);
 
-  function updateField(key: string, value: string) {
-    setVehicle(v => ({ ...v, [key]: value }));
-    update("vehicle", { ...vehicle, [key]: value });
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const { name, value } = e.target;
+
+    setVehicle(v => {
+      const next = { ...v, [name]: value };
+
+      // Persist to storage
+      saveProgress({
+        vehicle: {
+          ...next,
+        },
+      });
+
+      return next;
+    });
   }
 
-  function next() {
-    update("vehicle", vehicle);
+  function handleContinue() {
+    saveProgress({
+      step: "photos",
+      vehicle,
+    });
+
     navigate("/online/photos");
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10">
-      <h1 className="text-2xl font-semibold mb-2">
-        Tell us a bit about the car
-      </h1>
-
-      <p className="text-sm text-emerald-400 mb-6">
+    <div className="max-w-3xl mx-auto px-4 py-12">
+      <h1 className="text-2xl font-semibold mb-2">Tell us a bit about the car</h1>
+      <p className="text-muted-foreground mb-8">
         ✨ Estimated from the listing — please review before continuing
       </p>
 
-      {/* MAKE */}
-      <label className="block text-sm mb-1">Make *</label>
-      <input
-        className="input"
-        value={vehicle.make}
-        onChange={e => updateField("make", e.target.value)}
-        placeholder="e.g. Toyota, Mazda"
-      />
+      <div className="space-y-6">
+        <input
+          name="make"
+          value={vehicle.make}
+          onChange={handleChange}
+          placeholder="Make"
+          className="input"
+        />
 
-      {/* MODEL */}
-      <label className="block text-sm mt-4 mb-1">Model *</label>
-      <input
-        className="input"
-        value={vehicle.model}
-        onChange={e => updateField("model", e.target.value)}
-        placeholder="e.g. CX-30, CX-5"
-      />
+        <input
+          name="model"
+          value={vehicle.model}
+          onChange={handleChange}
+          placeholder="Model"
+          className="input"
+        />
 
-      {/* YEAR */}
-      <label className="block text-sm mt-4 mb-1">Year *</label>
-      <input
-        className="input"
-        value={vehicle.year}
-        onChange={e => updateField("year", e.target.value)}
-        placeholder="e.g. 2021"
-      />
+        <input
+          name="year"
+          value={vehicle.year}
+          onChange={handleChange}
+          placeholder="Year"
+          className="input"
+        />
 
-      {/* VARIANT */}
-      <label className="block text-sm mt-4 mb-1">
-        Variant (optional)
-      </label>
-      <input
-        className="input"
-        value={vehicle.variant}
-        onChange={e => updateField("variant", e.target.value)}
-        placeholder="e.g. G20 Touring, Hybrid"
-      />
+        <input
+          name="variant"
+          value={vehicle.variant}
+          onChange={handleChange}
+          placeholder="Variant (optional)"
+          className="input"
+        />
 
-      <button
-        className="btn-primary mt-6"
-        onClick={next}
-      >
-        Continue
-      </button>
+        <button onClick={handleContinue} className="btn-primary">
+          Continue
+        </button>
+      </div>
     </div>
   );
 }
