@@ -30,6 +30,9 @@ export default function OnlineVehicleDetails() {
     importStatus: "unknown",
   });
 
+  const [estimatedFromListing, setEstimatedFromListing] = useState(false);
+  const [isPrefilling, setIsPrefilling] = useState(false);
+
   const [showMakeList, setShowMakeList] = useState(false);
   const [showModelList, setShowModelList] = useState(false);
 
@@ -63,6 +66,7 @@ export default function OnlineVehicleDetails() {
     const raw = loadProgress();
     const v = (raw as any)?.vehicle ?? {};
 
+    // Load any existing values first
     setVehicle({
       make: v.make ?? "",
       model: v.model ?? "",
@@ -70,12 +74,50 @@ export default function OnlineVehicleDetails() {
       variant: v.variant ?? "",
       importStatus: v.importStatus ?? "unknown",
     });
+
+    const listingUrl = localStorage.getItem("carverity_listing_url");
+
+    // Only prefill if URL exists AND form is empty
+    if (listingUrl && !v.make && !v.model && !v.year) {
+      prefillFromListing(listingUrl);
+    }
   }, []);
+
+  async function prefillFromListing(url: string) {
+    try {
+      setIsPrefilling(true);
+
+      const res = await fetch("/api/extract-vehicle-from-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+
+      const data = await res.json();
+
+      if (!data?.vehicle) return;
+
+      setVehicle((v) => ({
+        ...v,
+        make: data.vehicle.make || v.make,
+        model: data.vehicle.model || v.model,
+        year: data.vehicle.year || v.year,
+        variant: data.vehicle.variant || v.variant,
+      }));
+
+      setEstimatedFromListing(true);
+    } catch (err) {
+      console.warn("⚠️ Prefill failed — continuing manually", err);
+    } finally {
+      setIsPrefilling(false);
+    }
+  }
 
   function update<K extends keyof VehicleFormState>(
     key: K,
     value: VehicleFormState[K]
   ) {
+    setEstimatedFromListing(false);
     setVehicle((v) => ({ ...v, [key]: value }));
   }
 
@@ -94,9 +136,9 @@ export default function OnlineVehicleDetails() {
         variant: vehicle.variant.trim(),
         importStatus: vehicle.importStatus,
       },
+      vehicleEstimated: estimatedFromListing,
     });
 
-    // ✅ Correct next step — go to LISTING DETAILS + PHOTOS
     navigate("/scan/online/details");
   }
 
@@ -106,12 +148,28 @@ export default function OnlineVehicleDetails() {
         <span className="text-xs tracking-wider uppercase text-slate-400">
           Online scan · Step 2 of 5
         </span>
+
         <h1 className="text-2xl font-extrabold text-white">
           Tell us a bit about the car
         </h1>
-        <p className="text-slate-300 text-sm">
-          Start typing — you can pick from suggestions or enter details manually.
-        </p>
+
+        {estimatedFromListing && (
+          <p className="text-emerald-300 text-sm">
+            ✨ Estimated from the listing — please review before continuing
+          </p>
+        )}
+
+        {isPrefilling && (
+          <p className="text-slate-400 text-sm">
+            Fetching details from the listing…
+          </p>
+        )}
+
+        {!estimatedFromListing && !isPrefilling && (
+          <p className="text-slate-300 text-sm">
+            Start typing — you can pick from suggestions or enter details manually.
+          </p>
+        )}
       </div>
 
       {/* MAKE */}
@@ -197,7 +255,7 @@ export default function OnlineVehicleDetails() {
 
         <input
           value={vehicle.year}
-          placeholder="e.g. 2018"
+          placeholder="e.g. 2020"
           onChange={(e) => update("year", e.target.value)}
           className="px-4 py-3 rounded-xl bg-slate-900/80 border border-white/10"
         />
