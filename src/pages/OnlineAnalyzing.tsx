@@ -50,15 +50,10 @@ export default function OnlineAnalyzing() {
       importStatus: progress?.vehicle?.importStatus ?? "unknown",
     };
 
-    const kilometres =
-      localStorage.getItem("carverity_kilometres") ??
-      progress?.kilometres ??
-      null;
+    // ✅ Source kilometres from scan progress (canonical value)
+    const kilometres = progress?.kilometres ?? null;
 
-    const owners =
-      localStorage.getItem("carverity_owners") ??
-      progress?.owners ??
-      null;
+    const owners = progress?.owners ?? null;
 
     const conditionSummary = progress?.conditionSummary ?? "";
     const notes = progress?.notes ?? "";
