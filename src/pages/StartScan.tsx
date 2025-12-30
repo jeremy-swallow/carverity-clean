@@ -25,8 +25,8 @@ export default function StartScan() {
     const trimmed = link.trim();
     localStorage.setItem("carverity_listing_url", trimmed);
 
-    // 👉 Use the route that definitely exists
-    navigate("/scan/online/vehicle-details");
+    // ✅ New flow: run AI → then prefill vehicle details
+    navigate("/scan/online/analyzing-listing");
   }
 
   return (
@@ -35,9 +35,6 @@ export default function StartScan() {
         maxWidth: 720,
         margin: "0 auto",
         padding: "clamp(24px, 6vw, 64px)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 24,
       }}
     >
       <span
@@ -61,6 +58,7 @@ export default function StartScan() {
         value={link}
         onChange={(e) => setLink(e.target.value)}
         style={{
+          marginTop: 12,
           padding: 16,
           borderRadius: 12,
           fontSize: 16,
@@ -74,6 +72,7 @@ export default function StartScan() {
         disabled={!canContinue}
         onClick={handleContinue}
         style={{
+          marginTop: 18,
           padding: "14px 22px",
           borderRadius: 12,
           fontSize: 16,
