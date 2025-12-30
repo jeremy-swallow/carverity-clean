@@ -5,34 +5,84 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
-function extractBasicDetails(html: string) {
-  const lower = html.toLowerCase();
+const STOP_WORDS = [
+  "used",
+  "buy",
+  "for",
+  "sale",
+  "car",
+  "cars",
+  "vehicle",
+  "price",
+  "new",
+  "demo",
+];
 
-  const titleMatch =
+function cleanToken(token: string) {
+  return token
+    .replace(/[^a-z0-9\-]/gi, "")
+    .trim()
+    .toLowerCase();
+}
+
+function extractBasicDetails(html: string, url: string) {
+  const title =
     html.match(/<title[^>]*>(.*?)<\/title>/i)?.[1] ??
     html.match(/<h1[^>]*>(.*?)<\/h1>/i)?.[1] ??
     "";
 
-  const text = titleMatch.replace(/[\n\r]/g, " ").trim();
-
-  const yearMatch = text.match(/\b(19|20)\d{2}\b/);
+  const yearMatch = title.match(/\b(19|20)\d{2}\b/);
   const year = yearMatch ? yearMatch[0] : "";
 
   const makes = [
-    "Toyota","Mazda","Hyundai","Kia","Mitsubishi","Honda","Subaru",
-    "Ford","Volkswagen","Mercedes","BMW","Audi","Nissan","Suzuki"
+    "Mazda",
+    "Toyota",
+    "Hyundai",
+    "Kia",
+    "Mitsubishi",
+    "Honda",
+    "Subaru",
+    "Nissan",
+    "Volkswagen",
+    "BMW",
+    "Mercedes",
+    "Audi",
+    "Ford",
   ];
 
   const make =
-    makes.find((m) => text.toLowerCase().includes(m.toLowerCase())) ?? "";
+    makes.find((m) =>
+      title.toLowerCase().includes(m.toLowerCase())
+    ) ?? "";
 
-  const modelMatch = text
-    .replace(year, "")
-    .replace(make, "")
-    .trim()
-    .split(" ")[0] ?? "";
+  // --- URL-ASSISTED MODEL EXTRACTION ---
+  let model = "";
 
-  return { year, make, model: modelMatch };
+  const urlParts = url
+    .split("/")
+    .flatMap((p) => p.split("-"))
+    .map(cleanToken)
+    .filter(Boolean)
+    .filter((t) => !STOP_WORDS.includes(t));
+
+  // Special handling for CX-30 / MX-5 / X-TRAIL style models
+  const dashModel = urlParts.find((t) => /^[a-z]{1,3}\d{1,3}$/i.test(t));
+  if (dashModel) model = dashModel.toUpperCase();
+
+  if (!model) {
+    const titleTokens = title
+      .split(" ")
+      .map(cleanToken)
+      .filter(Boolean)
+      .filter((t) => !STOP_WORDS.includes(t));
+
+    const afterMakeIndex = titleTokens.indexOf(make.toLowerCase()) + 1;
+    if (afterMakeIndex > 0 && afterMakeIndex < titleTokens.length) {
+      model = titleTokens[afterMakeIndex].toUpperCase();
+    }
+  }
+
+  return { make, model, year };
 }
 
 async function aiExtract(text: string) {
@@ -43,8 +93,7 @@ async function aiExtract(text: string) {
     GOOGLE_API_KEY;
 
   const prompt = `
-Extract car details from this listing text.
-Return ONLY JSON in this format:
+Extract car details. Return ONLY JSON:
 
 { "make": "", "model": "", "year": "", "variant": "" }
 
@@ -61,10 +110,10 @@ ${text}
   });
 
   const json = await res.json();
-  const out = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
   try {
-    return JSON.parse(out);
+    return JSON.parse(raw);
   } catch {
     return {};
   }
@@ -90,7 +139,7 @@ export default async function handler(
 
     const html = await response.text();
 
-    const basic = extractBasicDetails(html);
+    const basic = extractBasicDetails(html, listingUrl);
 
     let ai = {};
     if (!basic.make || !basic.model || !basic.year) {
@@ -100,10 +149,10 @@ export default async function handler(
     return res.status(200).json({
       ok: true,
       extracted: {
-        make: (ai as any).make ?? basic.make ?? "",
-        model: (ai as any).model ?? basic.model ?? "",
-        year: (ai as any).year ?? basic.year ?? "",
-        variant: (ai as any).variant ?? "",
+        make: (ai as any).make || basic.make || "",
+        model: (ai as any).model || basic.model || "",
+        year: (ai as any).year || basic.year || "",
+        variant: (ai as any).variant || "",
       },
     });
   } catch (err: any) {
