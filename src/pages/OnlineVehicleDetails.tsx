@@ -13,19 +13,15 @@ export default function OnlineVehicleDetails() {
     importStatus: "Sold new in Australia (default)",
   });
 
-  // Load extracted details on page load
+  // Load saved scan data + extracted values on mount
   useEffect(() => {
     const progress = loadProgress();
-    const extracted = progress?.vehicle;
 
-    if (!extracted) return;
+    const extracted = progress?.vehicle ?? {};
 
     setVehicle(v => ({
       ...v,
-      make: extracted.make || v.make,
-      model: extracted.model || v.model,
-      year: extracted.year || v.year,
-      variant: extracted.variant || v.variant,
+      ...extracted,   // <-- ensures extracted values populate the form
     }));
   }, []);
 
@@ -36,7 +32,7 @@ export default function OnlineVehicleDetails() {
       const next = { ...v, [name]: value };
 
       saveProgress({
-        vehicle: { ...next }
+        vehicle: next
       });
 
       return next;
@@ -46,7 +42,7 @@ export default function OnlineVehicleDetails() {
   function handleContinue() {
     saveProgress({
       step: "photos",
-      vehicle
+      vehicle,
     });
 
     navigate("/online/photos");
