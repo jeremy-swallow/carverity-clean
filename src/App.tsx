@@ -20,8 +20,9 @@ import OnlineDetails from "./pages/OnlineDetails";
 import OnlineKilometres from "./pages/OnlineKilometres";
 import OnlineOwners from "./pages/OnlineOwners";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
+import OnlineAnalyzingListing from "./pages/OnlineAnalyzingListing";
 import OnlineResults from "./pages/OnlineResults";
-import OnlineVehicleDetails from "./pages/OnlineVehicleDetails"; // (future step)
+import OnlineVehicleDetails from "./pages/OnlineVehicleDetails";
 
 /* ---------- IN-PERSON FLOW ---------- */
 import InPersonStart from "./pages/InPersonStart";
@@ -47,11 +48,12 @@ export default function App() {
         {/* ---------- PUBLIC ENTRY ---------- */}
         <Route path="/start-scan" element={<StartScan />} />
 
-        {/* ---------- ONLINE SCAN (friendly URLs) ---------- */}
+        {/* ---------- ONLINE FLOW ---------- */}
         <Route path="/online/details" element={<OnlineDetails />} />
         <Route path="/online/kilometres" element={<OnlineKilometres />} />
         <Route path="/online/owners" element={<OnlineOwners />} />
         <Route path="/online/analyzing" element={<OnlineAnalyzing />} />
+        <Route path="/online/analyzing-listing" element={<OnlineAnalyzingListing />} />
         <Route path="/online/results" element={<OnlineResults />} />
         <Route path="/online/vehicle-details" element={<OnlineVehicleDetails />} />
 
@@ -60,6 +62,7 @@ export default function App() {
         <Route path="/scan/online/kilometres" element={<OnlineKilometres />} />
         <Route path="/scan/online/owners" element={<OnlineOwners />} />
         <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
+        <Route path="/scan/online/analyzing-listing" element={<OnlineAnalyzingListing />} />
         <Route path="/scan/online/results" element={<OnlineResults />} />
         <Route path="/scan/online/vehicle-details" element={<OnlineVehicleDetails />} />
 
