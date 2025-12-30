@@ -14,6 +14,7 @@ const JPEG_QUALITY = 0.8;
 export default function OnlineDetails() {
   const navigate = useNavigate();
 
+  const [kilometres, setKilometres] = useState("");
   const [condition, setCondition] = useState("");
   const [notes, setNotes] = useState("");
   const [photos, setPhotos] = useState<ListingPhoto[]>([]);
@@ -29,6 +30,7 @@ export default function OnlineDetails() {
 
     const progress = loadProgress();
 
+    if (progress?.kilometres) setKilometres(progress.kilometres);
     if (progress?.conditionSummary) setCondition(progress.conditionSummary);
     if (progress?.notes) setNotes(progress.notes);
 
@@ -124,6 +126,7 @@ export default function OnlineDetails() {
       type: "online",
       step: "/scan/online/details",
       startedAt: new Date().toISOString(),
+      kilometres: kilometres.trim(),
       conditionSummary: condition.trim(),
       notes: notes.trim(),
       photos: {
@@ -158,14 +161,36 @@ export default function OnlineDetails() {
         </span>
 
         <h1 style={{ fontSize: 24, fontWeight: 800 }}>
-          Tell us about the car’s condition
+          Tell us about the car
         </h1>
 
         <p style={{ color: "#cbd5f5", fontSize: 15 }}>
-          Add condition details and (optionally) upload photos from the listing.
-          Photos are automatically compressed. You can continue even if you
-          don’t add any photos.
+          Add key details about the vehicle, plus optional condition notes and
+          listing photos. You can continue without filling everything in.
         </p>
+      </div>
+
+      {/* Kilometres */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <label style={{ color: "#cbd5f5", fontWeight: 500 }}>
+          Kilometres (odometer)
+        </label>
+
+        <input
+          type="text"
+          inputMode="numeric"
+          placeholder="e.g. 145000"
+          value={kilometres}
+          onChange={(e) => setKilometres(e.target.value)}
+          style={{
+            padding: 16,
+            borderRadius: 12,
+            fontSize: 15,
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "rgba(7,10,25,0.9)",
+            color: "#e5ebff",
+          }}
+        />
       </div>
 
       {/* Condition */}
