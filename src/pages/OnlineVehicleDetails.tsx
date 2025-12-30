@@ -13,29 +13,36 @@ export default function OnlineVehicleDetails() {
     importStatus: "Sold new in Australia (default)",
   });
 
-  // Load saved scan data + extracted values on mount
+  // 🔎 Load + hydrate from saved progress
   useEffect(() => {
     const progress = loadProgress();
+    console.log("🔎 Loaded scan progress:", progress);
 
     const extracted = progress?.vehicle ?? {};
 
-    setVehicle(v => ({
-      ...v,
-      ...extracted,   // <-- ensures extracted values populate the form
-    }));
+    const next = {
+      ...vehicle,
+      ...extracted,
+    };
+
+    console.log("✨ Hydrated vehicle:", next);
+
+    setVehicle(next);
   }, []);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleChange(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
     const { name, value } = e.target;
 
-    setVehicle(v => {
-      const next = { ...v, [name]: value };
+    setVehicle(prev => {
+      const updated = { ...prev, [name]: value };
 
       saveProgress({
-        vehicle: next
+        vehicle: updated
       });
 
-      return next;
+      return updated;
     });
   }
 
