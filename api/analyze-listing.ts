@@ -3,94 +3,87 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import * as cheerio from "cheerio";
 
-/** Normalise whitespace */
 function normalise(t: string) {
   return t.replace(/\s+/g, " ").trim();
 }
 
-/** Try to parse vehicle info from a title string */
-function parseTitle(title: string) {
+function parseTitleFallback(title: string) {
   title = normalise(title).toLowerCase();
 
   const yearMatch = title.match(/\b(20[0-9]{2}|19[0-9]{2})\b/);
-  const year = yearMatch ? yearMatch[0] : "";
+  const year = yearMatch?.[0] ?? "";
 
   const cleaned = year ? title.replace(year, "").trim() : title;
   const parts = cleaned.split(" ");
 
-  const make = parts[0] || "";
-
-  const VARIANT_TRIGGERS = [
-    "g20",
-    "g25",
-    "touring",
-    "maxx",
-    "ascent",
-    "sport",
-    "gt",
-    "sp",
-    "x",
-    "hybrid",
-    "awd",
-    "fwd",
-    "turbo",
-  ];
-
-  const modelTokens: string[] = [];
-  const variantTokens: string[] = [];
-
-  for (const p of parts.slice(1)) {
-    if (VARIANT_TRIGGERS.includes(p)) variantTokens.push(p);
-    else modelTokens.push(p);
-  }
-
   return {
-    make,
-    model: modelTokens.join(" "),
-    variant: variantTokens.join(" "),
+    make: parts[0] ?? "",
+    model: parts.slice(1, 2).join(" "),
+    variant: parts.slice(2).join(" "),
     year,
   };
 }
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const url = (req.body as any)?.url || (req.query as any)?.url;
-    if (!url) return res.status(400).json({ error: "Missing URL" });
+    const url = (req.body as any)?.url || req.query?.url;
+    if (!url) return res.status(400).json({ ok: false, error: "Missing URL" });
 
-    const response = await fetch(url);
+    const response = await fetch(String(url));
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    /** ---------- MULTI-SOURCE TITLE EXTRACTION ---------- */
-
-    let title: string =
-      $("h1").first().text() ||
-      // JSON-LD title fallback (Carsales / CarsGuide / Cars24)
-      $("script[type='application/ld+json']")
-        .map((_, el) => String($(el).text() || ""))
+    /* ---------- 🎯 CARSALeS — STRUCTURED PAYLOAD ---------- */
+    if (url.includes("carsales.com.au")) {
+      const script = $("script")
         .toArray()
-        .map(String)
-        .find((s) =>
-          s.toLowerCase().includes("vehicle") ||
-          s.toLowerCase().includes("car")
-        ) ||
-      // OpenGraph title
-      (String($("meta[property='og:title']").attr("content") || "")) ||
-      // Fallback page title
+        .map(s => $(s).html() || "")
+        .find(s => s.includes("__INITIAL_STATE__"));
+
+      if (script) {
+        try {
+          const jsonText = script
+            .replace(/^window\.__INITIAL_STATE__\s*=\s*/, "")
+            .replace(/;$/, "");
+
+          const data = JSON.parse(jsonText);
+
+          const vehicle =
+            data?.listingDetails?.data?.listing ??
+            data?.search?.vehicle ??
+            null;
+
+          if (vehicle) {
+            return res.json({
+              ok: true,
+              source: "carsales:structured",
+              extracted: {
+                make: vehicle?.make || "",
+                model: vehicle?.model || "",
+                variant: vehicle?.badge || "",
+                year: String(vehicle?.year || ""),
+              },
+            });
+          }
+        } catch {
+          // fall back below
+        }
+      }
+    }
+
+    /* ---------- 🌍 GENERIC TITLE FALLBACK ---------- */
+    let title =
+      $("h1").first().text() ||
+      $("meta[property='og:title']").attr("content") ||
       $("title").text() ||
       "";
 
     title = normalise(title);
 
-    const extracted = parseTitle(title);
-
     return res.json({
       ok: true,
-      title,
-      extracted,
+      source: "fallback:title",
+      extracted: parseTitleFallback(title),
     });
   } catch (err: any) {
     return res.status(500).json({
