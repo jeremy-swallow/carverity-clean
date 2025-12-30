@@ -2,22 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { saveProgress, loadProgress } from "../utils/scanProgress";
+import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 const STEPS = [
   "Reading listing content…",
-  "Detecting make & model…",
-  "Checking specification clues…",
-  "Reviewing photo coverage…",
-  "Extracting key vehicle details…",
-  "Preparing pre-fill suggestions…",
+  "Checking vehicle details…",
+  "Extracting key information…",
+  "Preparing suggestions…",
 ];
 
 export default function OnlineAnalyzingListing() {
   const navigate = useNavigate();
-
   const [stepIndex, setStepIndex] = useState(0);
-  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     const url = localStorage.getItem("carverity_listing_url");
@@ -26,119 +22,91 @@ export default function OnlineAnalyzingListing() {
       return;
     }
 
-    saveProgress({
-      type: "online",
-      step: "/online/analyzing-listing",
-      startedAt: new Date().toISOString(),
-    });
-
-    // --- Simulated smooth progress ---
-    const progressTimer = setInterval(() => {
-      setProgress((p) => Math.min(100, p + Math.random() * 12));
-    }, 260);
-
-    // --- Cycle visible step messages ---
-    const stepTimer = setInterval(() => {
-      setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
-    }, 900);
-
-    // --- After ~4.5s → continue to vehicle details ---
-    const continueTimer = setTimeout(() => {
-      const state = loadProgress() ?? {};
-      saveProgress({
-        ...state,
-        listingPrefillReady: true,
+    async function runAnalysis() {
+      const res = await fetch("/api/analyze-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listingUrl: url }),
       });
 
-      navigate("/online/vehicle-details", { replace: true });
-    }, 4500);
+      const json = await res.json();
 
-    return () => {
-      clearInterval(progressTimer);
-      clearInterval(stepTimer);
-      clearTimeout(continueTimer);
-    };
+      if (json?.ok) {
+        const existing = loadProgress() ?? {};
+        saveProgress({
+          ...existing,
+          vehicle: {
+            ...(existing as any).vehicle,
+            make: json.extracted.make || "",
+            model: json.extracted.model || "",
+            year: json.extracted.year || "",
+            variant: json.extracted.variant || "",
+            importStatus:
+              (existing as any).vehicle?.importStatus ?? "unknown",
+          },
+        });
+      }
+
+      navigate("/online/vehicle-details", { replace: true });
+    }
+
+    const interval = setInterval(() => {
+      setStepIndex((i) =>
+        i + 1 < STEPS.length ? i + 1 : STEPS.length - 1
+      );
+    }, 800);
+
+    runAnalysis();
+    return () => clearInterval(interval);
   }, [navigate]);
 
   return (
     <div
       style={{
-        maxWidth: 780,
+        maxWidth: 720,
         margin: "0 auto",
-        padding: "clamp(28px, 6vw, 64px)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 28,
+        padding: "clamp(28px, 6vw, 72px)",
       }}
     >
       <span
         style={{
           fontSize: 13,
-          letterSpacing: 0.8,
           textTransform: "uppercase",
           color: "#9aa3c7",
+          letterSpacing: 0.8,
         }}
       >
-        Online scan · Listing analysis in progress
+        Online scan · Analyzing listing
       </span>
 
-      <h1 style={{ fontSize: 24, fontWeight: 800 }}>
-        We’re analysing the listing for you
+      <h1 style={{ fontSize: 24, fontWeight: 800, marginTop: 8 }}>
+        Fetching details from the listing…
       </h1>
 
-      <p style={{ fontSize: 15, color: "#cbd5f5", maxWidth: 560 }}>
-        Sit tight — we’re extracting useful details to help pre-fill the next
-        step. You can review and edit anything before continuing.
-      </p>
-
-      {/* PROGRESS BAR */}
-      <div
-        style={{
-          marginTop: 10,
-          borderRadius: 14,
-          border: "1px solid rgba(148,163,255,0.35)",
-          background: "rgba(15,23,42,0.65)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            height: 14,
-            width: `${progress}%`,
-            background:
-              "linear-gradient(90deg,#8fb3ff,#b7c7ff,#8fb3ff)",
-            transition: "width 0.35s ease",
-          }}
-        />
-      </div>
-
-      {/* CURRENT STEP */}
-      <div
-        style={{
-          marginTop: 6,
-          color: "#e5ebff",
-          fontWeight: 500,
-          fontSize: 15,
-        }}
-      >
-        {STEPS[stepIndex]}
-      </div>
-
-      {/* FUTURE STEPS LIST */}
-      <ul style={{ marginTop: 6, color: "#9aa3c7", fontSize: 13 }}>
+      <div style={{ marginTop: 24, display: "flex", flexDirection: "column" }}>
         {STEPS.map((s, i) => (
-          <li
+          <div
             key={i}
             style={{
-              opacity: i <= stepIndex ? 1 : 0.45,
-              marginTop: 4,
+              padding: 12,
+              borderRadius: 10,
+              marginBottom: 8,
+              border:
+                i === stepIndex
+                  ? "1px solid rgba(148,163,255,0.8)"
+                  : "1px solid rgba(255,255,255,0.1)",
+              background:
+                i <= stepIndex
+                  ? "rgba(148,163,255,0.12)"
+                  : "rgba(15,23,42,0.6)",
+              color: i <= stepIndex ? "#cbd5ff" : "#9aa3c7",
             }}
           >
-            {i < stepIndex ? "✓ " : "• "}
+            {i < stepIndex ? "✔︎ " : i === stepIndex ? "⋯ " : "○ "}
             {s}
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
