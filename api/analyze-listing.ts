@@ -1,8 +1,9 @@
+// api/analyze-listing.ts
 export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const API_KEY = process.env.GOOGLE_API_KEY;
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
 /** Basic fallback classifier so the API still works if AI fails */
 function classifySeller(html: string): string {
@@ -45,71 +46,90 @@ export default async function handler(
     const sellerType = classifySeller(html);
 
     let aiSummary = "";
-    let aiSignals: any[] = [];
+    let aiSignals: { text: string }[] = [];
+    let analysisSource: "google-ai" | "fallback" = "fallback";
 
     // ✅ Only run AI if API key exists
-    if (API_KEY) {
-      console.log("🤖 Calling Google AI (v1)…");
+    if (GOOGLE_API_KEY) {
+      try {
+        console.log("🤖 Calling Google AI…");
 
-      const MODEL = "models/gemini-1.5-flash-latest";
+        const aiRes = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" +
+            GOOGLE_API_KEY,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    {
+                      text: `
+You are helping an everyday car buyer evaluate a used car listing.
 
-      const aiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1/${MODEL}:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `
 Analyze this used car listing and return:
 - Buyer risk signals
 - Honesty / transparency insights
 - Safety & fraud warnings if relevant
+- Suggested follow-up questions to ask the seller
 
 Vehicle:
 ${JSON.stringify(vehicle, null, 2)}
 
-Listing notes:
+Listing notes (from user):
 ${conditionSummary || "None"}
 
+Internal notes:
+${notes || "None"}
+
 Photos supplied: ${photos?.count ?? 0}
-                    `,
-                  },
-                ],
-              },
-            ],
-          }),
+                      `,
+                    },
+                  ],
+                },
+              ],
+            }),
+          }
+        );
+
+        const aiJson = await aiRes.json();
+
+        if (!aiRes.ok) {
+          console.error("❌ Google AI error response:", aiJson);
+        } else {
+          aiSummary =
+            aiJson?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+
+          if (aiSummary) {
+            analysisSource = "google-ai";
+            aiSignals = aiSummary
+              .split("\n")
+              .map((l: string) => l.trim())
+              .filter((l: string) => l.length > 2 && !l.startsWith("#"))
+              .map((text: string) => ({ text }));
+          }
         }
-      );
-
-      const aiJson = await aiRes.json();
-
-      if (aiJson?.error) {
-        throw new Error("Google AI error: " + JSON.stringify(aiJson, null, 2));
+      } catch (aiErr: any) {
+        console.error("❌ Google AI call failed:", aiErr?.message || aiErr);
+        // We just fall back gracefully below.
       }
-
-      aiSummary = aiJson?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
-      aiSignals = aiSummary
-        .split("\n")
-        .filter((l: string) => l.trim().length > 2)
-        .map((text: string) => ({ text }));
+    } else {
+      console.warn("⚠️ GOOGLE_API_KEY is not set — using fallback analysis.");
     }
 
+    // ✅ Always return a successful response, even if AI failed
     return res.status(200).json({
       ok: true,
-      analysisSource: API_KEY ? "google-ai" : "fallback",
+      analysisSource,
       sellerType,
-
       signals: aiSignals,
-
       sections: [
         {
           title: "Photo transparency",
-          content: `This listing contains ${photos?.count ?? 0} photos. More photos generally improve confidence.`,
+          content: `This listing contains ${
+            photos?.count ?? 0
+          } photos. More photos generally improve confidence.`,
         },
         ...(aiSummary
           ? [
@@ -118,7 +138,13 @@ Photos supplied: ${photos?.count ?? 0}
                 content: aiSummary,
               },
             ]
-          : []),
+          : [
+              {
+                title: "AI buyer insights",
+                content:
+                  "AI insights were not available for this scan. You can still use the photo transparency score and other checks to guide your decision.",
+              },
+            ]),
       ],
     });
   } catch (err: any) {
