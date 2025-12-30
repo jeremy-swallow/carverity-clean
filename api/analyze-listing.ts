@@ -49,12 +49,12 @@ export default async function handler(
 
     // ✅ Only run AI if API key exists
     if (API_KEY) {
-      console.log("🤖 Calling Google AI…");
+      console.log("🤖 Calling Google AI (v1)…");
 
-      const MODEL = "gemini-1.5-flash-latest";
+      const MODEL = "models/gemini-1.5-flash-latest";
 
       const aiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1/${MODEL}:generateContent?key=${API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
