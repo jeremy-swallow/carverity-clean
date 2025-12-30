@@ -57,7 +57,6 @@ export default function OnlineResults() {
   const photos = result.photos?.listing ?? [];
   const vehicle = result.vehicle ?? {};
 
-  // --- Filter out noisy JSON/system sections ---
   function isJsonNoise(section: any) {
     const t = (section?.title ?? "").toLowerCase();
     const c = (section?.content ?? "").trim();
@@ -68,18 +67,11 @@ export default function OnlineResults() {
     );
   }
 
-  // --- Extract AI buyer insights content ---
-  const aiInsights = (result.sections ?? []).find((s) =>
-    (s?.title ?? "").toLowerCase().includes("ai buyer insights")
-  )?.content ?? "";
+  const aiInsights =
+    (result.sections ?? []).find((s) =>
+      (s?.title ?? "").toLowerCase().includes("ai buyer insights")
+    )?.content ?? "";
 
-  /**
-   * Assistant-style parser
-   * Converts Gemini output into:
-   * - summary tone
-   * - potential concerns
-   * - recommended actions
-   */
   function parseInsights(text: string) {
     const risks: string[] = [];
     const checks: string[] = [];
@@ -119,12 +111,24 @@ export default function OnlineResults() {
 
   const parsed = parseInsights(aiInsights);
 
-  // Remove AI section from remaining blocks
   const cleanSections = (result.sections ?? []).filter(
     (s) =>
       !isJsonNoise(s) &&
       !(s?.title ?? "").toLowerCase().includes("ai buyer insights")
   );
+
+  // 🟡 NEW — assistant-friendly transparency message logic
+  function photoTransparencyMessage() {
+    const count = photos.length;
+
+    if (count >= 8)
+      return "This listing includes strong photo coverage for review.";
+    if (count >= 5)
+      return "Good photo coverage. A few extra angles can sometimes help when available.";
+    if (count >= 1)
+      return "Limited photo coverage. Ask the seller for more angles if possible.";
+    return "No photos detected in this listing.";
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
@@ -145,7 +149,7 @@ export default function OnlineResults() {
         </a>
       </p>
 
-      {/* Assistant review summary */}
+      {/* Summary */}
       <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/30">
         <h2 className="font-semibold mb-1">CarVerity review summary</h2>
         <p className="text-sm text-muted-foreground">
@@ -155,7 +159,7 @@ export default function OnlineResults() {
         </p>
       </div>
 
-      {/* Potential concerns */}
+      {/* Concerns */}
       <div className="mb-6 p-4 border border-amber-300/30 rounded-lg bg-amber-500/5">
         <h2 className="font-semibold mb-2">Potential concerns</h2>
 
@@ -172,7 +176,7 @@ export default function OnlineResults() {
         )}
       </div>
 
-      {/* Recommended next steps */}
+      {/* Next steps */}
       <div
         className={`mb-8 p-4 border border-blue-300/30 rounded-lg bg-blue-500/5 ${
           locked ? "blur-sm pointer-events-none" : ""
@@ -200,8 +204,9 @@ export default function OnlineResults() {
             <span className="font-medium">Photo transparency score</span>
             <span className="font-semibold">{photoScore.score}/10</span>
           </div>
+
           <p className="text-xs mt-1 text-muted-foreground">
-            {photoScore.summary}
+            {photoTransparencyMessage()}
           </p>
         </div>
       )}
@@ -247,7 +252,7 @@ export default function OnlineResults() {
         </div>
       </div>
 
-      {/* Listing photos */}
+      {/* Photos */}
       {photos.length > 0 && (
         <div className="mb-8">
           <h2 className="font-semibold mb-2">Listing photos</h2>
@@ -270,7 +275,6 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* Lightbox */}
       {lightboxIndex !== null && (
         <PhotoLightbox
           photos={photos}
@@ -285,7 +289,7 @@ export default function OnlineResults() {
         />
       )}
 
-      {/* Remaining analysis sections */}
+      {/* Additional analysis */}
       <div className={locked ? "blur-sm pointer-events-none" : ""}>
         <h2 className="font-semibold mb-2">Additional analysis</h2>
 
@@ -310,7 +314,6 @@ export default function OnlineResults() {
         )}
       </div>
 
-      {/* Unlock CTA */}
       {locked && (
         <div className="mt-6 p-4 border border-white/20 rounded-lg bg-black/30">
           <p className="mb-3 text-sm text-muted-foreground">
