@@ -1,4 +1,3 @@
-// api/analyze-listing.ts
 export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
@@ -22,8 +21,15 @@ export default async function handler(
   }
 
   try {
-    const { listingUrl, vehicle, kilometres, owners, conditionSummary, notes, photos } =
-      req.body ?? {};
+    const {
+      listingUrl,
+      vehicle,
+      kilometres,
+      owners,
+      conditionSummary,
+      notes,
+      photos,
+    } = req.body ?? {};
 
     if (!listingUrl) {
       return res.status(400).json({ error: "Missing listingUrl" });
@@ -42,13 +48,13 @@ export default async function handler(
     let aiSignals: { text: string }[] = [];
     let analysisSource: "google-ai" | "fallback" = "fallback";
 
+    // ✅ Only run AI if API key exists
     if (GOOGLE_API_KEY) {
       try {
-        console.log("🤖 Calling Google AI…");
+        console.log("🤖 Calling Google AI (gemini-flash-latest)…");
 
-        // ✅ Correct endpoint and API version
         const aiRes = await fetch(
-          "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=" +
+          "https://generativelanguage.googleapis.com/v1/models/gemini-flash-latest:generateContent?key=" +
             GOOGLE_API_KEY,
           {
             method: "POST",
@@ -61,18 +67,20 @@ export default async function handler(
                       text: `
 You are helping an everyday car buyer evaluate a used car listing.
 
-Return clear, practical insights:
-
+Return clear, practical output:
 - key risk signals
 - honesty / transparency indicators
-- potential fraud/odometer/red-flag risks
-- follow-up questions the buyer should ask
+- possible fraud or red-flag concerns
+- suggested follow-up questions for the seller
 
 Vehicle info:
 ${JSON.stringify(vehicle, null, 2)}
 
-Buyer notes:
-${conditionSummary || "None provided"}
+Buyer condition notes:
+${conditionSummary || "None"}
+
+Internal notes:
+${notes || "None"}
 
 Photos supplied: ${photos?.count ?? 0}
                       `,
@@ -130,7 +138,8 @@ Photos supplied: ${photos?.count ?? 0}
           : [
               {
                 title: "AI buyer insights",
-                content: "AI insights were not available for this scan.",
+                content:
+                  "AI insights were not available for this scan. You can still use the photo transparency score and other checks to guide your decision.",
               },
             ]),
       ],
