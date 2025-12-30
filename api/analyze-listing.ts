@@ -13,6 +13,52 @@ function classifySeller(html: string): string {
   return "unknown";
 }
 
+/** Safe helper to extract content via regex patterns (lightweight + predictable) */
+function extractFirstMatch(html: string, patterns: RegExp[]): string | null {
+  for (const p of patterns) {
+    const match = html.match(p);
+    if (match?.[1]) return match[1].trim();
+  }
+  return null;
+}
+
+/** Extract best-effort listing fields without extra API calls */
+function scrapeListingDetails(html: string) {
+  const title =
+    extractFirstMatch(html, [
+      /<title[^>]*>(.*?)<\/title>/i,
+      /<h1[^>]*>(.*?)<\/h1>/i,
+    ]) ?? "";
+
+  const kilometres =
+    extractFirstMatch(html, [
+      /([\d,.]+)\s*(km|kilometres|kilometers)/i,
+      /odometer[^0-9]*([\d,.]+)/i,
+    ]) ?? null;
+
+  const price =
+    extractFirstMatch(html, [
+      /\$[\d,]+\b/g,
+      /price[^$]*\s(\$[\d,]+)/i,
+    ]) ?? null;
+
+  // Extract up to 8 image URLs (avoid downloading, only store references)
+  const photoUrls: string[] =
+    Array.from(
+      html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)
+    )
+      .map((m) => m[1])
+      .filter((u) => !u.includes("icon") && !u.includes("logo"))
+      .slice(0, 8);
+
+  return {
+    scrapedTitle: title,
+    scrapedKilometres: kilometres,
+    scrapedPrice: price,
+    scrapedPhotos: photoUrls,
+  };
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -45,11 +91,18 @@ export default async function handler(
     const html = await response.text();
     const sellerType = classifySeller(html);
 
+    // 🟡 NEW — scrape useful facts without extra API calls
+    const scraped = scrapeListingDetails(html);
+
+    // Prefer user-provided values, fall back to scraped values
+    const mergedKilometres = kilometres ?? scraped.scrapedKilometres;
+    const mergedPhotosCount = photos?.count ?? scraped.scrapedPhotos.length;
+
     let aiSummary = "";
     let aiSignals: { text: string }[] = [];
     let analysisSource: "google-ai" | "fallback" = "fallback";
 
-    // --- AI ANALYSIS BLOCK (balanced, structured output) ---
+    // --- AI ANALYSIS BLOCK (compact, low-token, structured guidance) ---
     if (GOOGLE_API_KEY) {
       try {
         const modelUrl =
@@ -63,55 +116,37 @@ export default async function handler(
           vehicle?.importStatus === "grey-import";
 
         const aiPrompt = `
-You are assisting a used-car buyer. Analyse the listing details and provide
-calm, practical, buyer-friendly guidance. Avoid alarmist or legal-tone language.
+You are assisting a used-car buyer. Provide calm, practical guidance only.
+Do not speculate or assume risks where information is missing.
 
-Only highlight risks that are actually supported by the information provided.
-If data is missing, do NOT assume problems — simply suggest sensible checks.
+Return ONLY:
 
-Return your response in the following compact structure:
-
-KEY RISKS (max 3–4 short bullet points, or say "No obvious risks identified")
+KEY RISKS (max 3 short bullets, or say "No obvious risks identified")
 • …
 
-WHAT TO CHECK NEXT (2–3 practical buyer actions)
+WHAT TO CHECK NEXT (2–3 buyer actions)
 • …
 
-TONE RULES:
-- Neutral, factual, supportive
-- No dramatic language
-- No legal warnings
-- Keep sentences short and scannable
-
-IMPORTANT:
-Only mention import-vehicle risks if importStatus is true. If import is unknown
-or not provided, DO NOT warn about import issues.
-
-Vehicle details:
-${JSON.stringify(vehicle, null, 2)}
-
-User notes:
-${conditionSummary || "None provided"}
-
-Other context:
-Kilometres: ${kilometres ?? "unknown"}
+CONTEXT (do not repeat it back):
+Vehicle: ${JSON.stringify(vehicle ?? {}, null, 2)}
+Title text: ${scraped.scrapedTitle || "n/a"}
+Kilometres: ${mergedKilometres ?? "unknown"}
+Price: ${scraped.scrapedPrice ?? "unknown"}
 Previous owners: ${owners ?? "unknown"}
-Photos uploaded: ${photos?.count ?? 0}
-        `;
+User notes: ${conditionSummary || "None"}
+Photos available: ${mergedPhotosCount}
+
+RULES:
+- Neutral and supportive tone
+- No legal or alarmist language
+- ONLY mention import risks if importStatus is true
+`;
 
         const aiRes = await fetch(modelUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: aiPrompt,
-                  },
-                ],
-              },
-            ],
+            contents: [{ parts: [{ text: aiPrompt }] }],
           }),
         });
 
@@ -145,13 +180,14 @@ Photos uploaded: ${photos?.count ?? 0}
       ok: true,
       analysisSource,
       sellerType,
+
+      scraped, // expose lightweight scraped values to UI
+
       signals: aiSignals,
       sections: [
         {
           title: "Photo transparency",
-          content: `This listing contains ${
-            photos?.count ?? 0
-          } photos. More photos generally improve confidence.`,
+          content: `This listing includes ${mergedPhotosCount} photos.`,
         },
         ...(aiSummary
           ? [
