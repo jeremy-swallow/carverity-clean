@@ -1,3 +1,4 @@
+// api/analyze-listing.ts
 export const config = { runtime: "nodejs" };
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
@@ -41,11 +42,11 @@ export default async function handler(
     let aiSignals: { text: string }[] = [];
     let analysisSource: "google-ai" | "fallback" = "fallback";
 
-    // Only run AI when key exists
     if (GOOGLE_API_KEY) {
       try {
         console.log("🤖 Calling Google AI…");
 
+        // ✅ Correct endpoint and API version
         const aiRes = await fetch(
           "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=" +
             GOOGLE_API_KEY,
@@ -62,16 +63,16 @@ You are helping an everyday car buyer evaluate a used car listing.
 
 Return clear, practical insights:
 
-• Buyer risk signals
-• Transparency / trust indicators
-• Possible red flags
-• Suggested follow-up questions for the seller
+- key risk signals
+- honesty / transparency indicators
+- potential fraud/odometer/red-flag risks
+- follow-up questions the buyer should ask
 
-Vehicle:
+Vehicle info:
 ${JSON.stringify(vehicle, null, 2)}
 
-User-supplied notes:
-${conditionSummary || "None"}
+Buyer notes:
+${conditionSummary || "None provided"}
 
 Photos supplied: ${photos?.count ?? 0}
                       `,
@@ -129,8 +130,7 @@ Photos supplied: ${photos?.count ?? 0}
           : [
               {
                 title: "AI buyer insights",
-                content:
-                  "AI insights were not available for this scan.",
+                content: "AI insights were not available for this scan.",
               },
             ]),
       ],
