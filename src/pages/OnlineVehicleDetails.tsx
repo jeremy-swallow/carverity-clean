@@ -21,79 +21,54 @@ export default function OnlineVehicleDetails() {
     importStatus: "Sold new in Australia (default)",
   });
 
-  // ======================================================
-  // Load progress → If vehicle not stored yet, call API
-  // ======================================================
+  //
+  // 🔄 Load existing scan progress + hydrate values
+  //
   useEffect(() => {
     const progress = loadProgress();
-    const listingUrl = progress?.listingUrl ?? "";
+
+    const extracted = progress?.vehicle as Partial<VehicleState> | undefined;
 
     console.log("Loaded scan progress:", progress);
+    console.log("Hydrated vehicle:", extracted);
 
-    // If we already have values saved, hydrate from them
-    if (progress?.vehicle) {
-      console.log("Hydrating from saved progress");
-      setVehicle(v => ({ ...v, ...progress.vehicle }));
-      return;
-    }
+    if (!extracted) return;
 
-    // Otherwise call analyzer to extract vehicle details
-    if (!listingUrl) return;
-
-    (async () => {
-      try {
-        const res = await fetch("/api/analyze-listing", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: listingUrl }),
-        });
-
-        const data = await res.json();
-        console.log("ANALYSIS RESULT >>>", data);
-
-        const extracted = data.extracted ?? {};
-
-        const next: VehicleState = {
-          make: extracted.make ?? "",
-          model: extracted.model ?? "",
-          year: extracted.year ?? "",
-          variant: extracted.variant ?? "",
-          importStatus:
-            extracted.importStatus ??
-            "Sold new in Australia (default)",
-        };
-
-        setVehicle(next);
-
-        // Save locally for later steps
-        saveProgress({
-          ...progress,
-          vehicle: next,
-          step: "/online/vehicle",
-        });
-
-      } catch (err) {
-        console.error("Vehicle hydration failed:", err);
-      }
-    })();
+    setVehicle(v => ({
+      ...v,
+      make: extracted.make ?? v.make,
+      model: extracted.model ?? v.model,
+      year: extracted.year ?? v.year,
+      variant: extracted.variant ?? v.variant,
+      importStatus: extracted.importStatus ?? v.importStatus,
+    }));
   }, []);
 
-  // ======================================================
-  // Update + persist immediately
-  // ======================================================
+  //
+  // ✏️ Update field + MERGE into existing scan state
+  //
   function updateField(key: keyof VehicleState, value: string) {
     setVehicle(v => {
       const next = { ...v, [key]: value };
-      saveProgress({ vehicle: next });
+
+      const existing = loadProgress() ?? {};
+      saveProgress({
+        ...existing,
+        vehicle: next,
+      });
+
       return next;
     });
   }
 
-  // ======================================================
-  // Continue → move to next step
-  // ======================================================
+  //
+  // ➡️ Continue — persist + move to next step
+  //
   function handleContinue() {
+    const existing = loadProgress() ?? {};
+
     saveProgress({
+      ...existing,
       vehicle,
       step: "/online/photos",
     });
