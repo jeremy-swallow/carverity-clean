@@ -1,184 +1,156 @@
-/* api/extract-vehicle-from-listing.ts */
-export const config = { runtime: "nodejs" };
+/**
+ * Extracts vehicle details from a listing URL.
+ * 
+ * Strategy (progressively safe):
+ * 1) Fetch page HTML
+ * 2) Look for JSON-LD schema.org vehicle data
+ * 3) Look for <title> / <meta> patterns (Carsales, Gumtree, FBMP, etc)
+ * 4) Fall back to defaults if nothing is found
+ */
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+export type ExtractedVehicle = {
+  make: string;
+  model: string;
+  year: string;
+  variant: string;
+  importStatus: string;
+};
 
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+const DEFAULT_IMPORT_STATUS = "Sold new in Australia (default)";
 
-/* -------------------- Types -------------------- */
+export async function extractVehicleFromListing(url: string): Promise<ExtractedVehicle> {
+  try {
+    const res = await fetch(url, { method: "GET" });
 
-export interface ExtractVehicleResult {
-  ok: boolean;
-  vehicle: {
-    make: string;
-    model: string;
-    year: string;
-    variant: string;
+    if (!res.ok) {
+      console.warn("⚠️ Listing fetch failed", res.status, url);
+      return emptyVehicle();
+    }
+
+    const html = await res.text();
+
+    // ========= 1) Try JSON-LD vehicle schema =========
+    const jsonLdMatch = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i);
+    if (jsonLdMatch) {
+      const vehicle = tryParseJsonLd(jsonLdMatch[1]);
+      if (vehicle) return normalize(vehicle);
+    }
+
+    // ========= 2) Try META title / og:title =========
+    const titleFromMeta = getMetaTitle(html);
+    if (titleFromMeta) {
+      const parsed = parseTitle(titleFromMeta);
+      if (parsed) return normalize(parsed);
+    }
+
+    // ========= 3) Try page <title> =========
+    const pageTitle = getPageTitle(html);
+    if (pageTitle) {
+      const parsed = parseTitle(pageTitle);
+      if (parsed) return normalize(parsed);
+    }
+
+    // ========= 4) Nothing found — fallback =========
+    return emptyVehicle();
+
+  } catch (err) {
+    console.error("❌ Extractor failed", err);
+    return emptyVehicle();
+  }
+}
+
+/* ========================= Helpers ========================= */
+
+function emptyVehicle(): ExtractedVehicle {
+  return {
+    make: "",
+    model: "",
+    year: "",
+    variant: "",
+    importStatus: DEFAULT_IMPORT_STATUS,
   };
-  error?: string;
-  rawText?: string;
+}
+
+function normalize(v: Partial<ExtractedVehicle>): ExtractedVehicle {
+  return {
+    make: v.make?.trim() ?? "",
+    model: v.model?.trim() ?? "",
+    year: v.year?.toString().trim() ?? "",
+    variant: v.variant?.trim() ?? "",
+    importStatus: v.importStatus?.trim() || DEFAULT_IMPORT_STATUS,
+  };
+}
+
+function tryParseJsonLd(raw: string): Partial<ExtractedVehicle> | null {
+  try {
+    const data = JSON.parse(raw);
+
+    // handle array or single object
+    const node = Array.isArray(data) ? data[0] : data;
+
+    if (!node) return null;
+
+    return {
+      make: node?.brand?.name ?? node?.brand ?? "",
+      model: node?.model ?? "",
+      year: node?.productionDate ?? node?.releaseDate ?? "",
+      variant: node?.vehicleConfiguration ?? "",
+      importStatus: DEFAULT_IMPORT_STATUS,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getMeta(html: string, name: string): string | null {
+  const re = new RegExp(`<meta[^>]*(property|name)=["']${name}["'][^>]*content=["']([^"']+)["'][^>]*>`, "i");
+  const m = html.match(re);
+  return m?.[2] ?? null;
+}
+
+function getMetaTitle(html: string): string | null {
+  return (
+    getMeta(html, "og:title") ||
+    getMeta(html, "twitter:title") ||
+    null
+  );
+}
+
+function getPageTitle(html: string): string | null {
+  const m = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  return m?.[1] ?? null;
 }
 
 /**
- * Very lightweight HTML text extractor.
- * We intentionally avoid scraping images, scripts, or full DOM parsing.
+ * Tries to parse titles like:
+ *  - "2018 Mazda 3 Neo Sport Hatch"
+ *  - "Toyota Corolla 2015 SX Auto"
+ *  - "2017 Hyundai i30 Active — Low kms"
  */
-function extractListingText(html: string): string {
-  const cleaned = html
-    // strip scripts & styles
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    // collapse whitespace
-    .replace(/\s+/g, " ");
+function parseTitle(title: string): Partial<ExtractedVehicle> | null {
+  const clean = title.replace(/\s+-\s+.*/i, "").trim();
 
-  const titleMatch = cleaned.match(/<title>(.*?)<\/title>/i);
-  const metaMatch = cleaned.match(
-    /<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i
-  );
+  const yearMatch = clean.match(/(19|20)\d{2}/);
+  const year = yearMatch ? yearMatch[0] : "";
 
-  const bodySnippet = cleaned.slice(0, 4000); // safety limit
+  const parts = clean
+    .replace(year, "")
+    .trim()
+    .split(/\s+/);
 
-  return `
-PAGE TITLE:
-${titleMatch?.[1] ?? "N/A"}
+  if (parts.length < 2) return null;
 
-META DESCRIPTION:
-${metaMatch?.[1] ?? "N/A"}
+  const make = parts[0];
+  const model = parts[1];
+  const variant = parts.slice(2).join(" ");
 
-PAGE TEXT SNIPPET:
-${bodySnippet}
-  `.trim();
+  return {
+    make,
+    model,
+    year,
+    variant,
+    importStatus: DEFAULT_IMPORT_STATUS,
+  };
 }
 
-/* ------------------------------------------------
-   Core helper: call this from other API routes
-------------------------------------------------- */
-
-export async function extractVehicleFromListing(
-  url: string
-): Promise<ExtractVehicleResult> {
-  console.log("🔎 [extract] Fetching listing HTML:", url);
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "user-agent": "CarVerityBot/1.0 (+https://www.carverity.com.au/)",
-      },
-    });
-
-    const html = await response.text();
-    const listingText = extractListingText(html);
-
-    if (!GOOGLE_API_KEY) {
-      console.warn("⚠️ GOOGLE_API_KEY missing — returning empty vehicle");
-      return {
-        ok: false,
-        vehicle: { make: "", model: "", year: "", variant: "" },
-        error: "GOOGLE_API_KEY missing",
-        rawText: listingText,
-      };
-    }
-
-    const modelUrl =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
-      GOOGLE_API_KEY;
-
-    const prompt = `
-You are assisting a used-car buyer. Extract structured vehicle details from
-the listing text below. Only return values when confident and do NOT guess.
-
-Return JSON ONLY in this structure:
-
-{
-  "make": "",
-  "model": "",
-  "year": "",
-  "variant": ""
-}
-
-RULES:
-- Year must be a 4-digit year if present.
-- Variant is optional — include only if clearly identifiable.
-- Do not hallucinate or invent values.
-- Prefer values in title or description text.
-
-LISTING TEXT:
-${listingText}
-`;
-
-    console.log("🤖 [extract] Calling Gemini model…");
-
-    const aiRes = await fetch(modelUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-      }),
-    });
-
-    const json = await aiRes.json();
-
-    const text =
-      json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "{}";
-
-    let parsed: any = {};
-    try {
-      parsed = JSON.parse(text);
-    } catch (err: any) {
-      console.warn(
-        "⚠️ [extract] AI did not return valid JSON — using empty values. Raw text:",
-        text
-      );
-      parsed = {};
-    }
-
-    const vehicle = {
-      make: parsed.make || "",
-      model: parsed.model || "",
-      year: parsed.year || "",
-      variant: parsed.variant || "",
-    };
-
-    console.log("✅ [extract] Parsed vehicle:", vehicle);
-
-    return {
-      ok: true,
-      vehicle,
-      rawText: text,
-    };
-  } catch (err: any) {
-    console.error("❌ [extract] extractVehicleFromListing failed:", err?.message);
-    return {
-      ok: false,
-      vehicle: { make: "", model: "", year: "", variant: "" },
-      error: err?.message || "Unknown extraction error",
-    };
-  }
-}
-
-/* ------------------------------------------------
-   Default API handler wrapper
-------------------------------------------------- */
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ ok: false, error: "Method not allowed" });
-  }
-
-  const { url } = req.body ?? {};
-  if (!url) {
-    return res.status(400).json({ ok: false, error: "Missing url" });
-  }
-
-  try {
-    const result = await extractVehicleFromListing(url);
-    return res.status(200).json(result);
-  } catch (err: any) {
-    console.error("❌ [extract] API handler crashed:", err?.message);
-    return res.status(500).json({
-      ok: false,
-      error: "extract-vehicle-from-listing crashed",
-      vehicle: { make: "", model: "", year: "", variant: "" },
-    });
-  }
-}
+export default extractVehicleFromListing;
