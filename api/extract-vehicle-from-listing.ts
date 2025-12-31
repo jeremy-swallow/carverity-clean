@@ -1,15 +1,21 @@
 /* api/extract-vehicle-from-listing.ts */
-export const config = { runtime: "nodejs" };
 
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+export const config = { runtime: "nodejs" };
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
-interface ExtractResult {
-  make?: string;
-  model?: string;
-  year?: string;
-  variant?: string;
+export interface ExtractedVehicle {
+  make: string;
+  model: string;
+  year: string;
+  variant: string;
+  importStatus?: string;
+}
+
+export interface ExtractVehicleResponse {
+  ok: boolean;
+  source: "carsales-url-parser";
+  extracted: ExtractedVehicle;
 }
 
 /**
@@ -43,19 +49,13 @@ ${bodySnippet}
   `.trim();
 }
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const { url } = req.body ?? {};
-  if (!url) {
-    return res.status(400).json({ error: "Missing url" });
-  }
-
+/**
+ * Helper function used by analyze-listing.ts
+ * Takes a URL and returns structured vehicle details.
+ */
+export default async function extractVehicleFromListing(
+  url: string
+): Promise<ExtractVehicleResponse> {
   try {
     console.log("🔎 Extracting listing vehicle info:", url);
 
@@ -68,7 +68,16 @@ export default async function handler(
 
     if (!GOOGLE_API_KEY) {
       console.warn("⚠️ GOOGLE_API_KEY missing — returning empty result");
-      return res.status(200).json({ vehicle: {} });
+      return {
+        ok: true,
+        source: "carsales-url-parser",
+        extracted: {
+          make: "",
+          model: "",
+          year: "",
+          variant: "",
+        },
+      };
     }
 
     const modelUrl =
@@ -111,29 +120,37 @@ ${listingText}
     const text =
       json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "{}";
 
-    let parsed: ExtractResult = {};
+    let parsed: Partial<ExtractedVehicle> = {};
     try {
       parsed = JSON.parse(text);
     } catch {
       console.warn("⚠️ AI did not return valid JSON — continuing empty");
     }
 
-    return res.status(200).json({
+    const extracted: ExtractedVehicle = {
+      make: parsed.make || "",
+      model: parsed.model || "",
+      year: parsed.year || "",
+      variant: parsed.variant || "",
+    };
+
+    return {
       ok: true,
-      vehicle: {
-        make: parsed.make || "",
-        model: parsed.model || "",
-        year: parsed.year || "",
-        variant: parsed.variant || "",
-      },
-    });
+      source: "carsales-url-parser",
+      extracted,
+    };
   } catch (err: any) {
     console.error("❌ extract-vehicle-from-listing failed:", err?.message);
 
-    return res.status(200).json({
+    return {
       ok: false,
-      vehicle: {},
-      fallback: true,
-    });
+      source: "carsales-url-parser",
+      extracted: {
+        make: "",
+        model: "",
+        year: "",
+        variant: "",
+      },
+    };
   }
 }
