@@ -50,17 +50,12 @@ export default function OnlineAnalyzing() {
       importStatus: progress?.vehicle?.importStatus ?? "unknown",
     };
 
-    // ✅ Source kilometres from scan progress (canonical value)
     const kilometres = progress?.kilometres ?? null;
-
     const owners = progress?.owners ?? null;
-
     const conditionSummary = progress?.conditionSummary ?? "";
     const notes = progress?.notes ?? "";
-
     const listingPhotos: string[] = progress?.photos?.listing ?? [];
 
-    // Build image metadata
     const photoMeta = await Promise.all(
       listingPhotos.map(async (p, i) => ({
         index: i,
@@ -76,7 +71,9 @@ export default function OnlineAnalyzing() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          listingUrl,
+          // 🔥 FIX — backend expects "url"
+          url: listingUrl,
+
           vehicle,
           kilometres,
           owners,
