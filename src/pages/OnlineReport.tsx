@@ -1,85 +1,81 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { loadOnlineResults } from "../utils/onlineResults";
 import type { SavedResult } from "../utils/onlineResults";
 
 export default function OnlineReport() {
-  const navigate = useNavigate();
   const [result, setResult] = useState<SavedResult | null>(null);
 
   useEffect(() => {
     const stored = loadOnlineResults();
-
-    if (!stored) {
-      console.warn("No stored results — redirecting");
-      navigate("/scan/online");
-      return;
-    }
-
-    // Ensure arrays always exist
-    setResult({
-      ...stored,
-      signals: Array.isArray(stored.signals) ? stored.signals : [],
-      sections: Array.isArray(stored.sections) ? stored.sections : [],
-    });
-  }, [navigate]);
+    setResult(stored ?? null);
+  }, []);
 
   if (!result) {
     return (
-      <main className="max-w-3xl mx-auto px-6 py-16 text-center">
-        <h1 className="text-xl font-semibold mb-2">No results available</h1>
+      <div className="max-w-3xl mx-auto px-6 py-16 text-center">
+        <h1 className="text-2xl font-semibold mb-2">No report available</h1>
         <p className="text-muted-foreground">
-          Run a scan first to see your analysis results.
+          Run a scan first to generate a report.
         </p>
-      </main>
+      </div>
     );
   }
 
-  return (
-    <main className="max-w-3xl mx-auto px-6 py-10">
-      <h1 className="text-2xl font-semibold mb-4">Listing Analysis</h1>
+  // 🟢 SAFE NORMALISED ARRAYS
+  const signals = Array.isArray(result.signals) ? result.signals : [];
+  const sections = Array.isArray(result.sections) ? result.sections : [];
 
-      <p className="text-sm text-muted-foreground mb-4">
-        Source: {result.source} — Seller: {result.sellerType}
+  return (
+    <div className="max-w-3xl mx-auto px-6 py-10">
+      <h1 className="text-2xl font-semibold mb-4">Scan report</h1>
+
+      <p className="text-sm mb-4 text-muted-foreground break-all">
+        Listing URL:
+        <br />
+        {result.listingUrl || "—"}
       </p>
 
       {/* Signals */}
-      <section className="mb-6">
-        <h2 className="text-lg font-semibold mb-2">Signals</h2>
+      <div className="mb-6 p-4 border border-white/10 rounded bg-black/20">
+        <h2 className="font-medium mb-2">Signals detected</h2>
 
-        {result.signals.length > 0 ? (
+        {signals.length > 0 ? (
           <ul className="list-disc pl-4">
-            {result.signals.map((s: any, i: number) => (
-              <li key={i}>{s?.text ?? "Unnamed signal"}</li>
+            {signals.map((s, i) => (
+              <li key={i}>{String(s)}</li>
             ))}
           </ul>
         ) : (
           <p className="text-muted-foreground">
-            No signals detected in this listing.
+            No signals recorded for this scan.
           </p>
         )}
-      </section>
+      </div>
 
       {/* Sections */}
-      <section>
-        <h2 className="text-lg font-semibold mb-2">Analysis Details</h2>
+      <div className="mb-6">
+        <h2 className="font-medium mb-2">Analysis sections</h2>
 
-        {result.sections.length > 0 ? (
-          result.sections.map((section: any, i: number) => (
+        {sections.length > 0 ? (
+          sections.map((sec, i) => (
             <div
               key={i}
               className="border border-white/10 rounded p-4 mb-3"
             >
-              <h3 className="font-semibold mb-1">{section?.title ?? "Section"}</h3>
-              <p>{section?.content ?? ""}</p>
+              <h3 className="font-semibold mb-1">
+                {sec?.title || "Untitled section"}
+              </h3>
+              <p className="text-muted-foreground">
+                {sec?.content || ""}
+              </p>
             </div>
           ))
         ) : (
           <p className="text-muted-foreground">
-            No structured breakdown available.
+            No additional analysis sections available.
           </p>
         )}
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }
