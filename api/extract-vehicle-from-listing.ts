@@ -2,34 +2,38 @@
 
 export const config = { runtime: "nodejs" };
 
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
-export interface ExtractedVehicle {
-  make: string;
-  model: string;
-  year: string;
-  variant: string;
-  importStatus?: string;
+interface ExtractResult {
+  make?: string;
+  model?: string;
+  year?: string;
+  variant?: string;
 }
 
 export interface ExtractVehicleResponse {
   ok: boolean;
-  source: "carsales-url-parser";
-  extracted: ExtractedVehicle;
+  reason?: "blocked_source";
+  error?: string;
+  vehicle: {
+    make: string;
+    model: string;
+    year: string;
+    variant: string;
+  };
 }
 
 /**
- * Very lightweight HTML text extractor
- * We intentionally avoid scraping images, scripts, or full DOM parsing.
+ * Very lightweight HTML text extractor.
  */
 function extractListingText(html: string): string {
-  // Remove scripts & style blocks
   const cleaned = html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/\s+/g, " ");
 
-  // Try to capture title + description blocks
   const titleMatch = cleaned.match(/<title>(.*?)<\/title>/i);
   const metaMatch = cleaned.match(
     /<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i
@@ -49,29 +53,62 @@ ${bodySnippet}
   `.trim();
 }
 
+/** Detect if the site blocked our request (Carsales / Cloudflare / etc.) */
+function looksBlocked(html: string): boolean {
+  const markers = [
+    "access denied",
+    "security challenge",
+    "are you a human",
+    "blocked request",
+    "cloudflare",
+    "captcha",
+    "bot detection",
+  ];
+
+  const lower = html.toLowerCase();
+  return markers.some((m) => lower.includes(m)) || html.length < 500;
+}
+
 /**
- * Helper function used by analyze-listing.ts
- * Takes a URL and returns structured vehicle details.
+ * Core extraction logic that can be used from other API routes.
  */
-export default async function extractVehicleFromListing(
+async function coreExtractVehicleFromListing(
   url: string
 ): Promise<ExtractVehicleResponse> {
   try {
-    console.log("🔎 Extracting listing vehicle info:", url);
+    console.log("🔎 Extracting vehicle from listing:", url);
 
     const response = await fetch(url, {
-      headers: { "user-agent": "CarVerityBot/1.0" },
+      headers: { "user-agent": "Mozilla/5.0 CarVerityBot" },
     });
 
     const html = await response.text();
+
+    // 🚧 Carsales / Cloudflare / blocked page handling
+    if (looksBlocked(html)) {
+      console.warn(
+        "⚠️ Listing appears blocked or filtered — manual entry required"
+      );
+
+      return {
+        ok: false,
+        reason: "blocked_source",
+        vehicle: {
+          make: "",
+          model: "",
+          year: "",
+          variant: "",
+        },
+      };
+    }
+
     const listingText = extractListingText(html);
 
     if (!GOOGLE_API_KEY) {
       console.warn("⚠️ GOOGLE_API_KEY missing — returning empty result");
       return {
         ok: true,
-        source: "carsales-url-parser",
-        extracted: {
+        vehicle: {
           make: "",
           model: "",
           year: "",
@@ -85,10 +122,8 @@ export default async function extractVehicleFromListing(
       GOOGLE_API_KEY;
 
     const prompt = `
-You are assisting a used-car buyer. Extract structured vehicle details from
-the listing text below. Only return values when confident and do NOT guess.
-
-Return JSON ONLY in this structure:
+Extract vehicle details ONLY if clearly stated.
+Return STRICT JSON:
 
 {
   "make": "",
@@ -97,11 +132,8 @@ Return JSON ONLY in this structure:
   "variant": ""
 }
 
-RULES:
-- Year must be a 4-digit year if present.
-- Variant is optional — include only if clearly identifiable.
-- Do not hallucinate or invent values.
-- Prefer values in title or description text.
+Do NOT guess or invent values.
+Year must be 4 digits if present.
 
 LISTING TEXT:
 ${listingText}
@@ -120,32 +152,29 @@ ${listingText}
     const text =
       json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "{}";
 
-    let parsed: Partial<ExtractedVehicle> = {};
+    let parsed: ExtractResult = {};
     try {
       parsed = JSON.parse(text);
     } catch {
-      console.warn("⚠️ AI did not return valid JSON — continuing empty");
+      console.warn("⚠️ AI did not return valid JSON — using empty values");
     }
-
-    const extracted: ExtractedVehicle = {
-      make: parsed.make || "",
-      model: parsed.model || "",
-      year: parsed.year || "",
-      variant: parsed.variant || "",
-    };
 
     return {
       ok: true,
-      source: "carsales-url-parser",
-      extracted,
+      vehicle: {
+        make: parsed.make || "",
+        model: parsed.model || "",
+        year: parsed.year || "",
+        variant: parsed.variant || "",
+      },
     };
   } catch (err: any) {
     console.error("❌ extract-vehicle-from-listing failed:", err?.message);
 
     return {
       ok: false,
-      source: "carsales-url-parser",
-      extracted: {
+      error: "exception",
+      vehicle: {
         make: "",
         model: "",
         year: "",
@@ -153,4 +182,34 @@ ${listingText}
       },
     };
   }
+}
+
+/**
+ * Helper used by other API routes (like analyze-listing).
+ */
+export async function extractVehicleFromListing(
+  url: string
+): Promise<ExtractVehicleResponse> {
+  return coreExtractVehicleFromListing(url);
+}
+
+/**
+ * Default Vercel API handler so /api/extract-vehicle-from-listing
+ * also works if ever called directly.
+ */
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ ok: false, error: "Method not allowed" });
+  }
+
+  const { url } = req.body ?? {};
+  if (!url || typeof url !== "string") {
+    return res.status(400).json({ ok: false, error: "Missing url" });
+  }
+
+  const result = await coreExtractVehicleFromListing(url);
+  return res.status(200).json(result);
 }
