@@ -1,23 +1,7 @@
-/* api/analyze-listing.ts */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { loadProgress, saveProgress } from "./scanProgress";
 
-interface ExtractResult {
-  ok: boolean;
-  vehicle: {
-    make?: string;
-    model?: string;
-    year?: string;
-    variant?: string;
-  };
-  fallback?: boolean;
-  error?: string;
-}
-
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
@@ -27,19 +11,23 @@ export default async function handler(
     return res.status(400).json({ ok: false, error: "Missing URL" });
   }
 
-  console.log("🔎 Analyzing listing:", url);
+  console.log("🚗 Analyzing listing:", url);
 
-  // Load existing scan record if any
+  // ---- Load existing scan state ----
   const existing = loadProgress() ?? {};
 
-  let extracted: ExtractResult = {
-    ok: false,
-    vehicle: {},
+  // ---- Call extractor API safely ----
+  let extracted = {
+    make: "",
+    model: "",
+    year: "",
+    variant: "",
+    importStatus: "Sold new in Australia (default)",
   };
 
   try {
-    const resp = await fetch(
-      `${req.headers.origin}/api/extract-vehicle-from-listing`,
+    const extractorRes = await fetch(
+      `${process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : ""}/api/extract-vehicle-from-listing`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -47,24 +35,30 @@ export default async function handler(
       }
     );
 
-    extracted = (await resp.json()) as ExtractResult;
+    const data = await extractorRes.json();
+    extracted = {
+      ...extracted,
+      ...(data?.vehicle ?? {}),
+    };
 
-    console.log("🧩 Extract result:", extracted);
+    console.log("🟢 Extracted vehicle:", extracted);
   } catch (err: any) {
-    console.error("❌ extract call failed:", err?.message);
+    console.error("❌ Extractor failed:", err?.message);
   }
 
-  // Merge with existing values (never crash)
+  // ---- Merge fields safely ----
   const vehicle = {
-    make: extracted.vehicle?.make || existing?.vehicle?.make || "",
-    model: extracted.vehicle?.model || existing?.vehicle?.model || "",
-    year: extracted.vehicle?.year || existing?.vehicle?.year || "",
-    variant: extracted.vehicle?.variant || existing?.vehicle?.variant || "",
+    make: extracted.make || existing?.vehicle?.make || "",
+    model: extracted.model || existing?.vehicle?.model || "",
+    year: extracted.year || existing?.vehicle?.year || "",
+    variant: extracted.variant || existing?.vehicle?.variant || "",
     importStatus:
-      existing?.vehicle?.importStatus || "Sold new in Australia (default)",
+      extracted.importStatus ||
+      existing?.vehicle?.importStatus ||
+      "Sold new in Australia (default)",
   };
 
-  // Persist
+  // ---- Persist scan ----
   saveProgress({
     ...existing,
     type: "online",
@@ -78,7 +72,7 @@ export default async function handler(
 
   return res.status(200).json({
     ok: true,
-    source: "listing-parser",
+    source: "vehicle-extractor",
     vehicle,
   });
 }
