@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { loadProgress, saveProgress } from "./scanProgress.js";
+import { loadProgress, saveProgress } from "./scanProgress";
 
-/**
- * Analyze a listing URL and persist merged vehicle details
- */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { url } = req.body ?? {};
+  if (req.method !== "POST") {
+    return res.status(405).json({ ok: false, error: "Method not allowed" });
+  }
 
+  const { url } = req.body ?? {};
   if (!url) {
     return res.status(400).json({ ok: false, error: "Missing URL" });
   }
@@ -14,17 +14,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log("🚗 Analyzing listing:", url);
 
   //
-  // 🔎 CALL THE VEHICLE EXTRACTOR API
+  // 🔎 CALL EXTRACTOR VIA API
   //
-  let extraction: any = { ok: false, vehicle: {}, networkError: false };
+  let extraction: any = { ok: false, vehicle: {} };
 
   try {
-    const apiBase =
+    const base =
       process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
         : "http://localhost:3000";
 
-    const apiRes = await fetch(`${apiBase}/api/extract-vehicle-from-listing`, {
+    const apiRes = await fetch(`${base}/api/extract-vehicle-from-listing`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),
@@ -33,20 +33,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     extraction = await apiRes.json();
   } catch (err: any) {
     console.error("❌ Extract API call failed:", err?.message);
-    extraction = { ok: false, vehicle: {}, networkError: true };
   }
 
   const extracted = extraction?.vehicle ?? {};
   console.log("✨ Extracted vehicle:", extracted);
 
   //
-  // 🗂 Load existing scan progress
+  // 🗂 Merge into existing scan progress
   //
   const existing = loadProgress() ?? {};
 
-  //
-  // 🧩 Merge safely
-  //
   const vehicle = {
     make: extracted.make ?? existing?.vehicle?.make ?? "",
     model: extracted.model ?? existing?.vehicle?.model ?? "",
@@ -59,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   };
 
   //
-  // 💾 Persist scan
+  // 💾 Persist
   //
   saveProgress({
     ...existing,
