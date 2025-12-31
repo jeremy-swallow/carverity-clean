@@ -1,11 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { loadProgress, saveProgress } from "./scanProgress";
+
+// ⛔ ESM requires explicit extension
+import { loadProgress, saveProgress } from "./scanProgress.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ ok: false, error: "Method not allowed" });
-  }
-
   const { url } = req.body ?? {};
   if (!url) {
     return res.status(400).json({ ok: false, error: "Missing URL" });
@@ -13,18 +11,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   console.log("🚗 Analyzing listing:", url);
 
-  //
-  // 🔎 CALL EXTRACTOR VIA API
-  //
-  let extraction: any = { ok: false, vehicle: {} };
+  let extraction: any = { ok: false, vehicle: {}, networkError: false };
 
   try {
-    const base =
+    const baseUrl =
       process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
         : "http://localhost:3000";
 
-    const apiRes = await fetch(`${base}/api/extract-vehicle-from-listing`, {
+    const apiRes = await fetch(`${baseUrl}/api/extract-vehicle-from-listing`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),
@@ -33,14 +28,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     extraction = await apiRes.json();
   } catch (err: any) {
     console.error("❌ Extract API call failed:", err?.message);
+    extraction = { ok: false, vehicle: {}, networkError: true };
   }
 
   const extracted = extraction?.vehicle ?? {};
   console.log("✨ Extracted vehicle:", extracted);
 
-  //
-  // 🗂 Merge into existing scan progress
-  //
   const existing = loadProgress() ?? {};
 
   const vehicle = {
@@ -54,9 +47,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       "Sold new in Australia (default)",
   };
 
-  //
-  // 💾 Persist
-  //
   saveProgress({
     ...existing,
     type: "online",
