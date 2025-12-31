@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
-type VehicleState = {
+interface VehicleState {
   make: string;
   model: string;
   year: string;
   variant: string;
   importStatus: string;
-};
+}
 
 export default function OnlineVehicleDetails() {
   const navigate = useNavigate();
@@ -21,108 +21,101 @@ export default function OnlineVehicleDetails() {
     importStatus: "Sold new in Australia (default)",
   });
 
-  // ======================================================
-  // Load scan progress + hydrate values
-  // ======================================================
+  //
+  // 🔄 HYDRATE FROM SAVED PROGRESS (MERGED FROM API)
+  //
   useEffect(() => {
-    const progress = (loadProgress() as any) ?? {};
-    console.log("Loaded progress >>>", progress);
+    const progress = loadProgress() as any;
 
-    const existingVehicle = progress?.vehicle ?? {};
-    console.log("Hydrating with >>>", existingVehicle);
+    if (!progress || progress.type !== "online") {
+      console.warn("⚠️ No scan progress — sending back to start");
+      navigate("/online/start", { replace: true });
+      return;
+    }
 
-    setVehicle(v => ({
-      ...v,
-      ...existingVehicle,
-    }));
-  }, []);
+    const v = progress?.vehicle ?? {};
 
-  // ======================================================
-  // Update field + persist merge-safe
-  // ======================================================
-  function updateField(key: keyof VehicleState, value: string) {
-    setVehicle(v => {
-      const next = { ...v, [key]: value };
-
-      const progress = (loadProgress() as any) ?? {};
-      saveProgress({
-        ...progress,
-        vehicle: next,
-      });
-
-      return next;
+    setVehicle({
+      make: v.make ?? "",
+      model: v.model ?? "",
+      year: v.year ?? "",
+      variant: v.variant ?? "",
+      importStatus:
+        v.importStatus ?? "Sold new in Australia (default)",
     });
+  }, [navigate]);
+
+  //
+  // 💾 SAVE & CONTINUE
+  //
+  function handleContinue() {
+    saveProgress({
+      ...loadProgress(),
+      step: "/online/conditions",
+      vehicle,
+    });
+
+    navigate("/online/conditions");
   }
 
-  // ======================================================
-  // Continue → Save & move forward
-  // ======================================================
-  function handleContinue() {
-    const progress = (loadProgress() as any) ?? {};
-
-    saveProgress({
-      ...progress,
-      vehicle,
-      step: "/online/photos",
-    });
-
-    navigate("/online/photos");
+  function updateField(field: keyof VehicleState, value: string) {
+    setVehicle(v => ({ ...v, [field]: value }));
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-12">
-      <h1 className="text-xl font-semibold mb-2">
+    <div className="max-w-3xl mx-auto px-4 py-10">
+      <h1 className="text-2xl font-semibold mb-2">
         Tell us a bit about the car
       </h1>
 
-      <p className="text-muted-foreground mb-6">
+      <p className="text-sm text-muted-foreground mb-6">
         ✨ Estimated from the listing — please review before continuing
       </p>
 
       <div className="space-y-3">
         <input
-          className="w-full bg-slate-800 rounded px-3 py-2"
+          className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2"
           placeholder="Make"
           value={vehicle.make}
           onChange={e => updateField("make", e.target.value)}
         />
 
         <input
-          className="w-full bg-slate-800 rounded px-3 py-2"
+          className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2"
           placeholder="Model"
           value={vehicle.model}
           onChange={e => updateField("model", e.target.value)}
         />
 
         <input
-          className="w-full bg-slate-800 rounded px-3 py-2"
+          className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2"
           placeholder="Year"
           value={vehicle.year}
           onChange={e => updateField("year", e.target.value)}
         />
 
         <input
-          className="w-full bg-slate-800 rounded px-3 py-2"
+          className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2"
           placeholder="Variant (optional)"
           value={vehicle.variant}
           onChange={e => updateField("variant", e.target.value)}
         />
 
         <select
-          className="w-full bg-slate-800 rounded px-3 py-2"
+          className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2"
           value={vehicle.importStatus}
           onChange={e => updateField("importStatus", e.target.value)}
         >
           <option>Sold new in Australia (default)</option>
-          <option>Imported – Full Compliance</option>
-          <option>Imported – Personal / Private Import</option>
-          <option>Imported – Unknown Status</option>
+          <option>Imported — Compliance plated in Australia</option>
+          <option>Imported — Personal / Parallel import</option>
+          <option>Unknown import status</option>
         </select>
       </div>
 
       <button
+        className="mt-6 bg-emerald-600 text-white rounded px-4 py-2"
         onClick={handleContinue}
-        className="mt-6 bg-emerald-500 hover:bg-emerald-600 text-black font-medium px-4 py-2 rounded"
       >
         Continue
       </button>
