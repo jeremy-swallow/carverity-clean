@@ -23,9 +23,9 @@ export default function OnlineAnalyzing() {
         });
 
         if (!res.ok) {
-          console.error("API returned non-OK response", res.status);
+          console.error("❌ API returned non-OK response", res.status);
           alert("Scan failed — the listing could not be analysed.");
-          navigate("/scan/online/start", { replace: true });
+          navigate("/start-scan", { replace: true });
           return;
         }
 
@@ -74,9 +74,7 @@ export default function OnlineAnalyzing() {
             ? data.conditionSummary
             : apiSummary;
 
-        // Prefer user text if present, otherwise API text
-        const conditionSummary =
-          userCondition || apiCondition || "";
+        const conditionSummary = userCondition || apiCondition || "";
 
         const notes =
           userNotes ||
@@ -92,7 +90,7 @@ export default function OnlineAnalyzing() {
 
         const result: SavedResult = {
           type: "online",
-          step: "/scan/online/results",
+          step: "/online/results",
           createdAt: new Date().toISOString(),
 
           listingUrl,
@@ -130,19 +128,21 @@ export default function OnlineAnalyzing() {
         };
 
         saveOnlineResults(result);
-        navigate("/scan/online/results", { replace: true });
+        navigate("/online/results", { replace: true });
       } catch (err) {
-        console.error("Scan failed:", err);
+        console.error("❌ Scan failed:", err);
         alert("Scan failed — please try again.");
-        navigate("/scan/online/start", { replace: true });
+        navigate("/start-scan", { replace: true });
       }
     }
 
     const url = localStorage.getItem(LISTING_URL_KEY);
 
     if (!url) {
-      console.warn("No listing URL — redirecting user");
-      navigate("/scan/online/start", { replace: true });
+      console.warn(
+        "⚠️ No listing URL — entering manual vehicle entry mode"
+      );
+      navigate("/online/vehicle-details", { replace: true });
       return;
     }
 
