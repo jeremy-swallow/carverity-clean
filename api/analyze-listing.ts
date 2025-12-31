@@ -1,8 +1,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { loadProgress, saveProgress } from "./scanProgress";
+import { loadProgress, saveProgress } from "./scanProgress.js";
 
+/**
+ * Analyze a listing URL and persist merged vehicle details
+ */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { url } = req.body ?? {};
+
   if (!url) {
     return res.status(400).json({ ok: false, error: "Missing URL" });
   }
@@ -10,22 +14,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log("🚗 Analyzing listing:", url);
 
   //
-  // 🔎 CALL THE VEHICLE EXTRACTOR VIA API (NOT DIRECT FUNCTION CALL)
+  // 🔎 CALL THE VEHICLE EXTRACTOR API
   //
   let extraction: any = { ok: false, vehicle: {}, networkError: false };
 
   try {
-    const apiRes = await fetch(
-      `${process.env.VERCEL_URL
-        ? "https://" + process.env.VERCEL_URL
-        : "http://localhost:3000"
-      }/api/extract-vehicle-from-listing`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      }
-    );
+    const apiBase =
+      process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000";
+
+    const apiRes = await fetch(`${apiBase}/api/extract-vehicle-from-listing`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
 
     extraction = await apiRes.json();
   } catch (err: any) {
@@ -37,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log("✨ Extracted vehicle:", extracted);
 
   //
-  // 🗂 Load existing scan state
+  // 🗂 Load existing scan progress
   //
   const existing = loadProgress() ?? {};
 
