@@ -2,11 +2,18 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
+type VehicleState = {
+  make: string;
+  model: string;
+  year: string;
+  variant: string;
+  importStatus: string;
+};
+
 export default function OnlineVehicleDetails() {
   const navigate = useNavigate();
-  const progress = loadProgress();
 
-  const [vehicle, setVehicle] = useState({
+  const [vehicle, setVehicle] = useState<VehicleState>({
     make: "",
     model: "",
     year: "",
@@ -14,79 +21,100 @@ export default function OnlineVehicleDetails() {
     importStatus: "Sold new in Australia (default)",
   });
 
-  // Prefill fields from extracted scan data
+  // Load existing scan progress + hydrate values
   useEffect(() => {
-    const extracted = progress?.vehicle;
+    const progress = loadProgress();
+    const extracted: any = progress?.vehicle ?? {};
+
+    console.log("Loaded scan progress:", progress);
+    console.log("Hydrated vehicle:", extracted);
+
     if (!extracted) return;
 
     setVehicle(v => ({
       ...v,
-      make: extracted.make || v.make,
-      model: extracted.model || v.model,
-      year: extracted.year || v.year,
-      variant: extracted.variant || v.variant,
+      make: extracted.make ?? v.make,
+      model: extracted.model ?? v.model,
+      year: extracted.year ?? v.year,
+      variant: extracted.variant ?? v.variant,
+      // tolerant assignment (no TS error even if missing)
+      importStatus: extracted?.importStatus ?? v.importStatus,
     }));
   }, []);
 
-  function updateField(key: string, value: string) {
+  function updateField(key: keyof VehicleState, value: string) {
     setVehicle(v => {
-      const updated = { ...v, [key]: value };
-
-      saveProgress({
-        vehicle: updated,
-      });
-
-      return updated;
+      const next = { ...v, [key]: value };
+      saveProgress({ vehicle: next });
+      return next;
     });
   }
 
   function handleContinue() {
     saveProgress({
-      step: "/online/photos",
       vehicle,
+      step: "/online/photos",
     });
 
     navigate("/online/photos");
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10">
+    <div className="max-w-2xl mx-auto px-4 py-12">
       <h1 className="text-xl font-semibold mb-2">
         Tell us a bit about the car
       </h1>
+
       <p className="text-muted-foreground mb-6">
         ✨ Estimated from the listing — please review before continuing
       </p>
 
-      <input
-        placeholder="Make"
-        value={vehicle.make}
-        onChange={e => updateField("make", e.target.value)}
-        className="w-full mb-3"
-      />
+      <div className="space-y-4">
 
-      <input
-        placeholder="Model"
-        value={vehicle.model}
-        onChange={e => updateField("model", e.target.value)}
-        className="w-full mb-3"
-      />
+        <input
+          className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2"
+          placeholder="Make"
+          value={vehicle.make}
+          onChange={e => updateField("make", e.target.value)}
+        />
 
-      <input
-        placeholder="Year"
-        value={vehicle.year}
-        onChange={e => updateField("year", e.target.value)}
-        className="w-full mb-3"
-      />
+        <input
+          className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2"
+          placeholder="Model"
+          value={vehicle.model}
+          onChange={e => updateField("model", e.target.value)}
+        />
 
-      <input
-        placeholder="Variant (optional)"
-        value={vehicle.variant}
-        onChange={e => updateField("variant", e.target.value)}
-        className="w-full mb-6"
-      />
+        <input
+          className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2"
+          placeholder="Year"
+          value={vehicle.year}
+          onChange={e => updateField("year", e.target.value)}
+        />
 
-      <button onClick={handleContinue} className="btn btn-primary">
+        <input
+          className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2"
+          placeholder="Variant (optional)"
+          value={vehicle.variant}
+          onChange={e => updateField("variant", e.target.value)}
+        />
+
+        <select
+          className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2"
+          value={vehicle.importStatus}
+          onChange={e => updateField("importStatus", e.target.value)}
+        >
+          <option>Sold new in Australia (default)</option>
+          <option>Australian delivered (used import)</option>
+          <option>Grey / parallel import</option>
+          <option>Unknown import status</option>
+        </select>
+      </div>
+
+      <button
+        onClick={handleContinue}
+        className="mt-6 bg-emerald-500 hover:bg-emerald-600 text-black font-medium px-4 py-2 rounded"
+      >
         Continue
       </button>
     </div>
