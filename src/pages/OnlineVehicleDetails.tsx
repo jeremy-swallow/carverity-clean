@@ -22,35 +22,64 @@ export default function OnlineVehicleDetails() {
   });
 
   // ======================================================
-  // Load existing scan progress + hydrate values
+  // Load progress → If vehicle not stored yet, call API
   // ======================================================
   useEffect(() => {
     const progress = loadProgress();
-    const extracted = progress?.vehicle as Partial<{
-      make: string;
-      model: string;
-      year: string;
-      variant: string;
-      importStatus: string;
-    }>;
+    const listingUrl = progress?.listingUrl ?? "";
 
     console.log("Loaded scan progress:", progress);
-    console.log("Hydrated vehicle:", extracted);
 
-    if (!extracted) return;
+    // If we already have values saved, hydrate from them
+    if (progress?.vehicle) {
+      console.log("Hydrating from saved progress");
+      setVehicle(v => ({ ...v, ...progress.vehicle }));
+      return;
+    }
 
-    setVehicle(v => ({
-      ...v,
-      make: extracted.make ?? v.make,
-      model: extracted.model ?? v.model,
-      year: extracted.year ?? v.year,
-      variant: extracted.variant ?? v.variant,
-      importStatus: extracted.importStatus ?? v.importStatus,
-    }));
+    // Otherwise call analyzer to extract vehicle details
+    if (!listingUrl) return;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/analyze-listing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: listingUrl }),
+        });
+
+        const data = await res.json();
+        console.log("ANALYSIS RESULT >>>", data);
+
+        const extracted = data.extracted ?? {};
+
+        const next: VehicleState = {
+          make: extracted.make ?? "",
+          model: extracted.model ?? "",
+          year: extracted.year ?? "",
+          variant: extracted.variant ?? "",
+          importStatus:
+            extracted.importStatus ??
+            "Sold new in Australia (default)",
+        };
+
+        setVehicle(next);
+
+        // Save locally for later steps
+        saveProgress({
+          ...progress,
+          vehicle: next,
+          step: "/online/vehicle",
+        });
+
+      } catch (err) {
+        console.error("Vehicle hydration failed:", err);
+      }
+    })();
   }, []);
 
   // ======================================================
-  // Update field + persist immediately
+  // Update + persist immediately
   // ======================================================
   function updateField(key: keyof VehicleState, value: string) {
     setVehicle(v => {
@@ -61,7 +90,7 @@ export default function OnlineVehicleDetails() {
   }
 
   // ======================================================
-  // Continue → Save & move to next step
+  // Continue → move to next step
   // ======================================================
   function handleContinue() {
     saveProgress({
