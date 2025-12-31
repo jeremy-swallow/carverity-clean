@@ -10,13 +10,6 @@ type VehicleState = {
   importStatus: string;
 };
 
-type ProgressShape = {
-  vehicle?: Partial<VehicleState>;
-  step?: string;
-  listingUrl?: string;
-  startedAt?: string;
-};
-
 export default function OnlineVehicleDetails() {
   const navigate = useNavigate();
 
@@ -29,32 +22,31 @@ export default function OnlineVehicleDetails() {
   });
 
   // ======================================================
-  // Load existing scan progress + hydrate values
+  // Load scan progress + hydrate values
   // ======================================================
   useEffect(() => {
-    const progress = (loadProgress() ?? {}) as ProgressShape;
+    const progress = (loadProgress() as any) ?? {};
     console.log("Loaded progress >>>", progress);
 
-    const existing = progress.vehicle ?? {};
-    console.log("Hydrating with >>>", existing);
+    const existingVehicle = progress?.vehicle ?? {};
+    console.log("Hydrating with >>>", existingVehicle);
 
     setVehicle(v => ({
       ...v,
-      ...existing,
+      ...existingVehicle,
     }));
   }, []);
 
   // ======================================================
-  // Update field + persist (merge-safe)
+  // Update field + persist merge-safe
   // ======================================================
   function updateField(key: keyof VehicleState, value: string) {
     setVehicle(v => {
       const next = { ...v, [key]: value };
 
-      const current = (loadProgress() ?? {}) as ProgressShape;
-
+      const progress = (loadProgress() as any) ?? {};
       saveProgress({
-        ...current,
+        ...progress,
         vehicle: next,
       });
 
@@ -66,10 +58,10 @@ export default function OnlineVehicleDetails() {
   // Continue → Save & move forward
   // ======================================================
   function handleContinue() {
-    const current = (loadProgress() ?? {}) as ProgressShape;
+    const progress = (loadProgress() as any) ?? {};
 
     saveProgress({
-      ...current,
+      ...progress,
       vehicle,
       step: "/online/photos",
     });
