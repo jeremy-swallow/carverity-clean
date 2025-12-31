@@ -1,91 +1,122 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  saveOnlineResults,
+  loadOnlineResults,
+  type SavedResult,
+} from "../utils/onlineResults";
 
-const STEPS = [
-  "Reading listing details",
-  "Reviewing vehicle photos",
-  "Checking for inconsistencies",
-  "Assessing visible condition",
-  "Preparing insights",
-];
+const LISTING_URL_KEY = "carverity_online_listing_url";
 
 export default function OnlineScanGate() {
   const navigate = useNavigate();
-  const [progress, setProgress] = useState(0);
-  const [stepIndex, setStepIndex] = useState(0);
-
-  const context =
-    localStorage.getItem("carverity_scan_context") || "online";
-
-  const concern =
-    localStorage.getItem("carverity_primary_concern") ||
-    "general condition";
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        const next = prev + 2;
+    const progress = loadOnlineResults();
 
-        if (next % 20 === 0 && stepIndex < STEPS.length - 1) {
-          setStepIndex((i) => i + 1);
-        }
+    // If user somehow landed here without a scan session
+    if (!progress || progress.type !== "online") {
+      console.warn("⚠️ No active scan — redirecting to start");
+      navigate("/start-scan", { replace: true });
+      return;
+    }
 
-        if (next >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            navigate("/scan/online/report");
-          }, 800);
-        }
+    const listingUrl = localStorage.getItem(LISTING_URL_KEY);
 
-        return next;
+    // If no URL — fallback to manual entry mode
+    if (!listingUrl) {
+      console.log("No listing URL — entering manual mode");
+      handleManualEntry();
+      return;
+    }
+
+    runListingAnalysis(listingUrl);
+  }, []);
+
+  async function runListingAnalysis(listingUrl: string) {
+    try {
+      const res = await fetch("/api/analyze-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listingUrl }),
       });
-    }, 120);
 
-    return () => clearInterval(interval);
-  }, [navigate, stepIndex]);
+      const data = await res.json();
+      console.log("ANALYSIS RESULT >>>", data);
 
-  return (
-    <div
-      style={{
-        maxWidth: 640,
-        margin: "0 auto",
-        padding: "clamp(24px, 6vw, 64px)",
-      }}
-    >
-      <h1 style={{ fontSize: 36, marginBottom: 12 }}>
-        Analysing the {context === "online" ? "listing" : "car"}
-      </h1>
+      if (!data.ok) {
+        alert("Scan failed — please try again.");
+        return;
+      }
 
-      <p style={{ color: "#cbd5f5", marginBottom: 12 }}>
-        Paying extra attention to <strong>{concern.toLowerCase()}</strong>.
-      </p>
+      const result: SavedResult = {
+        type: "online",
+        step: "/online/vehicle-details",
+        createdAt: new Date().toISOString(),
 
-      <p style={{ color: "#cbd5f5", marginBottom: 32 }}>
-        {STEPS[stepIndex]}…
-      </p>
+        listingUrl,
+        vehicle: data.vehicle ?? {},
 
-      <div
-        style={{
-          height: 10,
-          borderRadius: 6,
-          background: "rgba(255,255,255,0.1)",
-          overflow: "hidden",
-          marginBottom: 16,
-        }}
-      >
-        <div
-          style={{
-            height: "100%",
-            width: `${progress}%`,
-            background: "#7aa2ff",
-            transition: "width 0.2s ease",
-          }}
-        />
-      </div>
+        sections: Array.isArray(data.sections) ? data.sections : [],
+        signals: Array.isArray(data.signals) ? data.signals : [],
 
-      <span style={{ fontSize: 14, color: "#94a3b8" }}>
-        This usually takes under a minute
-      </span>
-    </div>
-  );
+        photos: {
+          listing: data.photos ?? [],
+          meta: data.photoMeta ?? [],
+        },
+
+        conditionSummary: data.conditionSummary ?? "",
+        summary: data.summary ?? "",
+
+        sellerType: data.sellerType ?? "unknown",
+        source: data.source ?? "vehicle-extractor",
+
+        kilometres: data.kilometres ?? undefined,
+        owners: data.owners ?? undefined,
+        notes: data.notes ?? undefined,
+
+        isUnlocked: true, // allow full report at this stage
+      };
+
+      saveOnlineResults(result);
+      navigate("/online/vehicle-details", { replace: true });
+
+    } catch (err) {
+      console.error("❌ analyze-listing error", err);
+      alert("Scan failed — please try again.");
+    }
+  }
+
+  function handleManualEntry() {
+    const result: SavedResult = {
+      type: "online",
+      step: "/online/vehicle-details",
+      createdAt: new Date().toISOString(),
+
+      listingUrl: null,
+      vehicle: {},
+
+      sections: [],
+      signals: [],
+
+      photos: { listing: [], meta: [] },
+
+      conditionSummary: "",
+      summary: "",
+
+      sellerType: "unknown",
+      source: "manual-entry",
+
+      kilometres: undefined,
+      owners: undefined,
+      notes: undefined,
+
+      isUnlocked: true,
+    };
+
+    saveOnlineResults(result);
+    navigate("/online/vehicle-details", { replace: true });
+  }
+
+  return null;
 }

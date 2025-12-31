@@ -1,3 +1,4 @@
+// src/pages/OnlineResults.tsx
 import { useEffect, useState } from "react";
 
 import {
@@ -130,6 +131,10 @@ export default function OnlineResults() {
     return "No photos detected in this listing.";
   }
 
+  const safeListingUrl = result.listingUrl ?? "#";
+  const listingLabel =
+    result.listingUrl ?? "Listing URL not saved in this scan";
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
       <h1 className="text-2xl font-semibold mb-4">
@@ -140,12 +145,12 @@ export default function OnlineResults() {
         Listing analysed:
         <br />
         <a
-          href={result.listingUrl}
+          href={safeListingUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-400 underline"
         >
-          {result.listingUrl}
+          {listingLabel}
         </a>
       </p>
 

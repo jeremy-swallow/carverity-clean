@@ -2,133 +2,67 @@
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadProgress } from "../utils/scanProgress";
-import {
-  saveOnlineResults,
-  type SavedResult,
-} from "../utils/onlineResults";
-
-/**
- * Create a short hash for each uploaded image
- */
-async function hashImage(base64: string): Promise<string> {
-  const data = await fetch(base64).then((r) => r.arrayBuffer());
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("")
-    .slice(0, 24);
-}
+import { saveOnlineResults, type SavedResult } from "../utils/onlineResults";
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const progress = loadProgress();
-    const listingUrl =
-      localStorage.getItem("carverity_listing_url") ?? "";
+    async function runScan(listingUrl: string) {
+      try {
+        const res = await fetch("/api/analyze-listing", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ listingUrl }),
+        });
 
-    if (!listingUrl) {
-      console.warn("⚠️ No listing URL — aborting scan");
-      navigate("/start-scan", { replace: true });
-      return;
+        const data = await res.json();
+
+        const result: SavedResult = {
+          type: "online",
+          step: "/scan/online/results",
+          createdAt: new Date().toISOString(),
+
+          listingUrl,
+          vehicle: data.vehicle ?? {},
+
+          sections: Array.isArray(data.sections) ? data.sections : [],
+          signals: Array.isArray(data.signals) ? data.signals : [],
+
+          photos: {
+            listing: data.photos ?? [],
+            meta: data.photoMeta ?? [],
+          },
+
+          conditionSummary: data.summary ?? "",
+          summary: data.summary ?? "",
+
+          kilometres: data.kilometres ?? undefined,
+          owners: data.owners ?? undefined,
+          notes: data.notes ?? undefined,
+
+          sellerType: data.sellerType ?? "unknown",
+          source: "ai",
+
+          isUnlocked: false,
+        };
+
+        saveOnlineResults(result);
+        navigate("/scan/online/results", { replace: true });
+      } catch (err) {
+        console.error("Scan failed:", err);
+        alert("Scan failed — please try again.");
+      }
     }
 
-    runScan(listingUrl, progress).catch((err) => {
-      console.error("❌ Scan failed:", err);
-      navigate("/scan/online/results", { replace: true });
-    });
+    const url = localStorage.getItem("carverity_online_listing_url");
+    if (url) runScan(url);
   }, [navigate]);
 
-  async function runScan(listingUrl: string, progress: any) {
-    const vehicle = {
-      make: progress?.vehicle?.make ?? "",
-      model: progress?.vehicle?.model ?? "",
-      year: progress?.vehicle?.year ?? "",
-      variant: progress?.vehicle?.variant ?? "",
-      importStatus: progress?.vehicle?.importStatus ?? "unknown",
-    };
-
-    const kilometres = progress?.kilometres ?? null;
-    const owners = progress?.owners ?? null;
-    const conditionSummary = progress?.conditionSummary ?? "";
-    const notes = progress?.notes ?? "";
-    const listingPhotos: string[] = progress?.photos?.listing ?? [];
-
-    const photoMeta = await Promise.all(
-      listingPhotos.map(async (p, i) => ({
-        index: i,
-        hash: await hashImage(p),
-        approxSizeKB: Math.round((p.length * (3 / 4)) / 1024),
-      }))
-    );
-
-    let data: any = {};
-
-    try {
-      const aiResponse = await fetch("/api/analyze-listing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          // 🔥 FIX — backend expects "url"
-          url: listingUrl,
-
-          vehicle,
-          kilometres,
-          owners,
-          conditionSummary,
-          notes,
-          photos: {
-            count: listingPhotos.length,
-            hashes: photoMeta,
-          },
-        }),
-      });
-
-      data = await aiResponse.json();
-    } catch {
-      console.warn("⚠️ AI request failed — fallback mode");
-    }
-
-    const result: SavedResult = {
-      createdAt: new Date().toISOString(),
-      source: "online",
-      listingUrl,
-      analysisSource: data.analysisSource ?? "ai",
-
-      vehicle,
-      kilometres: kilometres ?? undefined,
-      owners,
-      conditionSummary,
-      notes,
-
-      photos: {
-        listing: listingPhotos,
-        meta: photoMeta,
-      },
-
-      signals: Array.isArray(data.signals) ? data.signals : [],
-      sections: Array.isArray(data.sections) ? data.sections : [],
-
-      summary: data.summary ?? "",
-      sellerType: data.sellerType ?? "unknown",
-
-      isUnlocked: false,
-    };
-
-    saveOnlineResults(result);
-    navigate("/scan/online/results", { replace: true });
-  }
-
   return (
-    <div className="max-w-3xl mx-auto px-6 py-16 text-center">
-      <h1 className="text-2xl font-semibold mb-2">
-        Analysing listing…
-      </h1>
-      <p className="text-muted-foreground">
-        We’re reviewing the listing and attached details.
-      </p>
+    <div className="max-w-3xl mx-auto py-16 px-6 text-center">
+      <h1 className="text-xl font-semibold mb-2">Analyzing listing…</h1>
+      <p className="text-muted-foreground">This may take a few seconds.</p>
     </div>
   );
 }

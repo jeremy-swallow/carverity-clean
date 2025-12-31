@@ -1,71 +1,64 @@
-/* src/utils/onlineResults.ts */
+// src/utils/onlineResults.ts
 
-export interface PhotoHashMeta {
-  index: number;
-  hash: string;
-  approxSizeKB?: number;
+export interface ResultSection {
+  title: string;
+  content: string;
 }
 
-export interface SavedResultPhotos {
-  /** Base64 listing images for UI + lightbox */
+export interface SavedPhotos {
   listing: string[];
-
-  /** Hash metadata used for transparency & authenticity checks */
-  meta: PhotoHashMeta[];
-}
-
-export interface SavedResultVehicle {
-  make?: string;
-  model?: string;
-  year?: string;
-  variant?: string;
-  importStatus?: string;
+  meta?: any[];
 }
 
 export interface SavedResult {
+  type: "online";
+  step: string;
   createdAt: string;
-  source: "online" | "in-person";
-  sellerType: string;
-  listingUrl: string;
 
-  // Core AI output
-  summary?: string;
-  signals: any[];
-  sections: any[];
+  listingUrl: string | null;
+  vehicle: any;
+
+  sections: ResultSection[];
+  signals?: any[];
+
+  photos: SavedPhotos;
+
+  isUnlocked: boolean;
+
+  // Optional metadata
+  source?: string;
   analysisSource?: string;
+  sellerType?: string;
 
-  // Extra context
-  vehicle?: SavedResultVehicle;
-  kilometres?: string | null;
-  owners?: string | null;
-  conditionSummary?: string;
+  conditionSummary: string;
+  summary?: string;
+
+  kilometres?: number | string;
+  owners?: string;
   notes?: string;
-
-  /** New unified photos structure */
-  photos: SavedResultPhotos;
-
-  /** Prevent double-charging unlocks */
-  isUnlocked?: boolean;
-
-  // Forward-compat escape hatch
-  [key: string]: any;
 }
 
-const STORAGE_KEY = "onlineResults";
+const STORAGE_KEY = "carverity_online_results_v2";
 
-export function saveOnlineResults(result: SavedResult) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(result));
+export function saveOnlineResults(data: SavedResult) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
 export function loadOnlineResults(): SavedResult | null {
   const raw = localStorage.getItem(STORAGE_KEY);
-  return raw ? (JSON.parse(raw) as SavedResult) : null;
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as SavedResult;
+  } catch {
+    return null;
+  }
 }
 
 export function unlockOnlineResults() {
-  const existing = loadOnlineResults();
-  if (!existing) return;
+  const stored = loadOnlineResults();
+  if (!stored) return;
 
-  const updated: SavedResult = { ...existing, isUnlocked: true };
-  saveOnlineResults(updated);
+  stored.isUnlocked = true;
+  saveOnlineResults(stored);
 }
