@@ -1,10 +1,11 @@
 /* api/analyze-listing.ts */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import extractVehicleFromListing from "./extract-vehicle-from-listing";
-import type { ExtractVehicleResponse } from "./extract-vehicle-from-listing";
-
-export const config = { runtime: "nodejs" };
+import { loadProgress, saveProgress } from "./scanProgress";
+import {
+  extractVehicleFromListing,
+  type ExtractVehicleResponse,
+} from "./extract-vehicle-from-listing";
 
 export default async function handler(
   req: VercelRequest,
@@ -14,29 +15,62 @@ export default async function handler(
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
 
-  const body = (req.body ?? {}) as { url?: string };
-  const url = body.url;
-
+  const { url } = req.body ?? {};
   if (!url || typeof url !== "string") {
     return res.status(400).json({ ok: false, error: "Missing URL" });
   }
 
-  try {
-    console.log("🔎 Analyzing listing:", url);
+  console.log("🔍 Analyzing listing:", url);
 
-    const result: ExtractVehicleResponse = await extractVehicleFromListing(url);
+  // 🔹 Call the extractor helper (NOT the API handler)
+  const extraction: ExtractVehicleResponse = await extractVehicleFromListing(
+    url
+  );
 
-    console.log("🧠 ANALYSIS RESULT >>>", result);
+  console.log("🧠 ANALYSIS RESULT >>>", extraction);
 
-    // Just return what the helper produced
-    return res.status(200).json(result);
-  } catch (err: any) {
-    console.error("❌ analyze-listing failed:", err?.message || err);
+  const existing = loadProgress() ?? {};
 
-    return res.status(500).json({
-      ok: false,
-      source: "carsales-url-parser",
-      error: "Internal error while analyzing listing",
-    });
-  }
+  const extractedVehicle = extraction.vehicle ?? {
+    make: "",
+    model: "",
+    year: "",
+    variant: "",
+  };
+
+  const vehicle = {
+    make: extractedVehicle.make || existing.vehicle?.make || "",
+    model: extractedVehicle.model || existing.vehicle?.model || "",
+    year: extractedVehicle.year || existing.vehicle?.year || "",
+    variant: extractedVehicle.variant || existing.vehicle?.variant || "",
+    importStatus:
+      existing.vehicle?.importStatus ?? "Sold new in Australia (default)",
+  };
+
+  // 📝 Persist scan progress for the next steps
+  saveProgress({
+    ...existing,
+    type: "online",
+    step: "online/vehicle",
+    listingUrl: url,
+    startedAt: existing.startedAt ?? new Date().toISOString(),
+    vehicle,
+  });
+
+  console.log("✅ Stored vehicle in progress:", vehicle);
+
+  // Maintain the original response shape for the frontend
+  return res.status(200).json({
+    ok: true,
+    source:
+      extraction.reason === "blocked_source"
+        ? "blocked_source"
+        : "carsales-url-parser",
+    extracted: {
+      make: vehicle.make,
+      model: vehicle.model,
+      year: vehicle.year,
+      variant: vehicle.variant,
+    },
+  });
 }
