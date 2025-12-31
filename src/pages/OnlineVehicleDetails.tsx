@@ -10,6 +10,13 @@ type VehicleState = {
   importStatus: string;
 };
 
+type ProgressShape = {
+  vehicle?: Partial<VehicleState>;
+  step?: string;
+  listingUrl?: string;
+  startedAt?: string;
+};
+
 export default function OnlineVehicleDetails() {
   const navigate = useNavigate();
 
@@ -21,39 +28,33 @@ export default function OnlineVehicleDetails() {
     importStatus: "Sold new in Australia (default)",
   });
 
-  //
-  // 🔄 Load existing scan progress + hydrate values
-  //
+  // ======================================================
+  // Load existing scan progress + hydrate values
+  // ======================================================
   useEffect(() => {
-    const progress = loadProgress();
+    const progress = (loadProgress() ?? {}) as ProgressShape;
+    console.log("Loaded progress >>>", progress);
 
-    const extracted = progress?.vehicle as Partial<VehicleState> | undefined;
-
-    console.log("Loaded scan progress:", progress);
-    console.log("Hydrated vehicle:", extracted);
-
-    if (!extracted) return;
+    const existing = progress.vehicle ?? {};
+    console.log("Hydrating with >>>", existing);
 
     setVehicle(v => ({
       ...v,
-      make: extracted.make ?? v.make,
-      model: extracted.model ?? v.model,
-      year: extracted.year ?? v.year,
-      variant: extracted.variant ?? v.variant,
-      importStatus: extracted.importStatus ?? v.importStatus,
+      ...existing,
     }));
   }, []);
 
-  //
-  // ✏️ Update field + MERGE into existing scan state
-  //
+  // ======================================================
+  // Update field + persist (merge-safe)
+  // ======================================================
   function updateField(key: keyof VehicleState, value: string) {
     setVehicle(v => {
       const next = { ...v, [key]: value };
 
-      const existing = loadProgress() ?? {};
+      const current = (loadProgress() ?? {}) as ProgressShape;
+
       saveProgress({
-        ...existing,
+        ...current,
         vehicle: next,
       });
 
@@ -61,14 +62,14 @@ export default function OnlineVehicleDetails() {
     });
   }
 
-  //
-  // ➡️ Continue — persist + move to next step
-  //
+  // ======================================================
+  // Continue → Save & move forward
+  // ======================================================
   function handleContinue() {
-    const existing = loadProgress() ?? {};
+    const current = (loadProgress() ?? {}) as ProgressShape;
 
     saveProgress({
-      ...existing,
+      ...current,
       vehicle,
       step: "/online/photos",
     });
