@@ -1,97 +1,100 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import * as cheerio from "cheerio";
+import { loadProgress, saveProgress } from "../src/utils/scanProgress";
 
 /* =========================================================
    Types
 ========================================================= */
 
 type BasicVehicle = {
-  year: string;
   make: string;
   model: string;
+  year: string;
   variant: string;
 };
 
 type AnalyzeResponse = {
   ok: boolean;
-  error?: string;
-  source?: string;
-  title?: string;
-  extracted?: BasicVehicle;
+  source: string;
+  title: string;
+  extracted: BasicVehicle;
 };
 
 /* =========================================================
    Helpers
 ========================================================= */
 
-function normalise(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
+function normalise(t: string) {
+  return t.replace(/\s+/g, " ").trim();
 }
 
-function isYear(token: string): boolean {
-  return /^\d{4}$/.test(token);
-}
-
-function titleCase(str: string): string {
-  return str
+function titleCase(s: string) {
+  return s
     .split(" ")
     .filter(Boolean)
-    .map(w => (w.length <= 2 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1).toLowerCase()))
+    .map((w) =>
+      w.length <= 2 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)
+    )
     .join(" ");
 }
 
-/* =========================================================
-   Carsales URL parser
-========================================================= */
-
-function parseCarsalesFromUrl(url: string): BasicVehicle | null {
-  try {
-    const u = new URL(url);
-    const slug = u.pathname.split("/").find(p => /^\d{4}-/.test(p)) ?? "";
-    if (!slug) return null;
-
-    const parts = slug.split("-").filter(Boolean);
-    const year = parts[0];
-    if (!isYear(year)) return null;
-
-    const make = titleCase(parts[1]);
-    const rest = parts.slice(2);
-
-    const model = titleCase(rest.slice(0, 2).join(" "));
-    const variant = titleCase(rest.slice(2).join(" "));
-
-    return { year, make, model, variant };
-  } catch {
-    return null;
+/**
+ * Very small safety wrapper to ensure we always return a vehicle object
+ */
+function ensureVehicle(v: BasicVehicle | null): BasicVehicle {
+  if (!v) {
+    return { make: "", model: "", year: "", variant: "" };
   }
+  return {
+    make: v.make ?? "",
+    model: v.model ?? "",
+    year: v.year ?? "",
+    variant: v.variant ?? "",
+  };
 }
 
 /* =========================================================
-   HTML fallback parser
+   Parse Carsales-style listing HTML
 ========================================================= */
 
-function parseFromHtml(html: string): { title: string; vehicle: BasicVehicle | null } {
+function parseFromHtml(html: string): {
+  title: string;
+  vehicle: BasicVehicle | null;
+} {
   const $ = cheerio.load(html);
 
-  const raw =
+  // Try several title sources
+  let title =
     $('meta[property="og:title"]').attr("content") ||
     $("title").text() ||
     $("h1").first().text() ||
     "";
 
-  const title = normalise(raw);
-  const parts = title.split(" ");
+  title = normalise(title);
 
-  let vehicle: BasicVehicle | null = null;
+  // Typical pattern:
+  // "2021 Mazda CX-30 G20 Touring DM Series Auto"
+  const m =
+    title.match(
+      /(?<year>20\d{2})\s+(?<make>[A-Za-z]+)\s+(?<model>[A-Za-z0-9\-]+)\s*(?<variant>.*)$/
+    ) || undefined;
 
-  if (parts.length >= 3 && isYear(parts[0])) {
-    vehicle = {
-      year: parts[0],
-      make: titleCase(parts[1]),
-      model: titleCase(parts.slice(2).join(" ")),
-      variant: "",
-    };
+  if (!m || !m.groups) {
+    // Fallback – no reliable parse, return just the title
+    return { title, vehicle: null };
   }
+
+  const year = m.groups.year || "";
+  const make = titleCase(m.groups.make || "");
+  const model = titleCase(m.groups.model || "");
+  const variant = titleCase(normalise(m.groups.variant || ""));
+
+  const vehicle: BasicVehicle = {
+    year,
+    make,
+    model,
+    variant,
+  };
 
   return { title, vehicle };
 }
@@ -100,7 +103,10 @@ function parseFromHtml(html: string): { title: string; vehicle: BasicVehicle | n
    Main handler
 ========================================================= */
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
   try {
     if (req.method !== "POST") {
       return res.status(405).json({ ok: false, error: "Method not allowed" });
@@ -113,38 +119,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch listing (status ${response.status})`);
+    }
+
     const html = await response.text();
+    const { title, vehicle } = parseFromHtml(html);
+    const extracted = ensureVehicle(vehicle);
 
-    let extracted: BasicVehicle | null = null;
-    let source = "fallback";
+    // ---------------- Save to scan progress ----------------
+    const existing = (loadProgress() ?? {}) as any;
 
-    if (url.includes("carsales.com.au")) {
-      extracted = parseCarsalesFromUrl(url);
-      if (extracted) source = "carsales-url-parser";
-    }
+    saveProgress({
+      ...existing,
+      type: existing?.type ?? "online",
+      step: "/online/vehicle-details",
+      listingUrl: existing?.listingUrl ?? url,
+      vehicle: {
+        ...(existing?.vehicle ?? {}),
+        make: extracted.make || existing?.vehicle?.make || "",
+        model: extracted.model || existing?.vehicle?.model || "",
+        year: extracted.year || existing?.vehicle?.year || "",
+        variant: extracted.variant || existing?.vehicle?.variant || "",
+        importStatus:
+          existing?.vehicle?.importStatus ||
+          "Sold new in Australia (default)",
+      },
+    });
 
-    const { title, vehicle: htmlVehicle } = parseFromHtml(html);
+    console.log("ANALYSIS RESULT >>>", {
+      ok: true,
+      source: "carsales-url-parser",
+      title,
+      extracted,
+    });
 
-    if (!extracted && htmlVehicle) {
-      extracted = htmlVehicle;
-      source = "html-title-parser";
-    }
-
-    const safeExtracted: BasicVehicle = extracted ?? {
-      year: "",
-      make: "",
-      model: "",
-      variant: "",
+    const payload: AnalyzeResponse = {
+      ok: true,
+      source: "carsales-url-parser",
+      title,
+      extracted,
     };
 
-    return res.status(200).json({
-      ok: true,
-      source,
-      title,
-      extracted: safeExtracted,
-    });
+    return res.status(200).json(payload);
   } catch (err: any) {
-    console.error(err);
-    return res.status(500).json({ ok: false, error: err?.message || "Unexpected error" });
+    console.error("❌ analyze-listing failed:", err?.message || err);
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Unknown error",
+    });
   }
 }

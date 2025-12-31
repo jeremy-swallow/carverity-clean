@@ -17,6 +17,16 @@ export type ScanProgress = {
     model?: string;
     year?: string;
     variant?: string;
+
+    /**
+     * Human-readable import status used in the UI
+     * e.g. "Sold new in Australia (default)"
+     */
+    importStatus?: string;
+
+    /**
+     * Legacy flag for older flows – kept for safety.
+     */
     isImport?: boolean;
   };
 
