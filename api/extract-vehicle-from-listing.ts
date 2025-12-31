@@ -1,156 +1,122 @@
-/**
- * Extracts vehicle details from a listing URL.
- * 
- * Strategy (progressively safe):
- * 1) Fetch page HTML
- * 2) Look for JSON-LD schema.org vehicle data
- * 3) Look for <title> / <meta> patterns (Carsales, Gumtree, FBMP, etc)
- * 4) Fall back to defaults if nothing is found
- */
-
-export type ExtractedVehicle = {
-  make: string;
-  model: string;
-  year: string;
-  variant: string;
-  importStatus: string;
-};
-
-const DEFAULT_IMPORT_STATUS = "Sold new in Australia (default)";
-
-export async function extractVehicleFromListing(url: string): Promise<ExtractedVehicle> {
-  try {
-    const res = await fetch(url, { method: "GET" });
-
-    if (!res.ok) {
-      console.warn("⚠️ Listing fetch failed", res.status, url);
-      return emptyVehicle();
-    }
-
-    const html = await res.text();
-
-    // ========= 1) Try JSON-LD vehicle schema =========
-    const jsonLdMatch = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i);
-    if (jsonLdMatch) {
-      const vehicle = tryParseJsonLd(jsonLdMatch[1]);
-      if (vehicle) return normalize(vehicle);
-    }
-
-    // ========= 2) Try META title / og:title =========
-    const titleFromMeta = getMetaTitle(html);
-    if (titleFromMeta) {
-      const parsed = parseTitle(titleFromMeta);
-      if (parsed) return normalize(parsed);
-    }
-
-    // ========= 3) Try page <title> =========
-    const pageTitle = getPageTitle(html);
-    if (pageTitle) {
-      const parsed = parseTitle(pageTitle);
-      if (parsed) return normalize(parsed);
-    }
-
-    // ========= 4) Nothing found — fallback =========
-    return emptyVehicle();
-
-  } catch (err) {
-    console.error("❌ Extractor failed", err);
-    return emptyVehicle();
-  }
-}
-
-/* ========================= Helpers ========================= */
-
-function emptyVehicle(): ExtractedVehicle {
-  return {
-    make: "",
-    model: "",
-    year: "",
-    variant: "",
-    importStatus: DEFAULT_IMPORT_STATUS,
-  };
-}
-
-function normalize(v: Partial<ExtractedVehicle>): ExtractedVehicle {
-  return {
-    make: v.make?.trim() ?? "",
-    model: v.model?.trim() ?? "",
-    year: v.year?.toString().trim() ?? "",
-    variant: v.variant?.trim() ?? "",
-    importStatus: v.importStatus?.trim() || DEFAULT_IMPORT_STATUS,
-  };
-}
-
-function tryParseJsonLd(raw: string): Partial<ExtractedVehicle> | null {
-  try {
-    const data = JSON.parse(raw);
-
-    // handle array or single object
-    const node = Array.isArray(data) ? data[0] : data;
-
-    if (!node) return null;
-
-    return {
-      make: node?.brand?.name ?? node?.brand ?? "",
-      model: node?.model ?? "",
-      year: node?.productionDate ?? node?.releaseDate ?? "",
-      variant: node?.vehicleConfiguration ?? "",
-      importStatus: DEFAULT_IMPORT_STATUS,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function getMeta(html: string, name: string): string | null {
-  const re = new RegExp(`<meta[^>]*(property|name)=["']${name}["'][^>]*content=["']([^"']+)["'][^>]*>`, "i");
-  const m = html.match(re);
-  return m?.[2] ?? null;
-}
-
-function getMetaTitle(html: string): string | null {
-  return (
-    getMeta(html, "og:title") ||
-    getMeta(html, "twitter:title") ||
-    null
-  );
-}
-
-function getPageTitle(html: string): string | null {
-  const m = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  return m?.[1] ?? null;
-}
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 /**
- * Tries to parse titles like:
- *  - "2018 Mazda 3 Neo Sport Hatch"
- *  - "Toyota Corolla 2015 SX Auto"
- *  - "2017 Hyundai i30 Active — Low kms"
+ * extract-vehicle-from-listing
+ * Server-mode HTML fetch + resilient parsing
  */
-function parseTitle(title: string): Partial<ExtractedVehicle> | null {
-  const clean = title.replace(/\s+-\s+.*/i, "").trim();
 
-  const yearMatch = clean.match(/(19|20)\d{2}/);
-  const year = yearMatch ? yearMatch[0] : "";
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const { url } = req.body ?? {};
 
-  const parts = clean
-    .replace(year, "")
-    .trim()
-    .split(/\s+/);
+  if (!url) {
+    return res.status(400).json({ ok: false, error: "Missing URL" });
+  }
 
-  if (parts.length < 2) return null;
+  console.log("🔎 Extracting vehicle from:", url);
 
-  const make = parts[0];
-  const model = parts[1];
-  const variant = parts.slice(2).join(" ");
+  //
+  // ⏳ Safety timeout wrapper
+  //
+  const timeout = (ms: number) =>
+    new Promise((_r, reject) =>
+      setTimeout(() => reject(new Error("Fetch timeout exceeded")), ms)
+    );
 
-  return {
-    make,
-    model,
-    year,
-    variant,
-    importStatus: DEFAULT_IMPORT_STATUS,
+  let html = "";
+  let status = 0;
+  let contentType = "";
+
+  try {
+    const response: any = await Promise.race([
+      fetch(url, {
+        method: "GET",
+        redirect: "follow",
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml",
+          "Accept-Language": "en-AU,en;q=0.9",
+          "Cache-Control": "no-cache",
+        },
+      }),
+      timeout(15000),
+    ]);
+
+    status = response.status;
+    contentType = response.headers.get("content-type") ?? "";
+
+    html = await response.text();
+  } catch (err: any) {
+    console.error("❌ Network fetch failed:", err?.message);
+    return res.status(200).json({
+      ok: false,
+      blocked: true,
+      reason: "network_error",
+      vehicle: {},
+    });
+  }
+
+  console.log("📡 Fetch result:", { status, contentType });
+
+  //
+  // 🛑 Anti-bot / invalid responses
+  //
+  if (!html || html.length < 200 || contentType.includes("json")) {
+    console.warn("⚠️ Listing did not return valid HTML (likely blocked)");
+
+    return res.status(200).json({
+      ok: true,
+      source: "vehicle-extractor",
+      vehicle: {
+        make: "",
+        model: "",
+        year: "",
+        variant: "",
+        importStatus: "Sold new in Australia (default)",
+      },
+      blocked: true,
+    });
+  }
+
+  //
+  // ✂️ Minimal HTML extract helpers
+  //
+  const pick = (pattern: RegExp) =>
+    html.match(pattern)?.[1]?.trim() ?? "";
+
+  //
+  // 🧠 Cars24 heuristic field mapping
+  //
+  const make =
+    pick(/"make"\s*:\s*"([^"]+)"/i) ||
+    pick(/"manufacturer"\s*:\s*"([^"]+)"/i);
+
+  const model =
+    pick(/"model"\s*:\s*"([^"]+)"/i) ||
+    pick(/"variant"\s*:\s*"([^"]+)"/i);
+
+  const year =
+    pick(/"year"\s*:\s*"([^"]+)"/i) ||
+    pick(/"manufactureYear"\s*:\s*"([^"]+)"/i);
+
+  const variant =
+    pick(/"trim"\s*:\s*"([^"]+)"/i) ||
+    pick(/"series"\s*:\s*"([^"]+)"/i);
+
+  const vehicle = {
+    make: make ?? "",
+    model: model ?? "",
+    year: year ?? "",
+    variant: variant ?? "",
+    importStatus: "Sold new in Australia (default)",
   };
-}
 
-export default extractVehicleFromListing;
+  console.log("🚗 Extracted vehicle:", vehicle);
+
+  return res.status(200).json({
+    ok: true,
+    source: "vehicle-extractor",
+    vehicle,
+  });
+}
