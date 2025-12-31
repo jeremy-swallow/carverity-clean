@@ -1,3 +1,5 @@
+// src/pages/OnlineStart.tsx
+
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { saveProgress } from "../utils/scanProgress";
@@ -10,27 +12,29 @@ export default function OnlineStart() {
   const [error, setError] = useState("");
 
   function handleContinue() {
+    const trimmed = url.trim();
+
     // Basic validation
-    if (!url || !url.startsWith("http")) {
+    if (!trimmed || !trimmed.startsWith("http")) {
       setError("Please paste a valid listing link.");
       return;
     }
 
     setError("");
 
-    // 🟡 Save listing URL for downstream pages
-    localStorage.setItem(LISTING_URL_KEY, url);
+    // Save listing URL for the analyzer flow
+    localStorage.setItem(LISTING_URL_KEY, trimmed);
 
-    // 🟡 Save scan progress (upgrade-safe)
+    // Save scan progress (upgrade-safe)
     saveProgress({
       type: "online",
-      step: "/online-details",
-      listingUrl: url,
+      step: "/scan/online/analyzing",
+      listingUrl: trimmed,
       startedAt: new Date().toISOString(),
     });
 
-    // Move to next screen
-    navigate("/online-details");
+    // 👉 Unified scan entry point
+    navigate("/scan/online/analyzing");
   }
 
   return (
