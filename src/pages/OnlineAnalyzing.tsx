@@ -16,7 +16,32 @@ export default function OnlineAnalyzing() {
           body: JSON.stringify({ listingUrl }),
         });
 
+        if (!res.ok) {
+          console.error("API returned non-OK response", res.status);
+          alert("Scan failed — the listing could not be analysed.");
+          navigate("/scan/online/start", { replace: true });
+          return;
+        }
+
         const data = await res.json();
+
+        // ------------ Safe array coercion helpers ------------
+        const toArray = <T,>(v: any): T[] =>
+          Array.isArray(v) ? v : v ? [v] : [];
+
+        const sections = toArray<any>(data?.sections);
+        const signals = toArray<any>(data?.signals);
+        const listingPhotos = toArray<string>(data?.photos);
+        const metaPhotos = toArray<any>(data?.photoMeta);
+
+        // ------------ Summary + condition fallback ------------
+        const summaryText =
+          typeof data?.summary === "string" ? data.summary : "";
+
+        const conditionText =
+          typeof data?.conditionSummary === "string"
+            ? data.conditionSummary
+            : summaryText;
 
         const result: SavedResult = {
           type: "online",
@@ -24,24 +49,36 @@ export default function OnlineAnalyzing() {
           createdAt: new Date().toISOString(),
 
           listingUrl,
-          vehicle: data.vehicle ?? {},
+          vehicle: data?.vehicle ?? {},
 
-          sections: Array.isArray(data.sections) ? data.sections : [],
-          signals: Array.isArray(data.signals) ? data.signals : [],
+          sections,
+          signals,
 
           photos: {
-            listing: data.photos ?? [],
-            meta: data.photoMeta ?? [],
+            listing: listingPhotos,
+            meta: metaPhotos,
           },
 
-          conditionSummary: data.summary ?? "",
-          summary: data.summary ?? "",
+          conditionSummary: conditionText,
+          summary: summaryText,
 
-          kilometres: data.kilometres ?? undefined,
-          owners: data.owners ?? undefined,
-          notes: data.notes ?? undefined,
+          kilometres:
+            typeof data?.kilometres === "string" ||
+            typeof data?.kilometres === "number"
+              ? data.kilometres
+              : undefined,
 
-          sellerType: data.sellerType ?? "unknown",
+          owners:
+            typeof data?.owners === "string" ? data.owners : undefined,
+
+          notes:
+            typeof data?.notes === "string" ? data.notes : undefined,
+
+          sellerType:
+            typeof data?.sellerType === "string"
+              ? data.sellerType
+              : "unknown",
+
           source: "ai",
 
           isUnlocked: false,
@@ -52,11 +89,19 @@ export default function OnlineAnalyzing() {
       } catch (err) {
         console.error("Scan failed:", err);
         alert("Scan failed — please try again.");
+        navigate("/scan/online/start", { replace: true });
       }
     }
 
     const url = localStorage.getItem("carverity_online_listing_url");
-    if (url) runScan(url);
+
+    if (!url) {
+      console.warn("No listing URL — redirecting user");
+      navigate("/scan/online/start", { replace: true });
+      return;
+    }
+
+    runScan(url);
   }, [navigate]);
 
   return (
