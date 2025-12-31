@@ -2,7 +2,13 @@
 
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { saveOnlineResults, type SavedResult } from "../utils/onlineResults";
+import {
+  saveOnlineResults,
+  type SavedResult,
+} from "../utils/onlineResults";
+import { loadProgress, type ScanProgress } from "../utils/scanProgress";
+
+const LISTING_URL_KEY = "carverity_online_listing_url";
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
@@ -25,23 +31,64 @@ export default function OnlineAnalyzing() {
 
         const data = await res.json();
 
-        // ------------ Safe array coercion helpers ------------
+        // ========= Load saved progress (user-entered values) =========
+        const progress: ScanProgress | null = loadProgress();
+
+        const userCondition =
+          progress && typeof progress.conditionSummary === "string"
+            ? progress.conditionSummary.trim()
+            : "";
+
+        const userNotes =
+          progress && typeof progress.notes === "string"
+            ? progress.notes.trim()
+            : "";
+
+        let userPhotos: string[] = [];
+        let userMeta: any[] = [];
+
+        if (progress?.photos) {
+          if (Array.isArray(progress.photos.listing)) {
+            userPhotos = progress.photos.listing;
+          }
+          if (Array.isArray(progress.photos.meta)) {
+            userMeta = progress.photos.meta;
+          }
+        }
+
+        // ------------ Safe array helpers ------------
         const toArray = <T,>(v: any): T[] =>
           Array.isArray(v) ? v : v ? [v] : [];
 
         const sections = toArray<any>(data?.sections);
         const signals = toArray<any>(data?.signals);
-        const listingPhotos = toArray<string>(data?.photos);
-        const metaPhotos = toArray<any>(data?.photoMeta);
+        const apiPhotos = toArray<string>(data?.photos);
+        const apiMeta = toArray<any>(data?.photoMeta);
 
-        // ------------ Summary + condition fallback ------------
-        const summaryText =
+        // ------------ Text fallback strategy ------------
+        const apiSummary =
           typeof data?.summary === "string" ? data.summary : "";
 
-        const conditionText =
+        const apiCondition =
           typeof data?.conditionSummary === "string"
             ? data.conditionSummary
-            : summaryText;
+            : apiSummary;
+
+        // Prefer user text if present, otherwise API text
+        const conditionSummary =
+          userCondition || apiCondition || "";
+
+        const notes =
+          userNotes ||
+          (typeof data?.notes === "string" ? data.notes : "") ||
+          "";
+
+        // Merge photos without duplication
+        const mergedPhotos = Array.from(
+          new Set([...userPhotos, ...apiPhotos])
+        );
+
+        const mergedMeta = Array.from(new Set([...userMeta, ...apiMeta]));
 
         const result: SavedResult = {
           type: "online",
@@ -55,12 +102,12 @@ export default function OnlineAnalyzing() {
           signals,
 
           photos: {
-            listing: listingPhotos,
-            meta: metaPhotos,
+            listing: mergedPhotos,
+            meta: mergedMeta,
           },
 
-          conditionSummary: conditionText,
-          summary: summaryText,
+          conditionSummary,
+          summary: apiSummary,
 
           kilometres:
             typeof data?.kilometres === "string" ||
@@ -71,8 +118,7 @@ export default function OnlineAnalyzing() {
           owners:
             typeof data?.owners === "string" ? data.owners : undefined,
 
-          notes:
-            typeof data?.notes === "string" ? data.notes : undefined,
+          notes,
 
           sellerType:
             typeof data?.sellerType === "string"
@@ -80,7 +126,6 @@ export default function OnlineAnalyzing() {
               : "unknown",
 
           source: "ai",
-
           isUnlocked: false,
         };
 
@@ -93,7 +138,7 @@ export default function OnlineAnalyzing() {
       }
     }
 
-    const url = localStorage.getItem("carverity_online_listing_url");
+    const url = localStorage.getItem(LISTING_URL_KEY);
 
     if (!url) {
       console.warn("No listing URL — redirecting user");
