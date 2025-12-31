@@ -10,6 +10,8 @@ interface VehicleState {
   importStatus: string;
 }
 
+const LEGACY_LISTING_URL_KEY = "carverity_online_listing_url";
+
 export default function OnlineVehicleDetails() {
   const navigate = useNavigate();
 
@@ -22,31 +24,44 @@ export default function OnlineVehicleDetails() {
   });
 
   // =========================================================
-  // HYDRATE FROM SAVED PROGRESS (AND CALL EXTRACTOR IF NEEDED)
+  // HYDRATE FROM SAVED PROGRESS OR CALL EXTRACTOR (CLIENT SIDE)
   // =========================================================
   useEffect(() => {
     const progress = (loadProgress() as any) ?? {};
     console.log("Loaded progress >>>", progress);
 
     const existingVehicle = (progress.vehicle ?? {}) as Partial<VehicleState>;
-    console.log("Hydrating with >>>", existingVehicle);
 
-    // 1) If we already have vehicle details in progress → just hydrate
+    // Prefer URL from progress, but fall back to the legacy key
+    const listingUrlFromProgress = progress.listingUrl as string | undefined;
+    const listingUrlFromLegacy =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem(LEGACY_LISTING_URL_KEY) || undefined
+        : undefined;
+
+    const listingUrl = listingUrlFromProgress || listingUrlFromLegacy;
+    console.log("Using listing URL >>>", listingUrl);
+
+    // 1) If we already have vehicle details in progress → just hydrate UI
     if (Object.keys(existingVehicle).length > 0) {
-      setVehicle((v) => ({
-        ...v,
-        ...existingVehicle,
+      const mergedVehicle: VehicleState = {
+        make: existingVehicle.make ?? "",
+        model: existingVehicle.model ?? "",
+        year: existingVehicle.year ?? "",
+        variant: existingVehicle.variant ?? "",
         importStatus:
-          existingVehicle.importStatus ?? v.importStatus,
-      }));
+          existingVehicle.importStatus ?? "Sold new in Australia (default)",
+      };
+
+      console.log("Hydrating with existing vehicle >>>", mergedVehicle);
+      setVehicle(mergedVehicle);
       return;
     }
 
-    // 2) If we *don't* have vehicle details but we DO have the listing URL,
-    //    call the extractor *from this page* and then save to localStorage.
-    const listingUrl = progress.listingUrl as string | undefined;
+    // 2) If there's no vehicle data yet but we *do* have a listing URL,
+    //    call analyze-listing from this page and then persist to localStorage.
     if (!listingUrl) {
-      // No URL, nothing we can auto-fill – user will type manually.
+      console.log("No listing URL found — user will type details manually.");
       return;
     }
 
@@ -59,50 +74,59 @@ export default function OnlineVehicleDetails() {
         });
 
         const data = await res.json();
-        console.log("ANALYSIS RESULT >>>", data);
+        console.log("ANALYSIS RESULT (vehicle page) >>>", data);
 
         const extracted =
           (data.extracted ?? data.vehicle ?? {}) as Partial<VehicleState>;
 
-        // Hydrate UI
-        setVehicle((v) => ({
-          ...v,
-          ...extracted,
+        const mergedVehicle: VehicleState = {
+          make: extracted.make ?? "",
+          model: extracted.model ?? "",
+          year: extracted.year ?? "",
+          variant: extracted.variant ?? "",
           importStatus:
-            extracted.importStatus ?? v.importStatus,
-        }));
+            extracted.importStatus ?? "Sold new in Australia (default)",
+        };
+
+        // Hydrate UI
+        setVehicle(mergedVehicle);
 
         // Persist into browser scan progress (merge-safe)
         const latest = (loadProgress() as any) ?? progress;
-        saveProgress({
+        const update = {
           ...latest,
-          type: "online",
+          type: "online" as const,
           step: "/online/vehicle",
           listingUrl,
-          vehicle: {
-            ...(latest.vehicle ?? {}),
-            ...extracted,
-          },
+          vehicle: mergedVehicle,
           startedAt: latest.startedAt ?? new Date().toISOString(),
-        });
+        };
+
+        saveProgress(update);
+        console.log(
+          "After save >>>",
+          JSON.parse(
+            window.localStorage.getItem("carverity_scan_progress") || "null"
+          )
+        );
       } catch (err) {
         console.error(
           "❌ analyze-listing from vehicle page failed:",
-          err
+          (err as any)?.message || err
         );
       }
     })();
   }, []);
 
   // =========================================================
-  // FIELD UPDATES (MERGE INTO PROGRESS)
+  // FIELD UPDATES (ALSO MERGE INTO PROGRESS)
   // =========================================================
   function updateField<K extends keyof VehicleState>(
     field: K,
     value: VehicleState[K]
   ) {
     setVehicle((prev) => {
-      const next = { ...prev, [field]: value };
+      const next: VehicleState = { ...prev, [field]: value };
 
       const progress = (loadProgress() as any) ?? {};
       saveProgress({
