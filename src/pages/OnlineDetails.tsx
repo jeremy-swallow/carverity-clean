@@ -1,3 +1,5 @@
+// src/pages/OnlineDetails.tsx
+
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
@@ -20,6 +22,9 @@ export default function OnlineDetails() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  /* =========================================================
+     RESTORE PROGRESS (upgrade-safe)
+  ========================================================= */
   useEffect(() => {
     saveProgress({
       type: "online",
@@ -29,10 +34,16 @@ export default function OnlineDetails() {
 
     const progress = loadProgress();
 
-    if (progress?.conditionSummary) setCondition(progress.conditionSummary);
-    if (progress?.notes) setNotes(progress.notes);
+    if (typeof progress?.conditionSummary === "string")
+      setCondition(progress.conditionSummary);
 
-    const listingPhotos = progress?.photos?.listing ?? [];
+    if (typeof progress?.notes === "string")
+      setNotes(progress.notes);
+
+    const listingPhotos = Array.isArray(progress?.photos?.listing)
+      ? progress.photos.listing
+      : [];
+
     if (listingPhotos.length) {
       setPhotos(
         listingPhotos.map((url, i) => ({
@@ -43,13 +54,18 @@ export default function OnlineDetails() {
     }
   }, []);
 
+  /* =========================================================
+     IMAGE PROCESSING + SAFETY GUARDS
+  ========================================================= */
   function resizeImage(file: File): Promise<string> {
     return new Promise((resolve) => {
       const img = new Image();
       const reader = new FileReader();
 
       reader.onload = (e) => {
-        img.src = e.target?.result as string;
+        const src = e.target?.result as string;
+        if (!src) return resolve("");
+        img.src = src;
       };
 
       img.onload = () => {
@@ -58,6 +74,9 @@ export default function OnlineDetails() {
 
         const w = img.width;
         const h = img.height;
+
+        if (!w || !h) return resolve("");
+
         const scale = Math.min(MAX_IMAGE_SIZE / w, MAX_IMAGE_SIZE / h, 1);
 
         const newW = Math.round(w * scale);
@@ -68,7 +87,7 @@ export default function OnlineDetails() {
         ctx?.drawImage(img, 0, 0, newW, newH);
 
         const compressed = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
-        resolve(compressed);
+        resolve(compressed || "");
       };
 
       reader.readAsDataURL(file);
@@ -79,14 +98,15 @@ export default function OnlineDetails() {
     const remaining = MAX_PHOTOS - photos.length;
     if (remaining <= 0) return;
 
-    const images = Array.from(inputFiles).filter((f) =>
-      f.type.startsWith("image/")
+    const images = Array.from(inputFiles).filter(
+      (f) => f.type?.startsWith("image/")
     );
 
     const limited = images.slice(0, remaining);
 
     for (const file of limited) {
       const resized = await resizeImage(file);
+      if (!resized) continue;
 
       setPhotos((prev) => [
         ...prev,
@@ -100,7 +120,7 @@ export default function OnlineDetails() {
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
-    if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
+    if (e.dataTransfer?.files?.length) handleFiles(e.dataTransfer.files);
   }
 
   function handlePaste(e: React.ClipboardEvent<HTMLDivElement>) {
@@ -119,21 +139,31 @@ export default function OnlineDetails() {
     setPhotos((prev) => prev.filter((p) => p.id !== id));
   }
 
+  /* =========================================================
+     CONTINUE → Persist Progress + Hand Off to Analyzer
+  ========================================================= */
   function handleContinue() {
     saveProgress({
       type: "online",
       step: "/scan/online/details",
       startedAt: new Date().toISOString(),
+
       conditionSummary: condition.trim(),
       notes: notes.trim(),
+
+      // Normalised shape — always include meta array
       photos: {
         listing: photos.map((p) => p.dataUrl),
+        meta: [],
       },
     });
 
     navigate("/scan/online/analyzing");
   }
 
+  /* =========================================================
+     UI
+  ========================================================= */
   return (
     <div
       style={{

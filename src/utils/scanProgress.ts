@@ -39,6 +39,12 @@ export type ScanProgress = {
     listing?: string[];
 
     /**
+     * Reserved for hash / metadata from authenticity checks
+     * Mirrors SavedResult.photos.meta for consistency.
+     */
+    meta?: any[];
+
+    /**
      * Photos taken during the in-person inspection (future use)
      */
     inPerson?: string[];
