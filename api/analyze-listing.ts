@@ -16,70 +16,68 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log("🚗 Analyzing listing:", url);
 
   //
-  // 🔎 Call extractor API (invoke via HTTP)
+  // 🔎 Call extractor API (never import it directly — invoke via HTTP)
   //
-  let extraction: any = { ok: false, extracted: {}, networkError: false };
+  let extraction: any = { ok: false, vehicle: {}, networkError: false };
 
   try {
-    const base =
-      process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000";
-
-    const apiRes = await fetch(`${base}/api/extract-vehicle-from-listing`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
-    });
+    const apiRes = await fetch(
+      `${process.env.VERCEL_URL
+        ? "https://" + process.env.VERCEL_URL
+        : "http://localhost:3000"
+      }/api/extract-vehicle-from-listing`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      }
+    );
 
     extraction = await apiRes.json();
   } catch (err: any) {
     console.error("❌ Extract API call failed:", err?.message);
-    extraction = { ok: false, extracted: {}, networkError: true };
+    extraction = { ok: false, vehicle: {}, networkError: true };
   }
 
-  const extracted = extraction?.extracted ?? {};
-  console.log("✨ Extracted vehicle (raw):", extracted);
+  const extracted = extraction?.vehicle ?? {};
+  console.log("✨ Extracted vehicle:", extracted);
 
   //
-  // 🗂 Load existing scan state
+  // 🗂 Load existing scan state (never assume shape)
   //
   const existing = (loadProgress() as any) ?? {};
-  const existingVehicle = existing?.vehicle ?? {};
 
   //
-  // 🧩 Merge safely — never overwrite with undefined or ""
+  // 🧩 Merge safely into vehicle state
   //
-  const mergedVehicle = {
-    make: extracted.make || existingVehicle.make || "",
-    model: extracted.model || existingVehicle.model || "",
-    year: extracted.year || existingVehicle.year || "",
-    variant: extracted.variant || existingVehicle.variant || "",
+  const vehicle = {
+    make: extracted.make ?? existing?.vehicle?.make ?? "",
+    model: extracted.model ?? existing?.vehicle?.model ?? "",
+    year: extracted.year ?? existing?.vehicle?.year ?? "",
+    variant: extracted.variant ?? existing?.vehicle?.variant ?? "",
     importStatus:
-      extracted.importStatus ||
-      existingVehicle.importStatus ||
+      extracted.importStatus ??
+      existing?.vehicle?.importStatus ??
       "Sold new in Australia (default)",
   };
 
   //
-  // 💾 Persist (MERGE, not overwrite)
+  // 💾 Persist — MERGE instead of overwrite
   //
-  const next = {
+  saveProgress({
     ...existing,
     type: "online",
     step: "/online/vehicle",
     listingUrl: url,
-    vehicle: mergedVehicle,
+    vehicle,
     startedAt: existing?.startedAt ?? new Date().toISOString(),
-  };
+  });
 
-  saveProgress(next);
-
-  console.log("💾 Stored scan progress vehicle:", mergedVehicle);
+  console.log("💾 Stored vehicle:", vehicle);
 
   return res.status(200).json({
     ok: true,
     source: "vehicle-extractor",
-    extracted: mergedVehicle,
+    extracted: vehicle,
   });
 }
