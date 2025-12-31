@@ -2,39 +2,46 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const { q } = req.query;
-
-    if (!q || typeof q !== "string") {
-      return res.status(400).json({ ok: false, error: "Missing ?q param" });
+    const { query } = req.body || {};
+    if (!query) {
+      return res.status(400).json({ ok: false, error: "Missing query" });
     }
 
     const apiKey = process.env.GOOGLE_SEARCH_KEY;
     const cx = process.env.GOOGLE_SEARCH_CX;
 
     if (!apiKey || !cx) {
-      return res.status(500).json({ ok: false, error: "Missing Google API env vars" });
+      console.error("❌ Missing Google API env vars");
+      return res.status(500).json({ ok: false, error: "Server config error" });
     }
 
-    const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(
-      q
-    )}`;
+    const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(query)}`;
 
     const r = await fetch(url);
-    const json = await r.json();
+    const text = await r.text();
 
-    if (!json.items || !Array.isArray(json.items)) {
-      return res.status(404).json({ ok: false, results: [] });
+    // 💡 Try to parse JSON safely
+    let json: any = null;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      console.error("❌ Google returned NON-JSON:", text);
+      return res.status(502).json({ ok: false, error: "Google search failed" });
     }
 
-    const results = json.items.map((i: any) => ({
-      title: i.title,
-      url: i.link,
-      snippet: i.snippet,
-    }));
+    if ((json as any)?.error) {
+      console.error("❌ Google API error:", json.error);
+      return res.status(502).json({ ok: false, error: json.error.message });
+    }
 
-    return res.json({ ok: true, results });
+    return res.json({
+      ok: true,
+      source: "google-search",
+      results: json?.items ?? []
+    });
+
   } catch (err: any) {
-    console.error("search-listing error", err);
-    return res.status(500).json({ ok: false, error: err?.message || "Search failed" });
+    console.error("🔥 search-listing fatal error:", err?.message || err);
+    return res.status(500).json({ ok: false, error: "Search failed" });
   }
 }
