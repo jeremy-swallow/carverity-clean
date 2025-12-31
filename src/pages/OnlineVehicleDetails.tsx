@@ -21,10 +21,18 @@ export default function OnlineVehicleDetails() {
     importStatus: "Sold new in Australia (default)",
   });
 
+  // ======================================================
   // Load existing scan progress + hydrate values
+  // ======================================================
   useEffect(() => {
     const progress = loadProgress();
-    const extracted: any = progress?.vehicle ?? {};
+    const extracted = progress?.vehicle as Partial<{
+      make: string;
+      model: string;
+      year: string;
+      variant: string;
+      importStatus: string;
+    }>;
 
     console.log("Loaded scan progress:", progress);
     console.log("Hydrated vehicle:", extracted);
@@ -37,11 +45,13 @@ export default function OnlineVehicleDetails() {
       model: extracted.model ?? v.model,
       year: extracted.year ?? v.year,
       variant: extracted.variant ?? v.variant,
-      // tolerant assignment (no TS error even if missing)
-      importStatus: extracted?.importStatus ?? v.importStatus,
+      importStatus: extracted.importStatus ?? v.importStatus,
     }));
   }, []);
 
+  // ======================================================
+  // Update field + persist immediately
+  // ======================================================
   function updateField(key: keyof VehicleState, value: string) {
     setVehicle(v => {
       const next = { ...v, [key]: value };
@@ -50,6 +60,9 @@ export default function OnlineVehicleDetails() {
     });
   }
 
+  // ======================================================
+  // Continue → Save & move to next step
+  // ======================================================
   function handleContinue() {
     saveProgress({
       vehicle,
@@ -69,45 +82,44 @@ export default function OnlineVehicleDetails() {
         ✨ Estimated from the listing — please review before continuing
       </p>
 
-      <div className="space-y-4">
-
+      <div className="space-y-3">
         <input
-          className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2"
+          className="w-full bg-slate-800 rounded px-3 py-2"
           placeholder="Make"
           value={vehicle.make}
           onChange={e => updateField("make", e.target.value)}
         />
 
         <input
-          className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2"
+          className="w-full bg-slate-800 rounded px-3 py-2"
           placeholder="Model"
           value={vehicle.model}
           onChange={e => updateField("model", e.target.value)}
         />
 
         <input
-          className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2"
+          className="w-full bg-slate-800 rounded px-3 py-2"
           placeholder="Year"
           value={vehicle.year}
           onChange={e => updateField("year", e.target.value)}
         />
 
         <input
-          className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2"
+          className="w-full bg-slate-800 rounded px-3 py-2"
           placeholder="Variant (optional)"
           value={vehicle.variant}
           onChange={e => updateField("variant", e.target.value)}
         />
 
         <select
-          className="w-full bg-slate-800 border border-white/10 rounded px-3 py-2"
+          className="w-full bg-slate-800 rounded px-3 py-2"
           value={vehicle.importStatus}
           onChange={e => updateField("importStatus", e.target.value)}
         >
           <option>Sold new in Australia (default)</option>
-          <option>Australian delivered (used import)</option>
-          <option>Grey / parallel import</option>
-          <option>Unknown import status</option>
+          <option>Imported – Full Compliance</option>
+          <option>Imported – Personal / Private Import</option>
+          <option>Imported – Unknown Status</option>
         </select>
       </div>
 
