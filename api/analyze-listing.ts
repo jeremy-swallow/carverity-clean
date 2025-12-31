@@ -1,8 +1,18 @@
 /* api/analyze-listing.ts */
-export const config = { runtime: "nodejs" };
-
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { loadProgress, saveProgress } from "./scanProgress";
+
+interface ExtractResult {
+  ok: boolean;
+  vehicle: {
+    make?: string;
+    model?: string;
+    year?: string;
+    variant?: string;
+  };
+  fallback?: boolean;
+  error?: string;
+}
 
 export default async function handler(
   req: VercelRequest,
@@ -17,12 +27,19 @@ export default async function handler(
     return res.status(400).json({ ok: false, error: "Missing URL" });
   }
 
-  try {
-    console.log("🔎 Analyzing listing:", url);
+  console.log("🔎 Analyzing listing:", url);
 
-    // Call the extractor API (internal call, JSON-safe)
-    const extractorRes = await fetch(
-      `${req.headers["x-forwarded-proto"] ?? "https"}://${req.headers.host}/api/extract-vehicle-from-listing`,
+  // Load existing scan record if any
+  const existing = loadProgress() ?? {};
+
+  let extracted: ExtractResult = {
+    ok: false,
+    vehicle: {},
+  };
+
+  try {
+    const resp = await fetch(
+      `${req.headers.origin}/api/extract-vehicle-from-listing`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -30,54 +47,38 @@ export default async function handler(
       }
     );
 
-    const extractJson = await extractorRes.json().catch(() => null);
+    extracted = (await resp.json()) as ExtractResult;
 
-    const extracted =
-      extractJson?.vehicle ??
-      extractJson?.extracted ??
-      extractJson ??
-      {};
-
-    console.log("🧩 Extracted vehicle:", extracted);
-
-    // Load any existing scan state
-    const existing = loadProgress() ?? {};
-
-    const vehicle = {
-      make: extracted.make ?? existing?.vehicle?.make ?? "",
-      model: extracted.model ?? existing?.vehicle?.model ?? "",
-      year: extracted.year ?? existing?.vehicle?.year ?? "",
-      variant: extracted.variant ?? existing?.vehicle?.variant ?? "",
-      importStatus:
-        extracted.importStatus ??
-        existing?.vehicle?.importStatus ??
-        "Sold new in Australia (default)",
-    };
-
-    // Persist updated scan
-    saveProgress({
-      ...existing,
-      type: "online",
-      step: "online/vehicle",
-      listingUrl: url,
-      startedAt: existing.startedAt ?? new Date().toISOString(),
-      vehicle,
-    });
-
-    console.log("💾 Stored vehicle:", vehicle);
-
-    return res.status(200).json({
-      ok: true,
-      source: "listing-analyzer",
-      vehicle,
-    });
+    console.log("🧩 Extract result:", extracted);
   } catch (err: any) {
-    console.error("❌ analyze-listing failed:", err?.message);
-
-    return res.status(200).json({
-      ok: false,
-      error: "analyze_failed",
-      vehicle: { make: "", model: "", year: "", variant: "" },
-    });
+    console.error("❌ extract call failed:", err?.message);
   }
+
+  // Merge with existing values (never crash)
+  const vehicle = {
+    make: extracted.vehicle?.make || existing?.vehicle?.make || "",
+    model: extracted.vehicle?.model || existing?.vehicle?.model || "",
+    year: extracted.vehicle?.year || existing?.vehicle?.year || "",
+    variant: extracted.vehicle?.variant || existing?.vehicle?.variant || "",
+    importStatus:
+      existing?.vehicle?.importStatus || "Sold new in Australia (default)",
+  };
+
+  // Persist
+  saveProgress({
+    ...existing,
+    type: "online",
+    step: "online/vehicle",
+    listingUrl: url,
+    vehicle,
+    startedAt: existing.startedAt ?? new Date().toISOString(),
+  });
+
+  console.log("💾 Stored vehicle:", vehicle);
+
+  return res.status(200).json({
+    ok: true,
+    source: "listing-parser",
+    vehicle,
+  });
 }
