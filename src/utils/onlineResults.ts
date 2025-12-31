@@ -7,7 +7,7 @@ export interface ResultSection {
 
 export interface SavedPhotos {
   listing: string[];
-  meta?: any[];
+  meta: any[];
 }
 
 export interface SavedResult {
@@ -19,7 +19,7 @@ export interface SavedResult {
   vehicle: any;
 
   sections: ResultSection[];
-  signals?: any[];
+  signals: any[];
 
   photos: SavedPhotos;
 
@@ -31,7 +31,7 @@ export interface SavedResult {
   sellerType?: string;
 
   conditionSummary: string;
-  summary?: string;
+  summary: string;
 
   kilometres?: number | string;
   owners?: string;
@@ -49,7 +49,38 @@ export function loadOnlineResults(): SavedResult | null {
   if (!raw) return null;
 
   try {
-    return JSON.parse(raw) as SavedResult;
+    const parsed = JSON.parse(raw) as Partial<SavedResult>;
+
+    // 💪 Guarantee safe defaults even if older scans are loaded
+    return {
+      type: "online",
+      step: parsed.step ?? "/online/start",
+      createdAt: parsed.createdAt ?? new Date().toISOString(),
+
+      listingUrl: parsed.listingUrl ?? null,
+      vehicle: parsed.vehicle ?? {},
+
+      sections: Array.isArray(parsed.sections) ? parsed.sections : [],
+      signals: Array.isArray(parsed.signals) ? parsed.signals : [],
+
+      photos: {
+        listing: parsed.photos?.listing ?? [],
+        meta: parsed.photos?.meta ?? [],
+      },
+
+      conditionSummary: parsed.conditionSummary ?? "",
+      summary: parsed.summary ?? "",
+
+      isUnlocked: parsed.isUnlocked ?? false,
+
+      source: parsed.source,
+      analysisSource: parsed.analysisSource,
+      sellerType: parsed.sellerType,
+
+      kilometres: parsed.kilometres,
+      owners: parsed.owners,
+      notes: parsed.notes,
+    };
   } catch {
     return null;
   }

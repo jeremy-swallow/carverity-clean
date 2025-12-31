@@ -29,17 +29,15 @@ export default function OnlineResults() {
 
     setResult(stored);
 
-    const listingPhotos: string[] = stored.photos?.listing ?? [];
-    const hashMeta: any[] = stored.photos?.meta ?? [];
+    const listingPhotos = stored.photos.listing;
+    const hashMeta = stored.photos.meta;
 
     if (listingPhotos.length > 0) {
-      const score = calculatePhotoTransparency(listingPhotos);
-      setPhotoScore(score);
+      setPhotoScore(calculatePhotoTransparency(listingPhotos));
     }
 
     if (hashMeta.length > 0) {
-      const authenticity = analyseImageAuthenticity(hashMeta);
-      setAuthCheck(authenticity);
+      setAuthCheck(analyseImageAuthenticity(hashMeta));
     }
   }, []);
 
@@ -55,7 +53,7 @@ export default function OnlineResults() {
   }
 
   const locked = !result.isUnlocked;
-  const photos = result.photos?.listing ?? [];
+  const photos = result.photos.listing;
   const vehicle = result.vehicle ?? {};
 
   function isJsonNoise(section: any) {
@@ -69,7 +67,7 @@ export default function OnlineResults() {
   }
 
   const aiInsights =
-    (result.sections ?? []).find((s) =>
+    result.sections.find((s) =>
       (s?.title ?? "").toLowerCase().includes("ai buyer insights")
     )?.content ?? "";
 
@@ -112,13 +110,12 @@ export default function OnlineResults() {
 
   const parsed = parseInsights(aiInsights);
 
-  const cleanSections = (result.sections ?? []).filter(
+  const cleanSections = result.sections.filter(
     (s) =>
       !isJsonNoise(s) &&
       !(s?.title ?? "").toLowerCase().includes("ai buyer insights")
   );
 
-  // 🟡 NEW — assistant-friendly transparency message logic
   function photoTransparencyMessage() {
     const count = photos.length;
 
@@ -158,9 +155,7 @@ export default function OnlineResults() {
       <div className="mb-6 p-4 border border-white/10 rounded-lg bg-black/30">
         <h2 className="font-semibold mb-1">CarVerity review summary</h2>
         <p className="text-sm text-muted-foreground">
-          Based on the information provided so far, this listing appears
-          generally positive. A few details are still worth confirming before
-          moving ahead.
+          {result.summary || "No summary available for this scan."}
         </p>
       </div>
 
