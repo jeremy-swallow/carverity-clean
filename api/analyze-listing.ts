@@ -1,6 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { loadProgress, saveProgress } from "./scanProgress.js";
 
+/**
+ * analyze-listing
+ * Receives a listing URL → calls extractor → merges vehicle data into scan state
+ */
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { url } = req.body ?? {};
 
@@ -11,7 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log("🚗 Analyzing listing:", url);
 
   //
-  // Call extractor API via HTTP
+  // 🔎 Call extractor API (never import it directly — invoke via HTTP)
   //
   let extraction: any = { ok: false, vehicle: {}, networkError: false };
 
@@ -34,16 +39,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     extraction = { ok: false, vehicle: {}, networkError: true };
   }
 
-  const extracted = extraction?.vehicle ?? {};
-  console.log("✨ Extracted vehicle:", extracted);
+  //
+  // 🧩 Support BOTH response formats safely
+  // { vehicle: {...} }  OR  { extracted: {...} }
+  //
+  const extracted =
+    extraction?.vehicle ??
+    extraction?.extracted ??
+    {};
+
+  console.log("✨ Extracted vehicle (normalized):", extracted);
 
   //
-  // Load any existing progress
+  // 🗂 Load existing scan state (never assume shape)
   //
   const existing = (loadProgress() as any) ?? {};
 
   //
-  // Merge safely
+  // 🧩 Merge safely into vehicle state
   //
   const vehicle = {
     make: extracted.make ?? existing?.vehicle?.make ?? "",
@@ -57,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   };
 
   //
-  // SAVE to localStorage (THIS WAS THE MISSING PART EARLIER)
+  // 💾 Persist — MERGE instead of overwrite
   //
   saveProgress({
     ...existing,
