@@ -23,14 +23,22 @@ export default function OnlineResults() {
   const [authCheck, setAuthCheck] = useState<any | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
+  /* =========================================================
+     LOAD + NORMALISE STORED RESULT
+  ========================================================= */
   useEffect(() => {
     const stored = loadOnlineResults();
     if (!stored) return;
 
     setResult(stored);
 
-    const listingPhotos = stored.photos.listing;
-    const hashMeta = stored.photos.meta;
+    const listingPhotos = Array.isArray(stored.photos?.listing)
+      ? stored.photos.listing
+      : [];
+
+    const hashMeta = Array.isArray(stored.photos?.meta)
+      ? stored.photos.meta
+      : [];
 
     if (listingPhotos.length > 0) {
       setPhotoScore(calculatePhotoTransparency(listingPhotos));
@@ -53,9 +61,19 @@ export default function OnlineResults() {
   }
 
   const locked = !result.isUnlocked;
-  const photos = result.photos.listing;
-  const vehicle = result.vehicle ?? {};
 
+  const photos = Array.isArray(result.photos?.listing)
+    ? result.photos.listing
+    : [];
+
+  const vehicle =
+    typeof result.vehicle === "object" && result.vehicle !== null
+      ? result.vehicle
+      : {};
+
+  /* =========================================================
+     SECTION + INSIGHT CLEANING
+  ========================================================= */
   function isJsonNoise(section: any) {
     const t = (section?.title ?? "").toLowerCase();
     const c = (section?.content ?? "").trim();
@@ -67,11 +85,15 @@ export default function OnlineResults() {
   }
 
   const aiInsights =
-    result.sections.find((s) =>
+    result.sections?.find((s) =>
       (s?.title ?? "").toLowerCase().includes("ai buyer insights")
     )?.content ?? "";
 
   function parseInsights(text: string) {
+    if (!text || typeof text !== "string") {
+      return { risks: [], checks: [] };
+    }
+
     const risks: string[] = [];
     const checks: string[] = [];
 
@@ -110,12 +132,18 @@ export default function OnlineResults() {
 
   const parsed = parseInsights(aiInsights);
 
-  const cleanSections = result.sections.filter(
-    (s) =>
-      !isJsonNoise(s) &&
-      !(s?.title ?? "").toLowerCase().includes("ai buyer insights")
-  );
+  const cleanSections = Array.isArray(result.sections)
+    ? result.sections.filter(
+        (s) =>
+          !!s &&
+          !isJsonNoise(s) &&
+          !(s?.title ?? "").toLowerCase().includes("ai buyer insights")
+      )
+    : [];
 
+  /* =========================================================
+     PHOTO HELPERS
+  ========================================================= */
   function photoTransparencyMessage() {
     const count = photos.length;
 
@@ -128,9 +156,9 @@ export default function OnlineResults() {
     return "No photos detected in this listing.";
   }
 
-  const safeListingUrl = result.listingUrl ?? "#";
+  const safeListingUrl = result.listingUrl || "#";
   const listingLabel =
-    result.listingUrl ?? "Listing URL not saved in this scan";
+    result.listingUrl || "Listing URL not saved in this scan";
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
@@ -229,22 +257,22 @@ export default function OnlineResults() {
 
         <div className="grid grid-cols-2 gap-y-2 text-sm">
           <span className="text-muted-foreground">Make</span>
-          <span>{vehicle.make || "—"}</span>
+          <span>{vehicle.make ?? "—"}</span>
 
           <span className="text-muted-foreground">Model</span>
-          <span>{vehicle.model || "—"}</span>
+          <span>{vehicle.model ?? "—"}</span>
 
           <span className="text-muted-foreground">Year</span>
-          <span>{vehicle.year || "—"}</span>
+          <span>{vehicle.year ?? "—"}</span>
 
           <span className="text-muted-foreground">Variant</span>
-          <span>{vehicle.variant || "—"}</span>
+          <span>{vehicle.variant ?? "—"}</span>
 
           <span className="text-muted-foreground">Import status</span>
           <span>
             {vehicle.importStatus === "unknown"
               ? "Not specified in listing"
-              : vehicle.importStatus || "—"}
+              : vehicle.importStatus ?? "—"}
           </span>
 
           <span className="text-muted-foreground">Condition notes</span>
