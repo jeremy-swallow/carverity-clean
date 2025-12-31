@@ -1,13 +1,18 @@
+/* =========================================================
+   Analyze Listing API
+   - Safely merges extractor output + user-typed values
+   - Never crashes on bad JSON or failed extractor calls
+   ========================================================= */
+
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import fetch from "node-fetch";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { url, vehicle } = req.body || {};
 
-    console.log("🔎 Incoming analyze-listing request >>>", { url, vehicle });
+    console.log("🟡 Incoming analyze-listing request >>>", { url, vehicle });
 
-    // Default safe vehicle object
+    // Default safe base object
     const baseVehicle = {
       make: "",
       model: "",
@@ -16,56 +21,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       importStatus: "Sold new in Australia (default)",
     };
 
-    let extracted = {};
+    let extracted: any = {};
 
     // ---- RUN VEHICLE EXTRACTOR IF URL PRESENT ----
     if (url) {
-      console.log("🌐 Calling vehicle extractor for:", url);
+      console.log("🔎 Calling vehicle extractor for:", url);
 
-      const extractorRes = await fetch(
-        `${process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : "http://localhost:3000"}/api/extract-vehicle-from-listing`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url }),
+      try {
+        const extractorRes = await fetch(
+          `${process.env.VERCEL_URL
+            ? "https://" + process.env.VERCEL_URL
+            : "http://localhost:3000"
+          }/api/extract-vehicle-from-listing`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url }),
+          }
+        );
+
+        const bodyText = await extractorRes.text();
+
+        try {
+          const json = JSON.parse(bodyText);
+          extracted = json?.vehicle ?? json?.extracted ?? {};
+        } catch (err: any) {
+          console.error("❌ Extractor returned non-JSON:", bodyText);
+          extracted = {};
         }
-      );
-
-      const extractorJson = await extractorRes.json();
-      console.log("📦 Extractor response >>>", extractorJson);
-
-      // SAFELY read nested vehicle fields
-      extracted = extractorJson?.vehicle ?? extractorJson?.extracted ?? {};
+      } catch (err: any) {
+        console.error("❌ Extractor call failed:", err?.message);
+        extracted = {};
+      }
+    } else {
+      console.log("📝 No listing URL — using manual values only");
     }
 
-    console.log("🧩 Final extracted object >>>", extracted);
-    console.log("🧩 Incoming vehicle override >>>", vehicle);
-
-    // ---- MERGE PRIORITY ----
-    // 1) User input (if present)
-    // 2) Extracted values
-    // 3) Default base values
-
-    const finalVehicle = {
+    // ---- MERGE VALUES SAFELY ----
+    const merged = {
       ...baseVehicle,
       ...extracted,
-      ...vehicle,
+      ...(vehicle ?? {}),
     };
 
-    console.log("🚗 FINAL MERGED VEHICLE >>>", finalVehicle);
+    console.log("💾 Final merged vehicle >>>", merged);
 
     return res.status(200).json({
       ok: true,
       source: "vehicle-extractor",
-      extracted: finalVehicle,
+      extracted: merged,
     });
   } catch (err: any) {
-    console.error("❌ analyze-listing error", err);
+    console.error("💥 analyze-listing fatal error:", err?.message);
     return res.status(500).json({
       ok: false,
-      error: err?.message || "Unknown error in analyze-listing",
+      error: err?.message ?? "Unknown server error",
     });
   }
 }
