@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { saveProgress } from "../utils/scanProgress";
 
+const LISTING_URL_KEY = "carverity_online_listing_url";
+
 export default function OnlineStart() {
   const navigate = useNavigate();
   const [url, setUrl] = useState("");
@@ -16,14 +18,18 @@ export default function OnlineStart() {
 
     setError("");
 
-    // Save scan progress (upgrade-safe)
+    // 🟡 Save listing URL for downstream pages
+    localStorage.setItem(LISTING_URL_KEY, url);
+
+    // 🟡 Save scan progress (upgrade-safe)
     saveProgress({
       type: "online",
-      step: "/online-details", // 👈 next step in the flow (placeholder)
+      step: "/online-details",
       listingUrl: url,
+      startedAt: new Date().toISOString(),
     });
 
-    // Navigate to next screen in the flow
+    // Move to next screen
     navigate("/online-details");
   }
 
