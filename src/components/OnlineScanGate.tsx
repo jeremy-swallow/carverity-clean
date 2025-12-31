@@ -21,7 +21,7 @@ export default function OnlineScanGate() {
       return;
     }
 
-    const listingUrl = localStorage.getItem(LISTING_URL_KEY);
+    const listingUrl = localStorage.getItem(LISTING_URL_KEY) ?? "";
 
     // If no URL — fallback to manual entry mode
     if (!listingUrl) {
@@ -55,14 +55,15 @@ export default function OnlineScanGate() {
         createdAt: new Date().toISOString(),
 
         listingUrl,
+
         vehicle: data.vehicle ?? {},
 
         sections: Array.isArray(data.sections) ? data.sections : [],
         signals: Array.isArray(data.signals) ? data.signals : [],
 
         photos: {
-          listing: data.photos ?? [],
-          meta: data.photoMeta ?? [],
+          listing: Array.isArray(data.photos) ? data.photos : [],
+          meta: Array.isArray(data.photoMeta) ? data.photoMeta : [],
         },
 
         conditionSummary: data.conditionSummary ?? "",
@@ -75,7 +76,7 @@ export default function OnlineScanGate() {
         owners: data.owners ?? undefined,
         notes: data.notes ?? undefined,
 
-        isUnlocked: true, // allow full report at this stage
+        isUnlocked: true, // show full report for now
       };
 
       saveOnlineResults(result);
@@ -93,9 +94,9 @@ export default function OnlineScanGate() {
       step: "/online/vehicle-details",
       createdAt: new Date().toISOString(),
 
-      listingUrl: null,
-      vehicle: {},
+      listingUrl: "", // always a string
 
+      vehicle: {},
       sections: [],
       signals: [],
 
