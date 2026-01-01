@@ -1,105 +1,157 @@
-/* ===========================================================
-   Analyze Listing API — ALWAYS RUNS FRESH (NO CACHING)
-   =========================================================== */
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-export const config = {
-  runtime: "edge",
-};
+const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
 
-interface AnalyzeRequestBody {
-  url: string;
+if (!GEMINI_API_KEY) {
+  throw new Error("Missing GOOGLE_API_KEY — add it in Vercel environment variables.");
 }
 
-export default async function handler(req: Request): Promise<Response> {
-  if (req.method !== "POST") {
-    return new Response(
-      JSON.stringify({ ok: false, message: "Method not allowed" }),
-      { status: 405 }
-    );
+// ------------------------------
+// Helper: Fetch listing HTML
+// ------------------------------
+async function fetchListingHtml(url: string): Promise<string> {
+  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch listing (${res.status})`);
   }
 
-  const headers = new Headers({
-    "Content-Type": "application/json",
-    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-    Pragma: "no-cache",
-    Expires: "0",
-  });
+  return await res.text();
+}
 
+// ------------------------------
+// Helper: Extract simple vehicle fields from page text
+// (Lightweight heuristic — Gemini fills gaps but does NOT invent facts)
+// ------------------------------
+function extractBasicVehicleInfo(text: string) {
+  const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
+  const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
+  const yearMatch = text.match(/(19|20)\d{2}/);
+
+  return {
+    make: makeMatch?.[1]?.trim() || "",
+    model: modelMatch?.[1]?.trim() || "",
+    year: yearMatch?.[0] || "",
+  };
+}
+
+// ------------------------------
+// Gemini Prompt (Consumer-Advice Style)
+// ------------------------------
+function buildPrompt(listingText: string) {
+  return `
+You are CarVerity — an independent used-car risk assessor for Australian buyers.
+
+Your job is to analyse the vehicle listing text below and produce objective,
+consumer-focused guidance that helps a cautious buyer decide how safely they
+can proceed.
+
+ONLY use information from the listing. If details are missing or unclear,
+treat that as a potential risk and clearly say so.
+
+Audience:
+- Everyday buyers, not mechanics
+- First-time or cautious shoppers
+- Australian market context
+
+Tone:
+- Calm, helpful, professional, trustworthy
+- Consumer-advice style — not technical, not salesy
+- Short sentences, plain English
+- Emphasise risk awareness and buyer protection
+
+STRUCTURE YOUR RESPONSE EXACTLY LIKE THIS:
+
+SUMMARY (2–4 sentences max)
+- High-level confidence and main concerns
+- If important information is missing, call it out
+
+KEY RISK SIGNALS (bullet points)
+- Missing service history
+- Unclear ownership or import status
+- Vague or generic condition statements
+- Low kms without supporting evidence
+- Anything that could disadvantage a buyer
+
+BUYER CONSIDERATIONS (bullet points)
+- Questions to ask the seller
+- Documents to request
+- Inspection or mechanic follow-up
+
+RULES:
+- Do not speculate. Do not invent details.
+- If nothing concerning is visible, say:
+  "No obvious red flags in the listing — but confirm key details before purchase."
+
+LISTING TEXT STARTS BELOW
+--------------------------------
+${listingText}
+--------------------------------
+`;
+}
+
+// ------------------------------
+// Gemini API Call
+// ------------------------------
+async function callGemini(prompt: string) {
+  const res = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" +
+      GEMINI_API_KEY,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: prompt }],
+          },
+        ],
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini API error: ${err}`);
+  }
+
+  const data = await res.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+}
+
+// ------------------------------
+// API Handler
+// ------------------------------
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const body = (await req.json()) as AnalyzeRequestBody;
+    const { url } = req.body || {};
 
-    if (!body?.url) {
-      return new Response(
-        JSON.stringify({ ok: false, message: "Missing URL" }),
-        { status: 400, headers }
-      );
+    if (!url) {
+      return res.status(400).json({ ok: false, error: "Missing listing URL" });
     }
 
-    const listingUrl = body.url.trim();
+    console.log("🔎 Running AI scan for listing:", url);
 
-    console.log("🔍 FRESH SCAN STARTED FOR:", listingUrl);
+    const html = await fetchListingHtml(url);
 
-    /* ===========================================================
-       FETCH LISTING HTML — force NO cache
-    =========================================================== */
-    const pageRes = await fetch(listingUrl, {
-      method: "GET",
-      cache: "no-store",
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; CarVerityBot/1.0; +https://carverity.com)",
-        Pragma: "no-cache",
-        "Cache-Control": "no-cache",
-      },
+    const vehicle = extractBasicVehicleInfo(html);
+
+    const prompt = buildPrompt(html);
+    const summary = await callGemini(prompt);
+
+    return res.status(200).json({
+      ok: true,
+      message: "Scan complete",
+      vehicle,
+      summary,
+      source: "gemini",
     });
-
-    const html = await pageRes.text();
-
-    console.log("📄 HTML downloaded — length:", html.length);
-
-    /* ===========================================================
-       BASIC TEXT EXTRACTION (placeholder engine)
-       TODO: AI enrichment coming later
-    =========================================================== */
-
-    function extract(pattern: RegExp, fallback = ""): string {
-      const match = html.match(pattern);
-      return match?.[1]?.trim() ?? fallback;
-    }
-
-    const vehicle = {
-      make: extract(/"make"\s*:\s*"([^"]+)"/i) ||
-        extract(/Make:\s*<\/[^>]+>\s*([^<]+)/i),
-      model: extract(/"model"\s*:\s*"([^"]+)"/i) ||
-        extract(/Model:\s*<\/[^>]+>\s*([^<]+)/i),
-      year: extract(/"year"\s*:\s*"([^"]+)"/i) ||
-        extract(/(\b20[0-3][0-9]\b)/i),
-      variant: extract(/"variant"\s*:\s*"([^"]+)"/i),
-      importStatus: "Sold new in Australia (default)",
-      listingUrl,
-      source: "auto-search+extractor",
-    };
-
-    console.log("🚗 PARSED VEHICLE:", vehicle);
-
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        message: "Scan complete",
-        vehicle,
-      }),
-      { status: 200, headers }
-    );
-
   } catch (err: any) {
-    console.error("❌ Analyze failed:", err);
-    return new Response(
-      JSON.stringify({
-        ok: false,
-        message: "Scan failed",
-        error: err?.message ?? "Unknown error",
-      }),
-      { status: 500, headers }
-    );
+    console.error("❌ Analysis error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Analysis failed",
+    });
   }
 }
