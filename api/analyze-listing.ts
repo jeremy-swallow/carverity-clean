@@ -4,9 +4,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
 
 if (!GEMINI_API_KEY) {
-  throw new Error(
-    "Missing GOOGLE_API_KEY — add it in Vercel environment variables."
-  );
+  throw new Error("Missing GOOGLE_API_KEY — add it in Vercel environment variables.");
 }
 
 // ------------------------------
@@ -14,16 +12,12 @@ if (!GEMINI_API_KEY) {
 // ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch listing (${res.status})`);
-  }
-
+  if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
   return await res.text();
 }
 
 // ------------------------------
-// Lightweight vehicle extraction
+// Extract lightweight vehicle info
 // ------------------------------
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
@@ -33,55 +27,58 @@ function extractBasicVehicleInfo(text: string) {
   return {
     make: makeMatch?.[1]?.trim() || "",
     model: modelMatch?.[1]?.trim() || "",
-    year: yearMatch?.[0] || "",
+    year: yearMatch?.[0] || ""
   };
 }
 
 // ------------------------------
-// Gemini Prompt — Assistive Tone
+// Gemini Prompt (assistive + pricing-aware)
 // ------------------------------
 function buildPrompt(listingText: string) {
+  const today = new Date().toISOString().split("T")[0]; // e.g. 2026-01-02
+
   return `
-You are CarVerity — a friendly, independent used-car assistant for Australian buyers.
+You are CarVerity — a friendly independent used-car assistant for Australian buyers.
 
-Your role is to help the buyer think clearly, reduce risk, and feel confident —
-not to alarm them or speculate. Use a calm, supportive, consumer-advice tone.
+Your goal is to help the buyer think clearly, reduce risk, and feel confident.
+Use a supportive, practical tone. Avoid speculation or exaggeration.
 
-ONLY use information from the listing text. Do not invent facts.
+Only use facts from the listing text.
+
+CURRENT DATE: ${today}
 
 DATE RULES
-• Future dates for *upcoming or scheduled services* are normal — do NOT treat them as risks.
-• Only flag a date as concerning if the listing claims a service was ALREADY completed in the future.
-• If a date is ambiguous, do not speculate — simply ignore it.
+• Future dates for upcoming or scheduled services are normal — do NOT treat them as risks.
+• Only treat a date as concerning if the listing explicitly says a service was already completed on a date AFTER ${today}.
+• If a date is unclear, do not speculate — ignore it.
 
-WRITING STYLE
-• Plain English
-• Helpful, neutral, and reassuring
-• Avoid repeating large chunks of listing text
-• Focus on insight, not noise
+TONAL RULES
+• Consumer-friendly, neutral, confidence-building
+• Do not repeat large chunks of listing text
+• Focus on useful insights, not noise
+• Encourage continuing the process within CarVerity where relevant
 
 STRUCTURE YOUR RESPONSE EXACTLY AS:
 
-SUMMARY (2–4 short sentences)
-A helpful overview of what matters most to a cautious buyer.
+SUMMARY
+A short, helpful overview of what matters most to the buyer.
 
-KEY RISK SIGNALS (bullet points, only real buyer-relevant risks)
-Keep this factual and grounded in listing evidence.
+KEY RISK SIGNALS
+Only include genuine buyer-relevant risks clearly supported by the listing.
 
-BUYER CONSIDERATIONS (bullet points)
-Support decision-making, encourage sensible validation steps.
-If appropriate, mention continuing the process with CarVerity’s in-person scan
-to verify real-world condition and important details.
+BUYER CONSIDERATIONS
+Provide practical guidance to help the buyer make an informed next step.
+Where appropriate, encourage continuing the journey using CarVerity’s
+in-person scan to verify condition and key details — instead of suggesting
+external inspections.
 
-NEGOTIATION OPPORTUNITIES (optional — soft and respectful)
-Suggest fair talking points a buyer MAY choose to discuss.
-Do not frame negotiation as confrontational or guaranteed.
+NEGOTIATION OPPORTUNITIES (optional, gentle and respectful)
+Suggest reasonable discussion points the buyer may choose to raise.
+Avoid confrontational language or guarantees.
 
-IMPORTANT TONE RULES
-• No fear-based language
-• No speculation
-• Do not exaggerate
-• Keep guidance practical and confidence-building
+Do NOT instruct the user to “research prices themselves”.
+If pricing confidence is relevant, refer to CarVerity’s pricing and
+comparison tools to help the buyer understand market value.
 
 LISTING TEXT
 --------------------------------
@@ -106,10 +103,7 @@ async function callGemini(prompt: string) {
     }
   );
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Gemini API error: ${err}`);
-  }
+  if (!res.ok) throw new Error(`Gemini API error: ${await res.text()}`);
 
   const data = await res.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -118,16 +112,11 @@ async function callGemini(prompt: string) {
 // ------------------------------
 // API Handler
 // ------------------------------
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const listingUrl = req.body?.listingUrl ?? req.body?.url;
-
-    if (!listingUrl) {
+    if (!listingUrl)
       return res.status(400).json({ ok: false, error: "Missing listing URL" });
-    }
 
     console.log("🔎 Running AI scan for:", listingUrl);
 
@@ -146,9 +135,6 @@ export default async function handler(
     });
   } catch (err: any) {
     console.error("❌ Analysis error:", err);
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Analysis failed",
-    });
+    return res.status(500).json({ ok: false, error: err?.message || "Analysis failed" });
   }
 }
