@@ -1,5 +1,5 @@
 // src/pages/OnlineAnalyzingListing.tsx
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   saveOnlineResults,
@@ -8,8 +8,16 @@ import {
 
 const LISTING_URL_KEY = "carverity_online_listing_url";
 
+const STAGES = [
+  "Reading the vehicle listing…",
+  "Extracting key details…",
+  "Scanning for risk signals…",
+  "Preparing your AI summary…",
+];
+
 export default function OnlineAnalyzingListing() {
   const navigate = useNavigate();
+  const [stageIndex, setStageIndex] = useState(0);
 
   useEffect(() => {
     const listingUrl = localStorage.getItem(LISTING_URL_KEY);
@@ -20,7 +28,14 @@ export default function OnlineAnalyzingListing() {
       return;
     }
 
+    // 🌀 Rotate visible progress messages every few seconds
+    const stageTimer = setInterval(() => {
+      setStageIndex((i) => (i + 1) % STAGES.length);
+    }, 3500);
+
     runScan(listingUrl);
+
+    return () => clearInterval(stageTimer);
   }, []);
 
   async function runScan(listingUrl: string) {
@@ -39,7 +54,6 @@ export default function OnlineAnalyzingListing() {
         return;
       }
 
-      // 🟢 Normalise + persist result BEFORE navigation
       const stored: SavedResult = {
         type: "online",
         step: "/online/results",
@@ -57,9 +71,7 @@ export default function OnlineAnalyzingListing() {
 
       saveOnlineResults(stored);
 
-      // 🚀 Go to results page (guaranteed to have data now)
       navigate("/online/results", { replace: true });
-
     } catch (err) {
       console.error("❌ Unexpected scan error", err);
       navigate("/start-scan", { replace: true });
@@ -68,10 +80,16 @@ export default function OnlineAnalyzingListing() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
-      <h1 className="text-xl font-semibold mb-2">Analyzing listing…</h1>
-      <p className="text-muted-foreground">
-        This usually takes 10–30 seconds.<br />
-        Fetching the listing details…
+      <h1 className="text-xl font-semibold mb-2">Analyzing your listing…</h1>
+
+      <p className="text-muted-foreground mb-2">
+        This normally takes <strong>10–30 seconds</strong>.
+        <br />
+        Thanks for your patience — your report is being generated.
+      </p>
+
+      <p className="mt-4 text-sm opacity-80">
+        {STAGES[stageIndex]}
       </p>
 
       <div className="mt-6 flex gap-2">
@@ -79,6 +97,10 @@ export default function OnlineAnalyzingListing() {
         <div className="w-2 h-2 rounded-full bg-white/70 animate-pulse delay-150" />
         <div className="w-2 h-2 rounded-full bg-white/70 animate-pulse delay-300" />
       </div>
+
+      <p className="mt-6 text-xs opacity-60">
+        If this takes longer than 45 seconds, your internet connection may be slow.
+      </p>
     </div>
   );
 }
