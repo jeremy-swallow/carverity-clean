@@ -5,59 +5,62 @@ import {
   loadOnlineResults,
   saveOnlineResults,
   type SavedResult,
-  type SavedPhotos,
 } from "../utils/onlineResults";
 
 export default function OnlineResults() {
   const navigate = useNavigate();
   const [result, setResult] = useState<SavedResult | null>(null);
 
+  // Load saved scan when page mounts
   useEffect(() => {
     const stored = loadOnlineResults();
-    setResult(stored ?? null);
-  }, []);
+    if (!stored) {
+      console.warn("⚠️ No scan result found — returning to start");
+      navigate("/start-scan", { replace: true });
+      return;
+    }
+    setResult(stored);
+  }, [navigate]);
 
-  // 🚧 If nothing exists, show fallback
+  // While loading (or if redirect just happened)
   if (!result) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16">
-        <h1 className="text-2xl font-semibold mb-2">No results available</h1>
-        <p className="text-muted-foreground">
-          Run a scan to view AI-assisted results.
-        </p>
+        <h1 className="text-2xl font-semibold mb-2">Loading results…</h1>
       </div>
     );
   }
 
-  const locked = !result.isUnlocked;
+  // Safe helpers for rendering
+  const vehicle = result.vehicle ?? {};
+  const sections = result.sections ?? [];
 
-  function unlockResults() {
-    // If for some reason state changed between render and click
+  const summary =
+    result.summary?.trim() ||
+    "No AI summary was returned for this listing — but the details below were successfully extracted.";
+
+  function handleContinue() {
+    // 🔒 Runtime guard so TS knows result is non-null here as well
     if (!result) return;
 
-    // ✅ normalise kilometres to string | number | null
-    const normalisedKilometres =
-      typeof result.kilometres === "number" ||
-      typeof result.kilometres === "string"
-        ? result.kilometres
-        : null;
-
-    // ✅ guarantee required fields + keep literal type
+    // ✅ Guarantee all required SavedResult fields + literals
     const updated: SavedResult = {
       ...result,
-      type: "online",
-      step: result.step ?? "/online/results",
+      type: "online", // preserve literal type
+      step: "/online/next-actions",
       createdAt: result.createdAt ?? new Date().toISOString(),
       listingUrl: result.listingUrl ?? "",
       vehicle: result.vehicle ?? {},
       sections: result.sections ?? [],
-      photos: (result.photos ?? { listing: [], meta: [] }) as SavedPhotos,
-      kilometres: normalisedKilometres,
-      isUnlocked: true,
+      photos: result.photos ?? { listing: [], meta: [] },
+      isUnlocked: result.isUnlocked ?? true,
+      conditionSummary: result.conditionSummary ?? "",
     };
 
     saveOnlineResults(updated);
     setResult(updated);
+
+    navigate("/online/next-actions", { replace: true });
   }
 
   return (
@@ -72,76 +75,53 @@ export default function OnlineResults() {
           href={result.listingUrl || "#"}
           className="underline"
           target="_blank"
+          rel="noreferrer"
         >
           {result.listingUrl || "Unknown listing"}
         </a>
       </p>
 
-      {/* SUMMARY */}
-      <div className="bg-slate-800/60 border border-white/10 rounded-xl p-4 mb-6">
-        <h2 className="font-medium mb-1">CarVerity review summary</h2>
+      {/* Summary card */}
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6">
+        <h2 className="font-semibold mb-2">CarVerity review summary</h2>
+        <p>{summary}</p>
+      </div>
 
-        <p className={locked ? "blur-sm select-none" : ""}>
-          {result.summary?.trim() ||
-            "No AI summary was returned for this listing — but the details below were successfully extracted."}
+      {/* Vehicle details card */}
+      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6">
+        <h2 className="font-semibold mb-2">Vehicle details</h2>
+
+        <p>Make: {vehicle.make ?? "—"}</p>
+        <p>Model: {vehicle.model ?? "—"}</p>
+        <p>Year: {vehicle.year ?? "—"}</p>
+        <p>Variant: {vehicle.variant ?? "—"}</p>
+        <p>
+          Import status:{" "}
+          {vehicle.importStatus ?? "Not specified in listing"}
         </p>
-
-        {locked && (
-          <button
-            onClick={unlockResults}
-            className="mt-4 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white"
-          >
-            Unlock full report — $3.99
-          </button>
-        )}
+        <p>Kilometres: {result.kilometres ?? "Not specified"}</p>
       </div>
 
-      {/* VEHICLE DETAILS */}
-      <div className="bg-slate-800/60 border border-white/10 rounded-xl p-4 mb-6">
-        <h2 className="font-medium mb-1">Vehicle details</h2>
-
-        <div className={locked ? "blur-sm select-none" : ""}>
-          <p>Make: {result.vehicle?.make ?? "—"}</p>
-          <p>Model: {result.vehicle?.model ?? "—"}</p>
-          <p>Year: {result.vehicle?.year ?? "—"}</p>
-          <p>Variant: {result.vehicle?.variant ?? "—"}</p>
-          <p>
-            Import status:{" "}
-            {result.vehicle?.importStatus ?? "Not specified in listing"}
-          </p>
-          <p>
-            Kilometres:{" "}
-            {result.kilometres !== undefined && result.kilometres !== null
-              ? result.kilometres
-              : "Not specified"}
-          </p>
-        </div>
-      </div>
-
-      {/* AI SECTIONS */}
-      {result.sections && result.sections.length > 0 ? (
-        result.sections.map((s, i) => (
+      {/* Extra sections from AI */}
+      {sections.length > 0 ? (
+        sections.map((s, i) => (
           <div
             key={i}
-            className={
-              "bg-slate-800/60 border border-white/10 rounded-xl p-4 mb-4 " +
-              (locked ? "blur-sm select-none" : "")
-            }
+            className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-4"
           >
-            <h3 className="font-medium mb-1">{s.title}</h3>
-            <p className="text-sm whitespace-pre-line">{s.content}</p>
+            <h3 className="font-semibold mb-1">{s.title}</h3>
+            <p>{s.content}</p>
           </div>
         ))
       ) : (
-        <p className="text-muted-foreground mb-8">
+        <p className="text-sm text-muted-foreground">
           No additional sections returned from the scan.
         </p>
       )}
 
-      {/* CONTINUE CTA */}
-      <div className="flex justify-end mt-8">
+      <div className="mt-8 flex justify-end">
         <button
-          onClick={() => navigate("/online/next-actions", { replace: true })}
+          onClick={handleContinue}
           className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white"
         >
           Continue
