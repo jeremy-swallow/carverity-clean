@@ -1,79 +1,39 @@
-// src/App.tsx
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import { Routes, Route } from "react-router-dom";
-import Layout from "./components/Layout";
-
-/* ---------- MAIN PAGES ---------- */
 import Home from "./pages/Home";
-import Pricing from "./pages/Pricing";
-import MyScans from "./pages/MyScans";
-import FAQ from "./pages/FAQ";
-import Account from "./pages/Account";
-
-/* ---------- UTIL PAGES ---------- */
-import CreditsHistory from "./pages/CreditsHistory";
-import DeployTest from "./pages/DeployTest";
-
-/* ---------- START ENTRY ---------- */
 import StartScan from "./pages/StartScan";
-
-/* ---------- ONLINE FLOW ---------- */
-import OnlineDetails from "./pages/OnlineDetails";
-import OnlineKilometres from "./pages/OnlineKilometres";
-import OnlineOwners from "./pages/OnlineOwners";
-import OnlineAnalyzing from "./pages/OnlineAnalyzing";
+import OnlineStart from "./pages/OnlineStart";
 import OnlineAnalyzingListing from "./pages/OnlineAnalyzingListing";
-import OnlineResults from "./pages/OnlineResults";
 import OnlineVehicleDetails from "./pages/OnlineVehicleDetails";
-
-/* ---------- IN-PERSON FLOW ---------- */
-import InPersonStart from "./pages/InPersonStart";
-import InPersonPhotos from "./pages/InPersonPhotos";
-import InPersonChecks from "./pages/InPersonChecks";
-import InPersonOwners from "./pages/InPersonOwners";
+import OnlinePhotos from "./pages/OnlinePhotos";
+import OnlineResults from "./pages/OnlineResults";
+import OnlineNextActions from "./pages/OnlineNextActions";
+import MyScans from "./pages/MyScans";
+import Pricing from "./pages/Pricing";
 
 export default function App() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        {/* ---------- MAIN ---------- */}
+    <BrowserRouter>
+      <Routes>
+
         <Route path="/" element={<Home />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/my-scans" element={<MyScans />} />
-        <Route path="/faq" element={<FAQ />} />
-        <Route path="/account" element={<Account />} />
 
-        {/* ---------- UTILITIES ---------- */}
-        <Route path="/credits-history" element={<CreditsHistory />} />
-        <Route path="/deploy-test" element={<DeployTest />} />
-
-        {/* ---------- PUBLIC ENTRY ---------- */}
+        {/* Scan Flow */}
         <Route path="/start-scan" element={<StartScan />} />
+        <Route path="/scan/online" element={<OnlineStart />} />
+        <Route path="/scan/online/analyzing" element={<OnlineAnalyzingListing />} />
 
-        {/* ---------- ONLINE FLOW (new friendly URLs) ---------- */}
-        <Route path="/online/analyzing-listing" element={<OnlineAnalyzingListing />} />
-        <Route path="/online/details" element={<OnlineDetails />} />
-        <Route path="/online/kilometres" element={<OnlineKilometres />} />
-        <Route path="/online/owners" element={<OnlineOwners />} />
-        <Route path="/online/analyzing" element={<OnlineAnalyzing />} />
-        <Route path="/online/results" element={<OnlineResults />} />
+        {/* Online Scan Steps */}
         <Route path="/online/vehicle-details" element={<OnlineVehicleDetails />} />
+        <Route path="/online/photos" element={<OnlinePhotos />} />
+        <Route path="/online/next-actions" element={<OnlineNextActions />} />
+        <Route path="/online/results" element={<OnlineResults />} />
 
-        {/* ---------- BACKWARD-COMPAT /scan/* ---------- */}
-        <Route path="/scan/online/analyzing-listing" element={<OnlineAnalyzingListing />} />
-        <Route path="/scan/online/details" element={<OnlineDetails />} />
-        <Route path="/scan/online/kilometres" element={<OnlineKilometres />} />
-        <Route path="/scan/online/owners" element={<OnlineOwners />} />
-        <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
-        <Route path="/scan/online/results" element={<OnlineResults />} />
-        <Route path="/scan/online/vehicle-details" element={<OnlineVehicleDetails />} />
+        {/* Other */}
+        <Route path="/my-scans" element={<MyScans />} />
+        <Route path="/pricing" element={<Pricing />} />
 
-        {/* ---------- IN-PERSON FLOW ---------- */}
-        <Route path="/scan/in-person/start" element={<InPersonStart />} />
-        <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
-        <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
-        <Route path="/scan/in-person/owners" element={<InPersonOwners />} />
-      </Route>
-    </Routes>
+      </Routes>
+    </BrowserRouter>
   );
 }
