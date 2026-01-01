@@ -1,4 +1,4 @@
-// api/analyze-listing.ts
+// /api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
@@ -8,22 +8,10 @@ if (!GEMINI_API_KEY) {
 }
 
 // ------------------------------
-// Helper: Fetch listing HTML (hardened)
+// Helper: Fetch listing HTML
 // ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000); // ⏳ 15-second cap
-
-  const res = await fetch(url, {
-    signal: controller.signal,
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/123 Safari/537.36",
-      "Accept-Language": "en-AU,en;q=0.9",
-    },
-  });
-
-  clearTimeout(timeout);
+  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
 
   if (!res.ok) {
     throw new Error(`Failed to fetch listing (${res.status})`);
@@ -54,13 +42,25 @@ function buildPrompt(listingText: string) {
   return `
 You are CarVerity — an independent used-car risk assessor for Australian buyers.
 
-ONLY use information from the listing.
+Only use information contained in the listing text. Do not invent facts.
 
-STRUCTURE YOUR RESPONSE EXACTLY LIKE THIS:
+IMPORTANT INSTRUCTIONS ABOUT DATES:
+• Do NOT treat “next service due” dates, warranty expiry dates, or registration expiry dates in the future as risks — these are normal and expected.
+• Only flag a date as suspicious if the listing explicitly claims that a service was ALREADY completed on a date in the future.
+• If a date cannot be clearly interpreted, do NOT speculate — simply ignore it.
+
+STRUCTURE YOUR RESPONSE EXACTLY AS:
 
 SUMMARY
+Provide a concise overview of the vehicle and key context.
+
 KEY RISK SIGNALS
+Only list genuine buyer risk signals that are clearly supported by the listing text.
+
 BUYER CONSIDERATIONS
+Provide practical, neutral advice the buyer should confirm or check.
+
+Write in a professional, fact-based tone. Avoid exaggeration.
 
 LISTING TEXT
 --------------------------------
@@ -99,7 +99,6 @@ async function callGemini(prompt: string) {
 // ------------------------------
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Accept either listingUrl OR url
     const listingUrl = req.body?.listingUrl ?? req.body?.url;
 
     if (!listingUrl) {
