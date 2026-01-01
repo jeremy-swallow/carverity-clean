@@ -20,8 +20,7 @@ async function fetchListingHtml(url: string): Promise<string> {
 }
 
 // ------------------------------
-// Helper: Extract simple vehicle fields from page text
-// (Lightweight heuristic — Gemini fills gaps but does NOT invent facts)
+// Helper: Extract basic vehicle fields
 // ------------------------------
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
@@ -36,54 +35,28 @@ function extractBasicVehicleInfo(text: string) {
 }
 
 // ------------------------------
-// Gemini Prompt (Consumer-Advice Style)
+// Gemini Prompt
 // ------------------------------
 function buildPrompt(listingText: string) {
   return `
 You are CarVerity — an independent used-car risk assessor for Australian buyers.
 
-Your job is to analyse the vehicle listing text below and produce objective,
-consumer-focused guidance that helps a cautious buyer decide how safely they
-can proceed.
+Write a consumer-advice style assessment of this vehicle listing.
 
-ONLY use information from the listing. If details are missing or unclear,
-treat that as a potential risk and clearly say so.
+Rules:
+- ONLY use information in the listing text
+- If information is missing, treat it as a risk and state that clearly
+- Do not speculate or invent facts
+- Keep the tone professional, neutral, safety-focused
 
-Audience:
-- Everyday buyers, not mechanics
-- First-time or cautious shoppers
-- Australian market context
+Output format:
 
-Tone:
-- Calm, helpful, professional, trustworthy
-- Consumer-advice style — not technical, not salesy
-- Short sentences, plain English
-- Emphasise risk awareness and buyer protection
+SUMMARY (2–4 short sentences)
 
-STRUCTURE YOUR RESPONSE EXACTLY LIKE THIS:
+KEY RISK SIGNALS (bullet list)
+BUYER CONSIDERATIONS (bullet list)
 
-SUMMARY (2–4 sentences max)
-- High-level confidence and main concerns
-- If important information is missing, call it out
-
-KEY RISK SIGNALS (bullet points)
-- Missing service history
-- Unclear ownership or import status
-- Vague or generic condition statements
-- Low kms without supporting evidence
-- Anything that could disadvantage a buyer
-
-BUYER CONSIDERATIONS (bullet points)
-- Questions to ask the seller
-- Documents to request
-- Inspection or mechanic follow-up
-
-RULES:
-- Do not speculate. Do not invent details.
-- If nothing concerning is visible, say:
-  "No obvious red flags in the listing — but confirm key details before purchase."
-
-LISTING TEXT STARTS BELOW
+LISTING TEXT:
 --------------------------------
 ${listingText}
 --------------------------------
@@ -91,11 +64,11 @@ ${listingText}
 }
 
 // ------------------------------
-// Gemini API Call  (v1 • gemini-1.5-flash)
+// Gemini API Call  (✔ uses models/gemini-2.5-flash)
 // ------------------------------
 async function callGemini(prompt: string) {
   const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" +
+    "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=" +
       GEMINI_API_KEY,
     {
       method: "POST",
@@ -134,7 +107,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log("🔎 Running AI scan for listing:", url);
 
     const html = await fetchListingHtml(url);
-
     const vehicle = extractBasicVehicleInfo(html);
 
     const prompt = buildPrompt(html);
@@ -145,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       message: "Scan complete",
       vehicle,
       summary,
-      source: "gemini",
+      source: "gemini-2.5-flash",
     });
   } catch (err: any) {
     console.error("❌ Analysis error:", err);
