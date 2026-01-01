@@ -8,76 +8,75 @@ if (!GEMINI_API_KEY) {
 }
 
 // ------------------------------
-// Helper: Fetch listing HTML
+// Fetch listing HTML
 // ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch listing (${res.status})`);
-  }
-
+  if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
   return await res.text();
 }
 
 // ------------------------------
-// Helper: Extract simple vehicle fields
+// Lightweight text extraction
 // ------------------------------
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
   const yearMatch = text.match(/(19|20)\d{2}/);
 
+  const rawYear = yearMatch?.[0] ?? "";
+  const yearNum = Number(rawYear);
+
+  // 🛡️ Year sanity filter — avoid unrealistic values
+  // Prefer honest uncertainty instead of incorrect confidence
+  const currentYear = new Date().getFullYear();
+  const safeYear =
+    yearNum >= 1970 && yearNum <= currentYear + 1 ? rawYear : "";
+
   return {
     make: makeMatch?.[1]?.trim() || "",
     model: modelMatch?.[1]?.trim() || "",
-    year: yearMatch?.[0] || "",
+    year: safeYear, // <-- may be "" if unclear
   };
 }
 
 // ------------------------------
-// Gemini Prompt
+// Professional advisory-style prompt
 // ------------------------------
 function buildPrompt(listingText: string) {
-  const currentDate = new Date().toISOString().split("T")[0];
-
   return `
-You are CarVerity — a friendly, supportive used-car buying assistant for Australian consumers.
+You are CarVerity — a professional, independent consumer-advice assistant
+for Australian used-car buyers.
 
-Your role is to provide calm, practical, buyer-focused guidance based ONLY on the information
-contained in the vehicle listing. Do not speculate or invent facts.
+Your role is to provide calm, factual, buyer-focused guidance based ONLY on
+what appears in the listing text. Do not speculate or invent details.
 
-TODAY'S DATE: ${currentDate}
+Tone & style:
+• Professional, neutral, confidence-building
+• Clear language, short paragraphs, practical advice
+• Avoid exaggeration or alarmist statements
 
-IMPORTANT DATE RULES
-• A date is only a “future date” if it is later than today's date.
-• Past dates should be treated as normal records unless the listing explicitly claims a task was completed in the future.
-• If a date looks unusual but is not clearly unsafe, encourage the buyer to politely confirm the detail — do not dramatise it.
-
-PRODUCT-ALIGNED GUIDANCE RULES
-• Do NOT recommend booking an external mechanic or third-party inspection by default.
-• When referring to further condition checking, prefer language such as:
-  “Consider continuing the process using CarVerity’s in-person scan to validate real-world condition and important details.”
-• Do NOT tell the buyer to manually research or compare pricing.
-• Where relevant, say:
-  “Use pricing context and comparable-vehicle insights available through CarVerity to help assess fairness and value.”
-
-TONE REQUIREMENTS
-• Supportive, reassuring, neutral, and non-alarmist
-• Consumer-advice style — simple language, practical steps
-• Focus on helping the buyer feel informed and confident
+Very important — how to treat dates:
+• Do NOT judge whether dates are “future” or “past” yourself
+• Only describe dates factually if they are clearly stated in the listing
+• If a date looks unusual or unclear, simply say the buyer may wish to
+  confirm it with the seller — do not treat it as a risk by default
 
 STRUCTURE YOUR RESPONSE EXACTLY AS:
 
 SUMMARY
-A short, friendly overview with key context for the buyer.
+Provide a clear, high-level explanation of what the listing tells us about
+the vehicle and its context, in a neutral and reassuring tone.
 
-KEY RISK SIGNALS
-Only include risks that are clearly visible in the listing and could matter to a cautious buyer.
-If there are no major risks, say so in a balanced, reassuring way.
+KEY POINTS FOR THE BUYER
+List the most relevant details or gaps in information that a careful buyer
+may want to confirm or understand better. Do not speculate.
 
-BUYER CONSIDERATIONS
-Practical follow-up checks, questions to ask the seller, and guidance that helps the buyer move forward with confidence — while keeping the user within the CarVerity journey.
+BUYER CHECKLIST
+Provide practical, supportive next-step suggestions the buyer can confirm
+or review — phrased as guidance, not warnings.
+
+Only use information from the listing text below.
 
 LISTING TEXT
 --------------------------------
@@ -117,7 +116,6 @@ async function callGemini(prompt: string) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const listingUrl = req.body?.listingUrl ?? req.body?.url;
-
     if (!listingUrl) {
       return res.status(400).json({ ok: false, error: "Missing listing URL" });
     }
