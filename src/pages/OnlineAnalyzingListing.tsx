@@ -1,6 +1,8 @@
 // src/pages/OnlineAnalyzingListing.tsx
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 const STEPS = [
   "Reading listing content…",
@@ -10,70 +12,70 @@ const STEPS = [
   "Preparing suggestions…",
 ];
 
-const LEGACY_KEY = "carverity_listing_url";
-const CANONICAL_KEY = "carverity_online_listing_url";
+const LISTING_URL_KEY = "carverity_online_listing_url";
 
 export default function OnlineAnalyzingListing() {
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
-    // Try canonical key first, then legacy
-    const storedUrl =
-      localStorage.getItem(CANONICAL_KEY) ??
-      localStorage.getItem(LEGACY_KEY) ??
+    const listingUrl =
+      localStorage.getItem(LISTING_URL_KEY) ||
+      (loadProgress() as any)?.listingUrl ||
       "";
 
-    // If no URL anywhere → send user back to step 1
-    if (!storedUrl) {
-      console.warn("❗ No listing URL found — redirecting user to start");
-      navigate("/online/details", { replace: true });
+    if (!listingUrl) {
+      alert("Missing listing URL — please start again.");
+      navigate("/start-scan", { replace: true });
       return;
     }
 
-    // Normalise → always store under canonical key
-    localStorage.setItem(CANONICAL_KEY, storedUrl);
-
-    async function runAnalysis(url: string) {
+    async function runAnalysis() {
       try {
         const res = await fetch("/api/analyze-listing", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ listingUrl: url }),
+          body: JSON.stringify({ listingUrl }), // ✅ send correct param
         });
 
         const json = await res.json();
         console.log("ANALYSIS RESULT >>>", json);
 
         if (!json?.ok) {
-          alert("Scan failed — please try again.");
+          alert("Scan failed — the listing could not be analysed.");
           navigate("/online/vehicle-details", { replace: true });
           return;
         }
 
-        // Persist extracted vehicle snapshot (non-destructive)
-        if (json.vehicle) {
-          localStorage.setItem(
-            "carverity_extracted_vehicle",
-            JSON.stringify(json.vehicle)
-          );
-        }
+        const extracted = json?.vehicle ?? {};
 
+        // Save into progress
+        const progress = (loadProgress() as any) ?? {};
+        const update = {
+          ...progress,
+          type: "online" as const,
+          step: "/online/vehicle",
+          listingUrl,
+          vehicle: extracted,
+          startedAt: progress.startedAt ?? new Date().toISOString(),
+        };
+
+        saveProgress(update);
+
+        // Continue to vehicle details page
         navigate("/online/vehicle-details", { replace: true });
       } catch (err) {
-        console.error("❌ Listing analysis failed", err);
+        console.error("Analysis error", err);
         alert("Scan failed — please try again.");
         navigate("/online/vehicle-details", { replace: true });
       }
     }
 
-    // Progress animation
-    const interval = setInterval(
-      () => setStepIndex((i) => Math.min(i + 1, STEPS.length - 1)),
-      900
-    );
+    const interval = setInterval(() => {
+      setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
+    }, 900);
 
-    runAnalysis(storedUrl);
+    runAnalysis();
     return () => clearInterval(interval);
   }, [navigate]);
 

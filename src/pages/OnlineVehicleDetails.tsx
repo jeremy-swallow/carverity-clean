@@ -1,7 +1,7 @@
+// src/pages/OnlineVehicleDetails.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
-import { loadOnlineResults } from "../utils/onlineResults";
 
 interface VehicleState {
   make: string;
@@ -10,8 +10,6 @@ interface VehicleState {
   variant: string;
   importStatus: string;
 }
-
-const LEGACY_LISTING_URL_KEY = "carverity_online_listing_url";
 
 export default function OnlineVehicleDetails() {
   const navigate = useNavigate();
@@ -24,144 +22,35 @@ export default function OnlineVehicleDetails() {
     importStatus: "Sold new in Australia (default)",
   });
 
-  // =========================================================
-  // HYDRATION PIPELINE (progress → saved result → extractor)
-  // =========================================================
   useEffect(() => {
     const progress = (loadProgress() as any) ?? {};
-    console.log("Loaded progress >>>", progress);
+    const extracted = (progress.vehicle ?? {}) as Partial<VehicleState>;
 
-    const progressVehicle = (progress.vehicle ?? {}) as Partial<VehicleState>;
+    const filled: VehicleState = {
+      make: extracted.make ?? "",
+      model: extracted.model ?? "",
+      year: extracted.year ?? "",
+      variant: extracted.variant ?? "",
+      importStatus:
+        extracted.importStatus ?? "Sold new in Australia (default)",
+    };
 
-    const savedResult = loadOnlineResults();
-    const resultVehicle =
-      (savedResult?.vehicle ?? {}) as Partial<VehicleState>;
-
-    // Prefer URL from progress → fallback to legacy localStorage key
-    const listingUrlFromProgress = progress.listingUrl as string | undefined;
-    const listingUrlFromLegacy =
-      typeof window !== "undefined"
-        ? window.localStorage.getItem(LEGACY_LISTING_URL_KEY) || undefined
-        : undefined;
-
-    const listingUrl = listingUrlFromProgress || listingUrlFromLegacy;
-    console.log("Using listing URL >>>", listingUrl);
-
-    // ---------- 1) HYDRATE FROM PROGRESS ----------
-    if (Object.keys(progressVehicle).length > 0) {
-      const merged: VehicleState = {
-        make: progressVehicle.make ?? "",
-        model: progressVehicle.model ?? "",
-        year: progressVehicle.year ?? "",
-        variant: progressVehicle.variant ?? "",
-        importStatus:
-          progressVehicle.importStatus ??
-          "Sold new in Australia (default)",
-      };
-
-      console.log("Hydrating from progress >>>", merged);
-      setVehicle(merged);
-      return;
-    }
-
-    // ---------- 2) HYDRATE FROM SAVED RESULT ----------
-    if (Object.keys(resultVehicle).length > 0) {
-      const merged: VehicleState = {
-        make: resultVehicle.make ?? "",
-        model: resultVehicle.model ?? "",
-        year: resultVehicle.year ?? "",
-        variant: resultVehicle.variant ?? "",
-        importStatus:
-          resultVehicle.importStatus ??
-          "Sold new in Australia (default)",
-      };
-
-      console.log("Hydrating from saved result >>>", merged);
-      setVehicle(merged);
-
-      // Persist into progress for future steps (merge-safe)
-      saveProgress({
-        ...progress,
-        type: "online",
-        step: "/online/vehicle",
-        listingUrl,
-        vehicle: merged,
-        startedAt: progress.startedAt ?? new Date().toISOString(),
-      });
-
-      return;
-    }
-
-    // ---------- 3) NO VEHICLE YET → CALL EXTRACTOR ----------
-    if (!listingUrl) {
-      console.log("No listing URL — user will type details manually.");
-      return;
-    }
-
-    (async () => {
-      try {
-        const res = await fetch("/api/analyze-listing", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: listingUrl }),
-        });
-
-        const data = await res.json();
-        console.log("ANALYSIS RESULT (vehicle page) >>>", data);
-
-        const extracted =
-          (data.extracted ?? data.vehicle ?? {}) as Partial<VehicleState>;
-
-        const merged: VehicleState = {
-          make: extracted.make ?? "",
-          model: extracted.model ?? "",
-          year: extracted.year ?? "",
-          variant: extracted.variant ?? "",
-          importStatus:
-            extracted.importStatus ??
-            "Sold new in Australia (default)",
-        };
-
-        setVehicle(merged);
-
-        // Persist merged state
-        const latest = (loadProgress() as any) ?? progress;
-
-        saveProgress({
-          ...latest,
-          type: "online",
-          step: "/online/vehicle",
-          listingUrl,
-          vehicle: merged,
-          startedAt: latest.startedAt ?? new Date().toISOString(),
-        });
-
-        console.log("After save >>>", loadProgress());
-      } catch (err) {
-        console.error(
-          "❌ analyze-listing from vehicle page failed:",
-          (err as any)?.message || err
-        );
-      }
-    })();
+    console.log("Hydrating vehicle >>>", filled);
+    setVehicle(filled);
   }, []);
 
-  // =========================================================
-  // FIELD UPDATES (ALSO MERGE INTO PROGRESS)
-  // =========================================================
   function updateField<K extends keyof VehicleState>(
     field: K,
     value: VehicleState[K]
   ) {
     setVehicle((prev) => {
-      const next: VehicleState = { ...prev, [field]: value };
-
+      const next = { ...prev, [field]: value };
       const progress = (loadProgress() as any) ?? {};
+
       saveProgress({
         ...progress,
-        type: "online",
-        step: "/online/vehicle",
         vehicle: next,
+        step: "/online/vehicle",
       });
 
       return next;
@@ -174,17 +63,13 @@ export default function OnlineVehicleDetails() {
     const progress = (loadProgress() as any) ?? {};
     saveProgress({
       ...progress,
-      type: "online",
-      step: "/online/vehicle",
       vehicle,
+      step: "/online/owners",
     });
 
     navigate("/online/owners");
   }
 
-  // =========================================================
-  // UI
-  // =========================================================
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
       <main className="max-w-3xl mx-auto px-4 py-12">
@@ -202,7 +87,6 @@ export default function OnlineVehicleDetails() {
               className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm"
               value={vehicle.make}
               onChange={(e) => updateField("make", e.target.value)}
-              placeholder="e.g. Mitsubishi"
             />
           </div>
 
@@ -212,7 +96,6 @@ export default function OnlineVehicleDetails() {
               className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm"
               value={vehicle.model}
               onChange={(e) => updateField("model", e.target.value)}
-              placeholder="e.g. Lancer"
             />
           </div>
 
@@ -222,7 +105,6 @@ export default function OnlineVehicleDetails() {
               className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm"
               value={vehicle.year}
               onChange={(e) => updateField("year", e.target.value)}
-              placeholder="e.g. 2016"
             />
           </div>
 
@@ -234,7 +116,6 @@ export default function OnlineVehicleDetails() {
               className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm"
               value={vehicle.variant}
               onChange={(e) => updateField("variant", e.target.value)}
-              placeholder="e.g. ES Sport"
             />
           </div>
 
