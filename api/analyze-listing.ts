@@ -1,3 +1,4 @@
+// api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
@@ -7,10 +8,22 @@ if (!GEMINI_API_KEY) {
 }
 
 // ------------------------------
-// Helper: Fetch listing HTML
+// Helper: Fetch listing HTML (hardened)
 // ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
-  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000); // ⏳ 15-second cap
+
+  const res = await fetch(url, {
+    signal: controller.signal,
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/123 Safari/537.36",
+      "Accept-Language": "en-AU,en;q=0.9",
+    },
+  });
+
+  clearTimeout(timeout);
 
   if (!res.ok) {
     throw new Error(`Failed to fetch listing (${res.status})`);
@@ -86,14 +99,11 @@ async function callGemini(prompt: string) {
 // ------------------------------
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    // Accept either name: listingUrl OR url
+    // Accept either listingUrl OR url
     const listingUrl = req.body?.listingUrl ?? req.body?.url;
 
     if (!listingUrl) {
-      return res.status(400).json({
-        ok: false,
-        error: "Missing listing URL",
-      });
+      return res.status(400).json({ ok: false, error: "Missing listing URL" });
     }
 
     console.log("🔎 Running AI scan for:", listingUrl);
