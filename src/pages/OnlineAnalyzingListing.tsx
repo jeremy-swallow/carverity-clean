@@ -1,35 +1,32 @@
-// src/pages/OnlineAnalyzing.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { saveOnlineResults } from "../utils/onlineResults";
 
 const LISTING_URL_KEY = "carverity_online_listing_url";
 
-export default function OnlineAnalyzing() {
-  const navigate = useNavigate();
-  const [messageIndex, setMessageIndex] = useState(0);
+const steps = [
+  "Fetching the listing details…",
+  "Scanning description for risks…",
+  "Checking for missing or unclear information…",
+  "Preparing your buyer-friendly summary…",
+];
 
-  const messages = [
-    "Fetching the listing details…",
-    "Scanning the page for important information…",
-    "Running AI analysis — almost there…",
-    "Still working — thanks for your patience!",
-  ];
+export default function OnlineAnalyzingListing() {
+  const navigate = useNavigate();
+  const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
-    // Rotate reassurance messages every 6s
-    const interval = setInterval(() => {
-      setMessageIndex((i) => Math.min(i + 1, messages.length - 1));
-    }, 6000);
+    // Rotate progress messages every 1.5s
+    const timer = setInterval(() => {
+      setStepIndex((i) => (i + 1) % steps.length);
+    }, 1500);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
     const listingUrl = localStorage.getItem(LISTING_URL_KEY);
 
     if (!listingUrl) {
-      console.warn("⚠️ No listing URL — aborting scan");
       navigate("/start-scan", { replace: true });
       return;
     }
@@ -47,38 +44,47 @@ export default function OnlineAnalyzing() {
 
       const data = await res.json();
 
-      if (!data?.ok) {
+      if (!data.ok) {
         alert("Scan failed — the listing could not be analysed.");
         navigate("/start-scan", { replace: true });
         return;
       }
 
-      saveOnlineResults(data);
-      navigate("/online/vehicle-details");
+      localStorage.setItem("carverity_latest_scan", JSON.stringify(data));
+      navigate("/online/vehicle-details", { replace: true });
     } catch (err) {
-      console.error("❌ Scan error:", err);
-      alert("Scan failed — network or server error.");
+      alert("Something went wrong while analysing the listing.");
       navigate("/start-scan", { replace: true });
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 text-center">
-      <div>
+    <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center px-6">
+      <div className="max-w-xl text-center">
         <h1 className="text-2xl font-semibold mb-3">
           Analyzing listing…
         </h1>
 
-        <p className="text-muted-foreground mb-6">
-          This usually takes <strong>10–30 seconds</strong>.<br />
-          {messages[messageIndex]}
+        <p className="text-slate-300 mb-6">
+          This usually takes <b>10–30 seconds</b>.<br />
+          Thanks for your patience — we’re working through the details carefully.
         </p>
 
-        <div className="flex justify-center gap-2">
-          <span className="animate-bounce delay-0 w-2 h-2 bg-white/80 rounded-full" />
-          <span className="animate-bounce delay-200 w-2 h-2 bg-white/60 rounded-full" />
-          <span className="animate-bounce delay-400 w-2 h-2 bg-white/40 rounded-full" />
+        <div className="bg-slate-800/70 border border-white/10 rounded-xl p-4">
+          <p className="text-emerald-300 font-medium">
+            {steps[stepIndex]}
+          </p>
+
+          <div className="flex justify-center mt-4 gap-2">
+            <span className="w-2 h-2 bg-white/40 rounded-full animate-pulse"></span>
+            <span className="w-2 h-2 bg-white/40 rounded-full animate-pulse delay-200"></span>
+            <span className="w-2 h-2 bg-white/40 rounded-full animate-pulse delay-400"></span>
+          </div>
         </div>
+
+        <p className="text-xs text-slate-400 mt-6">
+          If this takes longer than expected, please keep this page open — the scan is still running.
+        </p>
       </div>
     </div>
   );
