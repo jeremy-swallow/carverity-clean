@@ -11,50 +11,48 @@ export default function OnlineResults() {
   const navigate = useNavigate();
   const [result, setResult] = useState<SavedResult | null>(null);
 
-  // Load saved scan when page mounts
+  // Load stored scan on mount
   useEffect(() => {
     const stored = loadOnlineResults();
-    if (!stored) {
-      console.warn("⚠️ No scan result found — returning to start");
-      navigate("/start-scan", { replace: true });
-      return;
-    }
-    setResult(stored);
-  }, [navigate]);
+    setResult(stored ?? null);
+  }, []);
 
-  // While loading (or if redirect just happened)
+  // If nothing stored → show fallback page
   if (!result) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16">
-        <h1 className="text-2xl font-semibold mb-2">Loading results…</h1>
+        <h1 className="text-2xl font-semibold mb-2">No results available</h1>
+        <p className="text-muted-foreground mb-6">
+          Run a scan to view AI-assisted results.
+        </p>
       </div>
     );
   }
 
-  // Safe helpers for rendering
+  // Normalised safe fields (result is non-null beyond this point)
   const vehicle = result.vehicle ?? {};
   const sections = result.sections ?? [];
 
+  // If the API did not return a summary, show a friendly fallback
   const summary =
-    result.summary?.trim() ||
+    (result.summary?.trim() || result.conditionSummary?.trim()) ||
     "No AI summary was returned for this listing — but the details below were successfully extracted.";
 
   function handleContinue() {
-    // 🔒 Runtime guard so TS knows result is non-null here as well
+    // Extra TS/runtime guard in case this somehow runs with no result
     if (!result) return;
 
-    // ✅ Guarantee all required SavedResult fields + literals
+    // ✅ Guarantee required literals + fallback strings
     const updated: SavedResult = {
       ...result,
-      type: "online", // preserve literal type
+      type: "online",
       step: "/online/next-actions",
       createdAt: result.createdAt ?? new Date().toISOString(),
       listingUrl: result.listingUrl ?? "",
       vehicle: result.vehicle ?? {},
       sections: result.sections ?? [],
       photos: result.photos ?? { listing: [], meta: [] },
-      isUnlocked: result.isUnlocked ?? true,
-      conditionSummary: result.conditionSummary ?? "",
+      kilometres: result.kilometres ?? null, // coerce away `undefined`
     };
 
     saveOnlineResults(updated);
@@ -70,25 +68,25 @@ export default function OnlineResults() {
       </h1>
 
       <p className="text-sm mb-6">
-        Listing analysed:&nbsp;
+        Listing analysed:{" "}
         <a
           href={result.listingUrl || "#"}
           className="underline"
           target="_blank"
           rel="noreferrer"
         >
-          {result.listingUrl || "Unknown listing"}
+          {result.listingUrl || "Unknown source"}
         </a>
       </p>
 
-      {/* Summary card */}
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6">
+      {/* SUMMARY PANEL */}
+      <div className="border rounded-lg p-4 mb-6">
         <h2 className="font-semibold mb-2">CarVerity review summary</h2>
-        <p>{summary}</p>
+        <p className="text-muted-foreground whitespace-pre-line">{summary}</p>
       </div>
 
-      {/* Vehicle details card */}
-      <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6">
+      {/* VEHICLE DETAILS */}
+      <div className="border rounded-lg p-4 mb-6">
         <h2 className="font-semibold mb-2">Vehicle details</h2>
 
         <p>Make: {vehicle.make ?? "—"}</p>
@@ -97,36 +95,38 @@ export default function OnlineResults() {
         <p>Variant: {vehicle.variant ?? "—"}</p>
         <p>
           Import status:{" "}
-          {vehicle.importStatus ?? "Not specified in listing"}
+          {vehicle.importStatus ?? "Sold new in Australia (default)"}
         </p>
-        <p>Kilometres: {result.kilometres ?? "Not specified"}</p>
+        <p>Kilometres: {vehicle.kilometres ?? "Not specified"}</p>
       </div>
 
-      {/* Extra sections from AI */}
-      {sections.length > 0 ? (
-        sections.map((s, i) => (
-          <div
-            key={i}
-            className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-4"
-          >
-            <h3 className="font-semibold mb-1">{s.title}</h3>
-            <p>{s.content}</p>
-          </div>
-        ))
-      ) : (
-        <p className="text-sm text-muted-foreground">
+      {/* EXTRA AI SECTIONS (if any) */}
+      {sections.length === 0 && (
+        <p className="text-muted-foreground mb-10">
           No additional sections returned from the scan.
         </p>
       )}
 
-      <div className="mt-8 flex justify-end">
-        <button
-          onClick={handleContinue}
-          className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white"
-        >
-          Continue
-        </button>
-      </div>
+      {sections.length > 0 && (
+        <div className="space-y-4 mb-10">
+          {sections.map((s, i) => (
+            <div key={i} className="border rounded-lg p-4">
+              <h3 className="font-semibold mb-1">{s.title}</h3>
+              <p className="text-muted-foreground whitespace-pre-line">
+                {s.content}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* CONTINUE BUTTON */}
+      <button
+        onClick={handleContinue}
+        className="bg-blue-600 text-white px-5 py-2 rounded shadow"
+      >
+        Continue
+      </button>
     </div>
   );
 }
