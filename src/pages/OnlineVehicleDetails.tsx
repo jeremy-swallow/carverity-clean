@@ -1,155 +1,105 @@
-// src/pages/OnlineVehicleDetails.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadProgress, saveProgress } from "../utils/scanProgress";
-
-interface VehicleState {
-  make: string;
-  model: string;
-  year: string;
-  variant: string;
-  importStatus: string;
-}
+import { loadOnlineResults, saveOnlineResults } from "../utils/onlineResults";
 
 export default function OnlineVehicleDetails() {
   const navigate = useNavigate();
-
-  const [vehicle, setVehicle] = useState<VehicleState>({
-    make: "",
-    model: "",
-    year: "",
-    variant: "",
-    importStatus: "Sold new in Australia (default)",
-  });
+  const [make, setMake] = useState("");
+  const [model, setModel] = useState("");
+  const [year, setYear] = useState("");
+  const [variant, setVariant] = useState("");
+  const [importStatus, setImportStatus] = useState("Sold new in Australia (default)");
 
   useEffect(() => {
-    const progress = (loadProgress() as any) ?? {};
-    const extracted = (progress.vehicle ?? {}) as Partial<VehicleState>;
+    const stored = loadOnlineResults();
+    if (!stored) {
+      navigate("/start-scan", { replace: true });
+      return;
+    }
 
-    const filled: VehicleState = {
-      make: extracted.make ?? "",
-      model: extracted.model ?? "",
-      year: extracted.year ?? "",
-      variant: extracted.variant ?? "",
-      importStatus:
-        extracted.importStatus ?? "Sold new in Australia (default)",
-    };
-
-    console.log("Hydrating vehicle >>>", filled);
-    setVehicle(filled);
+    // 🔹 Autofill from scan result if values exist
+    setMake(stored.vehicle?.make ?? "");
+    setModel(stored.vehicle?.model ?? "");
+    setYear(stored.vehicle?.year ?? "");
+    setVariant(stored.vehicle?.variant ?? "");
+    setImportStatus(stored.vehicle?.importStatus ?? "Sold new in Australia (default)");
   }, []);
 
-  function updateField<K extends keyof VehicleState>(
-    field: K,
-    value: VehicleState[K]
-  ) {
-    setVehicle((prev) => {
-      const next = { ...prev, [field]: value };
-      const progress = (loadProgress() as any) ?? {};
+  function handleContinue() {
+    const stored = loadOnlineResults();
+    if (!stored) return;
 
-      saveProgress({
-        ...progress,
-        vehicle: next,
-        step: "/online/vehicle",
-      });
+    const updated = {
+      ...stored,
+      vehicle: {
+        ...stored.vehicle,
+        make,
+        model,
+        year,
+        variant,
+        importStatus,
+      },
+      step: "/online/photos"
+    };
 
-      return next;
-    });
-  }
+    saveOnlineResults(updated);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    const progress = (loadProgress() as any) ?? {};
-    saveProgress({
-      ...progress,
-      vehicle,
-      step: "/online/owners",
-    });
-
-    navigate("/online/owners");
+    navigate("/online/photos", { replace: true });
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
-      <main className="max-w-3xl mx-auto px-4 py-12">
-        <h1 className="text-2xl font-semibold mb-2">
-          Tell us a bit about the car
-        </h1>
-        <p className="text-sm text-slate-400 mb-8">
-          ✨ Estimated from the listing — please review before continuing
-        </p>
+    <div className="max-w-3xl mx-auto px-6 py-12">
+      <h1 className="text-2xl font-semibold mb-2">
+        Tell us a bit about the car
+      </h1>
+      <p className="text-sm mb-6">
+        ✨ Estimated from the listing — please review before continuing
+      </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm mb-1">Make</label>
-            <input
-              className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm"
-              value={vehicle.make}
-              onChange={(e) => updateField("make", e.target.value)}
-            />
-          </div>
+      <div className="space-y-4">
 
-          <div>
-            <label className="block text-sm mb-1">Model</label>
-            <input
-              className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm"
-              value={vehicle.model}
-              onChange={(e) => updateField("model", e.target.value)}
-            />
-          </div>
+        <input className="w-full bg-slate-800 p-3 rounded"
+          placeholder="Make"
+          value={make}
+          onChange={e => setMake(e.target.value)}
+        />
 
-          <div>
-            <label className="block text-sm mb-1">Year</label>
-            <input
-              className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm"
-              value={vehicle.year}
-              onChange={(e) => updateField("year", e.target.value)}
-            />
-          </div>
+        <input className="w-full bg-slate-800 p-3 rounded"
+          placeholder="Model"
+          value={model}
+          onChange={e => setModel(e.target.value)}
+        />
 
-          <div>
-            <label className="block text-sm mb-1">
-              Variant <span className="text-slate-500">(optional)</span>
-            </label>
-            <input
-              className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm"
-              value={vehicle.variant}
-              onChange={(e) => updateField("variant", e.target.value)}
-            />
-          </div>
+        <input className="w-full bg-slate-800 p-3 rounded"
+          placeholder="Year"
+          value={year}
+          onChange={e => setYear(e.target.value)}
+        />
 
-          <div>
-            <label className="block text-sm mb-1">
-              Import status (estimated)
-            </label>
-            <select
-              className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm"
-              value={vehicle.importStatus}
-              onChange={(e) => updateField("importStatus", e.target.value)}
-            >
-              <option value="Sold new in Australia (default)">
-                Sold new in Australia (default)
-              </option>
-              <option value="Parallel / grey import">
-                Parallel / grey import
-              </option>
-              <option value="Unknown import status">
-                Unknown import status
-              </option>
-            </select>
-          </div>
+        <input className="w-full bg-slate-800 p-3 rounded"
+          placeholder="Variant (optional)"
+          value={variant}
+          onChange={e => setVariant(e.target.value)}
+        />
 
-          <div className="pt-4">
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center rounded-md bg-emerald-500 px-5 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400"
-            >
-              Continue
-            </button>
-          </div>
-        </form>
-      </main>
+        <select className="w-full bg-slate-800 p-3 rounded"
+          value={importStatus}
+          onChange={e => setImportStatus(e.target.value)}
+        >
+          <option>Sold new in Australia (default)</option>
+          <option>Grey import</option>
+          <option>Private import</option>
+          <option>Unknown</option>
+        </select>
+
+      </div>
+
+      <button
+        onClick={handleContinue}
+        className="mt-6 bg-emerald-500 px-5 py-2 rounded font-medium"
+      >
+        Continue
+      </button>
     </div>
   );
 }

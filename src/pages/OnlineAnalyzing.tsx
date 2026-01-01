@@ -1,12 +1,6 @@
-// src/pages/OnlineAnalyzing.tsx
-
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  saveOnlineResults,
-  type SavedResult,
-} from "../utils/onlineResults";
-import { loadProgress, type ScanProgress } from "../utils/scanProgress";
+import { saveOnlineResults, type SavedResult } from "../utils/onlineResults";
 
 const LISTING_URL_KEY = "carverity_online_listing_url";
 
@@ -14,145 +8,97 @@ export default function OnlineAnalyzing() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    async function runScan(listingUrl: string) {
-      try {
-        const res = await fetch("/api/analyze-listing", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ listingUrl }),
-        });
+    const listingUrlFromStorage = localStorage.getItem(LISTING_URL_KEY) || null;
 
-        if (!res.ok) {
-          console.error("❌ API returned non-OK response", res.status);
-          alert("Scan failed — the listing could not be analysed.");
-          navigate("/start-scan", { replace: true });
-          return;
-        }
-
-        const data = await res.json();
-
-        // ========= Load saved progress (user-entered values) =========
-        const progress: ScanProgress | null = loadProgress();
-
-        const userCondition =
-          progress && typeof progress.conditionSummary === "string"
-            ? progress.conditionSummary.trim()
-            : "";
-
-        const userNotes =
-          progress && typeof progress.notes === "string"
-            ? progress.notes.trim()
-            : "";
-
-        let userPhotos: string[] = [];
-        let userMeta: any[] = [];
-
-        if (progress?.photos) {
-          if (Array.isArray(progress.photos.listing)) {
-            userPhotos = progress.photos.listing;
-          }
-          if (Array.isArray(progress.photos.meta)) {
-            userMeta = progress.photos.meta;
-          }
-        }
-
-        // ------------ Safe array helpers ------------
-        const toArray = <T,>(v: any): T[] =>
-          Array.isArray(v) ? v : v ? [v] : [];
-
-        const sections = toArray<any>(data?.sections);
-        const signals = toArray<any>(data?.signals);
-        const apiPhotos = toArray<string>(data?.photos);
-        const apiMeta = toArray<any>(data?.photoMeta);
-
-        // ------------ Text fallback strategy ------------
-        const apiSummary =
-          typeof data?.summary === "string" ? data.summary : "";
-
-        const apiCondition =
-          typeof data?.conditionSummary === "string"
-            ? data.conditionSummary
-            : apiSummary;
-
-        const conditionSummary = userCondition || apiCondition || "";
-
-        const notes =
-          userNotes ||
-          (typeof data?.notes === "string" ? data.notes : "") ||
-          "";
-
-        // Merge photos without duplication
-        const mergedPhotos = Array.from(
-          new Set([...userPhotos, ...apiPhotos])
-        );
-
-        const mergedMeta = Array.from(new Set([...userMeta, ...apiMeta]));
-
-        const result: SavedResult = {
-          type: "online",
-          step: "/online/results",
-          createdAt: new Date().toISOString(),
-
-          listingUrl,
-          vehicle: data?.vehicle ?? {},
-
-          sections,
-          signals,
-
-          photos: {
-            listing: mergedPhotos,
-            meta: mergedMeta,
-          },
-
-          conditionSummary,
-          summary: apiSummary,
-
-          kilometres:
-            typeof data?.kilometres === "string" ||
-            typeof data?.kilometres === "number"
-              ? data.kilometres
-              : undefined,
-
-          owners:
-            typeof data?.owners === "string" ? data.owners : undefined,
-
-          notes,
-
-          sellerType:
-            typeof data?.sellerType === "string"
-              ? data.sellerType
-              : "unknown",
-
-          source: "ai",
-          isUnlocked: false,
-        };
-
-        saveOnlineResults(result);
-        navigate("/online/results", { replace: true });
-      } catch (err) {
-        console.error("❌ Scan failed:", err);
-        alert("Scan failed — please try again.");
-        navigate("/start-scan", { replace: true });
-      }
-    }
-
-    const url = localStorage.getItem(LISTING_URL_KEY);
-
-    if (!url) {
-      console.warn(
-        "⚠️ No listing URL — entering manual vehicle entry mode"
-      );
-      navigate("/online/vehicle-details", { replace: true });
+    if (!listingUrlFromStorage) {
+      alert("Missing listing URL — please start again.");
+      navigate("/start-scan", { replace: true });
       return;
     }
 
-    runScan(url);
-  }, [navigate]);
+    runScan(listingUrlFromStorage);
+  }, []);
+
+  async function runScan(listingUrl: string) {
+    try {
+      const res = await fetch("/api/analyze-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: listingUrl }),
+      });
+
+      const data = await res.json();
+      console.log("ANALYSIS RESULT >>>", data);
+
+      if (!data?.ok) {
+        alert("Scan failed — the listing could not be analysed.");
+        navigate("/start-scan", { replace: true });
+        return;
+      }
+
+      const mergedPhotos: string[] = Array.isArray(data?.photos)
+        ? data.photos.slice(0, 8)
+        : [];
+
+      const mergedMeta: any[] = Array.isArray(data?.photosMeta)
+        ? data.photosMeta.slice(0, 8)
+        : [];
+
+      const kilometresValue =
+        typeof data?.kilometres === "string" ||
+        typeof data?.kilometres === "number"
+          ? data.kilometres
+          : undefined;
+
+      const result: SavedResult = {
+        type: "online",
+        step: "/online/vehicle-details",
+        createdAt: new Date().toISOString(),
+
+        listingUrl,
+        vehicle: data?.vehicle ?? {},
+        sections: data?.sections ?? [],
+        signals: data?.signals ?? [],
+
+        photos: {
+          listing: mergedPhotos,
+          meta: mergedMeta,
+        },
+
+        conditionSummary: data?.conditionSummary ?? "",
+        summary: data?.summary ?? "",
+        notes: "",
+
+        kilometres: kilometresValue,
+
+        isUnlocked: true,
+        analysisSource: "auto-search+extractor",
+        source: "listing",
+      };
+
+      saveOnlineResults(result);
+      console.log("💾 Saved scan state >>>", result);
+
+      navigate("/online/vehicle-details", { replace: true });
+    } catch (err) {
+      console.error("❌ Analysis failed:", err);
+      alert("Scan failed — please try again.");
+      navigate("/start-scan", { replace: true });
+    }
+  }
 
   return (
-    <div className="max-w-3xl mx-auto py-16 px-6 text-center">
+    <div className="max-w-2xl mx-auto px-4 py-16 text-center">
       <h1 className="text-xl font-semibold mb-2">Analyzing listing…</h1>
-      <p className="text-muted-foreground">This may take a few seconds.</p>
+      <p>This may take a few seconds.</p>
+
+      <ul className="mt-6 space-y-2 text-sm text-slate-400 text-left inline-block">
+        <li>• Reading listing content…</li>
+        <li>• Checking vehicle details…</li>
+        <li>• Reviewing photo coverage…</li>
+        <li>• Extracting key information…</li>
+        <li>• Preparing suggestions…</li>
+      </ul>
     </div>
   );
 }
