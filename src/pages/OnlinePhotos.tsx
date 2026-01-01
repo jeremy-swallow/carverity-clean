@@ -1,87 +1,76 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadOnlineResults, saveOnlineResults } from "../utils/onlineResults";
+import {
+  loadOnlineResults,
+  saveOnlineResults,
+} from "../utils/onlineResults";
+import type { SavedResult } from "../utils/onlineResults";
 
 export default function OnlinePhotos() {
   const navigate = useNavigate();
-  const [photos, setPhotos] = useState<string[]>([]);
-  const [listingUrl, setListingUrl] = useState<string | null>(null);
+  const stored = loadOnlineResults(); // SavedResult | null
 
+  // Redirect if there is no stored scan
   useEffect(() => {
-    const stored = loadOnlineResults();
+    if (!stored) {
+      console.warn("⚠️ No scan state in photos step — returning to start");
+      navigate("/start-scan", { replace: true });
+    }
+  }, [navigate, stored]);
+
+  // TS + runtime guard
+  if (!stored) return null;
+
+  async function handleContinue() {
+    console.log("📸 Photos step complete — continuing to results…");
 
     if (!stored) {
-      alert("No scan in progress — please start again.");
       navigate("/start-scan", { replace: true });
       return;
     }
 
-    setListingUrl(stored.listingUrl ?? null);
-    setPhotos(stored.photos?.listing ?? []);
-
-    // ensure photos structure exists
-    saveOnlineResults({
+    const updated: SavedResult = {
       ...stored,
-      photos: {
-        listing: stored.photos?.listing ?? [],
-        meta: stored.photos?.meta ?? [],
+      type: "online",        // ensure literal type stays correct
+      step: "/online/results",
+      photos: stored.photos ?? {
+        listing: [],
+        meta: [],
       },
-      step: "/online/photos",
-    });
-  }, []);
+    };
 
-  function handleContinue() {
-    navigate("/online/next-actions", { replace: true });
+    saveOnlineResults(updated);
+    navigate("/online/results", { replace: true });
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10">
+    <div className="max-w-3xl mx-auto px-4 py-16">
       <h1 className="text-2xl font-semibold mb-2">Select listing photos</h1>
 
-      {listingUrl && (
-        <p className="text-sm text-muted-foreground mb-6">
-          From listing:{" "}
-          <a
-            href={listingUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="underline"
-          >
-            {listingUrl}
-          </a>
-        </p>
-      )}
+      <p className="text-muted-foreground mb-4">
+        From listing:{" "}
+        <a
+          href={stored.listingUrl ?? "#"}
+          target="_blank"
+          rel="noreferrer"
+          className="underline"
+        >
+          {stored.listingUrl}
+        </a>
+      </p>
 
-      <div className="bg-slate-800 border border-white/10 rounded-xl p-4 mb-8">
-        <p className="text-sm mb-2">
-          🚗 We’ll automatically pull up to 8 relevant photos from the listing.
-        </p>
-        <p className="text-sm opacity-70">
-          You’ll be able to confirm or replace these later.
-        </p>
+      <div className="bg-slate-800/40 border border-white/10 rounded-xl p-4 mb-8">
+        🚗 We’ll automatically pull up to 8 relevant photos from the listing.
+        You’ll be able to confirm or replace these later.
       </div>
 
-      {photos.length === 0 && (
-        <p className="text-muted-foreground mb-6">
-          No photos extracted yet — continue to proceed.
-        </p>
-      )}
-
-      {photos.length > 0 && (
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          {photos.map((url, i) => (
-            <img
-              key={i}
-              src={url}
-              className="rounded-lg border border-white/10"
-            />
-          ))}
-        </div>
-      )}
+      <p className="text-muted-foreground mb-6">
+        No photos extracted yet — continue to proceed.
+      </p>
 
       <button
         onClick={handleContinue}
-        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+        className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white"
       >
         Continue
       </button>
