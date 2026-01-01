@@ -1,20 +1,23 @@
+// src/pages/OnlineResults.tsx
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   loadOnlineResults,
   saveOnlineResults,
   type SavedResult,
+  type SavedPhotos,
 } from "../utils/onlineResults";
 
 export default function OnlineResults() {
-  const [result, setResult] = useState<SavedResult | null>(
-    loadOnlineResults()
-  );
+  const navigate = useNavigate();
+  const [result, setResult] = useState<SavedResult | null>(null);
 
   useEffect(() => {
-    setResult(loadOnlineResults());
+    const stored = loadOnlineResults();
+    setResult(stored ?? null);
   }, []);
 
-  // 🚫 No stored scan — show fallback
+  // 🚧 If nothing exists, show fallback
   if (!result) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16">
@@ -29,10 +32,17 @@ export default function OnlineResults() {
   const locked = !result.isUnlocked;
 
   function unlockResults() {
-    // If something went wrong and there's no result, do nothing
+    // If for some reason state changed between render and click
     if (!result) return;
 
-    // ✅ guarantee required fields + preserve literal type
+    // ✅ normalise kilometres to string | number | null
+    const normalisedKilometres =
+      typeof result.kilometres === "number" ||
+      typeof result.kilometres === "string"
+        ? result.kilometres
+        : null;
+
+    // ✅ guarantee required fields + keep literal type
     const updated: SavedResult = {
       ...result,
       type: "online",
@@ -41,6 +51,8 @@ export default function OnlineResults() {
       listingUrl: result.listingUrl ?? "",
       vehicle: result.vehicle ?? {},
       sections: result.sections ?? [],
+      photos: (result.photos ?? { listing: [], meta: [] }) as SavedPhotos,
+      kilometres: normalisedKilometres,
       isUnlocked: true,
     };
 
@@ -70,7 +82,8 @@ export default function OnlineResults() {
         <h2 className="font-medium mb-1">CarVerity review summary</h2>
 
         <p className={locked ? "blur-sm select-none" : ""}>
-          {result.summary || "No summary returned."}
+          {result.summary?.trim() ||
+            "No AI summary was returned for this listing — but the details below were successfully extracted."}
         </p>
 
         {locked && (
@@ -96,10 +109,16 @@ export default function OnlineResults() {
             Import status:{" "}
             {result.vehicle?.importStatus ?? "Not specified in listing"}
           </p>
+          <p>
+            Kilometres:{" "}
+            {result.kilometres !== undefined && result.kilometres !== null
+              ? result.kilometres
+              : "Not specified"}
+          </p>
         </div>
       </div>
 
-      {/* SECTIONS */}
+      {/* AI SECTIONS */}
       {result.sections && result.sections.length > 0 ? (
         result.sections.map((s, i) => (
           <div
@@ -114,10 +133,20 @@ export default function OnlineResults() {
           </div>
         ))
       ) : (
-        <p className="text-muted-foreground">
-          No additional sections returned.
+        <p className="text-muted-foreground mb-8">
+          No additional sections returned from the scan.
         </p>
       )}
+
+      {/* CONTINUE CTA */}
+      <div className="flex justify-end mt-8">
+        <button
+          onClick={() => navigate("/online/next-actions", { replace: true })}
+          className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white"
+        >
+          Continue
+        </button>
+      </div>
     </div>
   );
 }
