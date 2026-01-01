@@ -1,93 +1,105 @@
-// /api/analyze-listing.ts
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+/* ===========================================================
+   Analyze Listing API — ALWAYS RUNS FRESH (NO CACHING)
+   =========================================================== */
 
-interface ExtractedVehicle {
-  make?: string;
-  model?: string;
-  year?: string;
-  variant?: string;
-  importStatus?: string;
-  title?: string;
-  source?: string;
+export const config = {
+  runtime: "edge",
+};
+
+interface AnalyzeRequestBody {
+  url: string;
 }
 
-function parseFromTitle(title: string) {
-  if (!title) return {};
+export default async function handler(req: Request): Promise<Response> {
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({ ok: false, message: "Method not allowed" }),
+      { status: 405 }
+    );
+  }
 
-  // Example match: "2016 Mitsubishi Lancer ES"
-  const m = title.match(/(\d{4})\s+([A-Za-z]+)\s+([A-Za-z0-9\-]+)/);
-  if (!m) return {};
+  const headers = new Headers({
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    Pragma: "no-cache",
+    Expires: "0",
+  });
 
-  return {
-    year: m[1],
-    make: m[2],
-    model: m[3],
-  };
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ ok: false, message: "Method not allowed" });
+    const body = (await req.json()) as AnalyzeRequestBody;
+
+    if (!body?.url) {
+      return new Response(
+        JSON.stringify({ ok: false, message: "Missing URL" }),
+        { status: 400, headers }
+      );
     }
 
-    const { url: listingUrl } = req.body || {};
+    const listingUrl = body.url.trim();
 
-    if (!listingUrl || typeof listingUrl !== "string") {
-      return res.status(400).json({
-        ok: false,
-        message: "Missing or invalid listing URL",
-      });
+    console.log("🔍 FRESH SCAN STARTED FOR:", listingUrl);
+
+    /* ===========================================================
+       FETCH LISTING HTML — force NO cache
+    =========================================================== */
+    const pageRes = await fetch(listingUrl, {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; CarVerityBot/1.0; +https://carverity.com)",
+        Pragma: "no-cache",
+        "Cache-Control": "no-cache",
+      },
+    });
+
+    const html = await pageRes.text();
+
+    console.log("📄 HTML downloaded — length:", html.length);
+
+    /* ===========================================================
+       BASIC TEXT EXTRACTION (placeholder engine)
+       TODO: AI enrichment coming later
+    =========================================================== */
+
+    function extract(pattern: RegExp, fallback = ""): string {
+      const match = html.match(pattern);
+      return match?.[1]?.trim() ?? fallback;
     }
-
-    console.log("🔎 Analyzing listing:", listingUrl);
-
-    // -------------------------------------------
-    // 🧠 This is your existing extractor call
-    // -------------------------------------------
-    const extracted: ExtractedVehicle = await fakeListingExtractor(listingUrl);
-
-    // -------------------------------------------
-    // ✅ NEW: fallback parsing from page title
-    // -------------------------------------------
-    const fallback = parseFromTitle(extracted?.title ?? "");
 
     const vehicle = {
-      make: extracted?.make || fallback.make || "",
-      model: extracted?.model || fallback.model || "",
-      year: extracted?.year || fallback.year || "",
-      variant: extracted?.variant || "",
-      importStatus:
-        extracted?.importStatus || "Sold new in Australia (default)",
-      source: extracted?.source || "auto-search+extractor",
+      make: extract(/"make"\s*:\s*"([^"]+)"/i) ||
+        extract(/Make:\s*<\/[^>]+>\s*([^<]+)/i),
+      model: extract(/"model"\s*:\s*"([^"]+)"/i) ||
+        extract(/Model:\s*<\/[^>]+>\s*([^<]+)/i),
+      year: extract(/"year"\s*:\s*"([^"]+)"/i) ||
+        extract(/(\b20[0-3][0-9]\b)/i),
+      variant: extract(/"variant"\s*:\s*"([^"]+)"/i),
+      importStatus: "Sold new in Australia (default)",
       listingUrl,
+      source: "auto-search+extractor",
     };
 
-    console.log("🚗 Final vehicle object >>>", vehicle);
+    console.log("🚗 PARSED VEHICLE:", vehicle);
 
-    return res.status(200).json({
-      ok: true,
-      vehicle,
-      message: "Scan complete",
-    });
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        message: "Scan complete",
+        vehicle,
+      }),
+      { status: 200, headers }
+    );
+
   } catch (err: any) {
-    console.error("❌ analyze-listing failed:", err?.message || err);
-    return res.status(500).json({
-      ok: false,
-      message: "Listing analysis failed",
-    });
+    console.error("❌ Analyze failed:", err);
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        message: "Scan failed",
+        error: err?.message ?? "Unknown error",
+      }),
+      { status: 500, headers }
+    );
   }
-}
-
-/**
- * --------------------------------------------------
- * 🧩 Temporary mock extractor
- * Replace later w/ real site scrapers
- * --------------------------------------------------
- */
-async function fakeListingExtractor(url: string): Promise<ExtractedVehicle> {
-  return {
-    title: "2016 Mitsubishi Lancer ES Sport",
-    source: "auto-search+extractor",
-  };
 }
