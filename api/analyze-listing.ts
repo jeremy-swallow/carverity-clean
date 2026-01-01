@@ -1,20 +1,17 @@
+// /api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
 
 if (!GEMINI_API_KEY) {
-  throw new Error(
-    "Missing GOOGLE_API_KEY — add it in Vercel environment variables."
-  );
+  throw new Error("Missing GOOGLE_API_KEY — add it in Vercel environment variables.");
 }
 
 // ------------------------------
 // Helper: Fetch listing HTML
 // ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0" },
-  });
+  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
 
   if (!res.ok) {
     throw new Error(`Failed to fetch listing (${res.status})`);
@@ -24,69 +21,58 @@ async function fetchListingHtml(url: string): Promise<string> {
 }
 
 // ------------------------------
-// Helper: Extract simple vehicle fields (non-speculative)
+// Helper: Extract simple vehicle fields
 // ------------------------------
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
-  const yearMatch = text.match(/\b(19|20)\d{2}\b/);
-
-  let year = yearMatch?.[0] || "";
-
-  // 🧠 Sanity guard — if obviously unrealistic, prefer "unknown"
-  const yearNum = Number(year);
-  const currentYear = new Date().getFullYear();
-  if (yearNum < 1970 || yearNum > currentYear + 2) {
-    year = "";
-  }
+  const yearMatch = text.match(/(19|20)\d{2}/);
 
   return {
     make: makeMatch?.[1]?.trim() || "",
     model: modelMatch?.[1]?.trim() || "",
-    year,
+    year: yearMatch?.[0] || "",
   };
 }
 
 // ------------------------------
-// Gemini Prompt — calibrated tone
+// Gemini Prompt
 // ------------------------------
 function buildPrompt(listingText: string) {
+  const currentDate = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
   return `
-You are CarVerity — an independent, consumer-focused used-car guidance assistant
-for Australian buyers.
+You are CarVerity — a friendly, supportive used-car buying assistant for Australian consumers.
 
-Your role is to interpret the listing in a practical, balanced and
-non-alarmist way. Do NOT speculate or assume anything that is not clearly stated.
+Your role is to provide **calm, practical, buyer-focused guidance** based ONLY on the information
+contained in the vehicle listing. Do not speculate or invent facts.
 
-STRICT RULES ABOUT FACTS & DATES
-• Future dates such as “next service due”, warranty expiry, or registration expiry
-  are normal and must NOT be treated as risk signals.
-• Only treat a date as a concern if the listing clearly states that a service
-  WAS COMPLETED on a future date AND this is explicitly presented as past history.
-• If a date or detail is ambiguous or cannot be confidently interpreted,
-  do NOT guess — instead state: “The listing does not clearly explain this detail.”
+TODAY'S DATE: ${currentDate}
 
-TONE & STYLE
-• Calm, helpful, factual, professional
-• Avoid exaggeration, dramatic language, or legal-sounding warnings
-• Prefer neutral phrasing such as “worth confirming with the seller”
+IMPORTANT RULES ABOUT DATES:
+• A date is only considered a “future date” if it is **after today's date**.
+• If a date is earlier than today, treat it as a **normal past record**, not a risk.
+• If a date looks unusual but is still earlier than today, do NOT treat it as a fault — instead,
+  suggest that the buyer politely confirms the detail with the seller.
+
+TONE REQUIREMENTS:
+• Supportive, reassuring, and helpful
+• Consumer-advice style — not alarmist, not judgmental
+• Focus on assisting the buyer to make informed decisions
 
 STRUCTURE YOUR RESPONSE EXACTLY AS:
 
 SUMMARY
-2–3 short sentences explaining what the listing generally describes and any
-important context a cautious buyer should be aware of.
+A short, friendly overview and key context for the buyer.
 
 KEY RISK SIGNALS
-List ONLY genuine, clearly supported buyer-relevant risks from the listing text.
-If there are no obvious risk signals, say:
-“No clear red flags are visible in the listing — but a few details are still worth confirming.”
+Only include risks that clearly affect a cautious buyer — and are supported by the listing text.
+If there are no serious risks, say so in a calm and balanced way.
 
 BUYER CONSIDERATIONS
-Provide practical follow-up checks a sensible buyer should confirm,
-written as friendly guidance — not instructions or assumptions.
+Practical checks, questions to ask, and sensible next steps.
 
-Do NOT invent details. Do NOT speculate. Only use information from the listing.
+Do not exaggerate. Avoid dramatic wording. Be helpful and trustworthy.
 
 LISTING TEXT
 --------------------------------
@@ -123,17 +109,12 @@ async function callGemini(prompt: string) {
 // ------------------------------
 // API Handler
 // ------------------------------
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const listingUrl = req.body?.listingUrl ?? req.body?.url;
 
     if (!listingUrl) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Missing listing URL" });
+      return res.status(400).json({ ok: false, error: "Missing listing URL" });
     }
 
     console.log("🔎 Running AI scan for:", listingUrl);
