@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
+import { loadOnlineResults } from "../utils/onlineResults";
 
 interface VehicleState {
   make: string;
@@ -24,15 +25,19 @@ export default function OnlineVehicleDetails() {
   });
 
   // =========================================================
-  // HYDRATE FROM SAVED PROGRESS OR CALL EXTRACTOR (CLIENT SIDE)
+  // HYDRATION PIPELINE (progress → saved result → extractor)
   // =========================================================
   useEffect(() => {
     const progress = (loadProgress() as any) ?? {};
     console.log("Loaded progress >>>", progress);
 
-    const existingVehicle = (progress.vehicle ?? {}) as Partial<VehicleState>;
+    const progressVehicle = (progress.vehicle ?? {}) as Partial<VehicleState>;
 
-    // Prefer URL from progress, but fall back to the legacy key
+    const savedResult = loadOnlineResults();
+    const resultVehicle =
+      (savedResult?.vehicle ?? {}) as Partial<VehicleState>;
+
+    // Prefer URL from progress → fallback to legacy localStorage key
     const listingUrlFromProgress = progress.listingUrl as string | undefined;
     const listingUrlFromLegacy =
       typeof window !== "undefined"
@@ -42,26 +47,54 @@ export default function OnlineVehicleDetails() {
     const listingUrl = listingUrlFromProgress || listingUrlFromLegacy;
     console.log("Using listing URL >>>", listingUrl);
 
-    // 1) If we already have vehicle details in progress → just hydrate UI
-    if (Object.keys(existingVehicle).length > 0) {
-      const mergedVehicle: VehicleState = {
-        make: existingVehicle.make ?? "",
-        model: existingVehicle.model ?? "",
-        year: existingVehicle.year ?? "",
-        variant: existingVehicle.variant ?? "",
+    // ---------- 1) HYDRATE FROM PROGRESS ----------
+    if (Object.keys(progressVehicle).length > 0) {
+      const merged: VehicleState = {
+        make: progressVehicle.make ?? "",
+        model: progressVehicle.model ?? "",
+        year: progressVehicle.year ?? "",
+        variant: progressVehicle.variant ?? "",
         importStatus:
-          existingVehicle.importStatus ?? "Sold new in Australia (default)",
+          progressVehicle.importStatus ??
+          "Sold new in Australia (default)",
       };
 
-      console.log("Hydrating with existing vehicle >>>", mergedVehicle);
-      setVehicle(mergedVehicle);
+      console.log("Hydrating from progress >>>", merged);
+      setVehicle(merged);
       return;
     }
 
-    // 2) If there's no vehicle data yet but we *do* have a listing URL,
-    //    call analyze-listing from this page and then persist to localStorage.
+    // ---------- 2) HYDRATE FROM SAVED RESULT ----------
+    if (Object.keys(resultVehicle).length > 0) {
+      const merged: VehicleState = {
+        make: resultVehicle.make ?? "",
+        model: resultVehicle.model ?? "",
+        year: resultVehicle.year ?? "",
+        variant: resultVehicle.variant ?? "",
+        importStatus:
+          resultVehicle.importStatus ??
+          "Sold new in Australia (default)",
+      };
+
+      console.log("Hydrating from saved result >>>", merged);
+      setVehicle(merged);
+
+      // Persist into progress for future steps (merge-safe)
+      saveProgress({
+        ...progress,
+        type: "online",
+        step: "/online/vehicle",
+        listingUrl,
+        vehicle: merged,
+        startedAt: progress.startedAt ?? new Date().toISOString(),
+      });
+
+      return;
+    }
+
+    // ---------- 3) NO VEHICLE YET → CALL EXTRACTOR ----------
     if (!listingUrl) {
-      console.log("No listing URL found — user will type details manually.");
+      console.log("No listing URL — user will type details manually.");
       return;
     }
 
@@ -79,36 +112,31 @@ export default function OnlineVehicleDetails() {
         const extracted =
           (data.extracted ?? data.vehicle ?? {}) as Partial<VehicleState>;
 
-        const mergedVehicle: VehicleState = {
+        const merged: VehicleState = {
           make: extracted.make ?? "",
           model: extracted.model ?? "",
           year: extracted.year ?? "",
           variant: extracted.variant ?? "",
           importStatus:
-            extracted.importStatus ?? "Sold new in Australia (default)",
+            extracted.importStatus ??
+            "Sold new in Australia (default)",
         };
 
-        // Hydrate UI
-        setVehicle(mergedVehicle);
+        setVehicle(merged);
 
-        // Persist into browser scan progress (merge-safe)
+        // Persist merged state
         const latest = (loadProgress() as any) ?? progress;
-        const update = {
+
+        saveProgress({
           ...latest,
-          type: "online" as const,
+          type: "online",
           step: "/online/vehicle",
           listingUrl,
-          vehicle: mergedVehicle,
+          vehicle: merged,
           startedAt: latest.startedAt ?? new Date().toISOString(),
-        };
+        });
 
-        saveProgress(update);
-        console.log(
-          "After save >>>",
-          JSON.parse(
-            window.localStorage.getItem("carverity_scan_progress") || "null"
-          )
-        );
+        console.log("After save >>>", loadProgress());
       } catch (err) {
         console.error(
           "❌ analyze-listing from vehicle page failed:",
@@ -151,7 +179,6 @@ export default function OnlineVehicleDetails() {
       vehicle,
     });
 
-    // Move to the next step in your online flow
     navigate("/online/owners");
   }
 
