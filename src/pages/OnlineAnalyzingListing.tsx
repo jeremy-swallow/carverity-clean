@@ -1,8 +1,7 @@
+// src/pages/OnlineAnalyzingListing.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
-
-const LISTING_URL_KEY = "carverity_online_listing_url";
 
 const STEPS = [
   "Reading listing content…",
@@ -12,24 +11,33 @@ const STEPS = [
   "Preparing suggestions…",
 ];
 
+const LISTING_URL_KEY = "carverity_online_listing_url";
+
+type ScanState = {
+  listingUrl?: string;
+  startedAt?: string;
+  vehicle?: any;
+  sections?: any[];
+  step?: string;
+  type?: string;
+};
+
 export default function OnlineAnalyzingListing() {
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
-    const progress: any = loadProgress() ?? {};
+    const progress = (loadProgress() as ScanState) ?? {};
 
-    const listingUrlFromProgress =
-      (progress.listingUrl as string | undefined) || undefined;
-
-    const listingUrlFromStorage =
+    const urlFromProgress = progress.listingUrl;
+    const urlFromLegacy =
       typeof window !== "undefined"
-        ? window.localStorage.getItem(LISTING_URL_KEY) || undefined
+        ? localStorage.getItem(LISTING_URL_KEY) || undefined
         : undefined;
 
-    const listingUrl = listingUrlFromProgress || listingUrlFromStorage;
+    const listingUrl = urlFromProgress || urlFromLegacy;
 
-    console.log("🔗 Using listing URL >>>", listingUrl);
+    console.log("▶ Using listing URL >>>", listingUrl);
 
     if (!listingUrl) {
       alert("Missing listing URL — please start again.");
@@ -39,11 +47,6 @@ export default function OnlineAnalyzingListing() {
 
     async function runAnalysis() {
       try {
-        for (let i = 0; i < STEPS.length; i++) {
-          setStepIndex(i);
-          await new Promise((r) => setTimeout(r, 600));
-        }
-
         const res = await fetch("/api/analyze-listing", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -53,22 +56,30 @@ export default function OnlineAnalyzingListing() {
         const data = await res.json();
         console.log("ANALYSIS RESULT >>>", data);
 
-        if (!res.ok || !data.ok) {
+        if (!data?.ok) {
           alert("Scan failed — the listing could not be analysed.");
           navigate("/start-scan", { replace: true });
           return;
         }
 
-        const latest = (loadProgress() as any) ?? {};
+        const latest = (loadProgress() as ScanState) ?? {};
 
         saveProgress({
           ...latest,
           type: "online",
           step: "/online/results",
           listingUrl,
-          vehicle: data.vehicle ?? (latest?.vehicle ?? {}),
+          vehicle: data.vehicle ?? {},
           sections: data.sections ?? [],
+          startedAt: latest.startedAt ?? new Date().toISOString(),
         });
+
+        console.log(
+          "💾 Saved scan result >>>",
+          JSON.parse(
+            localStorage.getItem("carverity_scan_progress") || "null"
+          )
+        );
 
         navigate("/online/results", { replace: true });
       } catch (err) {
@@ -78,20 +89,30 @@ export default function OnlineAnalyzingListing() {
       }
     }
 
+    const interval = setInterval(() => {
+      setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
+    }, 900);
+
     runAnalysis();
-  }, []);
+    return () => clearInterval(interval);
+  }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
-      <main className="max-w-3xl mx-auto px-4 py-12">
-        <h1 className="text-xl font-semibold mb-6">Analyzing listing…</h1>
+    <div className="max-w-2xl mx-auto px-6 py-16">
+      <h1 className="text-xl font-bold mb-6">Analyzing listing…</h1>
 
-        <ul className="space-y-2 text-sm text-slate-400">
-          {STEPS.map((text, i) => (
-            <li key={i}>{i <= stepIndex ? "✳️" : "⏳"} {text}</li>
-          ))}
-        </ul>
-      </main>
+      <div className="space-y-3">
+        {STEPS.map((s, i) => (
+          <div
+            key={i}
+            className={`text-sm ${
+              i <= stepIndex ? "text-white" : "text-muted-foreground"
+            }`}
+          >
+            {i < stepIndex ? "✅" : "⏳"} {s}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
