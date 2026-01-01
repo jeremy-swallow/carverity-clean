@@ -1,15 +1,15 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { saveOnlineResults } from "../utils/onlineResults";
-import type { SavedResult } from "../utils/onlineResults";
-
-const LISTING_URL_KEY = "carverity_online_listing_url";
+import {
+  saveOnlineResults,
+  type SavedResult,
+} from "../utils/onlineResults";
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const listingUrl = localStorage.getItem(LISTING_URL_KEY);
+    const listingUrl = localStorage.getItem("carverity_online_listing_url");
 
     if (!listingUrl) {
       console.warn("⚠️ No listing URL — aborting scan");
@@ -17,48 +17,35 @@ export default function OnlineAnalyzing() {
       return;
     }
 
-    console.log("🚀 Using listing URL >>>", listingUrl);
     runScan(listingUrl);
   }, []);
 
   async function runScan(listingUrl: string) {
     try {
-      const res = await fetch("/api/analyze-listing", {
+      const response = await fetch("/api/analyze-listing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: listingUrl }),
       });
 
-      if (!res.ok) {
-        console.error("❌ API returned non-OK response", res.status);
-        alert("Scan failed — please try again.");
-        navigate("/start-scan", { replace: true });
-        return;
-      }
-
-      const data = await res.json();
-      console.log("📦 ANALYSIS RESULT >>>", data);
-
-      if (!data?.ok) {
-        alert("Scan failed — the listing could not be analysed.");
-        navigate("/start-scan", { replace: true });
-        return;
-      }
+      const data = await response.json();
+      console.log("🧠 ANALYSIS RESULT >>>", data);
 
       const result: SavedResult = {
         type: "online",
-        step: "/online/results", // ⭐️ next step is results page
+        step: "/online/results",
         createdAt: new Date().toISOString(),
 
         listingUrl,
         vehicle: data?.vehicle ?? {},
+
+        summary: data?.summary ?? "This AI scan has been completed.",
+        conditionSummary: data?.conditionSummary ?? "",
+
         sections: data?.sections ?? [],
         signals: data?.signals ?? [],
 
-        photos: {
-          listing: data?.photos ?? [],
-          meta: [],
-        },
+        photos: data?.photos ?? { listing: [], meta: [] },
 
         kilometres:
           typeof data?.kilometres === "string" ||
@@ -66,20 +53,15 @@ export default function OnlineAnalyzing() {
             ? data.kilometres
             : null,
 
-        isUnlocked: true,
+        isUnlocked: false, // 🔒 default: user must unlock
         analysisSource: "auto-search+extractor",
         source: "listing",
-        conditionSummary: data?.conditionSummary ?? "",
-        summary: data?.summary ?? "",
-        notes: "",
       };
 
       saveOnlineResults(result);
-      console.log("💾 Saved scan state >>>", result);
+      console.log("💾 Saved scan >>", result);
 
-      // ⭐️ Navigate to RESULTS page (not Next Actions)
       navigate("/online/results", { replace: true });
-
     } catch (err) {
       console.error("❌ Analysis failed:", err);
       alert("Scan failed — please try again.");
@@ -87,12 +69,5 @@ export default function OnlineAnalyzing() {
     }
   }
 
-  return (
-    <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-      <h1 className="text-2xl font-semibold mb-2">Analyzing listing...</h1>
-      <p className="text-muted-foreground">
-        This may take a few seconds.
-      </p>
-    </div>
-  );
+  return null;
 }
