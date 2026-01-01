@@ -7,20 +7,16 @@ if (!GEMINI_API_KEY) {
 }
 
 // ------------------------------
-// Helper: Fetch listing HTML
+// Fetch listing HTML
 // ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch listing (${res.status})`);
-  }
-
+  if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
   return await res.text();
 }
 
 // ------------------------------
-// Helper: Extract simple vehicle fields from page text
+// Lightweight text parsing
 // ------------------------------
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
@@ -35,22 +31,19 @@ function extractBasicVehicleInfo(text: string) {
 }
 
 // ------------------------------
-// Gemini Prompt
+// Prompt generator
 // ------------------------------
 function buildPrompt(listingText: string) {
   return `
 You are CarVerity — an independent used-car risk assessor for Australian buyers.
 
-ONLY use information from the listing. If details are missing or unclear,
-treat that as a potential risk and clearly say so.
+ONLY use information from the listing.
+If details are missing or unclear, treat that as a potential risk.
 
 STRUCTURE:
-
-SUMMARY (2–4 sentences max)
-
-KEY RISK SIGNALS (bullet points)
-
-BUYER CONSIDERATIONS (bullet points)
+SUMMARY
+KEY RISK SIGNALS
+BUYER CONSIDERATIONS
 
 RULES:
 - Do not speculate or invent details.
@@ -60,27 +53,21 @@ RULES:
 LISTING TEXT
 --------------------------------
 ${listingText}
---------------------------------
-`;
+--------------------------------`;
 }
 
 // ------------------------------
-// Gemini API Call  (UPDATED MODEL)
+// Gemini API — UPDATED TO v1
 // ------------------------------
 async function callGemini(prompt: string) {
   const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key=" +
+    "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-001:generateContent?key=" +
       GEMINI_API_KEY,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: prompt }],
-          },
-        ],
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
       }),
     }
   );
@@ -100,12 +87,9 @@ async function callGemini(prompt: string) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { url } = req.body || {};
+    if (!url) return res.status(400).json({ ok: false, error: "Missing listing URL" });
 
-    if (!url) {
-      return res.status(400).json({ ok: false, error: "Missing listing URL" });
-    }
-
-    console.log("🔎 Running AI scan for listing:", url);
+    console.log("🔎 Running AI scan for:", url);
 
     const html = await fetchListingHtml(url);
     const vehicle = extractBasicVehicleInfo(html);
@@ -122,9 +106,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (err: any) {
     console.error("❌ Analysis error:", err);
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Analysis failed",
-    });
+    return res.status(500).json({ ok: false, error: err?.message || "Analysis failed" });
   }
 }
