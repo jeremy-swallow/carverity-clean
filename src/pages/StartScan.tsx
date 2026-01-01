@@ -1,68 +1,61 @@
 // src/pages/StartScan.tsx
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { saveProgress } from "../utils/scanProgress";
 
+const LISTING_URL_KEY = "carverity_online_listing_url";
+
 export default function StartScan() {
   const navigate = useNavigate();
-  const [link, setLink] = useState("");
+  const [url, setUrl] = useState("");
 
-  const canContinue = link.trim().length > 10;
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
 
-  useEffect(() => {
+    const trimmed = url.trim();
+    if (!trimmed || !trimmed.startsWith("http")) {
+      alert("Please enter a valid listing URL.");
+      return;
+    }
+
+    // Persist URL for the entire online scan flow
+    localStorage.setItem(LISTING_URL_KEY, trimmed);
+
+    // Persist scan progress
     saveProgress({
       type: "online",
-      step: "/online/start",
+      step: "/online/analyzing-listing",
+      listingUrl: trimmed,
       startedAt: new Date().toISOString(),
     });
 
-    const existing = localStorage.getItem("carverity_listing_url");
-    if (existing) setLink(existing);
-  }, []);
-
-  function handleContinue() {
-    const trimmed = link.trim();
-    localStorage.setItem("carverity_listing_url", trimmed);
-
-    navigate("/online/analyzing-listing");
+    // Continue to analyzing screen
+    navigate("/online/analyzing-listing", { replace: true });
   }
 
   return (
-    <div className="max-w-xl mx-auto px-6 py-20 flex flex-col gap-6 text-center">
-      <span className="text-xs tracking-wider uppercase text-slate-400">
-        Online scan · Step 1 of 5
-      </span>
-
-      <h1 className="text-3xl font-extrabold text-white">
-        Paste the listing URL
-      </h1>
-
-      <p className="text-slate-300 text-sm -mt-2">
+    <div className="max-w-2xl mx-auto px-6 py-16">
+      <h1 className="text-2xl font-semibold mb-4">Paste the listing URL</h1>
+      <p className="text-sm text-slate-400 mb-6">
         CarVerity will scan the listing and help you review it
       </p>
 
-      <div className="bg-slate-900/80 border border-white/10 rounded-2xl p-6 flex flex-col gap-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <input
-          type="url"
+          className="w-full rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
           placeholder="https://example.com/car-listing"
-          value={link}
-          onChange={(e) => setLink(e.target.value)}
-          className="px-4 py-3 rounded-xl bg-slate-950/80 border border-white/15 text-slate-100 focus:outline-none"
         />
 
         <button
-          disabled={!canContinue}
-          onClick={handleContinue}
-          className={`px-5 py-3 rounded-xl font-semibold transition ${
-            canContinue
-              ? "bg-blue-400 text-black"
-              : "bg-slate-700 text-slate-400 cursor-not-allowed"
-          }`}
+          type="submit"
+          className="w-full rounded-md bg-blue-500 text-slate-950 py-2 font-medium"
         >
           Scan listing
         </button>
-      </div>
+      </form>
     </div>
   );
 }

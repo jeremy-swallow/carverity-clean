@@ -4,6 +4,16 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
+const LISTING_URL_KEY = "carverity_online_listing_url";
+
+interface ScanProgressShape {
+  type?: string;
+  step?: string;
+  listingUrl?: string;
+  vehicle?: any;
+  startedAt?: string;
+}
+
 const STEPS = [
   "Reading listing content…",
   "Checking vehicle details…",
@@ -12,17 +22,20 @@ const STEPS = [
   "Preparing suggestions…",
 ];
 
-const LISTING_URL_KEY = "carverity_online_listing_url";
-
 export default function OnlineAnalyzingListing() {
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
-    const listingUrl =
-      localStorage.getItem(LISTING_URL_KEY) ||
-      (loadProgress() as any)?.listingUrl ||
-      "";
+    const progress = (loadProgress() as ScanProgressShape) ?? {};
+
+    const listingUrlFromProgress = progress.listingUrl;
+    const listingUrlFromStorage =
+      localStorage.getItem(LISTING_URL_KEY) || undefined;
+
+    const listingUrl = listingUrlFromProgress || listingUrlFromStorage;
+
+    console.log("🔎 Using listing URL >>>", listingUrl);
 
     if (!listingUrl) {
       alert("Missing listing URL — please start again.");
@@ -35,45 +48,42 @@ export default function OnlineAnalyzingListing() {
         const res = await fetch("/api/analyze-listing", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ listingUrl }), // ✅ send correct param
+          body: JSON.stringify({ url: listingUrl }),
         });
 
-        const json = await res.json();
-        console.log("ANALYSIS RESULT >>>", json);
-
-        if (!json?.ok) {
-          alert("Scan failed — the listing could not be analysed.");
+        if (!res.ok) {
+          console.error("❌ API returned non-OK:", res.status);
+          alert("Scan failed — please try again.");
           navigate("/online/vehicle-details", { replace: true });
           return;
         }
 
-        const extracted = json?.vehicle ?? {};
+        const data = await res.json();
+        console.log("📦 ANALYSIS RESULT >>>", data);
 
-        // Save into progress
-        const progress = (loadProgress() as any) ?? {};
-        const update = {
-          ...progress,
-          type: "online" as const,
-          step: "/online/vehicle",
+        const extracted = data?.extracted ?? data?.vehicle ?? {};
+
+        // Persist progress safely
+        saveProgress({
+          ...(loadProgress() as ScanProgressShape),
+          type: "online",
+          step: "/online/vehicle-details",
           listingUrl,
           vehicle: extracted,
-          startedAt: progress.startedAt ?? new Date().toISOString(),
-        };
+        });
 
-        saveProgress(update);
-
-        // Continue to vehicle details page
         navigate("/online/vehicle-details", { replace: true });
       } catch (err) {
-        console.error("Analysis error", err);
+        console.error("💥 Analysis error", err);
         alert("Scan failed — please try again.");
         navigate("/online/vehicle-details", { replace: true });
       }
     }
 
-    const interval = setInterval(() => {
-      setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
-    }, 900);
+    const interval = setInterval(
+      () => setStepIndex((i) => Math.min(i + 1, STEPS.length - 1)),
+      900
+    );
 
     runAnalysis();
     return () => clearInterval(interval);
