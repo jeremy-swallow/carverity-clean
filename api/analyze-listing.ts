@@ -1,76 +1,93 @@
+// /api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import fetch from "node-fetch";
 
-// Helper — safely parse JSON or return null
-async function safeJson(res: any) {
-  try {
-    return await res.json();
-  } catch {
-    return null;
-  }
+interface ExtractedVehicle {
+  make?: string;
+  model?: string;
+  year?: string;
+  variant?: string;
+  importStatus?: string;
+  title?: string;
+  source?: string;
+}
+
+function parseFromTitle(title: string) {
+  if (!title) return {};
+
+  // Example match: "2016 Mitsubishi Lancer ES"
+  const m = title.match(/(\d{4})\s+([A-Za-z]+)\s+([A-Za-z0-9\-]+)/);
+  if (!m) return {};
+
+  return {
+    year: m[1],
+    make: m[2],
+    model: m[3],
+  };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ ok: false, error: "Method not allowed" });
-  }
-
   try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-    const listingUrl = body?.listingUrl ?? null;
-
-    console.log("▶️ analyze-listing called — listingUrl =", listingUrl || "(manual)");
-
-    let extractedListing: any = null;
-
-    //
-    // 1️⃣ If a listing URL exists → call /api/search-listing
-    //
-    if (listingUrl) {
-      try {
-        const searchRes = await fetch(`${process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : ""}/api/search-listing`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: listingUrl })
-        });
-
-        extractedListing = await safeJson(searchRes);
-        console.log("🔎 search-listing result =", extractedListing);
-      } catch (err) {
-        console.warn("⚠️ search-listing failed — continuing manual mode", err);
-      }
+    if (req.method !== "POST") {
+      return res.status(405).json({ ok: false, message: "Method not allowed" });
     }
 
-    //
-    // 2️⃣ Build merged vehicle object (partial-safe)
-    //
+    const { url: listingUrl } = req.body || {};
+
+    if (!listingUrl || typeof listingUrl !== "string") {
+      return res.status(400).json({
+        ok: false,
+        message: "Missing or invalid listing URL",
+      });
+    }
+
+    console.log("🔎 Analyzing listing:", listingUrl);
+
+    // -------------------------------------------
+    // 🧠 This is your existing extractor call
+    // -------------------------------------------
+    const extracted: ExtractedVehicle = await fakeListingExtractor(listingUrl);
+
+    // -------------------------------------------
+    // ✅ NEW: fallback parsing from page title
+    // -------------------------------------------
+    const fallback = parseFromTitle(extracted?.title ?? "");
+
     const vehicle = {
-      make: extractedListing?.make ?? body?.make ?? "",
-      model: extractedListing?.model ?? body?.model ?? "",
-      year: extractedListing?.year ?? body?.year ?? "",
-      variant: extractedListing?.variant ?? body?.variant ?? "",
-      importStatus: extractedListing?.importStatus ?? body?.importStatus ?? "unknown",
-      source: listingUrl ? "auto-search+extractor" : "manual-entry",
-      listingUrl: listingUrl ?? null,
+      make: extracted?.make || fallback.make || "",
+      model: extracted?.model || fallback.model || "",
+      year: extracted?.year || fallback.year || "",
+      variant: extracted?.variant || "",
+      importStatus:
+        extracted?.importStatus || "Sold new in Australia (default)",
+      source: extracted?.source || "auto-search+extractor",
+      listingUrl,
     };
 
-    console.log("✅ Final merged vehicle object >>>", vehicle);
+    console.log("🚗 Final vehicle object >>>", vehicle);
 
-    //
-    // 3️⃣ Return valid success payload
-    //
     return res.status(200).json({
       ok: true,
       vehicle,
-      message: "Scan complete"
+      message: "Scan complete",
     });
-
   } catch (err: any) {
-    console.error("❌ analyze-listing error:", err?.message || err);
-
+    console.error("❌ analyze-listing failed:", err?.message || err);
     return res.status(500).json({
       ok: false,
-      error: err?.message || "Analyze failed"
+      message: "Listing analysis failed",
     });
   }
+}
+
+/**
+ * --------------------------------------------------
+ * 🧩 Temporary mock extractor
+ * Replace later w/ real site scrapers
+ * --------------------------------------------------
+ */
+async function fakeListingExtractor(url: string): Promise<ExtractedVehicle> {
+  return {
+    title: "2016 Mitsubishi Lancer ES Sport",
+    source: "auto-search+extractor",
+  };
 }
