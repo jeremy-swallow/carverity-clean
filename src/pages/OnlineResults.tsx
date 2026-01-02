@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   loadOnlineResults,
   saveOnlineResults,
@@ -8,12 +8,25 @@ import {
 
 export default function OnlineResults() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [result, setResult] = useState<SavedResult | null>(null);
 
   useEffect(() => {
     const stored = loadOnlineResults();
-    setResult(stored ?? null);
-  }, []);
+    if (!stored) return setResult(null);
+
+    // ✅ If user returned from checkout with success flag → unlock report
+    const unlocked = params.get("unlocked") === "true";
+
+    if (unlocked && !stored.isUnlocked) {
+      const updated: SavedResult = { ...stored, isUnlocked: true };
+      saveOnlineResults(updated);
+      setResult(updated);
+      return;
+    }
+
+    setResult(stored);
+  }, [params]);
 
   if (!result) {
     return (
@@ -83,10 +96,12 @@ export default function OnlineResults() {
   if (!vehicle.importStatus)
     missing.push("Import / compliance status not listed");
   if (!result.photos?.listing?.length)
-    missing.push("Listing photos were not captured by the scan (this does not mean the seller did not include them)");
+    missing.push(
+      "Listing photos were not captured by the scan (this does not mean the seller did not include them)"
+    );
 
   // -------------------------------
-  // Continue CTA
+  // Flow actions
   // -------------------------------
   function handleContinue() {
     if (!result) return;
@@ -103,8 +118,13 @@ export default function OnlineResults() {
   }
 
   function handleUnlock() {
-    // Later this will go to checkout / credits
-    navigate("/pricing");
+    // 🔹 We pass return location + scan context to checkout
+    const returnUrl = encodeURIComponent("/online/results?unlocked=true");
+
+    navigate(
+      `/checkout?mode=online-scan&return=${returnUrl}`,
+      { replace: false }
+    );
   }
 
   // -------------------------------
@@ -117,7 +137,7 @@ export default function OnlineResults() {
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm flex flex-col items-center justify-center text-center px-6">
             <p className="font-semibold mb-1">Full report locked</p>
             <p className="text-sm text-muted-foreground mb-3">
-              Unlock to view risk signals, negotiation insights and next-step guidance.
+              Unlock to view risk signals, negotiation insights and in-person inspection guidance.
             </p>
             <button
               onClick={handleUnlock}
