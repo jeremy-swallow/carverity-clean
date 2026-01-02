@@ -10,14 +10,16 @@ if (!GEMINI_API_KEY) {
 // ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-  if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch listing (${res.status})`);
+  }
   return await res.text();
 }
 
 // ------------------------------
 // Normalisers
 // ------------------------------
-function normaliseYear(raw?: string | null) {
+function normaliseYear(raw?: string | null): string {
   if (!raw) return "";
   const n = parseInt(raw, 10);
   const now = new Date().getFullYear();
@@ -25,11 +27,12 @@ function normaliseYear(raw?: string | null) {
   return String(n);
 }
 
-function normaliseKilometres(raw?: string | null) {
+function normaliseKilometres(raw?: string | null): string {
   if (!raw) return "";
   const cleaned = raw.replace(/[,\.]/g, "").trim();
   const n = parseInt(cleaned, 10);
-  if (!n || n < 10 || n > 1_000_000) return "";
+  // keep it simple for TS: no numeric separators
+  if (!n || n < 10 || n > 1000000) return "";
   return String(n);
 }
 
@@ -40,10 +43,17 @@ function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
 
+  // YEAR — defensive & preference-based
   let year = "";
-  const labelled = text.match(/(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i);
-  const beforeMake = text.match(/\b((19|20)\d{2})\b[^,\n]{0,30}(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)/i);
-  const afterMake = text.match(/(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)[^0-9]{0,20}\b((19|20)\d{2})\b/i);
+  const labelled = text.match(
+    /(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i
+  );
+  const beforeMake = text.match(
+    /\b((19|20)\d{2})\b[^,\n]{0,30}(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)/i
+  );
+  const afterMake = text.match(
+    /(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)[^0-9]{0,20}\b((19|20)\d{2})\b/i
+  );
   const myCode = text.match(/\bMY\s?(\d{2})\b/i);
 
   if (labelled) year = labelled[2];
@@ -53,17 +63,18 @@ function extractBasicVehicleInfo(text: string) {
 
   year = normaliseYear(year);
 
+  // KILOMETRES
   let kilometres = "";
-  const kmPatterns = [
+  const kmPatterns: RegExp[] = [
     /\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i,
     /\bodometer[^0-9]{0,6}([\d,\.]+)\b/i,
     /\btravelled[^0-9]{0,6}([\d,\.]+)\b/i,
   ];
 
-  for (const p of kmPatterns) {
-    const m = text.match(p);
-    if (m?.[1]) {
-      kilometres = normaliseKilometres(m[1]);
+  for (const pattern of kmPatterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      kilometres = normaliseKilometres(match[1]);
       if (kilometres) break;
     }
   }
@@ -79,7 +90,7 @@ function extractBasicVehicleInfo(text: string) {
 // ------------------------------
 // Gemini Prompt — Assistive, Plain-English Confidence
 // ------------------------------
-function buildPrompt(listingText: string) {
+function buildPrompt(listingText: string): string {
   return `
 You are CarVerity — an independent used-car assistant for Australian buyers.
 Your purpose is to help the buyer feel informed, supported and confident — not overwhelmed or alarmed.
@@ -127,7 +138,7 @@ First explain confidence in simple English the buyer can easily understand.
 
 Meaning alignment:
 LOW  = Feels comfortable so far — nothing concerning stands out
-MODERATE = Looks mostly fine — but a couple of things are worth checking first
+MODERATE = Looks mostly fine — but a couple of things are worth checking in person
 HIGH = Proceed carefully — important details should be confirmed before moving ahead
 
 The tone of your explanation MUST match the code you output.
@@ -178,7 +189,7 @@ ${listingText}
 // ------------------------------
 // Gemini API
 // ------------------------------
-async function callGemini(prompt: string) {
+async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(
     "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=" +
       GEMINI_API_KEY,
@@ -191,7 +202,9 @@ async function callGemini(prompt: string) {
     }
   );
 
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    throw new Error(await res.text());
+  }
   const data = await res.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
@@ -199,7 +212,7 @@ async function callGemini(prompt: string) {
 // ------------------------------
 // Extract confidence code
 // ------------------------------
-function extractConfidenceCode(text: string) {
+function extractConfidenceCode(text: string): string | null {
   const m = text.match(/CONFIDENCE_CODE:\s*(LOW|MODERATE|HIGH)/i);
   return m ? m[1].toUpperCase() : null;
 }
@@ -207,11 +220,16 @@ function extractConfidenceCode(text: string) {
 // ------------------------------
 // API Handler
 // ------------------------------
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
   try {
-    const listingUrl = req.body?.listingUrl ?? req.body?.url;
+    const listingUrl = (req.body as any)?.listingUrl ?? (req.body as any)?.url;
     if (!listingUrl) {
-      return res.status(400).json({ ok: false, error: "Missing listing URL" });
+      return res
+        .status(400)
+        .json({ ok: false, error: "Missing listing URL" });
     }
 
     console.log("🔎 Running AI scan for:", listingUrl);
