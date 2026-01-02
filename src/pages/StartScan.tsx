@@ -1,8 +1,7 @@
 // src/pages/StartScan.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const LISTING_URL_KEY = "carverity_online_listing_url";
+import { saveListingUrl } from "../utils/onlineResults";
 
 export default function StartScan() {
   const navigate = useNavigate();
@@ -17,11 +16,13 @@ export default function StartScan() {
       return;
     }
 
-    // ✅ Persist URL for the analyzing step
-    localStorage.setItem(LISTING_URL_KEY, cleaned);
+    // ✅ Persist URL for the analyzing step (shared helper)
+    saveListingUrl(cleaned);
+    console.log("🚗 Listing URL saved from StartScan:", cleaned);
 
-    // 🚀 Move to analyzing screen
-    navigate("/online/analyzing-listing");
+    // ✅ MUST match App.tsx route:
+    // <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
+    navigate("/scan/online/analyzing", { replace: true });
   }
 
   return (
