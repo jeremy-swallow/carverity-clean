@@ -6,16 +6,15 @@ import {
   saveOnlineResults,
   type SavedResult,
 } from "../utils/onlineResults";
-import { loadCredits, useOneCredit } from "../utils/scanCredits";
 
 export default function OnlineResults() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [result, setResult] = useState<SavedResult | null>(null);
 
-  /* --------------------------------
-     Load + unlock-on-return
-  -------------------------------- */
+  // --------------------------------
+  // Load + unlock-on-return
+  // --------------------------------
   useEffect(() => {
     const stored = loadOnlineResults();
     if (!stored) {
@@ -25,7 +24,6 @@ export default function OnlineResults() {
 
     const unlocked = params.get("unlocked") === "true";
 
-    // Returned from checkout → permanently unlock (no credit spend)
     if (unlocked && !stored.isUnlocked) {
       const updated: SavedResult = {
         ...stored,
@@ -57,15 +55,17 @@ export default function OnlineResults() {
   const vehicle = result.vehicle ?? {};
   const sections = result.sections ?? [];
   const isUnlocked = result.isUnlocked ?? false;
-  const confidenceCode = (result as any).confidenceCode?.toUpperCase?.() ?? null;
+
+  const confidenceCode =
+    (result as any).confidenceCode?.toUpperCase?.() ?? null;
 
   const summary =
     (result.summary?.trim() || result.conditionSummary?.trim()) ||
-    "No AI summary was returned for this listing.";
+    "No AI summary was returned for this listing — but the details below were successfully extracted.";
 
-  /* --------------------------------
-     Confidence mapping
-  -------------------------------- */
+  // --------------------------------
+  // Confidence mapping
+  // --------------------------------
   function getConfidenceDisplay() {
     switch (confidenceCode) {
       case "LOW":
@@ -73,21 +73,21 @@ export default function OnlineResults() {
           label: "Low — comfortable so far",
           colour: "bg-emerald-600",
           meaning:
-            "This listing appears generally positive so far. It still makes sense to confirm key details in person, but nothing concerning stands out yet.",
+            "This listing appears generally positive based on the available information. It still makes sense to confirm key details, but nothing concerning stands out so far.",
         };
       case "MODERATE":
         return {
           label: "Moderate — a few things to confirm",
           colour: "bg-amber-500",
           meaning:
-            "The listing looks mostly fine, but a couple of details are worth confirming in person before progressing further.",
+            "The listing looks mostly fine, but a couple of details are worth checking in person before progressing further. Clarifying these points will help you feel confident about your decision.",
         };
       case "HIGH":
         return {
           label: "High — confirm important details first",
           colour: "bg-red-600",
           meaning:
-            "Some details in this listing should be confirmed before moving forward to avoid potential surprises.",
+            "This listing includes details that should be confirmed before progressing further. It may still be suitable — but checking the unclear points will help you avoid surprises.",
         };
       default:
         return {
@@ -101,22 +101,28 @@ export default function OnlineResults() {
 
   const confidence = getConfidenceDisplay();
 
-  /* --------------------------------
-     Missing / unclear info
-  -------------------------------- */
+  // --------------------------------
+  // Missing / unclear info
+  // --------------------------------
   const missing: string[] = [];
 
-  if (!vehicle.variant) missing.push("Variant not specified");
+  if (!vehicle.kilometres && !result.kilometres)
+    missing.push("Kilometres not clearly stated");
+
+  if (!vehicle.variant)
+    missing.push("Variant not specified");
+
   if (!vehicle.importStatus)
     missing.push("Import / compliance status not listed");
+
   if (!result.photos?.listing?.length)
     missing.push(
       "Listing photos were not captured by the scan (this does not mean the seller did not include them)"
     );
 
-  /* --------------------------------
-     Flow actions
-  -------------------------------- */
+  // --------------------------------
+  // Continue flow
+  // --------------------------------
   function handleContinue() {
     if (!result) return;
 
@@ -133,85 +139,62 @@ export default function OnlineResults() {
     navigate("/online/next-actions", { replace: true });
   }
 
-  // Spend a credit + unlock permanently
-  function unlockWithCredit(): boolean {
-    if (!result) return false;
-    if (result.isUnlocked) return true;
-
-    const attempt = useOneCredit();
-    if (!attempt.ok) return false;
+  // --------------------------------
+  // TEMP MODE — instant unlock (no checkout)
+  // --------------------------------
+  function handleUnlockInstant() {
+    if (!result || result.isUnlocked) return;
 
     const updated: SavedResult = {
       ...result,
-      type: "online",
       isUnlocked: true,
+      type: "online",
       step: result.step || "/online/results",
       createdAt: result.createdAt || new Date().toISOString(),
     };
 
     saveOnlineResults(updated);
     setResult(updated);
-    return true;
   }
 
-  function handleUnlock() {
-    if (!result) return;
-
-    const credits = loadCredits();
-
-    // Case 1 — user has credits → consume ONE now
-    if (credits > 0) {
-      const ok = unlockWithCredit();
-      if (ok) return;
-    }
-
-    // Case 2 — go to checkout (unlock on return)
-    const returnUrl = encodeURIComponent("/online/results?unlocked=true");
-    navigate(`/checkout?mode=online-scan&return=${returnUrl}`);
-  }
-
-  /* --------------------------------
-     Blurred gated panel
-  -------------------------------- */
+  // --------------------------------
+  // Blurred gated panel
+  // (content fully hidden — no readable text when locked)
+  // --------------------------------
   function BlurredPanel(props: { title: string; children: ReactNode }) {
     return (
       <div className="border rounded-lg relative overflow-hidden">
-
-        {/* Dim + blur only the content */}
         {!isUnlocked && (
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-none" />
-        )}
-
-        <div className={`p-4 ${!isUnlocked ? "opacity-40 select-none" : ""}`}>
-          <h2 className="font-semibold mb-2">{props.title}</h2>
-          {props.children}
-        </div>
-
-        {/* Interactive unlock bar — always clickable */}
-        {!isUnlocked && (
-          <div className="p-4 border-t bg-slate-900/70 flex flex-col gap-2 items-center text-center pointer-events-auto">
-            <p className="text-sm text-muted-foreground">
-              Unlock to reveal risk signals, tailored buyer checks and negotiation guidance.
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center text-center px-6 z-20">
+            <p className="font-semibold mb-1">Full scan locked</p>
+            <p className="text-sm text-muted-foreground mb-3">
+              Unlock to reveal risk signals, tailored buyer checks and negotiation insights for this listing.
             </p>
-
             <button
-              onClick={handleUnlock}
+              onClick={handleUnlockInstant}
               className="bg-blue-600 text-white px-4 py-2 rounded shadow"
             >
               Unlock full scan
             </button>
           </div>
         )}
+
+        <div className={`p-4 ${!isUnlocked ? "blur-sm select-none opacity-30 pointer-events-none" : ""}`}>
+          <h2 className="font-semibold mb-2">{props.title}</h2>
+          {props.children}
+        </div>
       </div>
     );
   }
 
-  /* --------------------------------
-     Render
-  -------------------------------- */
+  // --------------------------------
+  // Render
+  // --------------------------------
   return (
     <div className="max-w-3xl mx-auto px-4 py-16 space-y-8">
-      <h1 className="text-2xl font-semibold">Scan results — AI-assisted review</h1>
+      <h1 className="text-2xl font-semibold">
+        Scan results — AI-assisted review
+      </h1>
 
       <p className="text-sm">
         Listing analysed:{" "}
@@ -225,6 +208,7 @@ export default function OnlineResults() {
         </a>
       </p>
 
+      {/* CONFIDENCE */}
       <div className="border rounded-lg p-4 flex items-center gap-3">
         <span className={`w-3 h-3 rounded-full ${confidence.colour}`} />
         <p className="font-medium">
@@ -232,33 +216,24 @@ export default function OnlineResults() {
         </p>
       </div>
 
-      <div className="border rounded-lg p-4">
+      {/* WHAT THIS MEANS */}
+      <div className="border rounded-lg p-4 bg-white/5">
         <h2 className="font-semibold mb-2">What this means for you</h2>
         <p className="text-muted-foreground whitespace-pre-line">
           {confidence.meaning}
         </p>
       </div>
 
-      <div className="border rounded-lg p-4">
-        <h2 className="font-semibold mb-2">Recommended next step</h2>
-        <p className="text-muted-foreground">
-          We recommend booking a CarVerity in-person scan to verify condition and paperwork.
-        </p>
-      </div>
-
-      {/* Preview only */}
+      {/* PREVIEW SUMMARY */}
       <div className="border rounded-lg p-4">
         <h2 className="font-semibold mb-2">CarVerity analysis — preview</h2>
-        <p className="text-muted-foreground">
-          The listing suggests the vehicle presents well overall. The full scan explores what this
-          means for you in more depth — including risks, negotiation angles and what to double-check in person.
-        </p>
-        <p className="text-xs mt-2 text-muted-foreground">
-          (Free preview — the full scan provides a deeper listing-specific breakdown.)
+        <p className="text-muted-foreground whitespace-pre-line">
+          {summary.split("\n").slice(0, 3).join("\n")}
+          {isUnlocked ? "" : "\n\n(Free preview — the full scan provides a deeper listing-specific breakdown.)"}
         </p>
       </div>
 
-      {/* Vehicle details */}
+      {/* VEHICLE DETAILS */}
       <div className="border rounded-lg p-4">
         <h2 className="font-semibold mb-2">Vehicle details</h2>
         <p>Make: {vehicle.make ?? "—"}</p>
@@ -274,6 +249,7 @@ export default function OnlineResults() {
         </p>
       </div>
 
+      {/* MISSING DETAILS */}
       {missing.length > 0 && (
         <div className="border rounded-lg p-4 bg-amber-50/10">
           <h2 className="font-semibold mb-2">Missing or unclear details</h2>
@@ -285,7 +261,7 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* GATED CONTENT */}
+      {/* GATED PANELS */}
       <BlurredPanel title="Key risk signals">
         <p className="text-muted-foreground whitespace-pre-line">
           {summary}
@@ -319,6 +295,7 @@ export default function OnlineResults() {
         </BlurredPanel>
       )}
 
+      {/* CONTINUE CTA */}
       {isUnlocked && (
         <div className="pt-4">
           <button
