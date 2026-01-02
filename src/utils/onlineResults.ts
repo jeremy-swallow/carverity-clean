@@ -46,11 +46,15 @@ export interface SavedResult {
   conditionSummary: string;
   summary?: string;
 
-  // Extra fields we want to carry through the flow
+  // Extra fields carried through the flow
   kilometres?: string | number | null;
   owners?: string;
   notes?: string;
 }
+
+/* =========================================================
+   RESULT STORAGE
+========================================================= */
 
 const STORAGE_KEY = "carverity_online_results_v2";
 
@@ -78,5 +82,36 @@ export function clearOnlineResults() {
     localStorage.removeItem(STORAGE_KEY);
   } catch (err) {
     console.error("❌ Failed to clear online results", err);
+  }
+}
+
+/* =========================================================
+   LISTING URL STORAGE (scan input seed)
+========================================================= */
+
+export const LISTING_URL_KEY = "carverity_online_listing_url";
+
+export function saveListingUrl(url: string) {
+  try {
+    localStorage.setItem(LISTING_URL_KEY, url);
+  } catch (err) {
+    console.error("❌ Failed to store listing URL", err);
+  }
+}
+
+export function loadListingUrl(): string | null {
+  try {
+    return localStorage.getItem(LISTING_URL_KEY);
+  } catch (err) {
+    console.error("❌ Failed to load listing URL", err);
+    return null;
+  }
+}
+
+export function clearListingUrl() {
+  try {
+    localStorage.removeItem(LISTING_URL_KEY);
+  } catch (err) {
+    console.error("❌ Failed to clear listing URL", err);
   }
 }

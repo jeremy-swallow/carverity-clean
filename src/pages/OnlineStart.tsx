@@ -1,8 +1,7 @@
 // src/pages/OnlineStart.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-const LISTING_URL_KEY = "carverity_online_listing_url";
+import { saveListingUrl } from "../utils/onlineResults";
 
 export default function OnlineStart() {
   const navigate = useNavigate();
@@ -12,41 +11,32 @@ export default function OnlineStart() {
     e.preventDefault();
     if (!url.trim()) return;
 
-    // Save URL for the scan flow
-    localStorage.setItem(LISTING_URL_KEY, url);
+    saveListingUrl(url.trim());
+    console.log("🚀 Saved URL:", url);
 
-    console.log("🚀 Listing URL saved:", url);
-
-    // Go straight to analyzing page
     navigate("/scan/online/analyzing", { replace: true });
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-12">
+    <div className="max-w-xl mx-auto px-4 py-12">
       <h1 className="text-2xl font-semibold mb-4">
-        Online Listing Scan
+        Start online scan
       </h1>
 
-      <p className="text-muted-foreground mb-6">
-        Paste a listing link and we’ll instantly analyse wording,
-        pricing signals, seller risk flags and key details.
-      </p>
-
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="space-y-4">
         <input
-          type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          className="w-full p-3 rounded bg-slate-800 border border-white/10 mb-4"
-          placeholder="Paste listing URL…"
-          required
+          type="url"
+          placeholder="Paste listing URL"
+          className="w-full rounded bg-white/5 border border-white/10 px-3 py-2"
         />
 
         <button
           type="submit"
-          className="bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-2 rounded"
+          className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500"
         >
-          Start scan →
+          Start scan
         </button>
       </form>
     </div>
