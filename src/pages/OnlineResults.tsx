@@ -7,9 +7,65 @@ import {
   type SavedResult,
 } from "../utils/onlineResults";
 
+/**
+ * Try to split the AI summary into logical sections based on the headings
+ * we enforce in the Gemini prompt.
+ */
+function parseStructuredSummary(summary: string) {
+  type Key =
+    | "confidenceAssessment"
+    | "whatThisMeans"
+    | "analysisSummary"
+    | "keyRiskSignals"
+    | "buyerConsiderations"
+    | "negotiationInsights";
+
+  const map: Partial<Record<Key, string>> = {};
+
+  const source = summary || "";
+  if (!source) return map;
+
+  const regex =
+    /(CONFIDENCE ASSESSMENT|WHAT THIS MEANS FOR YOU|CARVERITY ANALYSIS — SUMMARY|KEY RISK SIGNALS|BUYER CONSIDERATIONS|NEGOTIATION INSIGHTS)/g;
+
+  const matches: { header: string; start: number }[] = [];
+  let m: RegExpExecArray | null;
+
+  while ((m = regex.exec(source)) !== null) {
+    matches.push({ header: m[1], start: m.index });
+  }
+
+  if (matches.length === 0) return map;
+
+  const headerToKey: Record<string, Key> = {
+    "CONFIDENCE ASSESSMENT": "confidenceAssessment",
+    "WHAT THIS MEANS FOR YOU": "whatThisMeans",
+    "CARVERITY ANALYSIS — SUMMARY": "analysisSummary",
+    "KEY RISK SIGNALS": "keyRiskSignals",
+    "BUYER CONSIDERATIONS": "buyerConsiderations",
+    "NEGOTIATION INSIGHTS": "negotiationInsights",
+  };
+
+  for (let i = 0; i < matches.length; i++) {
+    const { header, start } = matches[i];
+    const end = i + 1 < matches.length ? matches[i + 1].start : source.length;
+    const body = source
+      .slice(start + header.length, end)
+      .trim()
+      .replace(/^\s*[:\-–]\s*/, "");
+    const key = headerToKey[header];
+    if (key) {
+      map[key] = body;
+    }
+  }
+
+  return map;
+}
+
 export default function OnlineResults() {
   const navigate = useNavigate();
   const [result, setResult] = useState<SavedResult | null>(null);
+  const [isUnlocked, setIsUnlocked] = useState(false);
 
   // --------------------------------
   // Load saved online scan
@@ -17,6 +73,7 @@ export default function OnlineResults() {
   useEffect(() => {
     const stored = loadOnlineResults();
     setResult(stored ?? null);
+    setIsUnlocked(stored?.isUnlocked ?? false);
   }, []);
 
   if (!result) {
@@ -32,12 +89,13 @@ export default function OnlineResults() {
 
   const vehicle = result.vehicle ?? {};
   const sections = result.sections ?? [];
-  const isUnlocked = result.isUnlocked ?? false;
   const confidenceCode = (result as any).confidenceCode?.toUpperCase?.() ?? null;
 
   const summary =
     (result.summary?.trim() || result.conditionSummary?.trim()) ||
     "No AI summary was returned for this listing — but the details below were successfully extracted.";
+
+  const parsed = parseStructuredSummary(summary);
 
   // --------------------------------
   // Confidence display mapping
@@ -49,6 +107,7 @@ export default function OnlineResults() {
           label: "Low — comfortable so far",
           colour: "bg-emerald-600",
           meaning:
+            parsed.whatThisMeans ||
             "This listing appears generally positive based on the available information. It still makes sense to confirm key details, but nothing concerning stands out so far.",
         };
       case "MODERATE":
@@ -56,6 +115,7 @@ export default function OnlineResults() {
           label: "Moderate — a few things to confirm",
           colour: "bg-amber-500",
           meaning:
+            parsed.whatThisMeans ||
             "This listing looks mostly fine, but a couple of details are worth confirming in person before moving ahead. Clarifying these points will help you feel confident about the next step.",
         };
       case "HIGH":
@@ -63,6 +123,7 @@ export default function OnlineResults() {
           label: "High — confirm important details first",
           colour: "bg-red-600",
           meaning:
+            parsed.whatThisMeans ||
             "This listing includes details that should be confirmed before progressing further. It may still be suitable — but checking the unclear points will help you avoid surprises.",
         };
       default:
@@ -100,7 +161,7 @@ export default function OnlineResults() {
   // Flow actions
   // --------------------------------
   function handleContinue() {
-    const current = result!; // safe: component would have early-returned if result were null
+    const current = result!;
 
     const updated: SavedResult = {
       ...current,
@@ -108,16 +169,16 @@ export default function OnlineResults() {
       step: "/online/next-actions",
       createdAt: current.createdAt || new Date().toISOString(),
       conditionSummary: current.conditionSummary || summary,
-      // ensure required fields are never undefined
       listingUrl: current.listingUrl ?? null,
       vehicle: current.vehicle ?? {},
       sections: current.sections ?? [],
       photos: current.photos ?? { listing: [], meta: [] },
-      isUnlocked: current.isUnlocked ?? true,
+      isUnlocked: true,
     };
 
     saveOnlineResults(updated);
     setResult(updated);
+    setIsUnlocked(true);
     navigate("/online/next-actions", { replace: true });
   }
 
@@ -139,34 +200,21 @@ export default function OnlineResults() {
 
     saveOnlineResults(updated);
     setResult(updated);
+    setIsUnlocked(true);
   }
 
   // --------------------------------
-  // Blurred gated block wrapper
+  // Simple card component
   // --------------------------------
-  function BlurredPanel(props: { title: string; children: ReactNode }) {
+  function Card(props: { title: string; children: ReactNode; className?: string }) {
     return (
-      <div className="border rounded-lg relative overflow-hidden">
-        {!isUnlocked && (
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm flex flex-col items-center justify-center text-center px-6">
-            <p className="font-semibold mb-1">Full report locked</p>
-            <p className="text-sm text-muted-foreground mb-3">
-              Unlock to view risk signals, negotiation insights and in-person
-              inspection guidance.
-            </p>
-            <button
-              onClick={handleUnlock}
-              className="bg-blue-600 text-white px-4 py-2 rounded shadow"
-            >
-              Unlock full scan
-            </button>
-          </div>
-        )}
-
-        <div className={`p-4 ${!isUnlocked ? "opacity-40 select-none" : ""}`}>
-          <h2 className="font-semibold mb-2">{props.title}</h2>
-          {props.children}
-        </div>
+      <div
+        className={`border rounded-lg p-4 bg-white/5/0 ${
+          props.className ?? ""
+        }`}
+      >
+        <h2 className="font-semibold mb-2">{props.title}</h2>
+        {props.children}
       </div>
     );
   }
@@ -199,25 +247,30 @@ export default function OnlineResults() {
       </div>
 
       {/* WHAT THIS MEANS */}
-      <div className="border rounded-lg p-4 bg-white/5">
-        <h2 className="font-semibold mb-2">What this means for you</h2>
+      <Card title="What this means for you">
         <p className="text-muted-foreground whitespace-pre-line">
           {confidence.meaning}
         </p>
-      </div>
+      </Card>
 
       {/* PREVIEW SUMMARY */}
-      <div className="border rounded-lg p-4">
-        <h2 className="font-semibold mb-2">CarVerity analysis — preview</h2>
+      <Card title="CarVerity analysis — preview">
         <p className="text-muted-foreground whitespace-pre-line">
-          {summary.split("\n").slice(0, 4).join("\n")}
-          {isUnlocked ? "" : "\n\n(Preview only — full analysis available after unlock)"}
+          {(
+            parsed.analysisSummary ||
+            parsed.confidenceAssessment ||
+            summary
+          )
+            .split("\n")
+            .slice(0, 6)
+            .join("\n")}
+          {!isUnlocked &&
+            "\n\n(Preview only — full analysis available after unlock)"}
         </p>
-      </div>
+      </Card>
 
       {/* VEHICLE DETAILS */}
-      <div className="border rounded-lg p-4">
-        <h2 className="font-semibold mb-2">Vehicle details</h2>
+      <Card title="Vehicle details">
         <p>Make: {vehicle.make ?? "—"}</p>
         <p>Model: {vehicle.model ?? "—"}</p>
         <p>Year: {vehicle.year ?? "—"}</p>
@@ -229,12 +282,11 @@ export default function OnlineResults() {
         <p>
           Kilometres: {vehicle.kilometres ?? result.kilometres ?? "Not specified"}
         </p>
-      </div>
+      </Card>
 
       {/* MISSING DETAILS */}
       {missing.length > 0 && (
-        <div className="border rounded-lg p-4 bg-amber-50/10">
-          <h2 className="font-semibold mb-2">Missing or unclear details</h2>
+        <Card title="Missing or unclear details">
           <ul className="list-disc ml-5 text-muted-foreground">
             {missing.map((m, i) => (
               <li key={i}>{m}</li>
@@ -244,53 +296,75 @@ export default function OnlineResults() {
             Missing information isn’t always a problem — but these points are
             worth confirming before moving ahead.
           </p>
-        </div>
+        </Card>
       )}
 
-      {/* GATED PANELS */}
-      <BlurredPanel title="Key risk signals">
-        <p className="text-muted-foreground whitespace-pre-line">
-          {summary}
-        </p>
-      </BlurredPanel>
-
-      <BlurredPanel title="Buyer considerations">
-        <p className="text-muted-foreground whitespace-pre-line">
-          {summary}
-        </p>
-      </BlurredPanel>
-
-      <BlurredPanel title="Negotiation insights">
-        <p className="text-muted-foreground whitespace-pre-line">
-          {summary}
-        </p>
-      </BlurredPanel>
-
-      {sections.length > 0 && (
-        <BlurredPanel title="Additional analysis">
-          <div className="space-y-4">
-            {sections.map((s, i) => (
-              <div key={i}>
-                <h3 className="font-semibold mb-1">{s.title}</h3>
-                <p className="text-muted-foreground whitespace-pre-line">
-                  {s.content}
-                </p>
-              </div>
-            ))}
-          </div>
-        </BlurredPanel>
-      )}
-
-      {/* CONTINUE CTA */}
-      {isUnlocked && (
-        <div className="pt-4">
+      {/* LOCKED STATE CALLOUT */}
+      {!isUnlocked && (
+        <Card title="Unlock your full scan">
+          <p className="text-muted-foreground mb-3">
+            The preview above shows a summary based on the listing. Unlocking
+            the full scan will reveal structured risk signals, buyer
+            considerations and negotiation insights in a clearer format.
+          </p>
           <button
-            onClick={handleContinue}
-            className="bg-blue-600 text-white px-5 py-2 rounded shadow"
+            onClick={handleUnlock}
+            className="bg-blue-600 text-white px-4 py-2 rounded shadow"
           >
-            Continue — review next recommended steps
+            Unlock full scan
           </button>
-        </div>
+        </Card>
+      )}
+
+      {/* FULL ANALYSIS — ONLY WHEN UNLOCKED */}
+      {isUnlocked && (
+        <>
+          <Card title="Key risk signals">
+            <p className="text-muted-foreground whitespace-pre-line">
+              {parsed.keyRiskSignals ||
+                "The listing doesn’t highlight any specific risks beyond normal used-car wear based on the available information."}
+            </p>
+          </Card>
+
+          <Card title="Buyer considerations">
+            <p className="text-muted-foreground whitespace-pre-line">
+              {parsed.buyerConsiderations ||
+                "Use this listing as a starting point, then confirm key details in person — including paperwork, visible condition and how the car feels to drive."}
+            </p>
+          </Card>
+
+          <Card title="Negotiation insights">
+            <p className="text-muted-foreground whitespace-pre-line">
+              {parsed.negotiationInsights ||
+                "Consider how the car’s age, kilometres, service history and any cosmetic issues line up with the asking price when discussing an offer."}
+            </p>
+          </Card>
+
+          {sections.length > 0 && (
+            <Card title="Additional analysis">
+              <div className="space-y-4">
+                {sections.map((s, i) => (
+                  <div key={i}>
+                    <h3 className="font-semibold mb-1">{s.title}</h3>
+                    <p className="text-muted-foreground whitespace-pre-line">
+                      {s.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* CONTINUE CTA */}
+          <div className="pt-4">
+            <button
+              onClick={handleContinue}
+              className="bg-blue-600 text-white px-5 py-2 rounded shadow"
+            >
+              Continue — review next recommended steps
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
