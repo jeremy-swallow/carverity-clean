@@ -1,82 +1,47 @@
-// src/pages/OnlineResults.tsx
-
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   loadOnlineResults,
   saveOnlineResults,
   type SavedResult,
 } from "../utils/onlineResults";
-
-/**
- * Try to split the AI summary into logical sections based on the headings
- * we enforce in the Gemini prompt.
- */
-function parseStructuredSummary(summary: string) {
-  type Key =
-    | "confidenceAssessment"
-    | "whatThisMeans"
-    | "analysisSummary"
-    | "keyRiskSignals"
-    | "buyerConsiderations"
-    | "negotiationInsights";
-
-  const map: Partial<Record<Key, string>> = {};
-
-  const source = summary || "";
-  if (!source) return map;
-
-  const regex =
-    /(CONFIDENCE ASSESSMENT|WHAT THIS MEANS FOR YOU|CARVERITY ANALYSIS — SUMMARY|KEY RISK SIGNALS|BUYER CONSIDERATIONS|NEGOTIATION INSIGHTS)/g;
-
-  const matches: { header: string; start: number }[] = [];
-  let m: RegExpExecArray | null;
-
-  while ((m = regex.exec(source)) !== null) {
-    matches.push({ header: m[1], start: m.index });
-  }
-
-  if (matches.length === 0) return map;
-
-  const headerToKey: Record<string, Key> = {
-    "CONFIDENCE ASSESSMENT": "confidenceAssessment",
-    "WHAT THIS MEANS FOR YOU": "whatThisMeans",
-    "CARVERITY ANALYSIS — SUMMARY": "analysisSummary",
-    "KEY RISK SIGNALS": "keyRiskSignals",
-    "BUYER CONSIDERATIONS": "buyerConsiderations",
-    "NEGOTIATION INSIGHTS": "negotiationInsights",
-  };
-
-  for (let i = 0; i < matches.length; i++) {
-    const { header, start } = matches[i];
-    const end = i + 1 < matches.length ? matches[i + 1].start : source.length;
-    const body = source
-      .slice(start + header.length, end)
-      .trim()
-      .replace(/^\s*[:\-–]\s*/, "");
-    const key = headerToKey[header];
-    if (key) {
-      map[key] = body;
-    }
-  }
-
-  return map;
-}
+import { loadCredits, useOneCredit } from "../utils/scanCredits";
 
 export default function OnlineResults() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [result, setResult] = useState<SavedResult | null>(null);
-  const [isUnlocked, setIsUnlocked] = useState(false);
 
   // --------------------------------
-  // Load saved online scan
+  // Load + unlock-on-return
   // --------------------------------
   useEffect(() => {
     const stored = loadOnlineResults();
-    setResult(stored ?? null);
-    setIsUnlocked(stored?.isUnlocked ?? false);
-  }, []);
+    if (!stored) {
+      setResult(null);
+      return;
+    }
+
+    const unlocked = params.get("unlocked") === "true";
+
+    // Returned from checkout → permanently unlock (no credit deduction)
+    if (unlocked && !stored.isUnlocked) {
+      const updated: SavedResult = {
+        ...stored,
+        type: "online",
+        isUnlocked: true,
+        step: stored.step || "/online/results",
+        createdAt: stored.createdAt || new Date().toISOString(),
+      };
+
+      saveOnlineResults(updated);
+      setResult(updated);
+      return;
+    }
+
+    setResult(stored);
+  }, [params]);
 
   if (!result) {
     return (
@@ -91,21 +56,19 @@ export default function OnlineResults() {
 
   const vehicle = result.vehicle ?? {};
   const sections = result.sections ?? [];
+  const isUnlocked = result.isUnlocked ?? false;
+  const confidenceCode = (result as any).confidenceCode?.toUpperCase?.() ?? null;
 
-  const summary =
+  const fullSummary =
     (result.summary?.trim() || result.conditionSummary?.trim()) ||
-    "No AI summary was returned for this listing — but the details below were successfully extracted.";
+    "No AI summary was returned for this listing.";
 
-  const parsed = parseStructuredSummary(summary);
-
-  const confidenceCode = (result.confidenceCode ?? null) as
-    | "LOW"
-    | "MODERATE"
-    | "HIGH"
-    | null;
+  // --- Preview version (intentionally lighter) ---
+  const previewSummary =
+    "The listing suggests the vehicle presents well overall, with generally positive details so far. The full scan explores what this means for you in more depth — including risks, negotiation angles and what to double-check in person.";
 
   // --------------------------------
-  // Confidence display mapping
+  // Confidence display mapping + guided next step
   // --------------------------------
   function getConfidenceDisplay() {
     switch (confidenceCode) {
@@ -114,87 +77,41 @@ export default function OnlineResults() {
           label: "Low — comfortable so far",
           colour: "bg-emerald-600",
           meaning:
-            parsed.whatThisMeans ||
-            "This listing appears generally positive based on the available information. It still makes sense to confirm key details, but nothing concerning stands out so far.",
+            "Nothing concerning stands out so far. It still makes sense to confirm basic details, but this listing generally feels reassuring based on the available information.",
+          nextStep:
+            "If the car suits your needs, an in-person CarVerity scan is a good way to confirm condition and paperwork before moving ahead.",
         };
       case "MODERATE":
         return {
           label: "Moderate — a few things to confirm",
           colour: "bg-amber-500",
           meaning:
-            parsed.whatThisMeans ||
-            "This listing looks mostly fine, but a couple of details are worth confirming in person before moving ahead. Clarifying these points will help you feel confident about the next step.",
+            "The listing looks mostly fine, but a few details are worth checking in person before progressing further. Clarifying these points will help you feel confident about your decision.",
+          nextStep:
+            "We recommend booking a CarVerity in-person scan to verify condition and confirm the details that aren’t fully clear from the listing alone.",
         };
       case "HIGH":
         return {
           label: "High — confirm important details first",
           colour: "bg-red-600",
           meaning:
-            parsed.whatThisMeans ||
-            "This listing includes details that should be confirmed before progressing further. It may still be suitable — but checking the unclear points will help you avoid surprises.",
+            "Some details in this listing should be confirmed before treating it as a strong purchase candidate. This doesn’t mean the car is unsuitable — only that extra care is sensible.",
+          nextStep:
+            "Before progressing, arrange a CarVerity in-person scan and seek clarity on the key unknowns so you can make a confident, well-informed decision.",
         };
       default:
         return {
           label: "Not assessed",
           colour: "bg-slate-400",
           meaning:
-            "Confidence could not be reliably determined from the listing alone. This doesn’t mean there is a problem — it just means key context is missing.",
+            "Confidence could not be determined from the AI response for this listing.",
+          nextStep:
+            "If you’re interested in this vehicle, an in-person CarVerity scan is still the best next step to confirm condition and paperwork.",
         };
     }
   }
 
   const confidence = getConfidenceDisplay();
-
-  // --------------------------------
-  // Next-step guidance
-  // --------------------------------
-  function getNextStepGuidance() {
-    switch (confidenceCode) {
-      case "LOW":
-        return (
-          "This listing looks comfortable based on what’s shown. " +
-          "If you like the car on paper, it’s reasonable to keep it on your shortlist. " +
-          "An in-person CarVerity scan is still a smart step before you commit, " +
-          "but nothing here suggests you should avoid it."
-        );
-      case "MODERATE":
-        return (
-          "This listing looks like a viable option, but a few details are worth checking in person. " +
-          "If you’re interested, we’d recommend booking a CarVerity in-person scan before deciding. " +
-          "That way you can confirm condition, paperwork and the listed imperfections and feel confident about your choice."
-        );
-      case "HIGH":
-        return (
-          "This listing may still be worth considering, but only if you’re comfortable doing some extra checks. " +
-          "A thorough in-person CarVerity scan is strongly recommended, " +
-          "and it may be sensible to keep looking at a couple of alternatives while you investigate this one."
-        );
-      default:
-        return (
-          "Based on the listing alone, it’s hard to give a clear confidence rating. " +
-          "If you’re interested in this car, treating it as a ‘maybe’ and doing an in-person scan or inspection " +
-          "will give you a much clearer view before you commit."
-        );
-    }
-  }
-
-  const nextStepText = getNextStepGuidance();
-
-  // --------------------------------
-  // Build a minimal free preview
-  // --------------------------------
-  const mainPreviewSource =
-    parsed.analysisSummary || parsed.confidenceAssessment || summary;
-
-  // Split on sentence boundaries and keep the first 1–2 sentences only
-  const previewSentences = mainPreviewSource
-    .split(/(?<=\.)\s+/)
-    .slice(0, 2)
-    .join(" ");
-
-  const lockedPreviewText =
-    previewSentences ||
-    "This summary gives a high-level view of how the car looks on paper. Unlocking the full scan reveals a more detailed breakdown.";
 
   // --------------------------------
   // Missing / unclear info
@@ -204,7 +121,8 @@ export default function OnlineResults() {
   if (!vehicle.kilometres && !result.kilometres)
     missing.push("Kilometres not clearly stated");
 
-  if (!vehicle.variant) missing.push("Variant not specified");
+  if (!vehicle.variant)
+    missing.push("Variant not specified");
 
   if (!vehicle.importStatus)
     missing.push("Import / compliance status not listed");
@@ -218,56 +136,81 @@ export default function OnlineResults() {
   // Flow actions
   // --------------------------------
   function handleContinue() {
-    const current = result!;
+    if (!result) return;
 
     const updated: SavedResult = {
-      ...current,
+      ...result,
       type: "online",
       step: "/online/next-actions",
-      createdAt: current.createdAt || new Date().toISOString(),
-      conditionSummary: current.conditionSummary || summary,
-      listingUrl: current.listingUrl ?? null,
-      vehicle: current.vehicle ?? {},
-      sections: current.sections ?? [],
-      photos: current.photos ?? { listing: [], meta: [] },
-      isUnlocked: true,
+      createdAt: result.createdAt || new Date().toISOString(),
+      conditionSummary: result.conditionSummary || fullSummary,
     };
 
     saveOnlineResults(updated);
     setResult(updated);
-    setIsUnlocked(true);
     navigate("/online/next-actions", { replace: true });
   }
 
-  // 🔓 TEMPORARY: unlock locally without payments / credits
-  function handleUnlock() {
-    const current = result!;
+  // Permanently unlock using an existing credit
+  function unlockWithCredit(): boolean {
+    if (!result) return false;
+    if (result.isUnlocked) return true;
+
+    const attempt = useOneCredit();
+    if (!attempt.ok) return false;
 
     const updated: SavedResult = {
-      ...current,
+      ...result,
       type: "online",
       isUnlocked: true,
-      step: current.step || "/online/results",
-      createdAt: current.createdAt || new Date().toISOString(),
-      listingUrl: current.listingUrl ?? null,
-      vehicle: current.vehicle ?? {},
-      sections: current.sections ?? [],
-      photos: current.photos ?? { listing: [], meta: [] },
+      step: result.step || "/online/results",
+      createdAt: result.createdAt || new Date().toISOString(),
     };
 
     saveOnlineResults(updated);
     setResult(updated);
-    setIsUnlocked(true);
+    return true;
+  }
+
+  function handleUnlock() {
+    if (!result) return;
+
+    const credits = loadCredits();
+
+    if (credits > 0) {
+      const ok = unlockWithCredit();
+      if (ok) return;
+    }
+
+    const returnUrl = encodeURIComponent("/online/results?unlocked=true");
+    navigate(`/checkout?mode=online-scan&return=${returnUrl}`);
   }
 
   // --------------------------------
-  // Simple card component
+  // Blurred gated block wrapper
   // --------------------------------
-  function Card(props: { title: string; children: ReactNode; className?: string }) {
+  function BlurredPanel(props: { title: string; children: ReactNode }) {
     return (
-      <div className={`border rounded-lg p-4 bg-white/5 ${props.className ?? ""}`}>
-        <h2 className="font-semibold mb-2">{props.title}</h2>
-        {props.children}
+      <div className="border rounded-lg relative overflow-hidden">
+        {!isUnlocked && (
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm flex flex-col items-center justify-center text-center px-6">
+            <p className="font-semibold mb-1">Full scan locked</p>
+            <p className="text-sm text-muted-foreground mb-3">
+              Unlock to reveal risk signals, tailored buyer checks and negotiation insights for this listing.
+            </p>
+            <button
+              onClick={handleUnlock}
+              className="bg-blue-600 text-white px-4 py-2 rounded shadow"
+            >
+              Unlock full scan
+            </button>
+          </div>
+        )}
+
+        <div className={`p-4 ${!isUnlocked ? "opacity-40 select-none" : ""}`}>
+          <h2 className="font-semibold mb-2">{props.title}</h2>
+          {props.children}
+        </div>
       </div>
     );
   }
@@ -300,146 +243,102 @@ export default function OnlineResults() {
       </div>
 
       {/* WHAT THIS MEANS */}
-      <Card title="What this means for you">
+      <div className="border rounded-lg p-4 bg-white/5">
+        <h2 className="font-semibold mb-2">What this means for you</h2>
         <p className="text-muted-foreground whitespace-pre-line">
           {confidence.meaning}
         </p>
-      </Card>
+      </div>
 
-      {/* RECOMMENDED NEXT STEP */}
-      <Card title="Recommended next step">
+      {/* NEXT STEP BLOCK */}
+      <div className="border rounded-lg p-4 bg-blue-50/5">
+        <h2 className="font-semibold mb-2">Recommended next step</h2>
         <p className="text-muted-foreground whitespace-pre-line">
-          {nextStepText}
+          {confidence.nextStep}
         </p>
-      </Card>
+      </div>
 
       {/* PREVIEW SUMMARY */}
-      <Card title="CarVerity analysis — preview">
+      <div className="border rounded-lg p-4">
+        <h2 className="font-semibold mb-2">CarVerity analysis — preview</h2>
         <p className="text-muted-foreground whitespace-pre-line">
-          {isUnlocked
-            ? mainPreviewSource
-            : `${lockedPreviewText}\n\n(Free preview — full breakdown is available after unlock.)`}
+          {isUnlocked ? fullSummary : previewSummary}
+          {!isUnlocked &&
+            "\n\n(Free preview — the full scan provides a deeper listing-specific breakdown.)"}
         </p>
-      </Card>
+      </div>
 
       {/* VEHICLE DETAILS */}
-      <Card title="Vehicle details">
+      <div className="border rounded-lg p-4">
+        <h2 className="font-semibold mb-2">Vehicle details</h2>
         <p>Make: {vehicle.make ?? "—"}</p>
         <p>Model: {vehicle.model ?? "—"}</p>
         <p>Year: {vehicle.year ?? "—"}</p>
         <p>Variant: {vehicle.variant ?? "—"}</p>
         <p>
-          Import status:{" "}
-          {vehicle.importStatus ?? "Sold new in Australia (default)"}
+          Import status: {vehicle.importStatus ?? "Sold new in Australia (default)"}
         </p>
         <p>
           Kilometres: {vehicle.kilometres ?? result.kilometres ?? "Not specified"}
         </p>
-      </Card>
+      </div>
 
       {/* MISSING DETAILS */}
       {missing.length > 0 && (
-        <Card title="Missing or unclear details">
+        <div className="border rounded-lg p-4 bg-amber-50/10">
+          <h2 className="font-semibold mb-2">Missing or unclear details</h2>
           <ul className="list-disc ml-5 text-muted-foreground">
             {missing.map((m, i) => (
               <li key={i}>{m}</li>
             ))}
           </ul>
-          <p className="text-sm mt-2 text-muted-foreground">
-            Missing information isn’t always a problem — but these points are
-            worth confirming before moving ahead.
-          </p>
-        </Card>
+        </div>
       )}
 
-      {/* LOCKED STATE TEASER */}
-      {!isUnlocked && (
-        <>
-          <Card title="What you’ll unlock with a full scan">
-            <ul className="list-disc ml-5 text-muted-foreground">
-              <li>
-                A clearer list of key risk signals specific to this listing.
-              </li>
-              <li>
-                Practical buyer considerations tailored to this car (what to
-                double-check in person).
-              </li>
-              <li>
-                Polite, realistic negotiation talking points based on the
-                disclosed condition and pricing.
-              </li>
-            </ul>
-            <p className="text-sm mt-2 text-muted-foreground">
-              The full scan helps turn this listing into a clear yes, no, or
-              “maybe — with conditions” decision.
-            </p>
-          </Card>
+      {/* GATED SECTIONS */}
+      <BlurredPanel title="Key risk signals">
+        <p className="text-muted-foreground whitespace-pre-line">
+          {fullSummary}
+        </p>
+      </BlurredPanel>
 
-          <Card title="Unlock your full scan">
-            <p className="text-muted-foreground mb-3">
-              The preview above shows a high-level view based on the listing.
-              Unlocking the full scan reveals a structured breakdown of risks,
-              buyer checks and negotiation angles for this specific car.
-            </p>
-            <button
-              onClick={handleUnlock}
-              className="bg-blue-600 text-white px-4 py-2 rounded shadow"
-            >
-              Unlock full scan
-            </button>
-          </Card>
-        </>
-      )}
+      <BlurredPanel title="Buyer considerations">
+        <p className="text-muted-foreground whitespace-pre-line">
+          {fullSummary}
+        </p>
+      </BlurredPanel>
 
-      {/* FULL ANALYSIS — ONLY WHEN UNLOCKED */}
-      {isUnlocked && (
-        <>
-          <Card title="Key risk signals">
-            <p className="text-muted-foreground whitespace-pre-line">
-              {parsed.keyRiskSignals ||
-                "The listing doesn’t highlight any specific risks beyond normal used-car wear based on the available information."}
-            </p>
-          </Card>
+      <BlurredPanel title="Negotiation insights">
+        <p className="text-muted-foreground whitespace-pre-line">
+          {fullSummary}
+        </p>
+      </BlurredPanel>
 
-          <Card title="Buyer considerations">
-            <p className="text-muted-foreground whitespace-pre-line">
-              {parsed.buyerConsiderations ||
-                "Use this listing as a starting point, then confirm key details in person — including paperwork, visible condition and how the car feels to drive."}
-            </p>
-          </Card>
-
-          <Card title="Negotiation insights">
-            <p className="text-muted-foreground whitespace-pre-line">
-              {parsed.negotiationInsights ||
-                "Consider how the car’s age, kilometres, service history and any cosmetic issues line up with the asking price when discussing an offer."}
-            </p>
-          </Card>
-
-          {sections.length > 0 && (
-            <Card title="Additional analysis">
-              <div className="space-y-4">
-                {sections.map((s, i) => (
-                  <div key={i}>
-                    <h3 className="font-semibold mb-1">{s.title}</h3>
-                    <p className="text-muted-foreground whitespace-pre-line">
-                      {s.content}
-                    </p>
-                  </div>
-                ))}
+      {sections.length > 0 && (
+        <BlurredPanel title="Additional analysis">
+          <div className="space-y-4">
+            {sections.map((s, i) => (
+              <div key={i}>
+                <h3 className="font-semibold mb-1">{s.title}</h3>
+                <p className="text-muted-foreground whitespace-pre-line">
+                  {s.content}
+                </p>
               </div>
-            </Card>
-          )}
-
-          {/* CONTINUE CTA */}
-          <div className="pt-4">
-            <button
-              onClick={handleContinue}
-              className="bg-blue-600 text-white px-5 py-2 rounded shadow"
-            >
-              Continue — review next recommended steps
-            </button>
+            ))}
           </div>
-        </>
+        </BlurredPanel>
+      )}
+
+      {/* CONTINUE CTA */}
+      {isUnlocked && (
+        <div className="pt-4">
+          <button
+            onClick={handleContinue}
+            className="bg-blue-600 text-white px-5 py-2 rounded shadow"
+          >
+            Continue — review next recommended steps
+          </button>
+        </div>
       )}
     </div>
   );
