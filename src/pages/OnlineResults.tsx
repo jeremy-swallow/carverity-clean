@@ -12,6 +12,13 @@ type DisplayResult = BaseSavedResult & {
   confidenceCode?: "LOW" | "MODERATE" | "HIGH" | string;
 };
 
+function clean(text: string) {
+  return text
+    ?.replace(/\*\*/g, "")      // strip markdown bold
+    ?.replace(/\\n/g, "\n")     // normalise newlines
+    ?.trim();
+}
+
 export default function OnlineResults() {
   const [result, setResult] = useState<DisplayResult | null>(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -26,7 +33,6 @@ export default function OnlineResults() {
 
   function handleUnlock() {
     if (!result) return;
-
     const updated: DisplayResult = { ...result, isUnlocked: true };
     saveOnlineResults(updated);
     setResult(updated);
@@ -71,12 +77,19 @@ export default function OnlineResults() {
 
   const listingUrl = result.listingUrl || "";
 
+  // Extract structured sections produced by the AI
+  const summary =
+    result.summary ||
+    clean(result.sections?.find(s => s.title === "Summary")?.content ?? "");
+
   const keyRisks =
-    result.sections?.find((s) => s.title === "Key risk signals") ?? null;
+    clean(result.sections?.find(s => s.title === "Key risk signals")?.content ?? "");
+
   const buyerConsiderations =
-    result.sections?.find((s) => s.title === "Buyer considerations") ?? null;
+    clean(result.sections?.find(s => s.title === "Buyer considerations")?.content ?? "");
+
   const negotiationInsights =
-    result.sections?.find((s) => s.title === "Negotiation insights") ?? null;
+    clean(result.sections?.find(s => s.title === "Negotiation insights")?.content ?? "");
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12 space-y-6">
@@ -85,12 +98,18 @@ export default function OnlineResults() {
       {listingUrl && (
         <p className="text-sm text-muted-foreground">
           Listing analysed:{" "}
-          <a href={listingUrl} target="_blank" rel="noreferrer" className="underline text-blue-400">
+          <a
+            href={listingUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="underline text-blue-400"
+          >
             {listingUrl}
           </a>
         </p>
       )}
 
+      {/* Confidence banner */}
       <div className="rounded-md border border-white/10 bg-white/5 px-4 py-3 flex items-center gap-2 text-sm">
         <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
         <span className="font-medium">
@@ -98,23 +117,26 @@ export default function OnlineResults() {
         </span>
       </div>
 
+      {/* What this means for you */}
       {result.conditionSummary && (
         <section className="rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm leading-relaxed space-y-1">
           <h2 className="font-semibold text-base mb-1">What this means for you</h2>
-          <p>{result.conditionSummary}</p>
+          <p>{clean(result.conditionSummary)}</p>
         </section>
       )}
 
-      {result.summary && (
+      {/* Preview summary — always visible */}
+      {summary && (
         <section className="rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm space-y-2 leading-relaxed">
           <h2 className="font-semibold text-base">CarVerity analysis — preview</h2>
-          <p>{result.summary}</p>
+          {summary.split("\n").map((l, i) => <p key={i}>{l}</p>)}
           <p className="text-xs opacity-70">
             (Free preview — the full scan provides a deeper listing-specific breakdown.)
           </p>
         </section>
       )}
 
+      {/* Vehicle details */}
       <section className="rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm">
         <h2 className="font-semibold text-base mb-2">Vehicle details</h2>
         <dl className="space-y-1">
@@ -126,20 +148,12 @@ export default function OnlineResults() {
         </dl>
       </section>
 
-      {result.notes && (
-        <section className="rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm leading-relaxed">
-          <h2 className="font-semibold text-base mb-2">Missing or unclear details</h2>
-          <p>{result.notes}</p>
-        </section>
-      )}
-
-      {(keyRisks || buyerConsiderations || negotiationInsights) && (
-        <section className="space-y-4">
-          {renderLockable("Key risk signals", keyRisks?.content ?? "", isUnlocked, handleUnlock)}
-          {renderLockable("Buyer considerations", buyerConsiderations?.content ?? "", isUnlocked, handleUnlock)}
-          {renderLockable("Negotiation insights", negotiationInsights?.content ?? "", isUnlocked, handleUnlock)}
-        </section>
-      )}
+      {/* Premium sections — locked until unlock */}
+      <section className="space-y-4">
+        {renderLockable("Key risk signals", keyRisks, isUnlocked, handleUnlock)}
+        {renderLockable("Buyer considerations", buyerConsiderations, isUnlocked, handleUnlock)}
+        {renderLockable("Negotiation insights", negotiationInsights, isUnlocked, handleUnlock)}
+      </section>
     </div>
   );
 }
@@ -166,7 +180,9 @@ function renderLockable(
       <h2 className="font-semibold text-base mb-2">{title}</h2>
 
       <div className={isUnlocked ? "space-y-2" : "space-y-2 blur-sm"}>
-        {body.split("\n").map((line, i) => (line.trim() ? <p key={i}>{line}</p> : <p key={i} className="h-1" />))}
+        {body.split("\n").map((line, i) =>
+          line.trim() ? <p key={i}>{line}</p> : <p key={i} className="h-1" />
+        )}
       </div>
 
       {!isUnlocked && (
@@ -179,7 +195,6 @@ function renderLockable(
                 Unlock to reveal risk signals, tailored buyer checks and negotiation insights.
               </span>
             </div>
-
             <button
               onClick={onUnlock}
               className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-xs font-medium hover:bg-primary/90"
