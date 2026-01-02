@@ -22,7 +22,7 @@ export interface SavedResult {
 
   // listing + vehicle basics
   listingUrl: string | null;
-  vehicle: any;
+  vehicle: any; // keep flexible — backend can evolve
 
   // AI / analysis output
   sections: ResultSection[];
@@ -55,38 +55,9 @@ export interface SavedResult {
 const STORAGE_KEY = "carverity_online_results_v2";
 const LISTING_URL_KEY = "carverity_online_listing_url";
 
-/* =========================================
-   Listing URL helpers (single source of truth)
-========================================= */
-
-export function saveListingUrl(url: string) {
-  try {
-    localStorage.setItem(LISTING_URL_KEY, url);
-  } catch (err) {
-    console.error("❌ Failed to save listing URL", err);
-  }
-}
-
-export function loadListingUrl(): string | null {
-  try {
-    return localStorage.getItem(LISTING_URL_KEY);
-  } catch (err) {
-    console.error("❌ Failed to load listing URL", err);
-    return null;
-  }
-}
-
-export function clearListingUrl() {
-  try {
-    localStorage.removeItem(LISTING_URL_KEY);
-  } catch (err) {
-    console.error("❌ Failed to clear listing URL", err);
-  }
-}
-
-/* =========================================
-   Online scan result helpers
-========================================= */
+/* ----------------------------------------------------
+   MAIN RESULTS STORAGE
+---------------------------------------------------- */
 
 export function saveOnlineResults(data: SavedResult) {
   try {
@@ -112,5 +83,25 @@ export function clearOnlineResults() {
     localStorage.removeItem(STORAGE_KEY);
   } catch (err) {
     console.error("❌ Failed to clear online results", err);
+  }
+}
+
+/* ----------------------------------------------------
+   LISTING URL HELPERS FOR THE ONLINE FLOW
+---------------------------------------------------- */
+
+export function saveListingUrl(url: string) {
+  try {
+    localStorage.setItem(LISTING_URL_KEY, url);
+  } catch (err) {
+    console.error("❌ Failed to save listing URL", err);
+  }
+}
+
+export function loadListingUrl(): string | null {
+  try {
+    return localStorage.getItem(LISTING_URL_KEY);
+  } catch {
+    return null;
   }
 }
