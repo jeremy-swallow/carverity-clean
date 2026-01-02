@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -5,6 +6,7 @@ import {
   saveOnlineResults,
   type SavedResult,
 } from "../utils/onlineResults";
+import { loadCredits, useOneCredit } from "../utils/scanCredits";
 
 export default function OnlineResults() {
   const navigate = useNavigate();
@@ -13,13 +15,20 @@ export default function OnlineResults() {
 
   useEffect(() => {
     const stored = loadOnlineResults();
-    if (!stored) return setResult(null);
+    if (!stored) {
+      setResult(null);
+      return;
+    }
 
-    // ✅ If user returned from checkout with success flag → unlock report
     const unlocked = params.get("unlocked") === "true";
 
+    // If returning from checkout with unlock flag → unlock but DO NOT consume a credit
     if (unlocked && !stored.isUnlocked) {
-      const updated: SavedResult = { ...stored, isUnlocked: true };
+      const updated: SavedResult = {
+        ...stored,
+        type: "online",
+        isUnlocked: true,
+      };
       saveOnlineResults(updated);
       setResult(updated);
       return;
@@ -87,18 +96,24 @@ export default function OnlineResults() {
   const confidence = getConfidenceDisplay();
 
   // -------------------------------
-  // Missing details
+  // Missing / unclear details
   // -------------------------------
   const missing: string[] = [];
-  if (!vehicle.kilometres && !result.kilometres)
+
+  if (!vehicle.kilometres && !result.kilometres) {
     missing.push("Kilometres not clearly stated");
-  if (!vehicle.variant) missing.push("Variant not specified");
-  if (!vehicle.importStatus)
+  }
+  if (!vehicle.variant) {
+    missing.push("Variant not specified");
+  }
+  if (!vehicle.importStatus) {
     missing.push("Import / compliance status not listed");
-  if (!result.photos?.listing?.length)
+  }
+  if (!result.photos?.listing?.length) {
     missing.push(
       "Listing photos were not captured by the scan (this does not mean the seller did not include them)"
     );
+  }
 
   // -------------------------------
   // Flow actions
@@ -108,8 +123,9 @@ export default function OnlineResults() {
 
     const updated: SavedResult = {
       ...result,
+      type: "online",
       step: "/online/next-actions",
-      conditionSummary: result.conditionSummary ?? summary,
+      conditionSummary: result.conditionSummary || summary,
     };
 
     saveOnlineResults(updated);
@@ -117,27 +133,50 @@ export default function OnlineResults() {
     navigate("/online/next-actions", { replace: true });
   }
 
-  function handleUnlock() {
-    // 🔹 We pass return location + scan context to checkout
-    const returnUrl = encodeURIComponent("/online/results?unlocked=true");
+  function unlockWithCredit(): boolean {
+    if (!result) return false;
 
-    navigate(
-      `/checkout?mode=online-scan&return=${returnUrl}`,
-      { replace: false }
-    );
+    const attempt = useOneCredit();
+    if (!attempt.ok) return false;
+
+    const updated: SavedResult = {
+      ...result,
+      type: "online",
+      isUnlocked: true,
+    };
+
+    saveOnlineResults(updated);
+    setResult(updated);
+    return true;
+  }
+
+  function handleUnlock() {
+    const credits = loadCredits();
+
+    // 🟢 Case 1 — user already has credits → consume ONE and unlock now
+    if (credits > 0) {
+      const ok = unlockWithCredit();
+      if (ok) return;
+    }
+
+    // 🟡 Case 2 — no credits → go to checkout
+    // On return, we unlock WITHOUT spending a credit
+    const returnUrl = encodeURIComponent("/online/results?unlocked=true");
+    navigate(`/checkout?mode=online-scan&return=${returnUrl}`);
   }
 
   // -------------------------------
   // Blurred gated block wrapper
   // -------------------------------
-  function BlurredPanel(props: { title: string; children: React.ReactNode }) {
+  function BlurredPanel(props: { title: string; children: ReactNode }) {
     return (
       <div className="border rounded-lg relative overflow-hidden">
         {!isUnlocked && (
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm flex flex-col items-center justify-center text-center px-6">
             <p className="font-semibold mb-1">Full report locked</p>
             <p className="text-sm text-muted-foreground mb-3">
-              Unlock to view risk signals, negotiation insights and in-person inspection guidance.
+              Unlock to view risk signals, negotiation insights and in-person
+              inspection guidance.
             </p>
             <button
               onClick={handleUnlock}
@@ -212,7 +251,7 @@ export default function OnlineResults() {
         </p>
       </div>
 
-      {/* MISSING DETAILS — ALWAYS VISIBLE */}
+      {/* MISSING / UNCLEAR */}
       {missing.length > 0 && (
         <div className="border rounded-lg p-4 bg-amber-50/10">
           <h2 className="font-semibold mb-2">Missing or unclear details</h2>
@@ -222,7 +261,8 @@ export default function OnlineResults() {
             ))}
           </ul>
           <p className="text-sm mt-2 text-muted-foreground">
-            Missing information isn’t always a problem — but these points are worth confirming before moving ahead.
+            Missing information isn’t always a problem — but these points are
+            worth confirming before moving ahead.
           </p>
         </div>
       )}
