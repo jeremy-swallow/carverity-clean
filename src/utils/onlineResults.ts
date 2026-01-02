@@ -11,56 +11,44 @@ export interface SavedPhotos {
 }
 
 export interface SavedResult {
-  // literal type so TS knows this is an online scan
   type: "online";
-
-  // where in the flow the user currently is
   step: string;
-
-  // ISO timestamp of when this result was created
   createdAt: string;
 
-  // listing + vehicle basics
   listingUrl: string | null;
   vehicle: any;
 
-  // AI / analysis output
   sections: ResultSection[];
   signals?: any[];
 
-  // listing photos
   photos: SavedPhotos;
 
-  // gating
   isUnlocked: boolean;
 
-  // Optional metadata
   source?: string;
   analysisSource?: string;
   sellerType?: string;
 
-  // Confidence from backend AI
   confidenceCode?: "LOW" | "MODERATE" | "HIGH" | null;
 
-  // Summaries
   conditionSummary: string;
   summary?: string;
 
-  // Extra fields we want to carry through the flow
   kilometres?: string | number | null;
   owners?: string;
   notes?: string;
 }
 
-/* =========================================================
-   RESULT STORAGE
-========================================================= */
+const RESULTS_KEY = "carverity_online_results_v2";
+const LISTING_URL_KEY = "carverity_online_listing_url";
 
-const STORAGE_KEY = "carverity_online_results_v2";
+/* ===========================
+   RESULTS STORAGE
+=========================== */
 
 export function saveOnlineResults(data: SavedResult) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(RESULTS_KEY, JSON.stringify(data));
   } catch (err) {
     console.error("❌ Failed to save online results", err);
   }
@@ -68,9 +56,8 @@ export function saveOnlineResults(data: SavedResult) {
 
 export function loadOnlineResults(): SavedResult | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as SavedResult;
+    const raw = localStorage.getItem(RESULTS_KEY);
+    return raw ? (JSON.parse(raw) as SavedResult) : null;
   } catch (err) {
     console.error("❌ Failed to parse stored online results", err);
     return null;
@@ -79,31 +66,28 @@ export function loadOnlineResults(): SavedResult | null {
 
 export function clearOnlineResults() {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(RESULTS_KEY);
   } catch (err) {
     console.error("❌ Failed to clear online results", err);
   }
 }
 
-/* =========================================================
-   LISTING URL STORAGE (scan input seed)
-========================================================= */
-
-export const LISTING_URL_KEY = "carverity_online_listing_url";
+/* ===========================
+   LISTING URL (CANONICAL)
+=========================== */
 
 export function saveListingUrl(url: string) {
   try {
     localStorage.setItem(LISTING_URL_KEY, url);
   } catch (err) {
-    console.error("❌ Failed to store listing URL", err);
+    console.error("❌ Failed to save listing URL", err);
   }
 }
 
 export function loadListingUrl(): string | null {
   try {
     return localStorage.getItem(LISTING_URL_KEY);
-  } catch (err) {
-    console.error("❌ Failed to load listing URL", err);
+  } catch {
     return null;
   }
 }
@@ -111,7 +95,5 @@ export function loadListingUrl(): string | null {
 export function clearListingUrl() {
   try {
     localStorage.removeItem(LISTING_URL_KEY);
-  } catch (err) {
-    console.error("❌ Failed to clear listing URL", err);
-  }
+  } catch {}
 }

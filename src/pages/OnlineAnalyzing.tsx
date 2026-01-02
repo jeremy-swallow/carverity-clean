@@ -11,10 +11,10 @@ export default function OnlineAnalyzing() {
 
   useEffect(() => {
     const listingUrl = loadListingUrl();
-    console.log("🔍 Analyzing page loaded, URL =", listingUrl);
+    console.log("🔍 Analyzing page loaded — URL =", listingUrl);
 
-    // If we somehow got here without a URL, send user back to start
     if (!listingUrl) {
+      console.warn("⚠️ Missing listing URL — restarting scan");
       navigate("/scan/online", { replace: true });
       return;
     }
@@ -38,6 +38,7 @@ export default function OnlineAnalyzing() {
 
       const data = await res.json();
       saveOnlineResults(data);
+
       navigate("/scan/online/results", { replace: true });
     } catch (err) {
       console.error("❌ Analyze listing error", err);
@@ -47,9 +48,9 @@ export default function OnlineAnalyzing() {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-20 text-center">
-      <h1 className="text-2xl font-semibold mb-3">Analyzing listing...</h1>
+      <h1 className="text-2xl font-semibold mb-3">Analyzing listing…</h1>
       <p className="text-muted-foreground">
-        Sit tight — we&apos;re reviewing wording, pricing signals and seller
+        Sit tight — we’re reviewing wording, pricing signals and seller
         risk flags.
       </p>
     </div>
