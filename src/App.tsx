@@ -1,3 +1,4 @@
+// src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Home from "./pages/Home";
@@ -22,21 +23,25 @@ export default function App() {
       <Route path="/start-scan" element={<StartScan />} />
       <Route path="/scan/online" element={<OnlineStart />} />
       <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
+      <Route
+        path="/scan/online/analyzing-listing"
+        element={<OnlineAnalyzingListing />}
+      />
+      <Route
+        path="/scan/online/vehicle-details"
+        element={<OnlineVehicleDetails />}
+      />
+      <Route path="/scan/online/photos" element={<OnlinePhotos />} />
+      <Route path="/scan/online/next-actions" element={<OnlineNextActions />} />
+      <Route path="/scan/online/results" element={<OnlineResults />} />
 
-      {/* 🔁 Compatibility route (old path still works) */}
-      <Route path="/online/analyzing-listing" element={<OnlineAnalyzingListing />} />
-
-      {/* Online Scan Steps */}
-      <Route path="/online/vehicle-details" element={<OnlineVehicleDetails />} />
-      <Route path="/online/photos" element={<OnlinePhotos />} />
-      <Route path="/online/next-actions" element={<OnlineNextActions />} />
-      <Route path="/online/results" element={<OnlineResults />} />
-
-      {/* Other */}
+      {/* My Scans */}
       <Route path="/my-scans" element={<MyScans />} />
+
+      {/* Pricing */}
       <Route path="/pricing" element={<Pricing />} />
 
-      {/* Fallback → send user home instead of blank screen */}
+      {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

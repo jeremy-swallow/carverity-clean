@@ -1,311 +1,260 @@
-import type { ReactNode } from "react";
+// src/pages/OnlineResults.tsx
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   loadOnlineResults,
   saveOnlineResults,
-  type SavedResult,
+  type SavedResult as BaseSavedResult,
 } from "../utils/onlineResults";
 
+/**
+ * Extend the stored result with a couple of UI-only fields that
+ * our prompts may include (confidence label / code).
+ */
+type DisplayResult = BaseSavedResult & {
+  confidenceLabel?: string;
+  confidenceCode?: "LOW" | "MODERATE" | "HIGH" | string;
+};
+
 export default function OnlineResults() {
-  const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const [result, setResult] = useState<SavedResult | null>(null);
+  const [result, setResult] = useState<DisplayResult | null>(null);
+  const [isUnlocked, setIsUnlocked] = useState(false);
 
-  // --------------------------------
-  // Load + unlock-on-return
-  // --------------------------------
+  // Load saved scan on mount
   useEffect(() => {
-    const stored = loadOnlineResults();
-    if (!stored) {
-      setResult(null);
-      return;
+    const stored = loadOnlineResults() as DisplayResult | null;
+    if (stored) {
+      setResult(stored);
+      setIsUnlocked(!!stored.isUnlocked);
     }
+  }, []);
 
-    const unlocked = params.get("unlocked") === "true";
+  // Instant unlock (no checkout for now)
+  function handleUnlock() {
+    if (!result) return;
 
-    if (unlocked && !stored.isUnlocked) {
-      const updated: SavedResult = {
-        ...stored,
-        type: "online",
-        isUnlocked: true,
-        step: stored.step || "/online/results",
-        createdAt: stored.createdAt || new Date().toISOString(),
-      };
+    const updated: DisplayResult = {
+      ...result,
+      isUnlocked: true,
+    };
 
-      saveOnlineResults(updated);
-      setResult(updated);
-      return;
-    }
+    saveOnlineResults(updated);
+    setResult(updated);
+    setIsUnlocked(true);
+  }
 
-    setResult(stored);
-  }, [params]);
-
+  // Zero-state if nothing is saved
   if (!result) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-16">
-        <h1 className="text-2xl font-semibold mb-2">No results available</h1>
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center space-y-4">
+        <h1 className="text-2xl font-semibold mb-2">No results found</h1>
         <p className="text-muted-foreground mb-6">
-          Run a scan to view AI-assisted results.
+          It looks like there are no saved online scan results yet.
         </p>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Link
+            to="/scan/online"
+            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Start an online scan
+          </Link>
+          <Link
+            to="/"
+            className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+          >
+            Back to homepage
+          </Link>
+        </div>
       </div>
     );
   }
 
-  const vehicle = result.vehicle ?? {};
-  const sections = result.sections ?? [];
-  const isUnlocked = result.isUnlocked ?? false;
+  const confidenceLabel =
+    result.confidenceLabel ??
+    (result.confidenceCode === "HIGH"
+      ? "High — looks solid overall"
+      : result.confidenceCode === "LOW"
+      ? "Low — proceed with caution"
+      : result.confidenceCode === "MODERATE"
+      ? "Moderate — a few things to confirm"
+      : "Not assessed");
 
-  const confidenceCode =
-    (result as any).confidenceCode?.toUpperCase?.() ?? null;
+  const listingUrl = result.listingUrl || "";
 
-  const summary =
-    (result.summary?.trim() || result.conditionSummary?.trim()) ||
-    "No AI summary was returned for this listing — but the details below were successfully extracted.";
+  // Try to pick out the structured sections if they exist
+  const keyRisks =
+    result.sections?.find((s) => s.title === "Key risk signals") ?? null;
+  const buyerConsiderations =
+    result.sections?.find((s) => s.title === "Buyer considerations") ?? null;
+  const negotiationInsights =
+    result.sections?.find((s) => s.title === "Negotiation insights") ?? null;
 
-  // --------------------------------
-  // Confidence mapping
-  // --------------------------------
-  function getConfidenceDisplay() {
-    switch (confidenceCode) {
-      case "LOW":
-        return {
-          label: "Low — comfortable so far",
-          colour: "bg-emerald-600",
-          meaning:
-            "This listing appears generally positive based on the available information. It still makes sense to confirm key details, but nothing concerning stands out so far.",
-        };
-      case "MODERATE":
-        return {
-          label: "Moderate — a few things to confirm",
-          colour: "bg-amber-500",
-          meaning:
-            "The listing looks mostly fine, but a couple of details are worth checking in person before progressing further. Clarifying these points will help you feel confident about your decision.",
-        };
-      case "HIGH":
-        return {
-          label: "High — confirm important details first",
-          colour: "bg-red-600",
-          meaning:
-            "This listing includes details that should be confirmed before progressing further. It may still be suitable — but checking the unclear points will help you avoid surprises.",
-        };
-      default:
-        return {
-          label: "Not assessed",
-          colour: "bg-slate-400",
-          meaning:
-            "Confidence could not be determined from the AI response for this listing.",
-        };
-    }
-  }
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-12 space-y-6">
+      <h1 className="text-2xl font-semibold mb-2">
+        Scan results — AI-assisted review
+      </h1>
 
-  const confidence = getConfidenceDisplay();
+      {/* Listing URL */}
+      {listingUrl && (
+        <p className="text-sm text-muted-foreground">
+          Listing analysed:{" "}
+          <a
+            href={listingUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-400 underline"
+          >
+            {listingUrl}
+          </a>
+        </p>
+      )}
 
-  // --------------------------------
-  // Missing / unclear info
-  // --------------------------------
-  const missing: string[] = [];
+      {/* Confidence banner */}
+      <div className="rounded-md border border-white/10 bg-white/5 px-4 py-3 flex items-center gap-2 text-sm">
+        <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
+        <span className="font-medium">
+          Confidence assessment: {confidenceLabel}
+        </span>
+      </div>
 
-  if (!vehicle.kilometres && !result.kilometres)
-    missing.push("Kilometres not clearly stated");
+      {/* What this means for you (top summary) */}
+      {result.conditionSummary && (
+        <section className="rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm leading-relaxed space-y-1">
+          <h2 className="font-semibold text-base mb-1">
+            What this means for you
+          </h2>
+          <p>{result.conditionSummary}</p>
+        </section>
+      )}
 
-  if (!vehicle.variant)
-    missing.push("Variant not specified");
+      {/* Preview summary (always visible, tease the full scan) */}
+      {result.summary && (
+        <section className="rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm leading-relaxed space-y-2">
+          <h2 className="font-semibold text-base">
+            CarVerity analysis — preview
+          </h2>
+          <p>{result.summary}</p>
+          <p className="text-xs opacity-70">
+            (Free preview — the full scan provides a deeper listing-specific
+            breakdown.)
+          </p>
+        </section>
+      )}
 
-  if (!vehicle.importStatus)
-    missing.push("Import / compliance status not listed");
+      {/* Vehicle details */}
+      <section className="rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm">
+        <h2 className="font-semibold text-base mb-2">Vehicle details</h2>
+        <dl className="space-y-1">
+          <div className="flex gap-2">
+            <dt className="w-32 text-muted-foreground">Make:</dt>
+            <dd>{(result.vehicle as any)?.make ?? "—"}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-32 text-muted-foreground">Model:</dt>
+            <dd>{(result.vehicle as any)?.model ?? "—"}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-32 text-muted-foreground">Year:</dt>
+            <dd>{(result.vehicle as any)?.year ?? "—"}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-32 text-muted-foreground">Variant:</dt>
+            <dd>{(result.vehicle as any)?.variant ?? "—"}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-32 text-muted-foreground">Kilometres:</dt>
+            <dd>{result.kilometres ?? "—"}</dd>
+          </div>
+        </dl>
+      </section>
 
-  if (!result.photos?.listing?.length)
-    missing.push(
-      "Listing photos were not captured by the scan (this does not mean the seller did not include them)"
-    );
+      {/* Missing / unclear details */}
+      {result.notes && (
+        <section className="rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm leading-relaxed">
+          <h2 className="font-semibold text-base mb-2">
+            Missing or unclear details
+          </h2>
+          <p>{result.notes}</p>
+        </section>
+      )}
 
-  // --------------------------------
-  // Continue flow
-  // --------------------------------
-  function handleContinue() {
-    if (!result) return;
+      {/* Locked sections (Key risks / Buyer considerations / Negotiation) */}
+      {(keyRisks || buyerConsiderations || negotiationInsights) && (
+        <section className="space-y-4">
+          {renderLockableSection(
+            "Key risk signals",
+            keyRisks?.content ?? "",
+            isUnlocked,
+            handleUnlock
+          )}
+          {renderLockableSection(
+            "Buyer considerations",
+            buyerConsiderations?.content ?? "",
+            isUnlocked,
+            handleUnlock
+          )}
+          {renderLockableSection(
+            "Negotiation insights",
+            negotiationInsights?.content ?? "",
+            isUnlocked,
+            handleUnlock
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
 
-    const updated: SavedResult = {
-      ...result,
-      type: "online",
-      step: "/online/next-actions",
-      createdAt: result.createdAt || new Date().toISOString(),
-      conditionSummary: result.conditionSummary || summary,
-    };
+/**
+ * Reusable helper for the three “paid” sections.
+ * When locked: blur contents + show centred unlock CTA.
+ * When unlocked: show content normally.
+ */
+function renderLockableSection(
+  title: string,
+  body: string,
+  isUnlocked: boolean,
+  onUnlock: () => void
+) {
+  if (!body) return null;
 
-    saveOnlineResults(updated);
-    setResult(updated);
-    navigate("/online/next-actions", { replace: true });
-  }
+  return (
+    <section className="relative rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm leading-relaxed overflow-hidden">
+      <h2 className="font-semibold text-base mb-2">{title}</h2>
 
-  // --------------------------------
-  // TEMP MODE — instant unlock (no checkout)
-  // --------------------------------
-  function handleUnlockInstant() {
-    if (!result || result.isUnlocked) return;
+      <div className={isUnlocked ? "space-y-2" : "space-y-2 blur-sm"}>
+        {body.split("\n").map((line, idx) =>
+          line.trim() ? (
+            <p key={idx}>{line}</p>
+          ) : (
+            <p key={idx} className="h-1" />
+          )
+        )}
+      </div>
 
-    const updated: SavedResult = {
-      ...result,
-      isUnlocked: true,
-      type: "online",
-      step: result.step || "/online/results",
-      createdAt: result.createdAt || new Date().toISOString(),
-    };
-
-    saveOnlineResults(updated);
-    setResult(updated);
-  }
-
-  // --------------------------------
-  // Blurred gated panel
-  // (content fully hidden — no readable text when locked)
-  // --------------------------------
-  function BlurredPanel(props: { title: string; children: ReactNode }) {
-    return (
-      <div className="border rounded-lg relative overflow-hidden">
-        {!isUnlocked && (
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center text-center px-6 z-20">
-            <p className="font-semibold mb-1">Full scan locked</p>
-            <p className="text-sm text-muted-foreground mb-3">
-              Unlock to reveal risk signals, tailored buyer checks and negotiation insights for this listing.
-            </p>
+      {!isUnlocked && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="pointer-events-auto text-center space-y-2">
+            <div className="text-xs text-muted-foreground">
+              Full scan locked
+              <br />
+              <span className="opacity-80">
+                Unlock to reveal risk signals, tailored buyer checks and
+                negotiation insights for this listing.
+              </span>
+            </div>
             <button
-              onClick={handleUnlockInstant}
-              className="bg-blue-600 text-white px-4 py-2 rounded shadow"
+              type="button"
+              onClick={onUnlock}
+              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
             >
               Unlock full scan
             </button>
           </div>
-        )}
-
-        <div className={`p-4 ${!isUnlocked ? "blur-sm select-none opacity-30 pointer-events-none" : ""}`}>
-          <h2 className="font-semibold mb-2">{props.title}</h2>
-          {props.children}
-        </div>
-      </div>
-    );
-  }
-
-  // --------------------------------
-  // Render
-  // --------------------------------
-  return (
-    <div className="max-w-3xl mx-auto px-4 py-16 space-y-8">
-      <h1 className="text-2xl font-semibold">
-        Scan results — AI-assisted review
-      </h1>
-
-      <p className="text-sm">
-        Listing analysed:{" "}
-        <a
-          href={result.listingUrl || "#"}
-          className="underline"
-          target="_blank"
-          rel="noreferrer"
-        >
-          {result.listingUrl || "Unknown source"}
-        </a>
-      </p>
-
-      {/* CONFIDENCE */}
-      <div className="border rounded-lg p-4 flex items-center gap-3">
-        <span className={`w-3 h-3 rounded-full ${confidence.colour}`} />
-        <p className="font-medium">
-          Confidence assessment: {confidence.label}
-        </p>
-      </div>
-
-      {/* WHAT THIS MEANS */}
-      <div className="border rounded-lg p-4 bg-white/5">
-        <h2 className="font-semibold mb-2">What this means for you</h2>
-        <p className="text-muted-foreground whitespace-pre-line">
-          {confidence.meaning}
-        </p>
-      </div>
-
-      {/* PREVIEW SUMMARY */}
-      <div className="border rounded-lg p-4">
-        <h2 className="font-semibold mb-2">CarVerity analysis — preview</h2>
-        <p className="text-muted-foreground whitespace-pre-line">
-          {summary.split("\n").slice(0, 3).join("\n")}
-          {isUnlocked ? "" : "\n\n(Free preview — the full scan provides a deeper listing-specific breakdown.)"}
-        </p>
-      </div>
-
-      {/* VEHICLE DETAILS */}
-      <div className="border rounded-lg p-4">
-        <h2 className="font-semibold mb-2">Vehicle details</h2>
-        <p>Make: {vehicle.make ?? "—"}</p>
-        <p>Model: {vehicle.model ?? "—"}</p>
-        <p>Year: {vehicle.year ?? "—"}</p>
-        <p>Variant: {vehicle.variant ?? "—"}</p>
-        <p>
-          Import status:{" "}
-          {vehicle.importStatus ?? "Sold new in Australia (default)"}
-        </p>
-        <p>
-          Kilometres: {vehicle.kilometres ?? result.kilometres ?? "Not specified"}
-        </p>
-      </div>
-
-      {/* MISSING DETAILS */}
-      {missing.length > 0 && (
-        <div className="border rounded-lg p-4 bg-amber-50/10">
-          <h2 className="font-semibold mb-2">Missing or unclear details</h2>
-          <ul className="list-disc ml-5 text-muted-foreground">
-            {missing.map((m, i) => (
-              <li key={i}>{m}</li>
-            ))}
-          </ul>
         </div>
       )}
-
-      {/* GATED PANELS */}
-      <BlurredPanel title="Key risk signals">
-        <p className="text-muted-foreground whitespace-pre-line">
-          {summary}
-        </p>
-      </BlurredPanel>
-
-      <BlurredPanel title="Buyer considerations">
-        <p className="text-muted-foreground whitespace-pre-line">
-          {summary}
-        </p>
-      </BlurredPanel>
-
-      <BlurredPanel title="Negotiation insights">
-        <p className="text-muted-foreground whitespace-pre-line">
-          {summary}
-        </p>
-      </BlurredPanel>
-
-      {sections.length > 0 && (
-        <BlurredPanel title="Additional analysis">
-          <div className="space-y-4">
-            {sections.map((s, i) => (
-              <div key={i}>
-                <h3 className="font-semibold mb-1">{s.title}</h3>
-                <p className="text-muted-foreground whitespace-pre-line">
-                  {s.content}
-                </p>
-              </div>
-            ))}
-          </div>
-        </BlurredPanel>
-      )}
-
-      {/* CONTINUE CTA */}
-      {isUnlocked && (
-        <div className="pt-4">
-          <button
-            onClick={handleContinue}
-            className="bg-blue-600 text-white px-5 py-2 rounded shadow"
-          >
-            Continue — review next recommended steps
-          </button>
-        </div>
-      )}
-    </div>
+    </section>
   );
 }
