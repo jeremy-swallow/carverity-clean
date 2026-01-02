@@ -1,4 +1,5 @@
 // src/pages/OnlineResults.tsx
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -46,11 +47,29 @@ export default function OnlineResults() {
   const vehicle = data.vehicle ?? {};
   const unlocked = data.isUnlocked ?? false;
 
-  const previewText = data.preview ?? data.previewText ?? "";
-  const fullText = data.fullAnalysis ?? "";
+  const previewText =
+    data.preview ??
+    data.previewText ??
+    data.summary ??
+    data.conditionSummary ??
+    "";
+
+  const fullText =
+    data.fullAnalysis ??
+    data.summary ??
+    data.conditionSummary ??
+    data.preview ??
+    data.previewText ??
+    "";
+
+  const kilometresDisplay =
+    vehicle.kilometres ??
+    data.kilometres ??
+    null;
 
   const confidenceLabel =
     data.confidenceAssessment ||
+    data.confidenceSummary ||
     (data.confidenceCode
       ? `${data.confidenceCode} — listing confidence`
       : "Confidence assessment");
@@ -109,7 +128,7 @@ export default function OnlineResults() {
             <div>{vehicle.year || "—"}</div>
 
             <div className="mt-3 text-xs text-slate-400">Kilometres</div>
-            <div>{vehicle.kilometres ?? "—"}</div>
+            <div>{kilometresDisplay ?? "—"}</div>
           </div>
 
           <div>

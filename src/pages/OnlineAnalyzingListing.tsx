@@ -12,6 +12,7 @@ export default function OnlineAnalyzingListing() {
 
   useEffect(() => {
     runScan();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function runScan() {
@@ -30,13 +31,50 @@ export default function OnlineAnalyzingListing() {
         body: JSON.stringify({ url: listingUrl }),
       });
 
-      const data = await res.json();
+      const data: any = await res.json();
 
-      if (!res.ok || !data.ok) {
-        console.error("❌ Scan failed:", data.error || res.status);
+      if (!res.ok || !data?.ok) {
+        console.error("❌ Scan failed:", data?.error || res.status);
         navigate("/scan/online", { replace: true });
         return;
       }
+
+      // --------------------------
+      // Robust text fallbacks
+      // --------------------------
+      const previewText: string =
+        data.previewText ??
+        data.preview ??
+        data.summary ??
+        data.conditionSummary ??
+        "";
+
+      const fullAnalysisText: string =
+        data.fullAnalysis ??
+        data.full_text ??
+        data.full ??
+        data.summaryLong ??
+        data.summary ??
+        data.conditionSummary ??
+        "";
+
+      const kilometresValue: string | number | null =
+        data.kilometres ??
+        data.kilometers ??
+        data.km ??
+        data.vehicle?.kilometres ??
+        null;
+
+      const confidenceAssessment: string =
+        data.confidenceAssessment ??
+        data.confidenceSummary ??
+        (data.confidenceCode === "HIGH"
+          ? "High — looks solid overall"
+          : data.confidenceCode === "MODERATE"
+          ? "Moderate — a few things to confirm"
+          : data.confidenceCode === "LOW"
+          ? "Low — listing confidence"
+          : "");
 
       const stored: SavedResult = {
         type: "online",
@@ -50,24 +88,24 @@ export default function OnlineAnalyzingListing() {
         photos: data.photos ?? { listing: [], meta: [] },
 
         // Preview + full content
-        preview: data.previewText ?? data.summary ?? "",
-        previewText: data.previewText ?? data.summary ?? "",
-        fullAnalysis: data.fullAnalysis ?? data.summary ?? "",
+        preview: previewText,
+        previewText,
+        fullAnalysis: fullAnalysisText,
 
-        summary: data.summary ?? "",
-        conditionSummary: data.conditionSummary ?? data.summary ?? "",
+        summary: data.summary ?? previewText ?? "",
+        conditionSummary: data.conditionSummary ?? "",
         notes: data.notes ?? "",
 
-        kilometres: data.kilometres ?? null,
+        kilometres: kilometresValue,
         isUnlocked: false,
 
         confidenceCode: data.confidenceCode ?? null,
         confidenceSummary: data.confidenceSummary ?? "",
+        confidenceAssessment,
       };
 
       saveOnlineResults(stored);
       navigate("/scan/online/results", { replace: true });
-
     } catch (err) {
       console.error("❌ Scan crash:", err);
       navigate("/scan/online", { replace: true });
