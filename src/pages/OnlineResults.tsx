@@ -1,3 +1,5 @@
+// src/pages/OnlineResults.tsx
+
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -89,13 +91,18 @@ export default function OnlineResults() {
 
   const vehicle = result.vehicle ?? {};
   const sections = result.sections ?? [];
-  const confidenceCode = (result as any).confidenceCode?.toUpperCase?.() ?? null;
 
   const summary =
     (result.summary?.trim() || result.conditionSummary?.trim()) ||
     "No AI summary was returned for this listing — but the details below were successfully extracted.";
 
   const parsed = parseStructuredSummary(summary);
+
+  const confidenceCode = (result.confidenceCode ?? null) as
+    | "LOW"
+    | "MODERATE"
+    | "HIGH"
+    | null;
 
   // --------------------------------
   // Confidence display mapping
@@ -131,12 +138,63 @@ export default function OnlineResults() {
           label: "Not assessed",
           colour: "bg-slate-400",
           meaning:
-            "Confidence could not be determined from the AI response for this listing.",
+            "Confidence could not be reliably determined from the listing alone. This doesn’t mean there is a problem — it just means key context is missing.",
         };
     }
   }
 
   const confidence = getConfidenceDisplay();
+
+  // --------------------------------
+  // Next-step guidance
+  // --------------------------------
+  function getNextStepGuidance() {
+    switch (confidenceCode) {
+      case "LOW":
+        return (
+          "This listing looks comfortable based on what’s shown. " +
+          "If you like the car on paper, it’s reasonable to keep it on your shortlist. " +
+          "An in-person CarVerity scan is still a smart step before you commit, " +
+          "but nothing here suggests you should avoid it."
+        );
+      case "MODERATE":
+        return (
+          "This listing looks like a viable option, but a few details are worth checking in person. " +
+          "If you’re interested, we’d recommend booking a CarVerity in-person scan before deciding. " +
+          "That way you can confirm condition, paperwork and the listed imperfections and feel confident about your choice."
+        );
+      case "HIGH":
+        return (
+          "This listing may still be worth considering, but only if you’re comfortable doing some extra checks. " +
+          "A thorough in-person CarVerity scan is strongly recommended, " +
+          "and it may be sensible to keep looking at a couple of alternatives while you investigate this one."
+        );
+      default:
+        return (
+          "Based on the listing alone, it’s hard to give a clear confidence rating. " +
+          "If you’re interested in this car, treating it as a ‘maybe’ and doing an in-person scan or inspection " +
+          "will give you a much clearer view before you commit."
+        );
+    }
+  }
+
+  const nextStepText = getNextStepGuidance();
+
+  // --------------------------------
+  // Build a minimal free preview
+  // --------------------------------
+  const mainPreviewSource =
+    parsed.analysisSummary || parsed.confidenceAssessment || summary;
+
+  // Split on sentence boundaries and keep the first 1–2 sentences only
+  const previewSentences = mainPreviewSource
+    .split(/(?<=\.)\s+/)
+    .slice(0, 2)
+    .join(" ");
+
+  const lockedPreviewText =
+    previewSentences ||
+    "This summary gives a high-level view of how the car looks on paper. Unlocking the full scan reveals a more detailed breakdown.";
 
   // --------------------------------
   // Missing / unclear info
@@ -146,8 +204,7 @@ export default function OnlineResults() {
   if (!vehicle.kilometres && !result.kilometres)
     missing.push("Kilometres not clearly stated");
 
-  if (!vehicle.variant)
-    missing.push("Variant not specified");
+  if (!vehicle.variant) missing.push("Variant not specified");
 
   if (!vehicle.importStatus)
     missing.push("Import / compliance status not listed");
@@ -208,11 +265,7 @@ export default function OnlineResults() {
   // --------------------------------
   function Card(props: { title: string; children: ReactNode; className?: string }) {
     return (
-      <div
-        className={`border rounded-lg p-4 bg-white/5/0 ${
-          props.className ?? ""
-        }`}
-      >
+      <div className={`border rounded-lg p-4 bg-white/5 ${props.className ?? ""}`}>
         <h2 className="font-semibold mb-2">{props.title}</h2>
         {props.children}
       </div>
@@ -253,19 +306,19 @@ export default function OnlineResults() {
         </p>
       </Card>
 
+      {/* RECOMMENDED NEXT STEP */}
+      <Card title="Recommended next step">
+        <p className="text-muted-foreground whitespace-pre-line">
+          {nextStepText}
+        </p>
+      </Card>
+
       {/* PREVIEW SUMMARY */}
       <Card title="CarVerity analysis — preview">
         <p className="text-muted-foreground whitespace-pre-line">
-          {(
-            parsed.analysisSummary ||
-            parsed.confidenceAssessment ||
-            summary
-          )
-            .split("\n")
-            .slice(0, 6)
-            .join("\n")}
-          {!isUnlocked &&
-            "\n\n(Preview only — full analysis available after unlock)"}
+          {isUnlocked
+            ? mainPreviewSource
+            : `${lockedPreviewText}\n\n(Free preview — full breakdown is available after unlock.)`}
         </p>
       </Card>
 
@@ -299,21 +352,43 @@ export default function OnlineResults() {
         </Card>
       )}
 
-      {/* LOCKED STATE CALLOUT */}
+      {/* LOCKED STATE TEASER */}
       {!isUnlocked && (
-        <Card title="Unlock your full scan">
-          <p className="text-muted-foreground mb-3">
-            The preview above shows a summary based on the listing. Unlocking
-            the full scan will reveal structured risk signals, buyer
-            considerations and negotiation insights in a clearer format.
-          </p>
-          <button
-            onClick={handleUnlock}
-            className="bg-blue-600 text-white px-4 py-2 rounded shadow"
-          >
-            Unlock full scan
-          </button>
-        </Card>
+        <>
+          <Card title="What you’ll unlock with a full scan">
+            <ul className="list-disc ml-5 text-muted-foreground">
+              <li>
+                A clearer list of key risk signals specific to this listing.
+              </li>
+              <li>
+                Practical buyer considerations tailored to this car (what to
+                double-check in person).
+              </li>
+              <li>
+                Polite, realistic negotiation talking points based on the
+                disclosed condition and pricing.
+              </li>
+            </ul>
+            <p className="text-sm mt-2 text-muted-foreground">
+              The full scan helps turn this listing into a clear yes, no, or
+              “maybe — with conditions” decision.
+            </p>
+          </Card>
+
+          <Card title="Unlock your full scan">
+            <p className="text-muted-foreground mb-3">
+              The preview above shows a high-level view based on the listing.
+              Unlocking the full scan reveals a structured breakdown of risks,
+              buyer checks and negotiation angles for this specific car.
+            </p>
+            <button
+              onClick={handleUnlock}
+              className="bg-blue-600 text-white px-4 py-2 rounded shadow"
+            >
+              Unlock full scan
+            </button>
+          </Card>
+        </>
       )}
 
       {/* FULL ANALYSIS — ONLY WHEN UNLOCKED */}
