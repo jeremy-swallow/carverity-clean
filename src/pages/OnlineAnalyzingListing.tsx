@@ -1,3 +1,5 @@
+// src/pages/OnlineAnalyzingListing.tsx
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -27,6 +29,7 @@ export default function OnlineAnalyzingListing() {
       return;
     }
 
+    // 🌀 Rotate visible progress messages every few seconds
     const stageTimer = setInterval(() => {
       setStageIndex((i) => (i + 1) % STAGES.length);
     }, 3500);
@@ -34,7 +37,7 @@ export default function OnlineAnalyzingListing() {
     runScan(listingUrl);
 
     return () => clearInterval(stageTimer);
-  }, []);
+  }, [navigate]);
 
   async function runScan(listingUrl: string) {
     try {
@@ -67,14 +70,16 @@ export default function OnlineAnalyzingListing() {
         conditionSummary: data.summary ?? "",
 
         kilometres: data.kilometres ?? null,
-
-        // 🚧 NEW — scans begin locked until user pays or uses a credit
-        isUnlocked: false,
+        isUnlocked: false, // start in preview / locked state
 
         source: data.source ?? "gemini-2.5-flash",
+        analysisSource: data.source ?? "gemini-2.5-flash",
+
+        confidenceCode: data.confidenceCode ?? null,
       };
 
       saveOnlineResults(stored);
+
       navigate("/online/results", { replace: true });
     } catch (err) {
       console.error("❌ Unexpected scan error", err);
@@ -92,9 +97,7 @@ export default function OnlineAnalyzingListing() {
         Thanks for your patience — your report is being generated.
       </p>
 
-      <p className="mt-4 text-sm opacity-80">
-        {STAGES[stageIndex]}
-      </p>
+      <p className="mt-4 text-sm opacity-80">{STAGES[stageIndex]}</p>
 
       <div className="mt-6 flex gap-2">
         <div className="w-2 h-2 rounded-full bg-white/70 animate-pulse" />

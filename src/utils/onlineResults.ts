@@ -10,8 +10,6 @@ export interface SavedPhotos {
   meta?: any[];
 }
 
-export type ConfidenceCode = "LOW" | "MODERATE" | "HIGH" | null;
-
 export interface SavedResult {
   // literal type so TS knows this is an online scan
   type: "online";
@@ -41,6 +39,9 @@ export interface SavedResult {
   analysisSource?: string;
   sellerType?: string;
 
+  // Confidence from backend AI
+  confidenceCode?: "LOW" | "MODERATE" | "HIGH" | null;
+
   // Summaries
   conditionSummary: string;
   summary?: string;
@@ -49,9 +50,6 @@ export interface SavedResult {
   kilometres?: string | number | null;
   owners?: string;
   notes?: string;
-
-  // 🔹 Machine-readable confidence from backend AI
-  confidenceCode?: ConfidenceCode;
 }
 
 const STORAGE_KEY = "carverity_online_results_v2";
@@ -68,14 +66,7 @@ export function loadOnlineResults(): SavedResult | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as SavedResult;
-
-    // 🔹 Backwards-compatibility for older saved results
-    if (parsed.confidenceCode === undefined) {
-      parsed.confidenceCode = null;
-    }
-
-    return parsed;
+    return JSON.parse(raw) as SavedResult;
   } catch (err) {
     console.error("❌ Failed to parse stored online results", err);
     return null;
