@@ -10,42 +10,43 @@ export default function OnlineStart() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!url.trim()) return;
 
-    if (!url.trim()) {
-      alert("Please paste a vehicle listing URL first.");
-      return;
-    }
+    // Save URL for the scan flow
+    localStorage.setItem(LISTING_URL_KEY, url);
 
-    // Save URL for analyzing step
-    localStorage.setItem(LISTING_URL_KEY, url.trim());
+    console.log("🚀 Listing URL saved:", url);
 
-    console.log("🚀 Stored listing URL:", url.trim());
-
-    // Move to analyzing page
+    // Go straight to analyzing page
     navigate("/scan/online/analyzing", { replace: true });
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12 space-y-6">
-      <h1 className="text-2xl font-semibold">Online Listing Scan</h1>
-      <p className="text-muted-foreground">
-        Paste a listing link and we’ll analyse risks, pricing signals and seller flags.
+    <div className="max-w-2xl mx-auto px-4 py-12">
+      <h1 className="text-2xl font-semibold mb-4">
+        Online Listing Scan
+      </h1>
+
+      <p className="text-muted-foreground mb-6">
+        Paste a listing link and we’ll instantly analyse wording,
+        pricing signals, seller risk flags and key details.
       </p>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit}>
         <input
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="Paste vehicle listing URL…"
-          className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2"
+          className="w-full p-3 rounded bg-slate-800 border border-white/10 mb-4"
+          placeholder="Paste listing URL…"
+          required
         />
 
         <button
           type="submit"
-          className="rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
+          className="bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-2 rounded"
         >
-          Start scan
+          Start scan →
         </button>
       </form>
     </div>
