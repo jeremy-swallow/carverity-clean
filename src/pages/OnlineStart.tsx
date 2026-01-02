@@ -13,11 +13,12 @@ export default function OnlineStart() {
     const trimmed = url.trim();
     if (!trimmed) return;
 
+    // Save URL for scan flow
     saveListingUrl(trimmed);
     console.log("🚗 Listing URL saved:", trimmed);
 
-    // ✅ Correct route (existing analyzing page)
-    navigate("/online/analyzing", { replace: true });
+    // ✅ MUST match App.tsx route
+    navigate("/scan/online/analyzing", { replace: true });
   }
 
   return (
@@ -30,7 +31,9 @@ export default function OnlineStart() {
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Listing URL</label>
+          <label className="block text-sm font-medium mb-1">
+            Listing URL
+          </label>
           <input
             type="url"
             required
@@ -43,7 +46,7 @@ export default function OnlineStart() {
 
         <button
           type="submit"
-          className="inline-flex items-center rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white"
+          className="inline-flex items-center rounded-md bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-400"
         >
           Start online scan
         </button>
