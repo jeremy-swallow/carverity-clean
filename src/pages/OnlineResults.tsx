@@ -1,47 +1,23 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   loadOnlineResults,
   saveOnlineResults,
   type SavedResult,
 } from "../utils/onlineResults";
-import { loadCredits, useOneCredit } from "../utils/scanCredits";
 
 export default function OnlineResults() {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
   const [result, setResult] = useState<SavedResult | null>(null);
 
   // --------------------------------
-  // Load + unlock-on-return
+  // Load saved online scan
   // --------------------------------
   useEffect(() => {
     const stored = loadOnlineResults();
-    if (!stored) {
-      setResult(null);
-      return;
-    }
-
-    const unlocked = params.get("unlocked") === "true";
-
-    // Returned from checkout → permanently unlock (no credit deduction)
-    if (unlocked && !stored.isUnlocked) {
-      const updated: SavedResult = {
-        ...stored,
-        type: "online",
-        isUnlocked: true,
-        step: stored.step || "/online/results",
-        createdAt: stored.createdAt || new Date().toISOString(),
-      };
-
-      saveOnlineResults(updated);
-      setResult(updated);
-      return;
-    }
-
-    setResult(stored);
-  }, [params]);
+    setResult(stored ?? null);
+  }, []);
 
   if (!result) {
     return (
@@ -124,14 +100,20 @@ export default function OnlineResults() {
   // Flow actions
   // --------------------------------
   function handleContinue() {
-    if (!result) return;
+    const current = result!; // safe: component would have early-returned if result were null
 
     const updated: SavedResult = {
-      ...result,
+      ...current,
       type: "online",
       step: "/online/next-actions",
-      createdAt: result.createdAt || new Date().toISOString(),
-      conditionSummary: result.conditionSummary || summary,
+      createdAt: current.createdAt || new Date().toISOString(),
+      conditionSummary: current.conditionSummary || summary,
+      // ensure required fields are never undefined
+      listingUrl: current.listingUrl ?? null,
+      vehicle: current.vehicle ?? {},
+      sections: current.sections ?? [],
+      photos: current.photos ?? { listing: [], meta: [] },
+      isUnlocked: current.isUnlocked ?? true,
     };
 
     saveOnlineResults(updated);
@@ -139,44 +121,24 @@ export default function OnlineResults() {
     navigate("/online/next-actions", { replace: true });
   }
 
-  // Permanently unlock using an existing credit
-  function unlockWithCredit(): boolean {
-    if (!result) return false;
-
-    // SAFETY — never spend a credit if already unlocked
-    if (result.isUnlocked) return true;
-
-    const attempt = useOneCredit();
-    if (!attempt.ok) return false;
+  // 🔓 TEMPORARY: unlock locally without payments / credits
+  function handleUnlock() {
+    const current = result!;
 
     const updated: SavedResult = {
-      ...result,
+      ...current,
       type: "online",
       isUnlocked: true,
-      step: result.step || "/online/results",
-      createdAt: result.createdAt || new Date().toISOString(),
+      step: current.step || "/online/results",
+      createdAt: current.createdAt || new Date().toISOString(),
+      listingUrl: current.listingUrl ?? null,
+      vehicle: current.vehicle ?? {},
+      sections: current.sections ?? [],
+      photos: current.photos ?? { listing: [], meta: [] },
     };
 
     saveOnlineResults(updated);
     setResult(updated);
-    return true;
-  }
-
-  function handleUnlock() {
-    if (!result) return;
-
-    const credits = loadCredits();
-
-    // Case 1 — user has credits → consume ONE + unlock now
-    if (credits > 0) {
-      const ok = unlockWithCredit();
-      if (ok) return;
-    }
-
-    // Case 2 — no credits → go to checkout
-    // On return → unlock WITHOUT consuming a credit
-    const returnUrl = encodeURIComponent("/online/results?unlocked=true");
-    navigate(`/checkout?mode=online-scan&return=${returnUrl}`);
   }
 
   // --------------------------------
