@@ -13,6 +13,9 @@ export default function OnlineResults() {
   const [params] = useSearchParams();
   const [result, setResult] = useState<SavedResult | null>(null);
 
+  // --------------------------------
+  // Load + unlock-on-return
+  // --------------------------------
   useEffect(() => {
     const stored = loadOnlineResults();
     if (!stored) {
@@ -22,13 +25,16 @@ export default function OnlineResults() {
 
     const unlocked = params.get("unlocked") === "true";
 
-    // If returning from checkout with unlock flag → unlock but DO NOT consume a credit
+    // Returned from checkout → permanently unlock (no credit deduction)
     if (unlocked && !stored.isUnlocked) {
       const updated: SavedResult = {
         ...stored,
         type: "online",
         isUnlocked: true,
+        step: stored.step || "/online/results",
+        createdAt: stored.createdAt || new Date().toISOString(),
       };
+
       saveOnlineResults(updated);
       setResult(updated);
       return;
@@ -57,9 +63,9 @@ export default function OnlineResults() {
     (result.summary?.trim() || result.conditionSummary?.trim()) ||
     "No AI summary was returned for this listing — but the details below were successfully extracted.";
 
-  // -------------------------------
-  // Confidence display
-  // -------------------------------
+  // --------------------------------
+  // Confidence display mapping
+  // --------------------------------
   function getConfidenceDisplay() {
     switch (confidenceCode) {
       case "LOW":
@@ -95,29 +101,28 @@ export default function OnlineResults() {
 
   const confidence = getConfidenceDisplay();
 
-  // -------------------------------
-  // Missing / unclear details
-  // -------------------------------
+  // --------------------------------
+  // Missing / unclear info
+  // --------------------------------
   const missing: string[] = [];
 
-  if (!vehicle.kilometres && !result.kilometres) {
+  if (!vehicle.kilometres && !result.kilometres)
     missing.push("Kilometres not clearly stated");
-  }
-  if (!vehicle.variant) {
+
+  if (!vehicle.variant)
     missing.push("Variant not specified");
-  }
-  if (!vehicle.importStatus) {
+
+  if (!vehicle.importStatus)
     missing.push("Import / compliance status not listed");
-  }
-  if (!result.photos?.listing?.length) {
+
+  if (!result.photos?.listing?.length)
     missing.push(
       "Listing photos were not captured by the scan (this does not mean the seller did not include them)"
     );
-  }
 
-  // -------------------------------
+  // --------------------------------
   // Flow actions
-  // -------------------------------
+  // --------------------------------
   function handleContinue() {
     if (!result) return;
 
@@ -125,6 +130,7 @@ export default function OnlineResults() {
       ...result,
       type: "online",
       step: "/online/next-actions",
+      createdAt: result.createdAt || new Date().toISOString(),
       conditionSummary: result.conditionSummary || summary,
     };
 
@@ -133,8 +139,12 @@ export default function OnlineResults() {
     navigate("/online/next-actions", { replace: true });
   }
 
+  // Permanently unlock using an existing credit
   function unlockWithCredit(): boolean {
     if (!result) return false;
+
+    // SAFETY — never spend a credit if already unlocked
+    if (result.isUnlocked) return true;
 
     const attempt = useOneCredit();
     if (!attempt.ok) return false;
@@ -143,6 +153,8 @@ export default function OnlineResults() {
       ...result,
       type: "online",
       isUnlocked: true,
+      step: result.step || "/online/results",
+      createdAt: result.createdAt || new Date().toISOString(),
     };
 
     saveOnlineResults(updated);
@@ -151,23 +163,25 @@ export default function OnlineResults() {
   }
 
   function handleUnlock() {
+    if (!result) return;
+
     const credits = loadCredits();
 
-    // 🟢 Case 1 — user already has credits → consume ONE and unlock now
+    // Case 1 — user has credits → consume ONE + unlock now
     if (credits > 0) {
       const ok = unlockWithCredit();
       if (ok) return;
     }
 
-    // 🟡 Case 2 — no credits → go to checkout
-    // On return, we unlock WITHOUT spending a credit
+    // Case 2 — no credits → go to checkout
+    // On return → unlock WITHOUT consuming a credit
     const returnUrl = encodeURIComponent("/online/results?unlocked=true");
     navigate(`/checkout?mode=online-scan&return=${returnUrl}`);
   }
 
-  // -------------------------------
+  // --------------------------------
   // Blurred gated block wrapper
-  // -------------------------------
+  // --------------------------------
   function BlurredPanel(props: { title: string; children: ReactNode }) {
     return (
       <div className="border rounded-lg relative overflow-hidden">
@@ -186,6 +200,7 @@ export default function OnlineResults() {
             </button>
           </div>
         )}
+
         <div className={`p-4 ${!isUnlocked ? "opacity-40 select-none" : ""}`}>
           <h2 className="font-semibold mb-2">{props.title}</h2>
           {props.children}
@@ -194,6 +209,9 @@ export default function OnlineResults() {
     );
   }
 
+  // --------------------------------
+  // Render
+  // --------------------------------
   return (
     <div className="max-w-3xl mx-auto px-4 py-16 space-y-8">
       <h1 className="text-2xl font-semibold">Scan results — AI-assisted review</h1>
@@ -226,7 +244,7 @@ export default function OnlineResults() {
         </p>
       </div>
 
-      {/* FREE PREVIEW – PARTIAL SUMMARY */}
+      {/* PREVIEW SUMMARY */}
       <div className="border rounded-lg p-4">
         <h2 className="font-semibold mb-2">CarVerity analysis — preview</h2>
         <p className="text-muted-foreground whitespace-pre-line">
@@ -235,7 +253,7 @@ export default function OnlineResults() {
         </p>
       </div>
 
-      {/* VEHICLE DETAILS — ALWAYS VISIBLE */}
+      {/* VEHICLE DETAILS */}
       <div className="border rounded-lg p-4">
         <h2 className="font-semibold mb-2">Vehicle details</h2>
         <p>Make: {vehicle.make ?? "—"}</p>
@@ -251,7 +269,7 @@ export default function OnlineResults() {
         </p>
       </div>
 
-      {/* MISSING / UNCLEAR */}
+      {/* MISSING DETAILS */}
       {missing.length > 0 && (
         <div className="border rounded-lg p-4 bg-amber-50/10">
           <h2 className="font-semibold mb-2">Missing or unclear details</h2>
@@ -267,7 +285,7 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* GATED SECTIONS */}
+      {/* GATED PANELS */}
       <BlurredPanel title="Key risk signals">
         <p className="text-muted-foreground whitespace-pre-line">
           {summary}
