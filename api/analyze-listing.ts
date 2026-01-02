@@ -8,7 +8,7 @@ if (!GEMINI_API_KEY) {
 }
 
 // ------------------------------
-// Helper: Fetch listing HTML
+// Fetch listing HTML
 // ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
@@ -21,7 +21,7 @@ async function fetchListingHtml(url: string): Promise<string> {
 }
 
 // ------------------------------
-// Year Normaliser — safer & smarter
+// Normalisers
 // ------------------------------
 function normaliseYear(raw: string | null | undefined) {
   if (!raw) return "";
@@ -30,24 +30,34 @@ function normaliseYear(raw: string | null | undefined) {
   const currentYear = new Date().getFullYear();
 
   const minYear = 1970;
-  const maxYear = currentYear + 1; // allow near-future models
+  const maxYear = currentYear + 1;
 
   if (!n || n < minYear || n > maxYear) return "";
   return String(n);
 }
 
+function normaliseKilometres(raw: string | null | undefined) {
+  if (!raw) return "";
+
+  const cleaned = raw.replace(/[,\.]/g, "").trim();
+  const n = parseInt(cleaned, 10);
+
+  // sanity bounds — avoids garbage values
+  if (!n || n < 10 || n > 1_000_000) return "";
+
+  return n.toString();
+}
+
 // ------------------------------
-// Improved Vehicle Extractor
-//  - prefers explicit year patterns
-//  - avoids guessing when uncertain
+// Extract structured vehicle info
 // ------------------------------
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
 
+  // ---- YEAR detection (defensive) ----
   let year = "";
 
-  // Strong signals first
   const labelled = text.match(/(Build|Compliance|Year)[^0-9]{0,6}((19|20)\d{2})/i);
   const beforeMake = text.match(/\b((19|20)\d{2})\b[^,\n]{0,30}(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)/i);
   const afterMake = text.match(/(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)[^0-9]{0,20}\b((19|20)\d{2})\b/i);
@@ -60,15 +70,33 @@ function extractBasicVehicleInfo(text: string) {
 
   year = normaliseYear(year);
 
+  // ---- KILOMETRES detection ----
+  let kilometres = "";
+
+  const kmPatterns = [
+    /\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i,
+    /\bodometer[^0-9]{0,6}([\d,\.]+)\b/i,
+    /\btravelled[^0-9]{0,6}([\d,\.]+)\b/i
+  ];
+
+  for (const p of kmPatterns) {
+    const m = text.match(p);
+    if (m?.[1]) {
+      kilometres = normaliseKilometres(m[1]);
+      if (kilometres) break;
+    }
+  }
+
   return {
     make: makeMatch?.[1]?.trim() || "",
     model: modelMatch?.[1]?.trim() || "",
     year,
+    kilometres: kilometres || null,
   };
 }
 
 // ------------------------------
-// Gemini Prompt
+// Gemini Prompt  (UNCHANGED — full version)
 // ------------------------------
 function buildPrompt(listingText: string) {
   return `
@@ -172,7 +200,7 @@ ${listingText}
 }
 
 // ------------------------------
-// Gemini API Call
+// Gemini API
 // ------------------------------
 async function callGemini(prompt: string) {
   const res = await fetch(
