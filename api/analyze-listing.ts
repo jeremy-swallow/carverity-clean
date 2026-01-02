@@ -171,6 +171,40 @@ function extractConfidenceCode(text: string) {
 }
 
 // ------------------------------
+// Friendly confidence mapping
+// ------------------------------
+function mapConfidenceToUserLabel(code: string | null) {
+  switch (code) {
+    case "HIGH":
+      return {
+        userLabel: "Looks Good — Just Double-Check a Few Details",
+        explainer:
+          "Based on the listing information, this vehicle looks like a solid option. Nothing major stands out, but it still makes sense to review the details in person."
+      };
+
+    case "MODERATE":
+      return {
+        userLabel: "Worth Considering — Some Things Need Clarifying",
+        explainer:
+          "The listing has a mix of positives and unknowns. It could still be a good buy, but a few details should be confirmed before moving forward."
+      };
+
+    case "LOW":
+      return {
+        userLabel: "Proceed Carefully — Important Details Need Checking",
+        explainer:
+          "Some parts of this listing are unclear or missing. It may still be suitable, but you should take extra care and confirm key information first."
+      };
+
+    default:
+      return {
+        userLabel: "Confidence not available",
+        explainer: ""
+      };
+  }
+}
+
+// ------------------------------
 // API Handler
 // ------------------------------
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -187,6 +221,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const summary = await callGemini(prompt);
 
     const confidenceCode = extractConfidenceCode(summary);
+    const confidenceUi = mapConfidenceToUserLabel(confidenceCode);
 
     return res.status(200).json({
       ok: true,
@@ -194,6 +229,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       vehicle,
       summary,
       confidenceCode,
+      confidenceLabel: confidenceUi.userLabel,
+      confidenceExplainer: confidenceUi.explainer,
       source: "gemini-2.5-flash",
     });
   } catch (err: any) {
