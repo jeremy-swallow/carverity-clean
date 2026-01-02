@@ -21,28 +21,44 @@ async function fetchListingHtml(url: string): Promise<string> {
 }
 
 // ------------------------------
-// Helper: Extract simple vehicle fields
-//  - VERY defensive: better to leave blank than be wrong
+// Year Normaliser — safer & smarter
+// ------------------------------
+function normaliseYear(raw: string | null | undefined) {
+  if (!raw) return "";
+
+  const n = parseInt(raw, 10);
+  const currentYear = new Date().getFullYear();
+
+  const minYear = 1970;
+  const maxYear = currentYear + 1; // allow near-future models
+
+  if (!n || n < minYear || n > maxYear) return "";
+  return String(n);
+}
+
+// ------------------------------
+// Improved Vehicle Extractor
+//  - prefers explicit year patterns
+//  - avoids guessing when uncertain
 // ------------------------------
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
 
-  const yearMatch = text.match(/(19|20)\d{2}/);
-  let year = yearMatch?.[0] || "";
+  let year = "";
 
-  if (year) {
-    const numeric = parseInt(year, 10);
-    const currentYear = new Date().getFullYear();
-    const minYear = 1970;
-    const maxYear = currentYear + 1; // allow near-future models while staying realistic
+  // Strong signals first
+  const labelled = text.match(/(Build|Compliance|Year)[^0-9]{0,6}((19|20)\d{2})/i);
+  const beforeMake = text.match(/\b((19|20)\d{2})\b[^,\n]{0,30}(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)/i);
+  const afterMake = text.match(/(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)[^0-9]{0,20}\b((19|20)\d{2})\b/i);
+  const myCode = text.match(/\bMY\s?(\d{2})\b/i);
 
-    if (numeric < minYear || numeric > maxYear) {
-      year = "";
-    } else {
-      year = String(numeric);
-    }
-  }
+  if (labelled) year = labelled[2];
+  else if (beforeMake) year = beforeMake[1];
+  else if (afterMake) year = afterMake[2];
+  else if (myCode) year = `20${myCode[1]}`;
+
+  year = normaliseYear(year);
 
   return {
     make: makeMatch?.[1]?.trim() || "",
@@ -111,7 +127,7 @@ PRICING & VALUE
 MECHANICAL CHECKS & NEXT STEPS
 
 - If you talk about checking the car in person,
-  PRIORITISE CarVerity’s own in-person scan as the main pathway.
+  PRIORITISE CarVerity’s in-person scan as the main pathway.
   Example: "This is a good candidate to follow up with a CarVerity in-person scan."
 
 - You may mention that some buyers also choose a mechanic inspection,
