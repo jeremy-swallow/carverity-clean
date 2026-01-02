@@ -46,7 +46,7 @@ export interface SavedResult {
   conditionSummary: string;
   summary?: string;
 
-  // Extra fields carried through the flow
+  // Extra fields we want to carry through the flow
   kilometres?: string | number | null;
   owners?: string;
   notes?: string;

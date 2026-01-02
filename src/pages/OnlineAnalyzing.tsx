@@ -1,33 +1,56 @@
 // src/pages/OnlineAnalyzing.tsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadListingUrl } from "../utils/onlineResults";
+import {
+  saveOnlineResults,
+  loadListingUrl,
+} from "../utils/onlineResults";
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const url = loadListingUrl();
+    const listingUrl = loadListingUrl();
+    console.log("🔍 Analyzing page loaded, URL =", listingUrl);
 
-    console.log("🧩 Analyzing page — URL =", url);
-
-    if (!url) {
-      console.warn("⚠️ Missing listing URL — returning to start");
+    // If we somehow got here without a URL, send user back to start
+    if (!listingUrl) {
       navigate("/scan/online", { replace: true });
       return;
     }
 
-    // TODO: call API → then navigate to results
-    // navigate("/scan/online/results");
-  }, []);
+    runScan(listingUrl);
+  }, [navigate]);
+
+  async function runScan(listingUrl: string) {
+    try {
+      const res = await fetch("/api/analyze-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: listingUrl }),
+      });
+
+      if (!res.ok) {
+        console.error("❌ Analyze listing failed", res.status);
+        navigate("/scan/online", { replace: true });
+        return;
+      }
+
+      const data = await res.json();
+      saveOnlineResults(data);
+      navigate("/scan/online/results", { replace: true });
+    } catch (err) {
+      console.error("❌ Analyze listing error", err);
+      navigate("/scan/online", { replace: true });
+    }
+  }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-16 text-center">
-      <h1 className="text-xl font-semibold mb-2">
-        Analyzing listing…
-      </h1>
+    <div className="max-w-xl mx-auto px-4 py-20 text-center">
+      <h1 className="text-2xl font-semibold mb-3">Analyzing listing...</h1>
       <p className="text-muted-foreground">
-        Sit tight — we’re reviewing wording, pricing signals and seller risk flags.
+        Sit tight — we&apos;re reviewing wording, pricing signals and seller
+        risk flags.
       </p>
     </div>
   );
