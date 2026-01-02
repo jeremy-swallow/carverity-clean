@@ -28,15 +28,16 @@ export default function OnlineResults() {
 
   const vehicle = result.vehicle ?? {};
   const sections = result.sections ?? [];
+  const isUnlocked = result.isUnlocked ?? false;
+  const confidenceCode = (result as any).confidenceCode?.toUpperCase?.() ?? null;
 
   const summary =
     (result.summary?.trim() || result.conditionSummary?.trim()) ||
     "No AI summary was returned for this listing — but the details below were successfully extracted.";
 
-  // 🔹 Confidence now comes ONLY from backend
-  const confidenceCode =
-    (result as any).confidenceCode?.toUpperCase?.() ?? null;
-
+  // -------------------------------
+  // Confidence display
+  // -------------------------------
   function getConfidenceDisplay() {
     switch (confidenceCode) {
       case "LOW":
@@ -72,15 +73,21 @@ export default function OnlineResults() {
 
   const confidence = getConfidenceDisplay();
 
+  // -------------------------------
+  // Missing details
+  // -------------------------------
   const missing: string[] = [];
-
-  if (!vehicle.kilometres && !result.kilometres) {
+  if (!vehicle.kilometres && !result.kilometres)
     missing.push("Kilometres not clearly stated");
-  }
   if (!vehicle.variant) missing.push("Variant not specified");
-  if (!vehicle.importStatus) missing.push("Import / compliance status not listed");
-  if (!result.photos?.listing?.length) missing.push("No listing photos extracted");
+  if (!vehicle.importStatus)
+    missing.push("Import / compliance status not listed");
+  if (!result.photos?.listing?.length)
+    missing.push("Listing photos were not captured by the scan (this does not mean the seller did not include them)");
 
+  // -------------------------------
+  // Continue CTA
+  // -------------------------------
   function handleContinue() {
     if (!result) return;
 
@@ -90,9 +97,42 @@ export default function OnlineResults() {
       conditionSummary: result.conditionSummary ?? summary,
     };
 
-      saveOnlineResults(updated);
-      setResult(updated);
-      navigate("/online/next-actions", { replace: true });
+    saveOnlineResults(updated);
+    setResult(updated);
+    navigate("/online/next-actions", { replace: true });
+  }
+
+  function handleUnlock() {
+    // Later this will go to checkout / credits
+    navigate("/pricing");
+  }
+
+  // -------------------------------
+  // Blurred gated block wrapper
+  // -------------------------------
+  function BlurredPanel(props: { title: string; children: React.ReactNode }) {
+    return (
+      <div className="border rounded-lg relative overflow-hidden">
+        {!isUnlocked && (
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm flex flex-col items-center justify-center text-center px-6">
+            <p className="font-semibold mb-1">Full report locked</p>
+            <p className="text-sm text-muted-foreground mb-3">
+              Unlock to view risk signals, negotiation insights and next-step guidance.
+            </p>
+            <button
+              onClick={handleUnlock}
+              className="bg-blue-600 text-white px-4 py-2 rounded shadow"
+            >
+              Unlock full scan
+            </button>
+          </div>
+        )}
+        <div className={`p-4 ${!isUnlocked ? "opacity-40 select-none" : ""}`}>
+          <h2 className="font-semibold mb-2">{props.title}</h2>
+          {props.children}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -111,9 +151,9 @@ export default function OnlineResults() {
         </a>
       </p>
 
-      {/* CONFIDENCE BADGE — backend-aligned */}
+      {/* CONFIDENCE */}
       <div className="border rounded-lg p-4 flex items-center gap-3">
-        <span className={`w-3 h-3 rounded-full ${confidence.colour}`}></span>
+        <span className={`w-3 h-3 rounded-full ${confidence.colour}`} />
         <p className="font-medium">
           Confidence assessment: {confidence.label}
         </p>
@@ -127,16 +167,18 @@ export default function OnlineResults() {
         </p>
       </div>
 
-      {/* SUMMARY PANEL */}
+      {/* FREE PREVIEW – PARTIAL SUMMARY */}
       <div className="border rounded-lg p-4">
-        <h2 className="font-semibold mb-2">CarVerity analysis</h2>
-        <p className="text-muted-foreground whitespace-pre-line">{summary}</p>
+        <h2 className="font-semibold mb-2">CarVerity analysis — preview</h2>
+        <p className="text-muted-foreground whitespace-pre-line">
+          {summary.split("\n").slice(0, 4).join("\n")}
+          {isUnlocked ? "" : "\n\n(Preview only — full analysis available after unlock)"}
+        </p>
       </div>
 
-      {/* VEHICLE DETAILS */}
+      {/* VEHICLE DETAILS — ALWAYS VISIBLE */}
       <div className="border rounded-lg p-4">
         <h2 className="font-semibold mb-2">Vehicle details</h2>
-
         <p>Make: {vehicle.make ?? "—"}</p>
         <p>Model: {vehicle.model ?? "—"}</p>
         <p>Year: {vehicle.year ?? "—"}</p>
@@ -146,14 +188,11 @@ export default function OnlineResults() {
           {vehicle.importStatus ?? "Sold new in Australia (default)"}
         </p>
         <p>
-          Kilometres:{" "}
-          {vehicle.kilometres ??
-            result.kilometres ??
-            "Not specified"}
+          Kilometres: {vehicle.kilometres ?? result.kilometres ?? "Not specified"}
         </p>
       </div>
 
-      {/* MISSING / UNCLEAR */}
+      {/* MISSING DETAILS — ALWAYS VISIBLE */}
       {missing.length > 0 && (
         <div className="border rounded-lg p-4 bg-amber-50/10">
           <h2 className="font-semibold mb-2">Missing or unclear details</h2>
@@ -163,35 +202,56 @@ export default function OnlineResults() {
             ))}
           </ul>
           <p className="text-sm mt-2 text-muted-foreground">
-            Missing information isn’t always a problem — but it means{" "}
-            <strong>these points are worth confirming</strong> before moving ahead.
+            Missing information isn’t always a problem — but these points are worth confirming before moving ahead.
           </p>
         </div>
       )}
 
-      {/* EXTRA AI SECTIONS */}
+      {/* GATED SECTIONS */}
+      <BlurredPanel title="Key risk signals">
+        <p className="text-muted-foreground whitespace-pre-line">
+          {summary}
+        </p>
+      </BlurredPanel>
+
+      <BlurredPanel title="Buyer considerations">
+        <p className="text-muted-foreground whitespace-pre-line">
+          {summary}
+        </p>
+      </BlurredPanel>
+
+      <BlurredPanel title="Negotiation insights">
+        <p className="text-muted-foreground whitespace-pre-line">
+          {summary}
+        </p>
+      </BlurredPanel>
+
       {sections.length > 0 && (
-        <div className="space-y-4">
-          {sections.map((s, i) => (
-            <div key={i} className="border rounded-lg p-4">
-              <h3 className="font-semibold mb-1">{s.title}</h3>
-              <p className="text-muted-foreground whitespace-pre-line">
-                {s.content}
-              </p>
-            </div>
-          ))}
-        </div>
+        <BlurredPanel title="Additional analysis">
+          <div className="space-y-4">
+            {sections.map((s, i) => (
+              <div key={i}>
+                <h3 className="font-semibold mb-1">{s.title}</h3>
+                <p className="text-muted-foreground whitespace-pre-line">
+                  {s.content}
+                </p>
+              </div>
+            ))}
+          </div>
+        </BlurredPanel>
       )}
 
       {/* CONTINUE CTA */}
-      <div className="pt-4">
-        <button
-          onClick={handleContinue}
-          className="bg-blue-600 text-white px-5 py-2 rounded shadow"
-        >
-          Continue — review next recommended steps
-        </button>
-      </div>
+      {isUnlocked && (
+        <div className="pt-4">
+          <button
+            onClick={handleContinue}
+            className="bg-blue-600 text-white px-5 py-2 rounded shadow"
+          >
+            Continue — review next recommended steps
+          </button>
+        </div>
+      )}
     </div>
   );
 }
