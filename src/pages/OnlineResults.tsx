@@ -13,9 +13,9 @@ export default function OnlineResults() {
   const [params] = useSearchParams();
   const [result, setResult] = useState<SavedResult | null>(null);
 
-  // --------------------------------
-  // Load + unlock-on-return
-  // --------------------------------
+  /* --------------------------------
+     Load + unlock-on-return
+  -------------------------------- */
   useEffect(() => {
     const stored = loadOnlineResults();
     if (!stored) {
@@ -25,13 +25,13 @@ export default function OnlineResults() {
 
     const unlocked = params.get("unlocked") === "true";
 
-    // Returned from checkout → permanently unlock
+    // Returned from checkout → permanently unlock (no credit spend)
     if (unlocked && !stored.isUnlocked) {
       const updated: SavedResult = {
         ...stored,
         type: "online",
         isUnlocked: true,
-        step: "/online/results",
+        step: stored.step || "/online/results",
         createdAt: stored.createdAt || new Date().toISOString(),
       };
 
@@ -47,7 +47,7 @@ export default function OnlineResults() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16">
         <h1 className="text-2xl font-semibold mb-2">No results available</h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground mb-6">
           Run a scan to view AI-assisted results.
         </p>
       </div>
@@ -55,24 +55,17 @@ export default function OnlineResults() {
   }
 
   const vehicle = result.vehicle ?? {};
-  const isUnlocked = result.isUnlocked ?? false;
   const sections = result.sections ?? [];
+  const isUnlocked = result.isUnlocked ?? false;
+  const confidenceCode = (result as any).confidenceCode?.toUpperCase?.() ?? null;
 
-  const confidenceCode =
-    (result as any).confidenceCode?.toUpperCase?.() ?? null;
+  const summary =
+    (result.summary?.trim() || result.conditionSummary?.trim()) ||
+    "No AI summary was returned for this listing.";
 
-  const summaryPreview =
-    result.summary?.split("\n")[0] ||
-    "The listing appears generally positive so far, but a few details are worth confirming in person.";
-
-  const fullSummary =
-    result.summary?.trim() ||
-    result.conditionSummary?.trim() ||
-    "";
-
-  // --------------------------------
-  // Confidence mapping
-  // --------------------------------
+  /* --------------------------------
+     Confidence mapping
+  -------------------------------- */
   function getConfidenceDisplay() {
     switch (confidenceCode) {
       case "LOW":
@@ -80,24 +73,21 @@ export default function OnlineResults() {
           label: "Low — comfortable so far",
           colour: "bg-emerald-600",
           meaning:
-            "This listing appears positive overall with no major concerns so far. It still makes sense to confirm key details in person.",
-          next: "Proceed if you’re interested — but a quick in-person scan is recommended before committing.",
+            "This listing appears generally positive so far. It still makes sense to confirm key details in person, but nothing concerning stands out yet.",
         };
       case "MODERATE":
         return {
           label: "Moderate — a few things to confirm",
           colour: "bg-amber-500",
           meaning:
-            "The listing looks mostly fine, but a couple of details are worth checking in person before progressing further.",
-          next: "We recommend booking a CarVerity in-person scan to confirm condition and paperwork.",
+            "The listing looks mostly fine, but a couple of details are worth confirming in person before progressing further.",
         };
       case "HIGH":
         return {
           label: "High — confirm important details first",
           colour: "bg-red-600",
           meaning:
-            "This listing includes details that should be confirmed before progressing further.",
-          next: "Do not proceed without an in-person scan — key details need verification.",
+            "Some details in this listing should be confirmed before moving forward to avoid potential surprises.",
         };
       default:
         return {
@@ -105,27 +95,57 @@ export default function OnlineResults() {
           colour: "bg-slate-400",
           meaning:
             "Confidence could not be determined from the AI response for this listing.",
-          next: "We recommend confirming details in person before making a decision.",
         };
     }
   }
 
   const confidence = getConfidenceDisplay();
 
-  // --------------------------------
-  // Unlock behaviour
-  // --------------------------------
+  /* --------------------------------
+     Missing / unclear info
+  -------------------------------- */
+  const missing: string[] = [];
+
+  if (!vehicle.variant) missing.push("Variant not specified");
+  if (!vehicle.importStatus)
+    missing.push("Import / compliance status not listed");
+  if (!result.photos?.listing?.length)
+    missing.push(
+      "Listing photos were not captured by the scan (this does not mean the seller did not include them)"
+    );
+
+  /* --------------------------------
+     Flow actions
+  -------------------------------- */
+  function handleContinue() {
+    if (!result) return;
+
+    const updated: SavedResult = {
+      ...result,
+      type: "online",
+      step: "/online/next-actions",
+      createdAt: result.createdAt || new Date().toISOString(),
+      conditionSummary: result.conditionSummary || summary,
+    };
+
+    saveOnlineResults(updated);
+    setResult(updated);
+    navigate("/online/next-actions", { replace: true });
+  }
+
+  // Spend a credit + unlock permanently
   function unlockWithCredit(): boolean {
     if (!result) return false;
-    if (result.isUnlocked) return true; // never double-spend
+    if (result.isUnlocked) return true;
 
     const attempt = useOneCredit();
     if (!attempt.ok) return false;
 
     const updated: SavedResult = {
       ...result,
+      type: "online",
       isUnlocked: true,
-      step: "/online/results",
+      step: result.step || "/online/results",
       createdAt: result.createdAt || new Date().toISOString(),
     };
 
@@ -136,74 +156,75 @@ export default function OnlineResults() {
 
   function handleUnlock() {
     if (!result) return;
+
     const credits = loadCredits();
 
+    // Case 1 — user has credits → consume ONE now
     if (credits > 0) {
       const ok = unlockWithCredit();
       if (ok) return;
     }
 
+    // Case 2 — go to checkout (unlock on return)
     const returnUrl = encodeURIComponent("/online/results?unlocked=true");
     navigate(`/checkout?mode=online-scan&return=${returnUrl}`);
   }
 
-  function handleContinue() {
-    if (!result) return;
-
-    const updated: SavedResult = {
-      ...result,
-      step: "/online/next-actions",
-      conditionSummary: result.conditionSummary || fullSummary,
-    };
-
-    saveOnlineResults(updated);
-    navigate("/online/next-actions", { replace: true });
-  }
-
-  // --------------------------------
-  // Gated panel wrapper
-  // --------------------------------
+  /* --------------------------------
+     Blurred gated panel
+  -------------------------------- */
   function BlurredPanel(props: { title: string; children: ReactNode }) {
     return (
       <div className="border rounded-lg relative overflow-hidden">
+
+        {/* Dim + blur only the content */}
         {!isUnlocked && (
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm flex flex-col items-center justify-center text-center px-6 pointer-events-none">
-            <p className="font-semibold mb-1">Full scan locked</p>
-            <p className="text-sm text-muted-foreground mb-3">
-              Unlock to reveal risk signals, buyer checks and negotiation insights.
-            </p>
-            <button
-              onClick={handleUnlock}
-              className="bg-blue-600 text-white px-4 py-2 rounded shadow pointer-events-auto"
-            >
-              Unlock full scan
-            </button>
-          </div>
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-none" />
         )}
 
         <div className={`p-4 ${!isUnlocked ? "opacity-40 select-none" : ""}`}>
           <h2 className="font-semibold mb-2">{props.title}</h2>
           {props.children}
         </div>
+
+        {/* Interactive unlock bar — always clickable */}
+        {!isUnlocked && (
+          <div className="p-4 border-t bg-slate-900/70 flex flex-col gap-2 items-center text-center pointer-events-auto">
+            <p className="text-sm text-muted-foreground">
+              Unlock to reveal risk signals, tailored buyer checks and negotiation guidance.
+            </p>
+
+            <button
+              onClick={handleUnlock}
+              className="bg-blue-600 text-white px-4 py-2 rounded shadow"
+            >
+              Unlock full scan
+            </button>
+          </div>
+        )}
       </div>
     );
   }
 
-  // --------------------------------
-  // Render
-  // --------------------------------
+  /* --------------------------------
+     Render
+  -------------------------------- */
   return (
     <div className="max-w-3xl mx-auto px-4 py-16 space-y-8">
       <h1 className="text-2xl font-semibold">Scan results — AI-assisted review</h1>
 
       <p className="text-sm">
         Listing analysed:{" "}
-        <a href={result.listingUrl || "#"} className="underline" target="_blank" rel="noreferrer">
+        <a
+          href={result.listingUrl || "#"}
+          className="underline"
+          target="_blank"
+          rel="noreferrer"
+        >
           {result.listingUrl || "Unknown source"}
         </a>
       </p>
 
-      {/* CONFIDENCE */}
       <div className="border rounded-lg p-4 flex items-center gap-3">
         <span className={`w-3 h-3 rounded-full ${confidence.colour}`} />
         <p className="font-medium">
@@ -211,71 +232,95 @@ export default function OnlineResults() {
         </p>
       </div>
 
-      {/* WHAT THIS MEANS */}
-      <div className="border rounded-lg p-4 bg-white/5">
+      <div className="border rounded-lg p-4">
         <h2 className="font-semibold mb-2">What this means for you</h2>
         <p className="text-muted-foreground whitespace-pre-line">
           {confidence.meaning}
         </p>
       </div>
 
-      {/* NEXT STEP GUIDANCE */}
-      <div className="border rounded-lg p-4 bg-white/5">
+      <div className="border rounded-lg p-4">
         <h2 className="font-semibold mb-2">Recommended next step</h2>
-        <p className="text-muted-foreground whitespace-pre-line">
-          {confidence.next}
+        <p className="text-muted-foreground">
+          We recommend booking a CarVerity in-person scan to verify condition and paperwork.
         </p>
       </div>
 
-      {/* PREVIEW SUMMARY */}
+      {/* Preview only */}
       <div className="border rounded-lg p-4">
         <h2 className="font-semibold mb-2">CarVerity analysis — preview</h2>
-        <p className="text-muted-foreground whitespace-pre-line">
-          {summaryPreview}
-          {!isUnlocked && "\n\n(Free preview — the full scan provides a deeper listing-specific breakdown.)"}
+        <p className="text-muted-foreground">
+          The listing suggests the vehicle presents well overall. The full scan explores what this
+          means for you in more depth — including risks, negotiation angles and what to double-check in person.
+        </p>
+        <p className="text-xs mt-2 text-muted-foreground">
+          (Free preview — the full scan provides a deeper listing-specific breakdown.)
         </p>
       </div>
 
-      {/* VEHICLE DETAILS */}
+      {/* Vehicle details */}
       <div className="border rounded-lg p-4">
         <h2 className="font-semibold mb-2">Vehicle details</h2>
         <p>Make: {vehicle.make ?? "—"}</p>
         <p>Model: {vehicle.model ?? "—"}</p>
         <p>Year: {vehicle.year ?? "—"}</p>
         <p>Variant: {vehicle.variant ?? "—"}</p>
-        <p>Import status: {vehicle.importStatus ?? "Sold new in Australia (default)"}</p>
-        <p>Kilometres: {vehicle.kilometres ?? result.kilometres ?? "Not specified"}</p>
+        <p>
+          Import status:{" "}
+          {vehicle.importStatus ?? "Sold new in Australia (default)"}
+        </p>
+        <p>
+          Kilometres: {vehicle.kilometres ?? result.kilometres ?? "Not specified"}
+        </p>
       </div>
 
-      {/* FULL CONTENT — LOCKED */}
+      {missing.length > 0 && (
+        <div className="border rounded-lg p-4 bg-amber-50/10">
+          <h2 className="font-semibold mb-2">Missing or unclear details</h2>
+          <ul className="list-disc ml-5 text-muted-foreground">
+            {missing.map((m, i) => (
+              <li key={i}>{m}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* GATED CONTENT */}
       <BlurredPanel title="Key risk signals">
-        <p className="text-muted-foreground whitespace-pre-line">{fullSummary}</p>
+        <p className="text-muted-foreground whitespace-pre-line">
+          {summary}
+        </p>
       </BlurredPanel>
 
       <BlurredPanel title="Buyer considerations">
-        <p className="text-muted-foreground whitespace-pre-line">{fullSummary}</p>
+        <p className="text-muted-foreground whitespace-pre-line">
+          {summary}
+        </p>
       </BlurredPanel>
 
       <BlurredPanel title="Negotiation insights">
-        <p className="text-muted-foreground whitespace-pre-line">{fullSummary}</p>
+        <p className="text-muted-foreground whitespace-pre-line">
+          {summary}
+        </p>
       </BlurredPanel>
 
-      {!!sections.length && (
+      {sections.length > 0 && (
         <BlurredPanel title="Additional analysis">
           <div className="space-y-4">
             {sections.map((s, i) => (
               <div key={i}>
                 <h3 className="font-semibold mb-1">{s.title}</h3>
-                <p className="text-muted-foreground whitespace-pre-line">{s.content}</p>
+                <p className="text-muted-foreground whitespace-pre-line">
+                  {s.content}
+                </p>
               </div>
             ))}
           </div>
         </BlurredPanel>
       )}
 
-      {/* CONTINUE CTA */}
       {isUnlocked && (
-        <div className="pt-2">
+        <div className="pt-4">
           <button
             onClick={handleContinue}
             className="bg-blue-600 text-white px-5 py-2 rounded shadow"
