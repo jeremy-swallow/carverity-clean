@@ -16,7 +16,8 @@ export default function OnlineStart() {
     saveListingUrl(trimmed);
     console.log("🚗 Listing URL saved:", trimmed);
 
-    navigate("/scan/online/analyzing", { replace: true });
+    // ✅ Correct route (existing analyzing page)
+    navigate("/online/analyzing", { replace: true });
   }
 
   return (
@@ -29,17 +30,14 @@ export default function OnlineStart() {
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">
-            Listing URL
-          </label>
-
+          <label className="block text-sm font-medium mb-1">Listing URL</label>
           <input
             type="url"
             required
             placeholder="https://www.cars24.com.au/..."
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            className="w-full rounded-md border border-white/10 bg-slate-900/60 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-md border border-white/10 bg-slate-900/60 px-3 py-2 text-sm"
           />
         </div>
 

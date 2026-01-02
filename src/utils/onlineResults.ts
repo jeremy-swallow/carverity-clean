@@ -39,16 +39,15 @@ export interface SavedResult {
   notes?: string;
 }
 
-const RESULTS_KEY = "carverity_online_results_v2";
+const STORAGE_KEY = "carverity_online_results_v2";
 const LISTING_URL_KEY = "carverity_online_listing_url";
 
-/* ===========================
+/* ---------------------------
    RESULTS STORAGE
-=========================== */
-
+---------------------------- */
 export function saveOnlineResults(data: SavedResult) {
   try {
-    localStorage.setItem(RESULTS_KEY, JSON.stringify(data));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (err) {
     console.error("❌ Failed to save online results", err);
   }
@@ -56,8 +55,9 @@ export function saveOnlineResults(data: SavedResult) {
 
 export function loadOnlineResults(): SavedResult | null {
   try {
-    const raw = localStorage.getItem(RESULTS_KEY);
-    return raw ? (JSON.parse(raw) as SavedResult) : null;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as SavedResult;
   } catch (err) {
     console.error("❌ Failed to parse stored online results", err);
     return null;
@@ -66,34 +66,28 @@ export function loadOnlineResults(): SavedResult | null {
 
 export function clearOnlineResults() {
   try {
-    localStorage.removeItem(RESULTS_KEY);
+    localStorage.removeItem(STORAGE_KEY);
   } catch (err) {
     console.error("❌ Failed to clear online results", err);
   }
 }
 
-/* ===========================
-   LISTING URL (CANONICAL)
-=========================== */
-
+/* ---------------------------
+   LISTING URL STORAGE
+---------------------------- */
 export function saveListingUrl(url: string) {
   try {
     localStorage.setItem(LISTING_URL_KEY, url);
   } catch (err) {
-    console.error("❌ Failed to save listing URL", err);
+    console.error("❌ Failed to store listing URL", err);
   }
 }
 
 export function loadListingUrl(): string | null {
   try {
     return localStorage.getItem(LISTING_URL_KEY);
-  } catch {
+  } catch (err) {
+    console.error("❌ Failed to load listing URL", err);
     return null;
   }
-}
-
-export function clearListingUrl() {
-  try {
-    localStorage.removeItem(LISTING_URL_KEY);
-  } catch {}
 }
