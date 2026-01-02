@@ -7,20 +7,49 @@ import {
   type SavedResult as BaseSavedResult,
 } from "../utils/onlineResults";
 
+/**
+ * Stored result from localStorage + a couple of UI-only helpers.
+ */
 type DisplayResult = BaseSavedResult & {
   confidenceLabel?: string;
   confidenceCode?: "LOW" | "MODERATE" | "HIGH" | string;
 };
 
+/**
+ * Build a short, user-friendly preview from the long AI text.
+ * Strips **markdown** and trims to a sensible length.
+ */
+function buildPreviewText(text: string, maxChars = 350): string {
+  if (!text) return "";
+
+  // Strip simple markdown markers
+  const stripped = text
+    .replace(/\*\*/g, "")
+    .replace(/[_#>-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (stripped.length <= maxChars) return stripped;
+
+  const truncated = stripped.slice(0, maxChars);
+  const lastFullStop = truncated.lastIndexOf(".");
+  if (lastFullStop > 80) {
+    return truncated.slice(0, lastFullStop + 1);
+  }
+  return truncated + "…";
+}
+
 export default function OnlineResults() {
   const [result, setResult] = useState<DisplayResult | null>(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
 
+  // Load + normalise on mount
   useEffect(() => {
     const stored = loadOnlineResults() as DisplayResult | null;
 
     if (stored) {
-      const locked = { ...stored, isUnlocked: false };
+      // Always start in locked preview mode
+      const locked: DisplayResult = { ...stored, isUnlocked: false };
       saveOnlineResults(locked);
       setResult(locked);
       setIsUnlocked(false);
@@ -29,7 +58,8 @@ export default function OnlineResults() {
 
   function handleUnlock() {
     if (!result) return;
-    const updated = { ...result, isUnlocked: true };
+
+    const updated: DisplayResult = { ...result, isUnlocked: true };
     saveOnlineResults(updated);
     setResult(updated);
     setIsUnlocked(true);
@@ -43,16 +73,16 @@ export default function OnlineResults() {
           It looks like there are no saved online scan results yet.
         </p>
 
-        <div className="flex gap-3 justify-center">
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
             to="/scan/online"
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             Start an online scan
           </Link>
           <Link
             to="/"
-            className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
+            className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Back to homepage
           </Link>
@@ -73,47 +103,49 @@ export default function OnlineResults() {
       ? "Moderate — a few things to confirm"
       : "Not assessed");
 
+  const fullAnalysisBody = result.summary ?? "";
+
+  const previewText = buildPreviewText(fullAnalysisBody || result.conditionSummary || "");
+
+  // Optional structured sections from the backend
   const keyRisks =
     result.sections?.find((s) => s.title === "Key risk signals") ?? null;
-
   const buyerConsiderations =
     result.sections?.find((s) => s.title === "Buyer considerations") ?? null;
-
   const negotiationInsights =
     result.sections?.find((s) => s.title === "Negotiation insights") ?? null;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12 space-y-6">
-
-      {/* Title */}
+      {/* Page title */}
       <h1 className="text-2xl font-semibold mb-1">
         Scan results — AI-assisted review
       </h1>
 
-      {/* Listing reference */}
+      {/* Listing ref */}
       {listingUrl && (
         <p className="text-sm text-muted-foreground">
-          Listing analysed:&nbsp;
+          Listing analysed:{" "}
           <a
             href={listingUrl}
             target="_blank"
             rel="noreferrer"
-            className="underline text-blue-400"
+            className="text-blue-400 underline"
           >
             {listingUrl}
           </a>
         </p>
       )}
 
-      {/* Confidence Bar */}
+      {/* Confidence chip */}
       <div className="rounded-md border border-white/10 bg-white/5 px-4 py-3 flex items-center gap-2 text-sm">
-        <span className="h-2 w-2 rounded-full bg-amber-400" />
+        <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
         <span className="font-medium">
           Confidence assessment: {confidenceLabel}
         </span>
       </div>
 
-      {/* Meaning Summary */}
+      {/* What this means for you */}
       {result.conditionSummary && (
         <section className="rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm leading-relaxed">
           <h2 className="font-semibold text-base mb-1">
@@ -123,47 +155,59 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* Preview Summary */}
-      {result.summary && (
+      {/* Preview: always short, always free */}
+      {previewText && (
         <section className="rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm leading-relaxed space-y-2">
           <h2 className="font-semibold text-base">
             CarVerity analysis — preview
           </h2>
-          <p>{result.summary}</p>
+          <p>{previewText}</p>
           <p className="text-xs opacity-70">
-            (Free preview — the full scan provides a deeper listing-specific breakdown.)
+            (Free preview — the full scan provides a deeper, listing-specific breakdown.)
           </p>
         </section>
       )}
 
-      {/* Vehicle Details */}
+      {/* Vehicle details */}
       <section className="rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm">
         <h2 className="font-semibold text-base mb-2">Vehicle details</h2>
         <dl className="space-y-1">
-          <Row label="Make" value={(result.vehicle as any)?.make} />
-          <Row label="Model" value={(result.vehicle as any)?.model} />
-          <Row label="Year" value={(result.vehicle as any)?.year} />
-          <Row label="Variant" value={(result.vehicle as any)?.variant} />
-          <Row label="Kilometres" value={result.kilometres} />
+          <DetailRow label="Make" value={(result.vehicle as any)?.make} />
+          <DetailRow label="Model" value={(result.vehicle as any)?.model} />
+          <DetailRow label="Year" value={(result.vehicle as any)?.year} />
+          <DetailRow label="Variant" value={(result.vehicle as any)?.variant} />
+          <DetailRow label="Kilometres" value={result.kilometres} />
         </dl>
       </section>
 
-      {/* Premium Sections */}
+      {/* Locked full write-up */}
+      {fullAnalysisBody && (
+        <section className="space-y-2">
+          {renderLockableSection(
+            "Full AI analysis",
+            fullAnalysisBody,
+            isUnlocked,
+            handleUnlock
+          )}
+        </section>
+      )}
+
+      {/* Optional structured premium sections */}
       {(keyRisks || buyerConsiderations || negotiationInsights) && (
         <section className="space-y-4">
-          {Lockable(
+          {renderLockableSection(
             "Key risk signals",
             keyRisks?.content ?? "",
             isUnlocked,
             handleUnlock
           )}
-          {Lockable(
+          {renderLockableSection(
             "Buyer considerations",
             buyerConsiderations?.content ?? "",
             isUnlocked,
             handleUnlock
           )}
-          {Lockable(
+          {renderLockableSection(
             "Negotiation insights",
             negotiationInsights?.content ?? "",
             isUnlocked,
@@ -175,9 +219,9 @@ export default function OnlineResults() {
   );
 }
 
-/* ----------------- Helpers ----------------- */
+/* ------------ Small helpers ------------ */
 
-function Row({ label, value }: { label: string; value: any }) {
+function DetailRow({ label, value }: { label: string; value: any }) {
   return (
     <div className="flex gap-2">
       <dt className="w-32 text-muted-foreground">{label}:</dt>
@@ -186,11 +230,16 @@ function Row({ label, value }: { label: string; value: any }) {
   );
 }
 
-function Lockable(
+/**
+ * Shared lockable section:
+ * - blurred content when locked
+ * - centred CTA to unlock
+ */
+function renderLockableSection(
   title: string,
   body: string,
-  unlocked: boolean,
-  unlock: () => void
+  isUnlocked: boolean,
+  onUnlock: () => void
 ) {
   if (!body) return null;
 
@@ -198,22 +247,23 @@ function Lockable(
     <section className="relative rounded-md border border-white/10 bg-white/5 px-4 py-4 text-sm leading-relaxed overflow-hidden">
       <h2 className="font-semibold text-base mb-2">{title}</h2>
 
-      <div className={unlocked ? "space-y-2" : "space-y-2 blur-sm select-none"}>
-        {body.split("\n").map((line, i) =>
-          line.trim() ? <p key={i}>{line}</p> : <p key={i} className="h-1" />
+      <div className={isUnlocked ? "space-y-2" : "space-y-2 blur-sm select-none"}>
+        {body.split("\n").map((line, idx) =>
+          line.trim() ? <p key={idx}>{line}</p> : <p key={idx} className="h-1" />
         )}
       </div>
 
-      {!unlocked && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto text-center space-y-2 bg-black/60 px-4 py-3 rounded-md">
+      {!isUnlocked && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="pointer-events-auto text-center space-y-2 bg-black/65 px-4 py-3 rounded-md">
             <p className="text-xs opacity-90">
-              Full scan locked — unlock to reveal risk signals,
-              tailored buyer checks and negotiation insights.
+              Full scan locked — unlock to reveal detailed risk signals,
+              tailored buyer checks and negotiation insights for this listing.
             </p>
             <button
-              onClick={unlock}
-              className="rounded-md bg-primary px-4 py-2 text-xs font-medium hover:bg-primary/90"
+              type="button"
+              onClick={onUnlock}
+              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
             >
               Unlock full scan
             </button>
