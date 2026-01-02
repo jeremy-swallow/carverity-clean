@@ -5,9 +5,8 @@ import { useNavigate } from "react-router-dom";
 import {
   saveOnlineResults,
   type SavedResult,
+  loadListingUrl,
 } from "../utils/onlineResults";
-
-const LISTING_URL_KEY = "carverity_online_listing_url";
 
 const STAGES = [
   "Reading the vehicle listing…",
@@ -21,15 +20,14 @@ export default function OnlineAnalyzingListing() {
   const [stageIndex, setStageIndex] = useState(0);
 
   useEffect(() => {
-    const listingUrl = localStorage.getItem(LISTING_URL_KEY);
+    const listingUrl = loadListingUrl();
 
     if (!listingUrl) {
       console.warn("⚠️ No listing URL — aborting scan");
-      navigate("/start-scan", { replace: true });
+      navigate("/scan/online", { replace: true });
       return;
     }
 
-    // 🌀 Rotate visible progress messages every few seconds
     const stageTimer = setInterval(() => {
       setStageIndex((i) => (i + 1) % STAGES.length);
     }, 3500);
@@ -44,20 +42,20 @@ export default function OnlineAnalyzingListing() {
       const res = await fetch("/api/analyze-listing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listingUrl }),
+        body: JSON.stringify({ url: listingUrl }),
       });
 
       const data = await res.json();
 
-      if (!data.ok) {
-        console.error("❌ Scan failed:", data.error);
-        navigate("/start-scan", { replace: true });
+      if (!res.ok || !data.ok) {
+        console.error("❌ Scan failed:", data.error || res.status);
+        navigate("/scan/online", { replace: true });
         return;
       }
 
       const stored: SavedResult = {
         type: "online",
-        step: "/online/results",
+        step: "/scan/online/results",
         createdAt: new Date().toISOString(),
 
         listingUrl,
@@ -66,24 +64,35 @@ export default function OnlineAnalyzingListing() {
         sections: data.sections ?? [],
         photos: data.photos ?? { listing: [], meta: [] },
 
+        // Preview + full content
+        previewText: data.previewText ?? data.summary ?? "",
+        fullAnalysis: data.fullAnalysis ?? data.summary ?? "",
+
         summary: data.summary ?? "",
-        conditionSummary: data.summary ?? "",
+        conditionSummary: data.conditionSummary ?? data.summary ?? "",
+        notes: data.notes ?? "",
 
         kilometres: data.kilometres ?? null,
-        isUnlocked: false, // start in preview / locked state
+        isUnlocked: false,
+
+        confidenceCode: data.confidenceCode ?? null,
+        confidenceSummary:
+          data.confidenceSummary ??
+          (data.confidenceCode === "HIGH"
+            ? "High — looks solid overall"
+            : data.confidenceCode === "LOW"
+            ? "Low — proceed with caution"
+            : "Moderate — a few things to confirm"),
 
         source: data.source ?? "gemini-2.5-flash",
         analysisSource: data.source ?? "gemini-2.5-flash",
-
-        confidenceCode: data.confidenceCode ?? null,
       };
 
       saveOnlineResults(stored);
-
-      navigate("/online/results", { replace: true });
+      navigate("/scan/online/results", { replace: true });
     } catch (err) {
       console.error("❌ Unexpected scan error", err);
-      navigate("/start-scan", { replace: true });
+      navigate("/scan/online", { replace: true });
     }
   }
 
@@ -106,7 +115,8 @@ export default function OnlineAnalyzingListing() {
       </div>
 
       <p className="mt-6 text-xs opacity-60">
-        If this takes longer than 45 seconds, your internet connection may be slow.
+        If this takes longer than 45 seconds, your internet connection may be
+        slow.
       </p>
     </div>
   );

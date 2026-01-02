@@ -1,158 +1,125 @@
 // src/pages/OnlineResults.tsx
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   loadOnlineResults,
   saveOnlineResults,
+  normaliseKilometres,
+  type SavedResult,
 } from "../utils/onlineResults";
 
 export default function OnlineResults() {
   const navigate = useNavigate();
-  // Use any here to keep TS quiet while we stabilise the shape
-  const [data, setData] = useState<any | null>(null);
-  const [isUnlocked, setUnlocked] = useState(false);
+  const [data, setData] = useState<SavedResult | null>(null);
 
   useEffect(() => {
     const stored = loadOnlineResults();
     if (!stored) {
+      // No result saved – send the user back to start an online scan
       navigate("/scan/online", { replace: true });
       return;
     }
 
+    // Ensure vehicle object & unlock flag always exist
+    if (!stored.vehicle) {
+      stored.vehicle = {};
+    }
+    if (stored.isUnlocked === undefined) {
+      stored.isUnlocked = false;
+    }
+
     setData(stored);
-    setUnlocked(!!stored.isUnlocked);
   }, [navigate]);
+
+  function handleUnlock() {
+    if (!data) return;
+    const updated: SavedResult = { ...data, isUnlocked: true };
+    saveOnlineResults(updated);
+    setData(updated);
+  }
 
   if (!data) return null;
 
-  /* ------------------------------
-   * Derived labels / helpers
-   * ------------------------------ */
+  const v = data.vehicle ?? {};
 
-  const confidenceLabel: string =
-    data.confidenceSummary ??
-    (data.confidenceCode === "HIGH"
-      ? "High — looks solid overall"
-      : data.confidenceCode === "LOW"
-      ? "Low — proceed with caution"
-      : data.confidenceCode === "MODERATE"
-      ? "Moderate — a few things to confirm"
-      : "Not assessed");
+  // Support both the new vehicle.kilometres and the older root kilometres
+  const kmValue = v.kilometres ?? data.kilometres ?? null;
 
-  const vehicle = data.vehicle || {};
-  const kilometres =
-    data.kilometres ??
-    vehicle.kilometres ??
-    vehicle.kilometers ??
-    vehicle.km ??
-    null;
+  const previewText =
+    data.previewText ??
+    data.summary ??
+    "No preview is available for this listing.";
 
-  const previewText: string =
-    data.summary || data.conditionSummary || data.preview || "";
-
-  const fullAnalysisText: string =
-    data.fullAnalysis ||
-    (Array.isArray(data.sections)
-      ? data.sections
-          .map((s: any) => `${s.title.toUpperCase()}\n\n${s.content}`)
-          .join("\n\n")
-      : "");
-
-  function handleUnlock() {
-    const updated = { ...data, isUnlocked: true };
-    saveOnlineResults(updated);
-    setData(updated);
-    setUnlocked(true);
-  }
-
-  /* ------------------------------
-   * Render
-   * ------------------------------ */
+  const fullText =
+    data.fullAnalysis ??
+    data.conditionSummary ??
+    data.summary ??
+    "No additional analysis available for this listing.";
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12 space-y-8">
-      {/* Title */}
-      <h1 className="text-2xl font-semibold">
+    <div className="max-w-3xl mx-auto px-4 py-12 space-y-6">
+      {/* Page title */}
+      <h1 className="text-2xl font-semibold mb-2">
         Scan results — AI-assisted review
       </h1>
 
-      {/* Confidence banner */}
-      <div className="rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm">
-        <span className="inline-flex items-center gap-2">
-          <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
+      {/* Confidence pill */}
+      {data.confidenceSummary && (
+        <div className="border border-white/10 rounded-lg px-4 py-3 bg-slate-900/40 text-sm">
+          <span className="inline-block h-2 w-2 rounded-full bg-amber-400 mr-2 align-middle" />
           <span>
-            <strong>Confidence assessment:</strong> {confidenceLabel}
+            <strong>Confidence assessment:</strong> {data.confidenceSummary}
           </span>
-        </span>
-      </div>
-
-      {/* Preview */}
-      {previewText && (
-        <section className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-sm space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-base">
-              CarVerity analysis — preview
-            </h2>
-            <span className="text-[11px] opacity-70">
-              (Free preview — the full scan provides a deeper,
-              listing-specific breakdown.)
-            </span>
-          </div>
-
-          <p className="leading-relaxed whitespace-pre-wrap">
-            {previewText}
-          </p>
-        </section>
+        </div>
       )}
 
-      {/* Vehicle details */}
-      <section className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-sm grid grid-cols-2 gap-y-1">
-        <div className="space-y-1">
-          <div>Make: {vehicle.make || "—"}</div>
-          <div>Year: {vehicle.year || "—"}</div>
-          <div>Kilometres: {kilometres ?? "—"}</div>
-        </div>
-        <div className="space-y-1">
-          <div>Model: {vehicle.model || "—"}</div>
-          <div>Variant: {vehicle.variant || "—"}</div>
+      {/* Preview block */}
+      <section className="border border-white/10 rounded-lg p-4 bg-slate-900/40">
+        <h2 className="font-semibold mb-1 text-sm">
+          CarVerity analysis — preview
+        </h2>
+        <p className="text-xs opacity-70 mb-3">
+          (Free preview — the full scan provides a deeper, listing-specific
+          breakdown.)
+        </p>
+
+        <div className="whitespace-pre-wrap text-sm leading-relaxed">
+          {previewText}
         </div>
       </section>
 
-      {/* Full AI analysis */}
-      <section className="rounded-lg border border-white/10 bg-white/5 px-4 py-4 text-sm relative overflow-hidden">
-        <h2 className="font-semibold text-base mb-2">Full AI analysis</h2>
+      {/* Vehicle details */}
+      <section className="border border-white/10 rounded-lg p-4 bg-slate-900/40">
+        <h3 className="font-semibold mb-3 text-sm">Vehicle details</h3>
 
-        {/* Body content */}
-        <div
-          className={
-            isUnlocked
-              ? "space-y-2"
-              : "space-y-2 blur-sm select-none"
-          }
-        >
-          {fullAnalysisText
-            ? fullAnalysisText.split("\n").map((line, idx) =>
-                line.trim() ? (
-                  <p key={idx}>{line}</p>
-                ) : (
-                  <p key={idx} className="h-1" />
-                )
-              )
-            : (
-              <p className="opacity-70">
-                No additional analysis available for this listing.
-              </p>
-            )}
+        <div className="grid grid-cols-2 gap-y-1 text-sm">
+          <div>Make: {v.make ?? "—"}</div>
+          <div>Model: {v.model ?? "—"}</div>
+          <div>Year: {v.year ?? "—"}</div>
+          <div>Variant: {v.variant ?? "—"}</div>
+          <div>Kilometres: {normaliseKilometres(kmValue)}</div>
+          {v.importStatus && <div>Import status: {v.importStatus}</div>}
+          {v.owners && <div>Known owners: {v.owners}</div>}
         </div>
+      </section>
+
+      {/* Full analysis (locked / unlocked) */}
+      <section className="border border-white/10 rounded-lg p-4 bg-slate-900/40 relative overflow-hidden">
+        <h3 className="font-semibold mb-3 text-sm">Full AI analysis</h3>
+
+        {/* Content area */}
+        <pre className="whitespace-pre-wrap text-sm leading-relaxed opacity-90">
+          {fullText}
+        </pre>
 
         {/* Lock overlay */}
-        {!isUnlocked && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="pointer-events-auto text-center space-y-2 bg-slate-950/80 px-4 py-3 rounded-lg shadow-lg">
-              <p className="text-xs opacity-80">
+        {!data.isUnlocked && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="text-center px-4">
+              <p className="text-xs opacity-80 mb-3">
                 Full scan locked — unlock to reveal detailed risk signals,
-                tailored buyer checks and negotiation insights for this
-                listing.
+                tailored buyer checks and negotiation insights for this listing.
               </p>
               <button
                 type="button"
