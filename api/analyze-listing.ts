@@ -8,77 +8,87 @@ if (!GEMINI_API_KEY) {
 }
 
 // ------------------------------
-// Fetch listing HTML
+// Helper: Fetch listing HTML
 // ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-  if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch listing (${res.status})`);
+  }
+
   return await res.text();
 }
 
 // ------------------------------
-// Extract lightweight vehicle info
+// Helper: Extract simple vehicle fields
 // ------------------------------
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
-  const yearMatch = text.match(/(19|20)\d{2}/);
+  const yearMatch = text.match(/(19|20)\d{2}/); // only realistic years
 
   return {
     make: makeMatch?.[1]?.trim() || "",
     model: modelMatch?.[1]?.trim() || "",
-    year: yearMatch?.[0] || ""
+    year: yearMatch?.[0] || "", // leave blank if uncertain — never guess
   };
 }
 
 // ------------------------------
-// Gemini Prompt (assistive + pricing-aware)
+// Gemini Prompt
 // ------------------------------
 function buildPrompt(listingText: string) {
-  const today = new Date().toISOString().split("T")[0]; // e.g. 2026-01-02
-
   return `
-You are CarVerity — a friendly independent used-car assistant for Australian buyers.
+You are CarVerity — a calm, helpful and independent used-car assistant for Australian buyers.
 
-Your goal is to help the buyer think clearly, reduce risk, and feel confident.
-Use a supportive, practical tone. Avoid speculation or exaggeration.
+Your goal is to help the buyer make an informed and confident decision.
+Write in a friendly, supportive, guidance-oriented tone — not salesy, not alarmist.
 
-Only use facts from the listing text.
+IMPORTANT RULES ABOUT FACTS & MISSING DATA
+• Only use information that clearly appears in the listing text.
+• If a detail is unclear, conflicting, or missing — do NOT guess or invent it.
+• Instead, say that it is unclear and explain why it is worth confirming.
 
-CURRENT DATE: ${today}
+VEHICLE YEAR HANDLING
+• If the year appears unrealistic or outside normal production ranges,
+  do NOT assume a value and do NOT hallucinate a year.
+• Instead, state that the year is uncertain and should be confirmed with
+  registration records, VIN details, or the seller.
 
-DATE RULES
-• Future dates for upcoming or scheduled services are normal — do NOT treat them as risks.
-• Only treat a date as concerning if the listing explicitly says a service was already completed on a date AFTER ${today}.
-• If a date is unclear, do not speculate — ignore it.
+SERVICE HISTORY & DATES
+• Future-dated “next service due” or warranty expiry dates are normal — do not treat them as risks.
+• Only treat a date as suspicious if the listing explicitly claims a completed service in the future.
+• If the meaning of a date is unclear, say so neutrally — do not speculate.
 
-TONAL RULES
-• Consumer-friendly, neutral, confidence-building
-• Do not repeat large chunks of listing text
-• Focus on useful insights, not noise
-• Encourage continuing the process within CarVerity where relevant
+TONE & STYLE
+• Focus on what details mean for the buyer — not just repeating the ad.
+• Explain why a detail matters or how it may influence value, condition or decisions.
+• Avoid exaggeration or absolute claims.
+• Encourage sensible verification steps rather than fear-based warnings.
 
 STRUCTURE YOUR RESPONSE EXACTLY AS:
 
-SUMMARY
-A short, helpful overview of what matters most to the buyer.
+CONFIDENCE ASSESSMENT
+Brief statement: Low Risk / Moderate Risk / Needs Clarification — with one-line reasoning.
+
+WHAT THIS MEANS FOR YOU
+Explain the situation in practical, buyer-focused terms.
+
+CARVERITY ANALYSIS — SUMMARY
+Provide a clear, concise interpretation of the listing information, not a rewrite of it.
 
 KEY RISK SIGNALS
-Only include genuine buyer-relevant risks clearly supported by the listing.
+List only genuine, evidence-based risks supported by the listing text.
 
 BUYER CONSIDERATIONS
-Provide practical guidance to help the buyer make an informed next step.
-Where appropriate, encourage continuing the journey using CarVerity’s
-in-person scan to verify condition and key details — instead of suggesting
-external inspections.
+Supportive, practical guidance that helps the buyer confirm important details.
 
-NEGOTIATION OPPORTUNITIES (optional, gentle and respectful)
-Suggest reasonable discussion points the buyer may choose to raise.
-Avoid confrontational language or guarantees.
+NEGOTIATION INSIGHTS (if appropriate)
+Only include when relevant and reasonable — do not force it.
 
-Do NOT instruct the user to “research prices themselves”.
-If pricing confidence is relevant, refer to CarVerity’s pricing and
-comparison tools to help the buyer understand market value.
+If a detail cannot be confirmed from the listing, say:
+“This detail isn’t clearly stated in the listing and is worth confirming before moving ahead.”
 
 LISTING TEXT
 --------------------------------
@@ -103,7 +113,10 @@ async function callGemini(prompt: string) {
     }
   );
 
-  if (!res.ok) throw new Error(`Gemini API error: ${await res.text()}`);
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini API error: ${err}`);
+  }
 
   const data = await res.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -115,8 +128,10 @@ async function callGemini(prompt: string) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const listingUrl = req.body?.listingUrl ?? req.body?.url;
-    if (!listingUrl)
+
+    if (!listingUrl) {
       return res.status(400).json({ ok: false, error: "Missing listing URL" });
+    }
 
     console.log("🔎 Running AI scan for:", listingUrl);
 
@@ -135,6 +150,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (err: any) {
     console.error("❌ Analysis error:", err);
-    return res.status(500).json({ ok: false, error: err?.message || "Analysis failed" });
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Analysis failed",
+    });
   }
 }
