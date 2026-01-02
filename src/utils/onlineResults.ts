@@ -1,46 +1,115 @@
-/* src/utils/onlineResults.ts */
+// src/utils/onlineResults.ts
 
+// ------------------------------
+// Types
+// ------------------------------
 export interface ResultSection {
   title: string;
   content: string;
 }
 
+export interface SavedPhotos {
+  listing: string[];
+  meta?: any[];
+}
+
 export interface SavedResult {
+  // literal type so TS knows this is an online scan
   type: "online";
 
+  // where in the flow the user currently is
   step: string;
+
+  // ISO timestamp of when this result was created
   createdAt: string;
 
+  // listing + vehicle basics
   listingUrl: string | null;
   vehicle: any;
 
-  // Free preview summary
-  summary?: string;
-  conditionSummary?: string;
+  // AI / analysis output (structured sections)
+  sections: ResultSection[];
+  signals?: any[];
 
-  // Unlocked full scan body
+  // listing photos
+  photos: SavedPhotos;
+
+  // gating
+  isUnlocked: boolean;
+
+  // Optional metadata
+  source?: string;
+  analysisSource?: string;
+  sellerType?: string;
+
+  // Confidence from backend AI
+  confidenceCode?: "LOW" | "MODERATE" | "HIGH" | null;
+
+  // Summaries / preview
+  conditionSummary: string;
+  summary?: string;
+
+  // Optional: a single long-body text if backend ever sends one
   fullText?: string;
 
-  // Optional structured sections support (legacy)
-  sections?: ResultSection[];
-
+  // Extra fields we want to carry through the flow
   kilometres?: string | number | null;
-
-  isUnlocked: boolean;
+  owners?: string;
+  notes?: string;
 }
 
-const STORAGE_KEY = "carverity_online_results_v2";
+// ------------------------------
+// Storage keys
+// ------------------------------
+const RESULTS_KEY = "carverity_online_results_v2";
+const LISTING_URL_KEY = "carverity_online_listing_url";
 
+// ------------------------------
+// Results helpers
+// ------------------------------
 export function saveOnlineResults(data: SavedResult) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  try {
+    localStorage.setItem(RESULTS_KEY, JSON.stringify(data));
+  } catch (err) {
+    console.error("❌ Failed to save online results", err);
+  }
 }
 
 export function loadOnlineResults(): SavedResult | null {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return null;
-  return JSON.parse(raw) as SavedResult;
+  try {
+    const raw = localStorage.getItem(RESULTS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as SavedResult;
+  } catch (err) {
+    console.error("❌ Failed to parse stored online results", err);
+    return null;
+  }
 }
 
 export function clearOnlineResults() {
-  localStorage.removeItem(STORAGE_KEY);
+  try {
+    localStorage.removeItem(RESULTS_KEY);
+  } catch (err) {
+    console.error("❌ Failed to clear online results", err);
+  }
+}
+
+// ------------------------------
+// Listing URL helpers
+// ------------------------------
+export function saveListingUrl(url: string) {
+  try {
+    localStorage.setItem(LISTING_URL_KEY, url);
+  } catch (err) {
+    console.error("❌ Failed to save listing URL", err);
+  }
+}
+
+export function loadListingUrl(): string | null {
+  try {
+    return localStorage.getItem(LISTING_URL_KEY);
+  } catch (err) {
+    console.error("❌ Failed to load listing URL", err);
+    return null;
+  }
 }
