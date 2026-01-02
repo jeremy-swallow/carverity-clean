@@ -1,67 +1,85 @@
 // src/utils/onlineResults.ts
 
-// ---------- Shared types ----------
+/* =========================================================
+   Types
+========================================================= */
+
+export interface VehicleInfo {
+  make: string;
+  model: string;
+  year: string | number;
+  variant?: string | null;
+  // allow null + undefined so all callers are happy
+  kilometres?: string | number | null | undefined;
+
+  importStatus?: string | null;
+  owners?: string | null;
+}
 
 export interface ResultSection {
   title: string;
   content: string;
 }
 
-export interface ListingPhotos {
+export interface SavedPhotos {
   listing: string[];
   meta?: any[];
 }
 
-export interface VehicleInfo {
-  make?: string;
-  model?: string;
-  year?: string | number;
-  variant?: string;
-  kilometres?: string | number | null;
-  importStatus?: string;
-  owners?: string;
-}
-
 export interface SavedResult {
+  // identity / flow
   type: "online";
   step: string;
   createdAt: string;
 
-  listingUrl: string | null;
-
+  // listing + vehicle
+  listingUrl?: string | null;
   vehicle: VehicleInfo;
 
-  // Some older code stores kms here too
-  kilometres?: string | number | null;
-
-  // Text blocks
+  // preview + full text
+  preview: string;
   previewText?: string;
   fullAnalysis?: string;
 
-  summary?: string;
-  conditionSummary?: string;
-  notes?: string;
+  // lock state
+  isUnlocked: boolean;
 
+  // structured content
   sections?: ResultSection[];
   signals?: any[];
-  photos?: ListingPhotos;
+  photos?: SavedPhotos;
 
-  confidenceCode?: "LOW" | "MODERATE" | "HIGH" | string | null;
-  confidenceSummary?: string;
+  // confidence metadata
+  confidenceCode?: string;
+  confidenceAssessment?: string;
 
-  // Model + pipeline metadata
+  // legacy / optional metadata
   source?: string;
   analysisSource?: string;
+  sellerType?: string;
+  conditionSummary?: string;
+  summary?: string;
 
-  isUnlocked: boolean;
+  // duplicated for older code paths
+  kilometres?: string | number | null | undefined;
+  owners?: string;
+  notes?: string;
+
+  // safety net so extra fields (like previewText, confidenceCode, etc.)
+  // never cause "object literal may only specify known properties" errors
+  [key: string]: any;
 }
 
-// ---------- Storage keys ----------
+/* =========================================================
+   Storage keys
+========================================================= */
 
-const STORAGE_KEY = "carverity_online_results_v2";
+const STORAGE_KEY = "carverity_online_results_v3";
 const LISTING_URL_KEY = "carverity_online_listing_url";
 
-// ---------- Storage helpers ----------
+/* =========================================================
+   Results storage
+========================================================= */
 
 export function saveOnlineResults(data: SavedResult) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -69,12 +87,18 @@ export function saveOnlineResults(data: SavedResult) {
 
 export function loadOnlineResults(): SavedResult | null {
   const raw = localStorage.getItem(STORAGE_KEY);
-  return raw ? (JSON.parse(raw) as SavedResult) : null;
+  if (!raw) return null;
+
+  try {
+    return JSON.parse(raw) as SavedResult;
+  } catch {
+    return null;
+  }
 }
 
-export function clearOnlineResults() {
-  localStorage.removeItem(STORAGE_KEY);
-}
+/* =========================================================
+   Listing URL helpers (Start + Analyzing pages)
+========================================================= */
 
 export function saveListingUrl(url: string) {
   localStorage.setItem(LISTING_URL_KEY, url);
@@ -84,32 +108,26 @@ export function loadListingUrl(): string | null {
   return localStorage.getItem(LISTING_URL_KEY);
 }
 
-// ---------- Normalisers ----------
+/* =========================================================
+   Normalisers
+========================================================= */
 
-export function normaliseKilometres(value?: string | number | null) {
-  if (value === null || value === undefined || value === "") return "—";
+export function normaliseKilometres(km?: string | number | null) {
+  if (km === undefined || km === null || km === "") return null;
+
   const n =
-    typeof value === "string"
-      ? parseInt(value.replace(/\D/g, ""), 10)
-      : value;
-  if (isNaN(n)) return "—";
-  return n.toLocaleString("en-AU") + " km";
+    typeof km === "string" ? parseInt(km.replace(/\D/g, ""), 10) : km;
+
+  if (isNaN(n)) return null;
+  return `${n.toLocaleString()} km`;
 }
 
-// Kept for older callers – safe normalisation of vehicle block
-export function normaliseVehicle(
-  vehicle: VehicleInfo | null | undefined
-): VehicleInfo {
-  if (!vehicle) return {};
-  const v: VehicleInfo = { ...vehicle };
+export function normaliseVehicle(v: VehicleInfo): VehicleInfo {
+  const formattedKm = normaliseKilometres(v.kilometres ?? null);
 
-  if (v.kilometres !== null && v.kilometres !== undefined && v.kilometres !== "") {
-    const n =
-      typeof v.kilometres === "string"
-        ? parseInt(v.kilometres.replace(/\D/g, ""), 10)
-        : v.kilometres;
-    if (!isNaN(n)) v.kilometres = n;
-  }
-
-  return v;
+  return {
+    ...v,
+    kilometres: formattedKm ?? null,
+    variant: v.variant || "—",
+  };
 }
