@@ -1,4 +1,3 @@
-// src/pages/OnlineAnalyzingListing.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -28,7 +27,6 @@ export default function OnlineAnalyzingListing() {
       return;
     }
 
-    // 🌀 Rotate visible progress messages every few seconds
     const stageTimer = setInterval(() => {
       setStageIndex((i) => (i + 1) % STAGES.length);
     }, 3500);
@@ -66,11 +64,12 @@ export default function OnlineAnalyzingListing() {
         conditionSummary: data.summary ?? "",
         kilometres: data.kilometres ?? null,
         isUnlocked: true,
-        source: data.source ?? "gemini",
+        source: data.source ?? "gemini-2.5-flash",
+        // 🔹 Persist machine-readable confidence from backend
+        confidenceCode: data.confidenceCode ?? null,
       };
 
       saveOnlineResults(stored);
-
       navigate("/online/results", { replace: true });
     } catch (err) {
       console.error("❌ Unexpected scan error", err);

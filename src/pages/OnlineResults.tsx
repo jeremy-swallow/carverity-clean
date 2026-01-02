@@ -33,32 +33,45 @@ export default function OnlineResults() {
     (result.summary?.trim() || result.conditionSummary?.trim()) ||
     "No AI summary was returned for this listing — but the details below were successfully extracted.";
 
-  // -------------------------------
-  // Confidence / Risk Heuristic
-  // -------------------------------
-  function assessConfidence() {
-    const text = summary.toLowerCase();
+  // 🔹 Confidence now comes ONLY from backend
+  const confidenceCode =
+    (result as any).confidenceCode?.toUpperCase?.() ?? null;
 
-    if (text.includes("significant") || text.includes("major") || text.includes("high risk")) {
-      return { level: "high" as const, label: "High Risk", colour: "bg-red-600" };
+  function getConfidenceDisplay() {
+    switch (confidenceCode) {
+      case "LOW":
+        return {
+          label: "Low — comfortable so far",
+          colour: "bg-emerald-600",
+          meaning:
+            "This listing appears generally positive based on the available information. It still makes sense to confirm key details, but nothing concerning stands out so far.",
+        };
+      case "MODERATE":
+        return {
+          label: "Moderate — a few things to confirm",
+          colour: "bg-amber-500",
+          meaning:
+            "This listing looks mostly fine, but a couple of details are worth confirming in person before moving ahead. Clarifying these points will help you feel confident about the next step.",
+        };
+      case "HIGH":
+        return {
+          label: "High — confirm important details first",
+          colour: "bg-red-600",
+          meaning:
+            "This listing includes details that should be confirmed before progressing further. It may still be suitable — but checking the unclear points will help you avoid surprises.",
+        };
+      default:
+        return {
+          label: "Not assessed",
+          colour: "bg-slate-400",
+          meaning:
+            "Confidence could not be determined from the AI response for this listing.",
+        };
     }
-
-    if (
-      text.includes("clarify") ||
-      text.includes("unclear") ||
-      text.includes("requires confirmation")
-    ) {
-      return { level: "medium" as const, label: "Moderate Risk", colour: "bg-amber-500" };
-    }
-
-    return { level: "low" as const, label: "Low Risk", colour: "bg-emerald-600" };
   }
 
-  const confidence = assessConfidence();
+  const confidence = getConfidenceDisplay();
 
-  // -------------------------------
-  // Missing / Unclear Details
-  // -------------------------------
   const missing: string[] = [];
 
   if (!vehicle.kilometres && !result.kilometres) {
@@ -68,31 +81,18 @@ export default function OnlineResults() {
   if (!vehicle.importStatus) missing.push("Import / compliance status not listed");
   if (!result.photos?.listing?.length) missing.push("No listing photos extracted");
 
-  // -------------------------------
-  // Continue → next actions
-  // -------------------------------
   function handleContinue() {
-    // Extra guard for TypeScript + runtime safety
     if (!result) return;
 
     const updated: SavedResult = {
       ...result,
-      type: "online",
       step: "/online/next-actions",
-      createdAt: result.createdAt ?? new Date().toISOString(),
-      listingUrl: result.listingUrl ?? "",
-      vehicle: result.vehicle ?? {},
-      sections: result.sections ?? [],
-      photos: result.photos ?? { listing: [], meta: [] },
       conditionSummary: result.conditionSummary ?? summary,
-      summary: result.summary ?? summary,
-      kilometres: result.kilometres ?? null,
-      isUnlocked: result.isUnlocked ?? true,
     };
 
-    saveOnlineResults(updated);
-    setResult(updated);
-    navigate("/online/next-actions", { replace: true });
+      saveOnlineResults(updated);
+      setResult(updated);
+      navigate("/online/next-actions", { replace: true });
   }
 
   return (
@@ -111,7 +111,7 @@ export default function OnlineResults() {
         </a>
       </p>
 
-      {/* CONFIDENCE BADGE */}
+      {/* CONFIDENCE BADGE — backend-aligned */}
       <div className="border rounded-lg p-4 flex items-center gap-3">
         <span className={`w-3 h-3 rounded-full ${confidence.colour}`}></span>
         <p className="font-medium">
@@ -123,14 +123,7 @@ export default function OnlineResults() {
       <div className="border rounded-lg p-4 bg-white/5">
         <h2 className="font-semibold mb-2">What this means for you</h2>
         <p className="text-muted-foreground whitespace-pre-line">
-          {confidence.level === "low" &&
-            "This listing appears generally positive based on the available information. It still makes sense to confirm key details, but there are no strong risk signals at first glance."}
-
-          {confidence.level === "medium" &&
-            "This listing looks potentially suitable, but a few details are unclear and should be confirmed before progressing further. Clarifying these points will help you avoid surprises later."}
-
-          {confidence.level === "high" &&
-            "This listing contains details that could affect confidence in the purchase. It may still be worth considering — but only after confirming missing or uncertain information and carefully reviewing condition and history."}
+          {confidence.meaning}
         </p>
       </div>
 
@@ -176,7 +169,7 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* EXTRA AI SECTIONS (if any) */}
+      {/* EXTRA AI SECTIONS */}
       {sections.length > 0 && (
         <div className="space-y-4">
           {sections.map((s, i) => (
