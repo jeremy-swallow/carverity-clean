@@ -32,7 +32,9 @@ export default function MyScans() {
   const navigate = useNavigate();
   const [scans, setScans] = useState<SavedScan[]>([]);
   const [query, setQuery] = useState("");
-  const [filterType, setFilterType] = useState<"all" | "online" | "in-person">("all");
+  const [filterType, setFilterType] = useState<"all" | "online" | "in-person">(
+    "all"
+  );
   const [renameId, setRenameId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
 
@@ -104,19 +106,13 @@ export default function MyScans() {
     () =>
       [...scans].sort(
         (a, b) =>
-          new Date(b.createdAt).getTime() -
-          new Date(a.createdAt).getTime()
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ),
     [scans]
   );
 
   const filtered = sorted.filter((s) => {
-    const text = [
-      s.title,
-      s.vehicle?.make,
-      s.vehicle?.model,
-      s.vehicle?.year,
-    ]
+    const text = [s.title, s.vehicle?.make, s.vehicle?.model, s.vehicle?.year]
       .join(" ")
       .toLowerCase();
 
@@ -141,7 +137,6 @@ export default function MyScans() {
     return (
       <div className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4">
         <div className="flex flex-col gap-2">
-
           {isRenaming ? (
             <div className="flex gap-2">
               <input
@@ -200,6 +195,21 @@ export default function MyScans() {
             {scan.fromOnlineScan && scan.type === "in-person" && (
               <span className="px-2 py-1 rounded-lg text-xs bg-purple-700/60">
                 Follow-up
+              </span>
+            )}
+
+            {/* NEW — show lock state for online scans */}
+            {scan.type === "online" && (
+              <span
+                className={`px-2 py-1 rounded-lg text-xs ${
+                  scan.isUnlocked
+                    ? "bg-emerald-500/80 text-black"
+                    : "bg-amber-400/80 text-black"
+                }`}
+              >
+                {scan.isUnlocked
+                  ? "Unlocked — full scan"
+                  : "Locked — preview only"}
               </span>
             )}
           </div>

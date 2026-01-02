@@ -56,17 +56,22 @@ export default function OnlineAnalyzingListing() {
         type: "online",
         step: "/online/results",
         createdAt: new Date().toISOString(),
+
         listingUrl,
         vehicle: data.vehicle ?? {},
+
         sections: data.sections ?? [],
         photos: data.photos ?? { listing: [], meta: [] },
+
         summary: data.summary ?? "",
         conditionSummary: data.summary ?? "",
+
         kilometres: data.kilometres ?? null,
-        isUnlocked: true,
+
+        // 🚧 NEW — scans begin locked until user pays or uses a credit
+        isUnlocked: false,
+
         source: data.source ?? "gemini-2.5-flash",
-        // 🔹 Persist machine-readable confidence from backend
-        confidenceCode: data.confidenceCode ?? null,
       };
 
       saveOnlineResults(stored);
