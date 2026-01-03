@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { loadOnlineResults } from "../utils/onlineResults";
+import {
+  loadOnlineResults,
+  saveOnlineResults,
+} from "../utils/onlineResults";
 
 export default function OnlineResults() {
   const [result, setResult] = useState<any>(null);
@@ -7,6 +10,14 @@ export default function OnlineResults() {
   useEffect(() => {
     setResult(loadOnlineResults());
   }, []);
+
+  function unlockScan() {
+    if (!result) return;
+
+    const updated = { ...result, isUnlocked: true };
+    saveOnlineResults(updated);
+    setResult(updated);
+  }
 
   if (!result) {
     return (
@@ -28,7 +39,6 @@ export default function OnlineResults() {
     isUnlocked,
   } = result;
 
-  // Prefer stored preview, otherwise derive from summary text
   const baseSummaryText: string | null = summary || fullSummary || null;
 
   const derivedPreview =
@@ -83,28 +93,32 @@ export default function OnlineResults() {
         )}
       </section>
 
-      {/* FULL REPORT (LOCKED / UNLOCKED) */}
-      <section className="rounded-lg border border-white/10 p-4">
+      {/* FULL REPORT */}
+      <section className="rounded-lg border border-white/10 p-4 relative">
         <h2 className="text-sm text-muted-foreground mb-1">
           Full CarVerity report
         </h2>
 
-        {/* LOCKED — BLURRED */}
+        {/* LOCKED (BLURRED) */}
         {!isUnlocked && (
           <div className="relative">
-            <div className="blur-sm select-none pointer-events-none opacity-60">
+
+            {/* The blurred content remains visible but non-interactive */}
+            <div className="blur-sm opacity-60 select-none pointer-events-none">
               <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
-                {fullReportText || "Full report loading…"}
+                {fullReportText}
               </pre>
             </div>
 
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-lg border border-white/10">
+            {/* Overlay — NOW allows clicks on the button */}
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 rounded-lg border border-white/10">
               <p className="text-slate-200 text-sm px-6 text-center mb-3">
                 This section includes the full analysis, buyer considerations,
                 negotiation insights and general ownership notes.
               </p>
 
               <button
+                onClick={unlockScan}
                 className="px-4 py-2 rounded-md bg-indigo-500 text-white text-sm font-medium shadow hover:bg-indigo-400 transition"
               >
                 Unlock full scan
@@ -117,7 +131,7 @@ export default function OnlineResults() {
           </div>
         )}
 
-        {/* UNLOCKED — CLEAR */}
+        {/* UNLOCKED (CLEAR VIEW) */}
         {isUnlocked && (
           <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
             {fullReportText}
