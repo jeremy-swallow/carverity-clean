@@ -2,112 +2,53 @@ import { useEffect, useState } from "react";
 import {
   loadOnlineResults,
   saveOnlineResults,
+  type SavedResult,
 } from "../utils/onlineResults";
 
-interface ResultSection {
-  title: string;
-  content: string;
-}
-
-interface SavedResult {
-  type: "online";
-  step: string;
-  createdAt: string;
-
-  listingUrl: string | null;
-  vehicle: any;
-
-  confidenceCode?: "LOW" | "MODERATE" | "HIGH";
-
-  previewSummary?: string | null;
-  fullSummary?: string | null;
-  summary?: string | null;
-
-  sections: ResultSection[];
-  photos: any;
-
-  conditionSummary: string;  // ✅ REQUIRED FIELD
-  isUnlocked: boolean;
-}
+const UNLOCK_KEY = "carverity_test_full_unlock";
 
 /* =========================================================
-   UI Helpers
+   Small UI helpers
 ========================================================= */
 
-function Card(props: any) {
+function SectionCard({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-5 shadow-lg">
-      {props.children}
-    </div>
+    <section className="rounded-2xl border border-white/10 bg-slate-900/60 shadow-[0_0_18px_rgba(0,0,0,0.25)] backdrop-blur-sm px-5 py-5 md:px-7 md:py-6 space-y-3">
+      <h2 className="flex items-center gap-2 text-sm tracking-wide font-semibold text-slate-200">
+        {icon && <span className="text-base">{icon}</span>}
+        {title.toUpperCase()}
+      </h2>
+      <div className="prose prose-invert max-w-none prose-p:leading-relaxed prose-li:leading-relaxed">
+        {children}
+      </div>
+    </section>
   );
 }
 
-function Pill({ code }: { code?: string }) {
-  if (!code) return null;
-
-  const palette: Record<string, string> = {
-    LOW: "bg-emerald-900/40 text-emerald-200 border-emerald-700/40",
-    MODERATE: "bg-amber-900/40 text-amber-200 border-amber-700/40",
-    HIGH: "bg-rose-900/40 text-rose-200 border-rose-700/40",
+function Pill({ label, tone }: { label: string; tone: "low" | "moderate" | "high" | "na" }) {
+  const toneMap: Record<typeof tone, string> = {
+    low: "bg-emerald-500/15 text-emerald-300 border border-emerald-400/25",
+    moderate: "bg-amber-500/15 text-amber-300 border border-amber-400/25",
+    high: "bg-rose-500/15 text-rose-300 border border-rose-400/25",
+    na: "bg-slate-500/15 text-slate-300 border border-slate-400/25",
   };
-
   return (
-    <span className={`px-3 py-1 rounded-full text-xs border ${palette[code] || ""}`}>
-      {code} — listing confidence
+    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${toneMap[tone]}`}>
+      {label}
     </span>
   );
 }
 
 /* =========================================================
-   Conversion-optimised teaser builder
-========================================================= */
-
-function buildPreviewTeaser(
-  confidence: string | undefined,
-  source: string | null | undefined
-): string {
-  const DEFAULT =
-    "The full scan gives clearer guidance on what’s worth checking in person, along with neutral risk context and practical negotiation tips tailored to this listing.";
-
-  const first = source
-    ?.replace(/\*\*|#+|\-/g, "")
-    .split(/\.\s+/)[0]
-    .trim();
-
-  const usable =
-    first && first.length > 40 && !first.includes("CONFIDENCE_CODE")
-      ? first.slice(0, 200).trim()
-      : null;
-
-  if (confidence === "LOW") {
-    return (
-      (usable ||
-        "This scan suggests the listing generally looks comfortable so far, with no major concerns standing out.") +
-      ". The full report includes supportive inspection tips and confidence-based context to help you feel reassured when you see the car in person."
-    );
-  }
-
-  if (confidence === "MODERATE") {
-    return (
-      (usable ||
-        "This scan highlights a few details that are worth confirming in person, while the overall listing still presents positively.") +
-      ". The full report adds clearer guidance on what to focus on during inspection, plus helpful context and negotiation pointers tailored to this car."
-    );
-  }
-
-  if (confidence === "HIGH") {
-    return (
-      (usable ||
-        "This scan found a few meaningful details that would benefit from closer attention when you inspect the car in person.") +
-      ". The full report provides calm, practical guidance on what to check carefully, along with supportive next-step advice for your decision."
-    );
-  }
-
-  return DEFAULT;
-}
-
-/* =========================================================
-   Component
+   Main Component
 ========================================================= */
 
 export default function OnlineResults() {
@@ -120,31 +61,26 @@ export default function OnlineResults() {
 
   function unlockForTesting() {
     if (!result) return;
-
-    // ✅ Preserve ALL required properties safely
     const updated: SavedResult = {
       ...result,
       isUnlocked: true,
-      conditionSummary: result.conditionSummary ?? "",
     };
-
     saveOnlineResults(updated);
+    localStorage.setItem(UNLOCK_KEY, "1");
     setResult(updated);
   }
 
   if (!result) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+      <div className="max-w-3xl mx-auto px-4 py-20 text-center">
         <h1 className="text-xl font-semibold mb-2">No scan data found</h1>
-        <p className="text-muted-foreground">
-          Run a scan to view your CarVerity results.
-        </p>
+        <p className="text-slate-400">Run a scan to view your CarVerity results.</p>
       </div>
     );
   }
 
   const {
-    vehicle,
+    vehicle = {},
     confidenceCode,
     previewSummary,
     fullSummary,
@@ -152,71 +88,102 @@ export default function OnlineResults() {
     isUnlocked,
   } = result;
 
-  const reportText = fullSummary || summary || "";
-  const teaser = buildPreviewTeaser(confidenceCode, previewSummary || reportText);
+  const confidenceTone =
+    confidenceCode === "LOW"
+      ? "low"
+      : confidenceCode === "MODERATE"
+      ? "moderate"
+      : confidenceCode === "HIGH"
+      ? "high"
+      : "na";
+
+  const confidenceLabel = confidenceCode
+    ? `${confidenceCode} — listing confidence`
+    : "Not available";
+
+  const reportText = isUnlocked ? fullSummary || summary || "" : "";
+  const hasStoredUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
+
+  const showUnlocked = isUnlocked || hasStoredUnlock;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
-
-      <div className="bg-gradient-to-r from-indigo-700/60 to-purple-700/60 border border-white/10 rounded-2xl p-6 shadow-2xl">
-        <h1 className="text-lg font-semibold">CarVerity online scan results</h1>
-        <p className="text-slate-200/80">
+    <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
+      {/* Header */}
+      <div className="rounded-2xl bg-gradient-to-r from-violet-700/80 to-indigo-600/80 border border-white/10 shadow-lg px-6 py-6">
+        <h1 className="text-lg font-semibold text-white mb-1">
+          CarVerity online scan results
+        </h1>
+        <p className="text-slate-200/90 text-sm">
           Independent guidance based on the details in this listing.
         </p>
       </div>
 
-      <Card>
-        <h2 className="text-xs font-medium text-slate-300 mb-2 tracking-wide">
-          LISTING CONFIDENCE
-        </h2>
-        <Pill code={confidenceCode} />
-      </Card>
+      {/* Confidence */}
+      <SectionCard title="Listing confidence" icon="🧭">
+        <Pill label={confidenceLabel} tone={confidenceTone as any} />
+      </SectionCard>
 
-      {!isUnlocked && (
-        <Card>
-          <h2 className="text-xs font-medium text-slate-300 mb-2 tracking-wide">
-            CARVERITY ANALYSIS — PREVIEW
-          </h2>
+      {/* Preview / Locked Card */}
+      {!showUnlocked && (
+        <SectionCard title="CarVerity analysis — preview" icon="🔒">
+          <p className="text-slate-300">
+            {previewSummary ||
+              "This scan highlights the key things worth checking when you see the car in person. Unlock the full report to see the detailed guidance, inspection checklist, and negotiation suggestions tailored to this listing."}
+          </p>
 
-          <p className="text-slate-100 mb-3">{teaser}</p>
-
-          <div className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-slate-300 text-sm mb-3">
+          <div className="mt-3 rounded-xl border border-white/10 bg-slate-800/40 px-4 py-3 text-sm text-slate-400 select-none">
             Full report content is locked
           </div>
 
           <button
-            className="bg-indigo-500 hover:bg-indigo-400 text-white px-4 py-2 rounded-lg text-sm font-medium"
             onClick={unlockForTesting}
+            className="mt-3 inline-flex items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-500 transition px-4 py-2 text-sm font-medium text-white shadow"
           >
             Unlock full scan (testing)
           </button>
 
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-2">
             In the live app this area unlocks after purchasing a scan.
           </p>
-        </Card>
+        </SectionCard>
       )}
 
-      {isUnlocked && (
-        <Card>
-          <pre className="whitespace-pre-wrap text-slate-100 leading-relaxed text-sm">
+      {/* Unlocked Full Scan */}
+      {showUnlocked && (
+        <SectionCard title="Full CarVerity report" icon="✨">
+          <div className="whitespace-pre-wrap text-slate-200 leading-relaxed">
             {reportText}
-          </pre>
-        </Card>
+          </div>
+
+          {!isUnlocked && (
+            <p className="text-xs text-slate-500">
+              (Unlocked in testing mode — mirrors paid unlock behaviour)
+            </p>
+          )}
+        </SectionCard>
       )}
 
-      <Card>
-        <h2 className="text-xs font-medium text-slate-300 mb-2 tracking-wide">
-          VEHICLE DETAILS
-        </h2>
-
-        <div className="divide-y divide-white/10 text-slate-100 text-sm">
-          <div className="flex justify-between py-1"><span>Make</span><span>{vehicle?.make}</span></div>
-          <div className="flex justify-between py-1"><span>Model</span><span>{vehicle?.model}</span></div>
-          <div className="flex justify-between py-1"><span>Year</span><span>{vehicle?.year}</span></div>
-          <div className="flex justify-between py-1"><span>Kilometres</span><span>{vehicle?.kilometres}</span></div>
+      {/* Vehicle Details */}
+      <SectionCard title="Vehicle details" icon="🚗">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-y-3 text-sm">
+          <div>
+            <div className="text-slate-400">Make</div>
+            <div className="font-medium">{vehicle.make || "—"}</div>
+          </div>
+          <div>
+            <div className="text-slate-400">Model</div>
+            <div className="font-medium">{vehicle.model || "—"}</div>
+          </div>
+          <div>
+            <div className="text-slate-400">Year</div>
+            <div className="font-medium">{vehicle.year || "—"}</div>
+          </div>
+          <div>
+            <div className="text-slate-400">Kilometres</div>
+            <div className="font-medium">{vehicle.kilometres || "—"}</div>
+          </div>
         </div>
-      </Card>
+      </SectionCard>
     </div>
   );
 }
