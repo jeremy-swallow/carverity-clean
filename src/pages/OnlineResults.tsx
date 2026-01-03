@@ -1,31 +1,15 @@
+// src/pages/OnlineResults.tsx
 import { useEffect, useState } from "react";
-
-interface VehicleInfo {
-  make?: string;
-  model?: string;
-  year?: string;
-  kilometres?: string | null;
-}
-
-interface ScanResult {
-  summary: string | null;
-  confidenceCode?: string | null;
-  vehicle: VehicleInfo;
-  isUnlocked?: boolean;
-}
+import {
+  loadOnlineResults,
+  type SavedResult,
+} from "../utils/onlineResults";
 
 export default function OnlineResults() {
-  const [result, setResult] = useState<ScanResult | null>(null);
+  const [result, setResult] = useState<SavedResult | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem("carverity_online_result_v2");
-    if (stored) {
-      try {
-        setResult(JSON.parse(stored));
-      } catch {
-        setResult(null);
-      }
-    }
+    setResult(loadOnlineResults());
   }, []);
 
   if (!result) {
@@ -39,14 +23,23 @@ export default function OnlineResults() {
     );
   }
 
-  const { vehicle, summary, confidenceCode, isUnlocked } = result;
+  const {
+    vehicle,
+    confidenceCode,
+    isUnlocked,
+    previewSummary,
+    fullSummary,
+    summary,
+  } = result;
 
-  const preview =
+  const previewText =
+    previewSummary ??
     summary
       ?.split("\n")
-      .slice(0, 4)
+      .slice(0, 3)
       .join(" ")
-      .trim() || null;
+      .trim() ??
+    null;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
@@ -57,33 +50,36 @@ export default function OnlineResults() {
           Listing confidence
         </h2>
         <p className="text-white font-medium">
-          {confidenceCode ? `${confidenceCode} — listing confidence` : "Not available"}
+          {confidenceCode
+            ? `${confidenceCode} — listing confidence`
+            : "Not available"}
         </p>
       </section>
 
-      {/* PREVIEW (FREE VIEW) */}
+      {/* PREVIEW / FULL */}
       <section className="rounded-lg border border-white/10 p-4">
         <h2 className="text-sm text-muted-foreground mb-1">
           CarVerity analysis — preview
         </h2>
 
-        {!summary && (
+        {!previewText && !fullSummary && (
           <p className="text-muted-foreground">
             No preview available.
           </p>
         )}
 
-        {summary && !isUnlocked && (
+        {!isUnlocked && previewText && (
           <p className="text-slate-200 text-sm leading-relaxed">
-            {preview}… <span className="text-indigo-400">
-              Unlock full scan to see the complete report.
+            {previewText}…{" "}
+            <span className="text-indigo-400">
+              Unlock full scan to read the complete report.
             </span>
           </p>
         )}
 
-        {summary && isUnlocked && (
+        {isUnlocked && (
           <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
-            {summary}
+            {fullSummary ?? summary ?? ""}
           </pre>
         )}
       </section>

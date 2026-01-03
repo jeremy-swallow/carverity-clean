@@ -4,9 +4,9 @@ import { useNavigate } from "react-router-dom";
 import {
   saveOnlineResults,
   type SavedResult,
+  LISTING_URL_KEY,
+  normaliseVehicle,
 } from "../utils/onlineResults";
-
-const LISTING_URL_KEY = "carverity_online_listing_url";
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
@@ -33,21 +33,11 @@ export default function OnlineAnalyzing() {
         body: JSON.stringify({ listingUrl }),
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("❌ Scan failed:", text);
-        throw new Error(text || "Scan failed");
-      }
+      if (!res.ok) throw new Error(await res.text());
 
       const data = await res.json();
 
-      const previewSummary: string | null =
-        data.previewSummary ?? null;
-      const fullSummary: string | null = data.fullSummary ?? null;
-      const confidenceCode: "LOW" | "MODERATE" | "HIGH" | undefined =
-        data.confidenceCode ?? undefined;
-
-      const vehicle = data.vehicle ?? {};
+      const vehicle = normaliseVehicle(data.vehicle ?? {});
 
       const saved: SavedResult = {
         type: "online",
@@ -55,23 +45,21 @@ export default function OnlineAnalyzing() {
         createdAt: new Date().toISOString(),
 
         listingUrl,
-        vehicle: {
-          make: vehicle.make ?? "",
-          model: vehicle.model ?? "",
-          year: vehicle.year ?? "",
-          kilometres: vehicle.kilometres ?? "",
-          ...vehicle,
-        },
+        vehicle,
 
-        confidenceCode,
-        previewSummary,
-        fullSummary,
-        // keep summary for backwards compatibility
-        summary: fullSummary ?? previewSummary ?? null,
+        confidenceCode: data.confidenceCode ?? undefined,
+
+        // new structure
+        previewSummary: data.previewSummary ?? null,
+        fullSummary: data.fullSummary ?? null,
+
+        // backwards compatibility
+        summary: data.fullSummary ?? data.previewSummary ?? null,
 
         sections: [],
         signals: [],
         photos: { listing: [], meta: [] },
+
         isUnlocked: false,
 
         source: data.source ?? "gemini-2.5-flash",
@@ -87,9 +75,8 @@ export default function OnlineAnalyzing() {
       saveOnlineResults(saved);
 
       navigate("/scan/online/results", { replace: true });
-    } catch (err: any) {
+    } catch (err) {
       console.error("❌ Analysis error:", err);
-      // For now just bounce back; later we can show a nicer error page
       navigate("/scan/online", { replace: true });
     }
   }
@@ -100,7 +87,7 @@ export default function OnlineAnalyzing() {
         Scan results — AI-assisted review
       </h1>
       <p className="text-sm text-slate-400">
-        Running your online listing through CarVerity&hellip;
+        Running your online listing through CarVerity…
       </p>
     </div>
   );
