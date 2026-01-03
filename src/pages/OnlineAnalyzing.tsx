@@ -3,9 +3,27 @@ import { useNavigate } from "react-router-dom";
 import {
   saveOnlineResults,
   type SavedResult,
+  normaliseVehicle,
+  LISTING_URL_KEY,
 } from "../utils/onlineResults";
 
-const LISTING_URL_KEY = "carverity_online_listing_url";
+function buildPreview(summary: string): string {
+  const cleaned = summary.trim();
+  if (!cleaned) return "";
+
+  // Take the first few sentences up to ~320 characters
+  const sentences = cleaned.split(/(?<=[.!?])\s+/);
+  let output = "";
+
+  for (const sentence of sentences) {
+    const next = output ? `${output} ${sentence}` : sentence;
+    if (next.length > 320) break;
+    output = next;
+  }
+
+  // Fallback: just slice the string if sentence logic fails
+  return output || cleaned.slice(0, 320);
+}
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
@@ -35,7 +53,21 @@ export default function OnlineAnalyzing() {
       const data = await res.json();
       if (!res.ok || !data?.ok) throw new Error(data?.error || "Scan failed");
 
-      const vehicle = data.vehicle ?? {};
+      // Normalise vehicle info from the model/scraper
+      const vehicle = normaliseVehicle(data.vehicle ?? {});
+
+      // The API currently returns a single `summary` string.
+      // We treat this as the full report, and derive a short preview from it.
+      const rawSummary: string | null =
+        data.summary ??
+        data.fullSummary ??
+        data.previewSummary ??
+        null;
+
+      const fullSummary: string | null = rawSummary ?? null;
+      const previewSummary: string | null = rawSummary
+        ? buildPreview(rawSummary)
+        : null;
 
       const saved: SavedResult = {
         type: "online",
@@ -51,25 +83,27 @@ export default function OnlineAnalyzing() {
           ...vehicle,
         },
 
+        // High-level confidence from the model
         confidenceCode: data.confidenceCode ?? undefined,
 
-        previewSummary: data.previewSummary ?? null,
-        fullSummary: data.fullSummary ?? null,
+        // New split summaries
+        previewSummary,
+        fullSummary,
 
-        // Backwards-compat support
-        summary: data.fullSummary ?? data.previewSummary ?? null,
+        // Backwards-compat support: some code still reads `summary`
+        summary: rawSummary,
 
         sections: [],
         signals: [],
 
         photos: { listing: [], meta: [] },
-        isUnlocked: false,
+        isUnlocked: false, // full report gated for now; can be wired later
 
         source: data.source ?? "gemini-2.5-flash",
         analysisSource: "online-listing-v1",
         sellerType: data.sellerType ?? undefined,
 
-        // 👇 Required field (fixes TS error)
+        // Required field
         conditionSummary: "",
 
         kilometres: vehicle.kilometres ?? "",

@@ -28,17 +28,21 @@ export default function OnlineResults() {
     isUnlocked,
   } = result;
 
-  const preview =
-    previewSummary ??
-    (summary
+  // Prefer the dedicated preview if we have one; otherwise derive
+  // a short teaser from summary / fullSummary.
+  const baseSummaryText: string | null = summary || fullSummary || null;
+
+  const derivedPreview =
+    baseSummaryText
       ?.split("\n")
       .slice(0, 4)
       .join(" ")
-      .trim() || null);
+      .trim() || null;
+
+  const preview = (previewSummary && previewSummary.trim()) || derivedPreview;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
-
       {/* CONFIDENCE */}
       <section className="rounded-lg border border-white/10 p-4">
         <h2 className="text-sm text-muted-foreground mb-1">
@@ -63,14 +67,14 @@ export default function OnlineResults() {
 
         {preview && !isUnlocked && (
           <p className="text-slate-200 text-sm leading-relaxed">
-            {preview}…{" "}
+            {preview}{" "}
             <span className="text-indigo-400">
-              Unlock full scan to see the complete report.
+              – you can view the full scan for the complete report.
             </span>
           </p>
         )}
 
-        {(isUnlocked && (fullSummary || summary)) && (
+        {isUnlocked && (fullSummary || summary) && (
           <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
             {fullSummary || summary}
           </pre>
