@@ -411,17 +411,27 @@ export default function OnlineResults() {
         </SectionCard>
       )}
 
-      {/* ✨ Full Report — Section-aware visuals */}
+      {/* ✨ Full Report — Section-aware visuals + staggered reveal */}
       {showUnlocked && (
         <SectionCard id="report" title="Full CarVerity report" icon="✨">
           <div className="space-y-5">
             {sections.map((section, idx) => {
               const theme = getSectionTheme(section.title);
 
+              // Staggered animation delay per card
+              const delayMs = 70 * idx;
+
               return (
                 <div
                   key={idx}
-                  className={`rounded-2xl border border-white/10 bg-gradient-to-b ${theme.accent} shadow-[0_8px_30px_rgba(0,0,0,0.35)]`}
+                  style={{ animationDelay: `${delayMs}ms` }}
+                  className={`
+                    opacity-0 translate-y-2
+                    animate-[fadeUp_0.42s_ease-out_forwards]
+                    rounded-2xl border border-white/10
+                    bg-gradient-to-b ${theme.accent}
+                    shadow-[0_8px_30px_rgba(0,0,0,0.35)]
+                  `}
                 >
                   {/* Banner */}
                   <div
@@ -486,6 +496,14 @@ export default function OnlineResults() {
           </div>
         </div>
       </SectionCard>
+
+      {/* Animation keyframes */}
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
