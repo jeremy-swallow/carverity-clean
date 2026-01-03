@@ -1,13 +1,8 @@
 import { useEffect, useState } from "react";
 import { loadOnlineResults } from "../utils/onlineResults";
 
-/**
- * Extracts structured sections from the Gemini report text.
- * Falls back safely if formatting varies or sections are missing.
- */
 function parseReportSections(text: string) {
   if (!text) return {};
-
   const sections: Record<string, string> = {};
 
   const patterns: Record<string, RegExp> = {
@@ -35,53 +30,29 @@ function parseReportSections(text: string) {
   return sections;
 }
 
-/**
- * Derives vehicle details from AI text when scraping misses values.
- * Only fills blank fields — never overwrites existing ones.
- */
-function deriveVehicleFromSummary(
-  base: any,
-  reportText: string
-): any {
+function deriveVehicleFromSummary(base: any, text: string) {
   const vehicle = { ...base };
+  if (!text) return vehicle;
 
-  if (!reportText) return vehicle;
-
-  // Year + Make + Model (e.g., "This 2016 Mitsubishi Lancer ES Sport")
-  const lineMatch = reportText.match(
+  const lineMatch = text.match(
     /\b(19|20)\d{2}\b\s+([A-Z][A-Za-z]+)\s+([A-Za-z0-9][A-Za-z0-9\s\-]+)/i
   );
 
   if (lineMatch) {
     const year = lineMatch[0].match(/\b(19|20)\d{2}\b/)?.[0];
-
     if (!vehicle.year && year) vehicle.year = year;
-
-    if (!vehicle.make && lineMatch[2]) {
-      vehicle.make = lineMatch[2].trim();
-    }
-
-    if (!vehicle.model && lineMatch[3]) {
-      vehicle.model = lineMatch[3].trim();
-    }
+    if (!vehicle.make && lineMatch[2]) vehicle.make = lineMatch[2].trim();
+    if (!vehicle.model && lineMatch[3]) vehicle.model = lineMatch[3].trim();
   }
 
-  // Kilometres pattern inside text (does not override real values)
   if (!vehicle.kilometres) {
-    const kmMatch = reportText.match(
-      /\b([\d,\.]{4,})\s*(km|kms|kilometres|kilometers)\b/i
-    );
-    if (kmMatch?.[1]) {
-      vehicle.kilometres = kmMatch[1].replace(/[,\.]/g, "");
-    }
+    const kmMatch = text.match(/\b([\d,\.]{4,})\s*(km|kms|kilometres)\b/i);
+    if (kmMatch?.[1]) vehicle.kilometres = kmMatch[1].replace(/[,\.]/g, "");
   }
 
   return vehicle;
 }
 
-/**
- * Renders multiline or markdown-ish text safely.
- */
 function TextBlock({ value }: { value?: string }) {
   if (!value) return null;
   return (
@@ -120,23 +91,18 @@ export default function OnlineResults() {
 
   const reportText = fullSummary || summary || "";
   const parsed = parseReportSections(reportText);
-
-  // 🔧 NEW — derive missing vehicle details from AI text
   const vehicle = deriveVehicleFromSummary(rawVehicle, reportText);
 
-  // Preview stays lightweight & friendly
+  // 👉 NEW RULE: show full report when it exists unless explicitly locked
+  const showFullReport = !!reportText && isUnlocked !== false;
+
   const preview =
     previewSummary ??
-    (summary
-      ?.split("\n")
-      .slice(0, 3)
-      .join(" ")
-      .trim() || null);
+    (summary?.split("\n").slice(0, 3).join(" ").trim() || null);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
 
-      {/* CONFIDENCE */}
       <section className="rounded-lg border border-white/10 p-4">
         <h2 className="text-sm text-muted-foreground mb-1">
           Listing confidence
@@ -148,30 +114,27 @@ export default function OnlineResults() {
         </p>
       </section>
 
-      {/* PREVIEW */}
-      {!isUnlocked && (
+      {/* PREVIEW ONLY SHOWN IF FULL REPORT IS LOCKED */}
+      {!showFullReport && (
         <section className="rounded-lg border border-white/10 p-4">
           <h2 className="text-sm text-muted-foreground mb-1">
             CarVerity analysis — preview
           </h2>
-
-          {!preview && (
-            <p className="text-muted-foreground">No preview available.</p>
-          )}
-
-          {preview && (
+          {preview ? (
             <p className="text-slate-200 text-sm leading-relaxed">
               {preview}…{" "}
               <span className="text-indigo-400">
                 Unlock full scan to see the complete report.
               </span>
             </p>
+          ) : (
+            <p className="text-muted-foreground">No preview available.</p>
           )}
         </section>
       )}
 
-      {/* FULL REPORT (structured cards) */}
-      {isUnlocked && reportText && (
+      {/* FULL REPORT */}
+      {showFullReport && parsed && (
         <div className="space-y-6">
 
           {parsed.confidence && (
@@ -239,7 +202,6 @@ export default function OnlineResults() {
         </div>
       )}
 
-      {/* VEHICLE DETAILS */}
       <section className="rounded-lg border border-white/10 p-4">
         <h2 className="text-sm text-muted-foreground mb-2">
           Vehicle details
