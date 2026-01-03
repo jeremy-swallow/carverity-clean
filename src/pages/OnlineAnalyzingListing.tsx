@@ -31,16 +31,18 @@ export default function OnlineAnalyzingListing() {
         return;
       }
 
-      // 🟢 Free preview = confidence framing only
-      const previewText =
-        data.confidenceSummary ??
-        "This listing appears generally reasonable based on the information provided, though some details would benefit from closer review in person.";
+      // 🔍 TEMP DEBUG — see exactly what the AI returned
+      console.log("🟡 RAW SCAN PAYLOAD", data);
 
-      // 🔒 Full scan contains the real value
+      const previewText =
+        data.previewText ??
+        data.confidenceSummary ??
+        "";
+
       const fullAnalysis =
         data.fullAnalysis ??
         data.summary ??
-        "This scan provides listing-specific risk signals, verification checks to confirm at inspection, and negotiation insights based on the way the vehicle is presented.";
+        "";
 
       const stored: SavedResult = {
         type: "online",
@@ -66,6 +68,8 @@ export default function OnlineAnalyzingListing() {
         confidenceCode: data.confidenceCode ?? null,
         confidenceSummary: data.confidenceSummary ?? "",
       };
+
+      console.log("🟢 STORED RESULT", stored);
 
       saveOnlineResults(stored);
       navigate("/scan/online/results", { replace: true });
