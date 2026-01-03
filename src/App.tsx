@@ -5,7 +5,6 @@ import Home from "./pages/Home";
 import StartScan from "./pages/StartScan";
 import OnlineStart from "./pages/OnlineStart";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
-import OnlineAnalyzingListing from "./pages/OnlineAnalyzingListing";
 import OnlineVehicleDetails from "./pages/OnlineVehicleDetails";
 import OnlinePhotos from "./pages/OnlinePhotos";
 import OnlineNextActions from "./pages/OnlineNextActions";
@@ -23,10 +22,9 @@ export default function App() {
       <Route path="/start-scan" element={<StartScan />} />
       <Route path="/scan/online" element={<OnlineStart />} />
       <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
-      <Route
-        path="/scan/online/analyzing-listing"
-        element={<OnlineAnalyzingListing />}
-      />
+
+      {/* (Removed old analyzing-listing path) */}
+
       <Route
         path="/scan/online/vehicle-details"
         element={<OnlineVehicleDetails />}
