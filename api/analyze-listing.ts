@@ -2,7 +2,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
-if (!GEMINI_API_KEY) throw new Error("Missing GOOGLE_API_KEY — add it in Vercel env vars.");
+if (!GEMINI_API_KEY) {
+  throw new Error("Missing GOOGLE_API_KEY — add it in Vercel env vars.");
+}
 
 // ------------------------------
 // Fetch HTML
@@ -39,14 +41,38 @@ function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
 
+  // YEAR — defensive
   let year = "";
-  const labelled = text.match(/(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i);
+  const labelled = text.match(
+    /(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i
+  );
+  const beforeMake = text.match(
+    /\b((19|20)\d{2})\b[^,\n]{0,30}(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)/i
+  );
+  const afterMake = text.match(
+    /(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)[^0-9]{0,20}\b((19|20)\d{2})\b/i
+  );
+
   if (labelled) year = labelled[2];
+  else if (beforeMake) year = beforeMake[1];
+  else if (afterMake) year = afterMake[2];
+
   year = normaliseYear(year);
 
+  // KILOMETRES
   let kilometres = "";
-  const kmMatch = text.match(/\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i);
-  if (kmMatch?.[1]) kilometres = normaliseKilometres(kmMatch[1]);
+  const kmPatterns = [
+    /\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i,
+    /\bodometer[^0-9]{0,6}([\d,\.]+)\b/i,
+  ];
+
+  for (const p of kmPatterns) {
+    const m = text.match(p);
+    if (m?.[1]) {
+      kilometres = normaliseKilometres(m[1]);
+      if (kilometres) break;
+    }
+  }
 
   return {
     make: makeMatch?.[1]?.trim() || "",
@@ -57,67 +83,37 @@ function extractBasicVehicleInfo(text: string) {
 }
 
 // ------------------------------
-// Prompt — stronger service rules + preview/full split
+// Gemini Prompt (unchanged — business logic lives here)
 // ------------------------------
 function buildPrompt(listingText: string): string {
   return `
 You are CarVerity — an independent used-car assistant for Australian buyers.
+Your purpose is to help the buyer feel informed, supported and confident.
 
-Write in warm, calm, supportive language. Avoid speculation, alarmist framing, or technical/legal tone.
+Tone:
+• Warm, calm, practical
+• No speculation or alarmist language
+• No technical jargon unless necessary
 
-SERVICE HISTORY — STRICT SAFETY RULES
+SERVICE HISTORY RULES (STRICT)
+Treat entries that contain workshop name + odometer + status such as “Done” or “Completed”
+as NORMAL completed services — even if formatting looks unusual.
+Do NOT infer missed or overdue servicing unless the listing explicitly says so.
 
-Treat logbook entries that include:
-• a workshop or dealer name
-• an odometer value
-• a stamp, tick, or handwritten completion note
+CONFIDENCE MODEL
+LOW       = Feels comfortable so far — nothing concerning stands out  
+MODERATE  = Looks mostly fine — a couple of things are worth checking in person  
+HIGH      = Proceed carefully — important details should be confirmed first
 
-as NORMAL completed services — even if:
-• formatting looks unusual
-• the service page also includes future-scheduled boxes
-• the odometer differs slightly from the current value
-
-You MUST NOT label these as:
-“anomalies”, “mismatches”, “risks”, “concerns”, or “issues”
-unless the LISTING explicitly states there is a problem.
-
-If a service entry appears on a logbook page that also contains future-scheduled service placeholders,
-assume it is standard logbook formatting and DO NOT treat it as a concern.
-
-Only mention service-history concerns when the listing clearly says:
-• “no service history”
-• “books missing”
-• “incomplete history”
-• “requires service” or “overdue”
-
-Otherwise, remain neutral.
-
-CONFIDENCE MODEL (must match tone)
-LOW = Feels comfortable so far — nothing concerning stands out
-MODERATE = Looks mostly fine — a couple of things are worth checking in person
-HIGH = Proceed carefully — important details should be confirmed before moving ahead
-
-OUTPUT FORMAT (MANDATORY)
+STRUCTURE — YOU MUST FOLLOW THIS ORDER
 
 PREVIEW SECTION
-(This is the FREE preview. KEEP IT SHORT.)
-• 3–5 friendly sentences only
-• No bullet points
-• No risk signals
-• No negotiation insights
-• No detailed checklist guidance
+(Short, friendly explanation)
 
 CONFIDENCE_CODE: LOW / MODERATE / HIGH
 
-FULL ANALYSIS (LOCKED CONTENT)
-(This section is ONLY for paid users.)
-Include:
-• WHAT THIS MEANS FOR YOU
-• CARVERITY ANALYSIS — SUMMARY
-• KEY RISK SIGNALS (listing-supported only)
-• BUYER CONSIDERATIONS
-• NEGOTIATION INSIGHTS
-• GENERAL OWNERSHIP NOTES
+FULL ANALYSIS
+(Expanded structured analysis)
 
 LISTING TEXT
 --------------------------------
@@ -148,7 +144,7 @@ async function callGemini(prompt: string): Promise<string> {
 }
 
 // ------------------------------
-// Extract confidence + split sections
+// Robust extractors + fallbacks
 // ------------------------------
 function extractConfidence(text: string): string | null {
   const m = text.match(/CONFIDENCE_CODE:\s*(LOW|MODERATE|HIGH)/i);
@@ -156,23 +152,36 @@ function extractConfidence(text: string): string | null {
 }
 
 function extractPreview(text: string): string | null {
-  const m = text.match(/PREVIEW SECTION([\s\S]*?)CONFIDENCE_CODE/i);
+  const m =
+    text.match(/PREVIEW SECTION([\s\S]*?)CONFIDENCE_CODE/i) ||
+    text.match(/PREVIEW([\s\S]*?)CONFIDENCE_CODE/i) ||
+    text.match(/FREE PREVIEW([\s\S]*?)CONFIDENCE_CODE/i);
+
   return m ? m[1].trim() : null;
 }
 
 function extractFull(text: string): string | null {
-  const m = text.match(/FULL ANALYSIS([\s\S]*)$/i);
+  const m =
+    text.match(/FULL ANALYSIS([\s\S]*)$/i) ||
+    text.match(/FULL REPORT([\s\S]*)$/i) ||
+    text.match(/DETAILED ANALYSIS([\s\S]*)$/i);
+
   return m ? m[1].trim() : null;
 }
 
 // ------------------------------
 // API Handler
 // ------------------------------
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
   try {
-    const listingUrl = (req.body as any)?.listingUrl ?? (req.body as any)?.url;
-    if (!listingUrl)
+    const listingUrl =
+      (req.body as any)?.listingUrl ?? (req.body as any)?.url;
+    if (!listingUrl) {
       return res.status(400).json({ ok: false, error: "Missing listing URL" });
+    }
 
     const html = await fetchListingHtml(listingUrl);
     const vehicle = extractBasicVehicleInfo(html);
@@ -181,15 +190,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const output = await callGemini(prompt);
 
     const confidenceCode = extractConfidence(output);
-    const preview = extractPreview(output);
-    const full = extractFull(output);
+    let preview = extractPreview(output);
+    let full = extractFull(output);
+
+    // SAFETY FALLBACKS — never return empty output
+    if (!preview && full) {
+      preview =
+        "A short preview is not available for this listing. Unlock the full scan to view the complete analysis.";
+    }
+
+    if (!full && preview) {
+      full = output.trim();
+    }
 
     return res.status(200).json({
       ok: true,
       vehicle,
+      confidenceCode,
       preview,
       full,
-      confidenceCode,
       source: "gemini-2.5-flash",
     });
   } catch (err: any) {
