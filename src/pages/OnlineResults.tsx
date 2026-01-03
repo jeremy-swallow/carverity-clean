@@ -13,15 +13,20 @@ const UNLOCK_KEY = "carverity_test_full_unlock";
 
 function SectionCard({
   title,
+  id,
   icon,
   children,
 }: {
   title: string;
+  id: string;
   icon?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-slate-900/60 shadow-[0_0_18px_rgba(0,0,0,0.25)] backdrop-blur-sm px-5 py-5 md:px-7 md:py-6 space-y-3">
+    <section
+      id={id}
+      className="rounded-2xl border border-white/10 bg-slate-900/60 shadow-[0_0_18px_rgba(0,0,0,0.25)] backdrop-blur-sm px-5 py-5 md:px-7 md:py-6 space-y-3 scroll-mt-24 transition-all hover:shadow-[0_0_28px_rgba(0,0,0,0.35)]"
+    >
       <h2 className="flex items-center gap-2 text-sm tracking-wide font-semibold text-slate-200">
         {icon && <span className="text-base">{icon}</span>}
         {title.toUpperCase()}
@@ -44,6 +49,35 @@ function Pill({ label, tone }: { label: string; tone: "low" | "moderate" | "high
     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${toneMap[tone]}`}>
       {label}
     </span>
+  );
+}
+
+/* =========================================================
+   Sticky mini navigation
+========================================================= */
+
+function MiniNav() {
+  const items = [
+    { id: "confidence", label: "Confidence" },
+    { id: "analysis", label: "Analysis" },
+    { id: "report", label: "Full Report" },
+    { id: "vehicle", label: "Vehicle Details" },
+  ];
+
+  return (
+    <div className="sticky top-2 z-20">
+      <div className="rounded-2xl border border-white/10 bg-slate-900/70 backdrop-blur-sm px-3 py-2 flex gap-2 overflow-x-auto">
+        {items.map((i) => (
+          <a
+            key={i.id}
+            href={`#${i.id}`}
+            className="px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/10 transition"
+          >
+            {i.label}
+          </a>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -101,34 +135,53 @@ export default function OnlineResults() {
     ? `${confidenceCode} — listing confidence`
     : "Not available";
 
-  const reportText = isUnlocked ? fullSummary || summary || "" : "";
+  const reportText = fullSummary || summary || "";
   const hasStoredUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
-
   const showUnlocked = isUnlocked || hasStoredUnlock;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
-      {/* Header */}
-      <div className="rounded-2xl bg-gradient-to-r from-violet-700/80 to-indigo-600/80 border border-white/10 shadow-lg px-6 py-6">
-        <h1 className="text-lg font-semibold text-white mb-1">
-          CarVerity online scan results
-        </h1>
-        <p className="text-slate-200/90 text-sm">
-          Independent guidance based on the details in this listing.
-        </p>
+    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+
+      {/* Sticky vehicle headline bar */}
+      <div className="sticky top-0 z-30 -mx-4 px-4 py-2 bg-slate-950/70 backdrop-blur border-b border-white/5">
+        <div className="flex items-center justify-between text-sm">
+          <div className="text-slate-300">
+            {vehicle.year || "—"} {vehicle.make || "Vehicle"} {vehicle.model || ""}
+          </div>
+          <div className="text-slate-400">{vehicle.kilometres || "—"} km</div>
+        </div>
       </div>
 
+      {/* Page header */}
+      <div className="rounded-2xl bg-gradient-to-r from-violet-700/80 to-indigo-600/80 border border-white/10 shadow-lg px-6 py-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold text-white mb-1">
+              CarVerity online scan results
+            </h1>
+            <p className="text-slate-200/90 text-sm">
+              Independent guidance based on the details in this listing.
+            </p>
+          </div>
+          <span className="text-xs px-3 py-1 rounded-full bg-white/15 text-white border border-white/20">
+            Download PDF (coming soon)
+          </span>
+        </div>
+      </div>
+
+      <MiniNav />
+
       {/* Confidence */}
-      <SectionCard title="Listing confidence" icon="🧭">
+      <SectionCard id="confidence" title="Listing confidence" icon="🧭">
         <Pill label={confidenceLabel} tone={confidenceTone as any} />
       </SectionCard>
 
-      {/* Preview / Locked Card */}
+      {/* Preview or Unlock CTA */}
       {!showUnlocked && (
-        <SectionCard title="CarVerity analysis — preview" icon="🔒">
+        <SectionCard id="analysis" title="CarVerity analysis — preview" icon="🔒">
           <p className="text-slate-300">
             {previewSummary ||
-              "This scan highlights the key things worth checking when you see the car in person. Unlock the full report to see the detailed guidance, inspection checklist, and negotiation suggestions tailored to this listing."}
+              "This preview highlights the key things worth checking when you see the car in person. Unlock the full report to access the detailed guidance, inspection checklist, negotiation insights, and ownership considerations tailored to this listing."}
           </p>
 
           <div className="mt-3 rounded-xl border border-white/10 bg-slate-800/40 px-4 py-3 text-sm text-slate-400 select-none">
@@ -148,15 +201,15 @@ export default function OnlineResults() {
         </SectionCard>
       )}
 
-      {/* Unlocked Full Scan */}
+      {/* Full Report */}
       {showUnlocked && (
-        <SectionCard title="Full CarVerity report" icon="✨">
+        <SectionCard id="report" title="Full CarVerity report" icon="✨">
           <div className="whitespace-pre-wrap text-slate-200 leading-relaxed">
             {reportText}
           </div>
 
           {!isUnlocked && (
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 mt-2">
               (Unlocked in testing mode — mirrors paid unlock behaviour)
             </p>
           )}
@@ -164,7 +217,7 @@ export default function OnlineResults() {
       )}
 
       {/* Vehicle Details */}
-      <SectionCard title="Vehicle details" icon="🚗">
+      <SectionCard id="vehicle" title="Vehicle details" icon="🚗">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-y-3 text-sm">
           <div>
             <div className="text-slate-400">Make</div>
