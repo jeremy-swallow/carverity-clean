@@ -154,9 +154,7 @@ function parseReportSections(text: string): ReportSection[] {
 
     if (match.index > lastIndex && sections.length === 0) {
       const intro = text.slice(lastIndex, match.index).trim();
-      if (intro) {
-        sections.push({ title: "Overview", body: intro });
-      }
+      if (intro) sections.push({ title: "Overview", body: intro });
     }
 
     sections.push({ title, body });
@@ -165,12 +163,78 @@ function parseReportSections(text: string): ReportSection[] {
 
   if (sections.length === 0) {
     const trimmed = text.trim();
-    if (trimmed) {
-      sections.push({ title: "Overview", body: trimmed });
-    }
+    if (trimmed) sections.push({ title: "Overview", body: trimmed });
   }
 
   return sections;
+}
+
+/* =========================================================
+   Section-aware visual theming
+========================================================= */
+
+type VisualTheme = {
+  icon: string;
+  accent: string;
+  banner: string;
+};
+
+function getSectionTheme(title: string): VisualTheme {
+  const t = title.toLowerCase();
+
+  if (t.includes("confidence")) {
+    return {
+      icon: "🧭",
+      accent: "from-indigo-500/25 to-indigo-400/10",
+      banner: "from-indigo-600/30 to-indigo-500/20",
+    };
+  }
+
+  if (t.includes("what this means")) {
+    return {
+      icon: "✨",
+      accent: "from-violet-500/25 to-fuchsia-400/10",
+      banner: "from-violet-600/30 to-fuchsia-500/20",
+    };
+  }
+
+  if (t.includes("risk")) {
+    return {
+      icon: "📝",
+      accent: "from-amber-500/25 to-amber-400/10",
+      banner: "from-amber-600/30 to-amber-500/20",
+    };
+  }
+
+  if (t.includes("buyer")) {
+    return {
+      icon: "🚶",
+      accent: "from-blue-500/25 to-blue-400/10",
+      banner: "from-blue-600/30 to-blue-500/20",
+    };
+  }
+
+  if (t.includes("negotiation")) {
+    return {
+      icon: "🤝",
+      accent: "from-teal-500/25 to-teal-400/10",
+      banner: "from-teal-600/30 to-teal-500/20",
+    };
+  }
+
+  if (t.includes("ownership")) {
+    return {
+      icon: "🧰",
+      accent: "from-slate-500/25 to-slate-400/10",
+      banner: "from-slate-600/30 to-slate-500/20",
+    };
+  }
+
+  return {
+    icon: "📌",
+    accent: "from-slate-500/25 to-slate-400/10",
+    banner: "from-slate-600/30 to-slate-500/20",
+  };
 }
 
 function buildHighlights(opts: {
@@ -186,13 +250,9 @@ function buildHighlights(opts: {
   }`
     .replace(/\s+/g, " ")
     .trim();
-  if (title) {
-    highlights.push(title);
-  }
+  if (title) highlights.push(title);
 
-  if (vehicle.kilometres) {
-    highlights.push(`${vehicle.kilometres} km listed`);
-  }
+  if (vehicle.kilometres) highlights.push(`${vehicle.kilometres} km listed`);
 
   if (confidenceCode === "LOW") {
     highlights.push("Nothing major stands out from the listing");
@@ -202,11 +262,10 @@ function buildHighlights(opts: {
     highlights.push("Several details are worth checking carefully in person");
   }
 
-  if (conditionSummary) {
-    highlights.push(conditionSummary);
-  } else {
-    highlights.push("Includes inspection tips, negotiation ideas & ownership notes");
-  }
+  highlights.push(
+    conditionSummary ||
+      "Includes inspection tips, negotiation ideas & ownership notes"
+  );
 
   return highlights.slice(0, 4);
 }
@@ -225,10 +284,7 @@ export default function OnlineResults() {
 
   function unlockForTesting() {
     if (!result) return;
-    const updated: SavedResult = {
-      ...result,
-      isUnlocked: true,
-    };
+    const updated: SavedResult = { ...result, isUnlocked: true };
     saveOnlineResults(updated);
     localStorage.setItem(UNLOCK_KEY, "1");
     setResult(updated);
@@ -280,12 +336,11 @@ export default function OnlineResults() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-      {/* Sticky vehicle headline */}
+      {/* Sticky vehicle bar */}
       <div className="sticky top-0 z-30 -mx-4 px-4 py-2 bg-slate-950/70 backdrop-blur border-b border-white/5">
         <div className="flex items-center justify-between text-xs md:text-sm">
           <div className="text-slate-300 truncate">
-            {vehicle.year || "—"} {vehicle.make || "Vehicle"}{" "}
-            {vehicle.model || ""}
+            {vehicle.year || "—"} {vehicle.make || "Vehicle"} {vehicle.model || ""}
           </div>
           <div className="text-slate-400">
             {vehicle.kilometres ? `${vehicle.kilometres} km` : "— km"}
@@ -356,36 +411,42 @@ export default function OnlineResults() {
         </SectionCard>
       )}
 
-      {/* ✨ Full Report — Premium Card Layout */}
+      {/* ✨ Full Report — Section-aware visuals */}
       {showUnlocked && (
         <SectionCard id="report" title="Full CarVerity report" icon="✨">
           <div className="space-y-5">
-            {sections.map((section, idx) => (
-              <div
-                key={idx}
-                className="rounded-2xl border border-white/10 bg-gradient-to-b from-slate-900/90 to-slate-900/60 shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
-              >
-                {/* Banner */}
-                <div className="px-5 py-3 border-b border-white/10 bg-gradient-to-r from-indigo-600/25 to-violet-600/20 rounded-t-2xl flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">📌</span>
-                    <h3 className="text-sm font-semibold text-slate-100">
-                      {section.title}
-                    </h3>
-                  </div>
-                  <span className="text-[10px] uppercase tracking-wide text-slate-400">
-                    Section {idx + 1}
-                  </span>
-                </div>
+            {sections.map((section, idx) => {
+              const theme = getSectionTheme(section.title);
 
-                {/* Body */}
-                <div className="px-5 py-4">
-                  <div className="rounded-xl bg-slate-950/40 border border-white/5 px-4 py-3 whitespace-pre-wrap text-sm text-slate-200 leading-relaxed">
-                    {section.body}
+              return (
+                <div
+                  key={idx}
+                  className={`rounded-2xl border border-white/10 bg-gradient-to-b ${theme.accent} shadow-[0_8px_30px_rgba(0,0,0,0.35)]`}
+                >
+                  {/* Banner */}
+                  <div
+                    className={`px-5 py-3 border-b border-white/10 bg-gradient-to-r ${theme.banner} rounded-t-2xl flex items-center justify-between`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{theme.icon}</span>
+                      <h3 className="text-sm font-semibold text-slate-100">
+                        {section.title}
+                      </h3>
+                    </div>
+                    <span className="text-[10px] uppercase tracking-wide text-slate-400">
+                      Section {idx + 1}
+                    </span>
+                  </div>
+
+                  {/* Body */}
+                  <div className="px-5 py-4">
+                    <div className="rounded-xl bg-slate-950/40 border border-white/5 px-4 py-3 whitespace-pre-wrap text-sm text-slate-200 leading-relaxed">
+                      {section.body}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {!isUnlocked && (
@@ -396,7 +457,7 @@ export default function OnlineResults() {
         </SectionCard>
       )}
 
-      {/* Vehicle */}
+      {/* Vehicle details */}
       <SectionCard id="vehicle" title="Vehicle details" icon="🚗">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-y-3 text-sm">
           <div>
