@@ -31,6 +31,13 @@ export default function OnlineAnalyzingListing() {
         return;
       }
 
+      const preview = data.previewText ?? data.summary ?? "";
+      const full =
+        data.fullAnalysis ??
+        data.analysis ??
+        data.summary ??
+        "";
+
       const stored: SavedResult = {
         type: "online",
         step: "/scan/online/results",
@@ -42,9 +49,8 @@ export default function OnlineAnalyzingListing() {
         sections: data.sections ?? [],
         photos: data.photos ?? { listing: [], meta: [] },
 
-        // ---- IMPORTANT MAPPING ----
-        previewText: data.previewText ?? data.summary ?? "",
-        fullAnalysis: data.fullAnalysis ?? "",
+        previewText: preview,
+        fullAnalysis: full,
 
         summary: data.summary ?? "",
         conditionSummary: data.conditionSummary ?? "",

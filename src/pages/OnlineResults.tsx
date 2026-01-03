@@ -30,14 +30,18 @@ export default function OnlineResults() {
 
   if (!data) return null;
 
-  const unlocked = data.isUnlocked;
-  const preview = data.previewText;
-  const full = data.fullAnalysis;
+  const unlocked = data.isUnlocked ?? false;
+  const preview =
+    data.previewText ||
+    data.summary ||
+    "";
+  const full =
+    data.fullAnalysis ||
+    data.summary ||
+    "";
 
   function handleUnlock() {
-    setData(prev =>
-      prev ? { ...prev, isUnlocked: true } : prev
-    );
+    setData(prev => prev ? { ...prev, isUnlocked: true } : prev);
   }
 
   return (
@@ -49,6 +53,7 @@ export default function OnlineResults() {
       {/* Preview */}
       <section className="rounded-lg border bg-slate-900/70 px-5 py-4">
         <h2 className="text-sm font-semibold">CarVerity analysis — preview</h2>
+
         {preview ? (
           <pre className="whitespace-pre-wrap text-sm">
             {preview}
@@ -75,21 +80,21 @@ export default function OnlineResults() {
               {full}
             </pre>
 
-            {!unlocked && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="bg-slate-950/85 px-6 py-3 rounded-md text-center">
-                  <p className="text-xs mb-2">
-                    Full scan locked — unlock to reveal detailed insights.
-                  </p>
-                  <button
-                    onClick={handleUnlock}
-                    className="bg-indigo-500 text-white px-3 py-1 rounded"
-                  >
-                    Unlock full scan
-                  </button>
+              {!unlocked && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="bg-slate-950/85 px-6 py-3 rounded-md text-center">
+                    <p className="text-xs mb-2">
+                      Full scan locked — unlock to reveal detailed insights.
+                    </p>
+                    <button
+                      onClick={handleUnlock}
+                      className="bg-indigo-500 text-white px-3 py-1 rounded"
+                    >
+                      Unlock full scan
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </>
         ) : (
           <p className="text-sm text-slate-400">
