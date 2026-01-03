@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   saveOnlineResults,
@@ -10,23 +10,47 @@ import {
 function buildPreview(summary: string): string {
   const cleaned = summary.trim();
   if (!cleaned) return "";
-
-  // Take the first few sentences up to ~320 characters
   const sentences = cleaned.split(/(?<=[.!?])\s+/);
   let output = "";
-
-  for (const sentence of sentences) {
-    const next = output ? `${output} ${sentence}` : sentence;
+  for (const s of sentences) {
+    const next = output ? `${output} ${s}` : s;
     if (next.length > 320) break;
     output = next;
   }
-
-  // Fallback: just slice the string if sentence logic fails
   return output || cleaned.slice(0, 320);
 }
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
+
+  const steps = [
+    "Fetching the listing details…",
+    "Extracting key vehicle information…",
+    "Reviewing the listing text…",
+    "Preparing your CarVerity report…",
+  ];
+
+  const [stepIndex, setStepIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
+
+  // Step rhythm
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStepIndex((i) => (i + 1) % steps.length);
+    }, 1600);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Ambient looping progress bar
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setProgress((p) => {
+        if (p >= 100) return 0;
+        return p + 2.2;
+      });
+    }, 90);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const listingUrl = localStorage.getItem(LISTING_URL_KEY);
@@ -37,7 +61,6 @@ export default function OnlineAnalyzing() {
       return;
     }
 
-    console.log("🚀 Running scan for:", listingUrl);
     runScan(listingUrl);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -53,16 +76,10 @@ export default function OnlineAnalyzing() {
       const data = await res.json();
       if (!res.ok || !data?.ok) throw new Error(data?.error || "Scan failed");
 
-      // Normalise vehicle info from the model/scraper
       const vehicle = normaliseVehicle(data.vehicle ?? {});
 
-      // The API currently returns a single `summary` string.
-      // We treat this as the full report, and derive a short preview from it.
       const rawSummary: string | null =
-        data.summary ??
-        data.fullSummary ??
-        data.previewSummary ??
-        null;
+        data.summary ?? data.fullSummary ?? data.previewSummary ?? null;
 
       const fullSummary: string | null = rawSummary ?? null;
       const previewSummary: string | null = rawSummary
@@ -83,27 +100,22 @@ export default function OnlineAnalyzing() {
           ...vehicle,
         },
 
-        // High-level confidence from the model
         confidenceCode: data.confidenceCode ?? undefined,
 
-        // New split summaries
         previewSummary,
         fullSummary,
-
-        // Backwards-compat support: some code still reads `summary`
         summary: rawSummary,
 
         sections: [],
         signals: [],
 
         photos: { listing: [], meta: [] },
-        isUnlocked: false, // full report gated for now; can be wired later
+        isUnlocked: false,
 
         source: data.source ?? "gemini-2.5-flash",
         analysisSource: "online-listing-v1",
         sellerType: data.sellerType ?? undefined,
 
-        // Required field
         conditionSummary: "",
 
         kilometres: vehicle.kilometres ?? "",
@@ -121,13 +133,59 @@ export default function OnlineAnalyzing() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-16 text-center text-slate-100">
-      <h1 className="text-2xl font-semibold mb-2">
-        Scan results — AI-assisted review
-      </h1>
-      <p className="text-sm text-slate-400">
-        Running your online listing through CarVerity…
-      </p>
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4">
+      <div className="max-w-md w-full text-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-8 shadow-xl">
+
+        {/* LOGO WITH SOFT GLOW */}
+        <div className="relative w-24 h-24 mx-auto mb-5">
+          <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-xl animate-[pulse_2.4s_ease-in-out_infinite]" />
+          <img
+            src="/logo.png"
+            alt="CarVerity logo"
+            className="relative w-24 h-24 mx-auto opacity-95"
+          />
+        </div>
+
+        {/* TITLE */}
+        <h1 className="text-xl font-semibold mb-2">
+          Scanning the listing…
+        </h1>
+
+        <p className="text-slate-400 text-sm mb-6">
+          CarVerity is thoughtfully reviewing the listing to help you feel
+          confident about your next steps.
+        </p>
+
+        {/* DOT STEP RHYTHM */}
+        <div className="flex items-center justify-center gap-2 mb-3">
+          {[0, 1, 2, 3].map((i) => (
+            <span
+              key={i}
+              className={`w-2.5 h-2.5 rounded-full transition-all ${
+                i === stepIndex
+                  ? "bg-indigo-400 scale-110"
+                  : "bg-slate-600"
+              }`}
+            />
+          ))}
+        </div>
+
+        <p className="text-sm text-indigo-300 font-medium h-6">
+          {steps[stepIndex]}
+        </p>
+
+        {/* AMBIENT PROGRESS BAR */}
+        <div className="mt-5 w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-indigo-400 rounded-full transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+
+        <p className="text-xs text-slate-500 mt-6">
+          This usually takes a few moments — thanks for your patience.
+        </p>
+      </div>
     </div>
   );
 }
