@@ -36,11 +36,11 @@ export interface SavedResult {
   // High-level confidence from the model
   confidenceCode?: "LOW" | "MODERATE" | "HIGH";
 
-  // New split summaries
+  // Split summaries
   previewSummary?: string | null; // free preview
-  fullSummary?: string | null; // unlocked content
+  fullSummary?: string | null;    // unlocked content
 
-  // Backwards-compat: some older code still reads `summary`
+  // Backwards-compat — legacy code may still read this
   summary?: string | null;
 
   sections: ResultSection[];
@@ -84,7 +84,13 @@ export function loadOnlineResults(): SavedResult | null {
   try {
     const raw = localStorage.getItem(RESULTS_STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as SavedResult;
+
+    const parsed = JSON.parse(raw) as SavedResult;
+
+    // Backwards-compat: hydrate missing vehicle fields if needed
+    parsed.vehicle = normaliseVehicle(parsed.vehicle ?? {});
+
+    return parsed;
   } catch (err) {
     console.error("Failed to load online results", err);
     return null;
@@ -121,22 +127,30 @@ export function loadListingUrl(): string | null {
   }
 }
 
-// Normalise whatever the model / scraper gives us into a VehicleInfo
+// ------------------------------
+// Vehicle Normaliser
+// ------------------------------
+
 export function normaliseVehicle(raw: any): VehicleInfo {
   if (!raw || typeof raw !== "object") {
     return {};
   }
 
-  const { make, model, year, kilometres, kms, odo, ...rest } = raw as any;
+  const {
+    make,
+    model,
+    year,
+    kilometres,
+    kms,
+    odo,
+    ...rest
+  } = raw as any;
 
   const kmValue =
-    kilometres !== undefined
-      ? kilometres
-      : kms !== undefined
-      ? kms
-      : odo !== undefined
-      ? odo
-      : "";
+    kilometres ??
+    kms ??
+    odo ??
+    "";
 
   return {
     make: make ?? "",
