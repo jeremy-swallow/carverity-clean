@@ -149,12 +149,11 @@ ${listingText}
 }
 
 /* ===============================
-   Gemini API
+   Gemini API  (UPDATED AUTH FORMAT)
 ================================ */
 async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=" +
-      GEMINI_API_KEY,
+    `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -164,7 +163,11 @@ async function callGemini(prompt: string): Promise<string> {
     }
   );
 
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini error ${res.status}: ${err}`);
+  }
+
   const data = await res.json();
   const parts = data?.candidates?.[0]?.content?.parts || [];
   return parts.map((p: any) => p?.text || "").join("\n").trim();
@@ -230,7 +233,6 @@ export default async function handler(
 
     const { safe, confidence } = validateAndRepair(raw);
 
-    // Fill missing make/model from AI report (only when empty)
     vehicle = applySummaryFallback(vehicle, safe);
 
     return res.status(200).json({
