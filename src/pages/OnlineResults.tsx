@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { loadOnlineResults } from "../utils/onlineResults";
 
+/**
+ * Extracts structured sections from the Gemini report text.
+ * Falls back safely if formatting varies or sections are missing.
+ */
 function parseReportSections(text: string) {
   if (!text) return {};
+
   const sections: Record<string, string> = {};
 
   const patterns: Record<string, RegExp> = {
@@ -23,36 +28,49 @@ function parseReportSections(text: string) {
   };
 
   for (const key of Object.keys(patterns)) {
-    const m = text.match(patterns[key]);
-    if (m?.[1]) sections[key] = m[1].trim();
+    const match = text.match(patterns[key]);
+    if (match?.[1]) {
+      sections[key] = match[1].trim();
+    }
   }
 
   return sections;
 }
 
+/**
+ * If the scraper missed make/model/year/kilometres,
+ * try to derive them from the report text so the vehicle
+ * details box still feels helpful.
+ */
 function deriveVehicleFromSummary(base: any, text: string) {
   const vehicle = { ...base };
   if (!text) return vehicle;
 
+  // e.g. "2016 Mitsubishi Lancer Es Sport ..."
   const lineMatch = text.match(
     /\b(19|20)\d{2}\b\s+([A-Z][A-Za-z]+)\s+([A-Za-z0-9][A-Za-z0-9\s\-]+)/i
   );
 
   if (lineMatch) {
-    const year = lineMatch[0].match(/\b(19|20)\d{2}\b/)?.[0];
-    if (!vehicle.year && year) vehicle.year = year;
+    const yearMatch = lineMatch[0].match(/\b(19|20)\d{2}\b/);
+    if (!vehicle.year && yearMatch?.[0]) vehicle.year = yearMatch[0];
     if (!vehicle.make && lineMatch[2]) vehicle.make = lineMatch[2].trim();
     if (!vehicle.model && lineMatch[3]) vehicle.model = lineMatch[3].trim();
   }
 
   if (!vehicle.kilometres) {
     const kmMatch = text.match(/\b([\d,\.]{4,})\s*(km|kms|kilometres)\b/i);
-    if (kmMatch?.[1]) vehicle.kilometres = kmMatch[1].replace(/[,\.]/g, "");
+    if (kmMatch?.[1]) {
+      vehicle.kilometres = kmMatch[1].replace(/[,\.]/g, "");
+    }
   }
 
   return vehicle;
 }
 
+/**
+ * Renders multiline or markdown-ish text safely.
+ */
 function TextBlock({ value }: { value?: string }) {
   if (!value) return null;
   return (
@@ -64,6 +82,7 @@ function TextBlock({ value }: { value?: string }) {
 
 export default function OnlineResults() {
   const [result, setResult] = useState<any>(null);
+  const [devUnlocked, setDevUnlocked] = useState(false); // local tester unlock
 
   useEffect(() => {
     setResult(loadOnlineResults());
@@ -91,20 +110,24 @@ export default function OnlineResults() {
 
   const reportText = fullSummary || summary || "";
   const parsed = parseReportSections(reportText);
-  const vehicle = deriveVehicleFromSummary(rawVehicle, reportText);
-
   const hasStructuredSections = Object.keys(parsed).length > 0;
 
-  // 👉 RULE: show full report when text exists unless explicitly locked
-  const showFullReport = !!reportText && isUnlocked !== false;
+  const vehicle = deriveVehicleFromSummary(rawVehicle, reportText);
+
+  const locked = !isUnlocked && !devUnlocked;
+  const canShowFullReport = !!reportText;
 
   const preview =
     previewSummary ??
-    (summary?.split("\n").slice(0, 3).join(" ").trim() || null);
+    (summary
+      ?.split("\n")
+      .slice(0, 3)
+      .join(" ")
+      .trim() || null);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
-
+      {/* CONFIDENCE */}
       <section className="rounded-lg border border-white/10 p-4">
         <h2 className="text-sm text-muted-foreground mb-1">
           Listing confidence
@@ -116,31 +139,88 @@ export default function OnlineResults() {
         </p>
       </section>
 
-      {/* PREVIEW ONLY if locked */}
-      {!showFullReport && (
-        <section className="rounded-lg border border-white/10 p-4">
-          <h2 className="text-sm text-muted-foreground mb-1">
-            CarVerity analysis — preview
-          </h2>
-          {preview ? (
-            <p className="text-slate-200 text-sm leading-relaxed">
-              {preview}…{" "}
-              <span className="text-indigo-400">
-                Unlock full scan to see the complete report.
-              </span>
-            </p>
-          ) : (
-            <p className="text-muted-foreground">No preview available.</p>
-          )}
-        </section>
-      )}
+      {/* PREVIEW — always show a friendly snapshot */}
+      <section className="rounded-lg border border-white/10 p-4">
+        <h2 className="text-sm text-muted-foreground mb-1">
+          CarVerity analysis — preview
+        </h2>
 
-      {/* FULL REPORT — structured OR fallback */}
-      {showFullReport && (
+        {!preview && (
+          <p className="text-muted-foreground">No preview available.</p>
+        )}
+
+        {preview && (
+          <p className="text-slate-200 text-sm leading-relaxed">
+            {preview}{" "}
+            {!isUnlocked && (
+              <>
+                …{" "}
+                <span className="text-indigo-400">
+                  Unlock full scan to see the complete report.
+                </span>
+              </>
+            )}
+          </p>
+        )}
+      </section>
+
+      {/* FULL REPORT AREA */}
+      {canShowFullReport && (
         <>
-          {hasStructuredSections ? (
-            <div className="space-y-6">
+          {locked ? (
+            // 🔒 Locked, blurred view with tester button
+            <section className="relative rounded-lg border border-white/10 p-4 overflow-hidden">
+              <h3 className="text-sm text-muted-foreground mb-2">
+                Full CarVerity report
+              </h3>
 
+              {/* Blurred sample of the full text */}
+              <div className="blur-sm select-none opacity-70 pointer-events-none max-h-64 overflow-hidden">
+                {hasStructuredSections ? (
+                  <>
+                    {parsed.confidence && (
+                      <TextBlock value={parsed.confidence} />
+                    )}
+                    {parsed.whatThisMeans && (
+                      <>
+                        {"\n\n"}
+                        <TextBlock value={parsed.whatThisMeans} />
+                      </>
+                    )}
+                    {parsed.summary && (
+                      <>
+                        {"\n\n"}
+                        <TextBlock value={parsed.summary} />
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <TextBlock value={reportText} />
+                )}
+              </div>
+
+              {/* Lock overlay */}
+              <div className="absolute inset-0 bg-slate-950/70 flex flex-col items-center justify-center text-center px-6">
+                <p className="text-slate-100 text-sm mb-2">
+                  This is your full CarVerity report, including detailed
+                  guidance on what to look for in person.
+                </p>
+                <p className="text-slate-400 text-xs mb-4">
+                  In the live app this area will unlock with a paid scan. For
+                  now, you can reveal it here while testing.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setDevUnlocked(true)}
+                  className="inline-flex items-center rounded-full border border-indigo-400/80 bg-indigo-500/20 px-4 py-1.5 text-xs font-medium text-indigo-100 hover:bg-indigo-500/30"
+                >
+                  View full scan (testing)
+                </button>
+              </div>
+            </section>
+          ) : (
+            // ✅ Unlocked — show structured sections
+            <div className="space-y-6">
               {parsed.confidence && (
                 <section className="rounded-lg border border-white/10 p-4">
                   <h3 className="text-sm text-muted-foreground mb-1">
@@ -203,19 +283,21 @@ export default function OnlineResults() {
                   <TextBlock value={parsed.ownership} />
                 </section>
               )}
+
+              {!hasStructuredSections && (
+                <section className="rounded-lg border border-white/10 p-4">
+                  <h3 className="text-sm text-muted-foreground mb-1">
+                    Full CarVerity report
+                  </h3>
+                  <TextBlock value={reportText} />
+                </section>
+              )}
             </div>
-          ) : (
-            /* 👉 FALLBACK — show the raw analysis so the buyer still benefits */
-            <section className="rounded-lg border border-white/10 p-4">
-              <h3 className="text-sm text-muted-foreground mb-1">
-                CarVerity analysis — full report
-              </h3>
-              <TextBlock value={reportText} />
-            </section>
           )}
         </>
       )}
 
+      {/* VEHICLE DETAILS */}
       <section className="rounded-lg border border-white/10 p-4">
         <h2 className="text-sm text-muted-foreground mb-2">
           Vehicle details
@@ -226,14 +308,17 @@ export default function OnlineResults() {
             <span className="text-muted-foreground block">Make</span>
             <span>{vehicle.make || "—"}</span>
           </div>
+
           <div>
             <span className="text-muted-foreground block">Model</span>
             <span>{vehicle.model || "—"}</span>
           </div>
+
           <div>
             <span className="text-muted-foreground block">Year</span>
             <span>{vehicle.year || "—"}</span>
           </div>
+
           <div>
             <span className="text-muted-foreground block">Kilometres</span>
             <span>{vehicle.kilometres || "—"}</span>
