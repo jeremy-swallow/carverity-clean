@@ -23,8 +23,8 @@ function parseReportSections(text: string) {
   };
 
   for (const key of Object.keys(patterns)) {
-    const match = text.match(patterns[key]);
-    if (match?.[1]) sections[key] = match[1].trim();
+    const m = text.match(patterns[key]);
+    if (m?.[1]) sections[key] = m[1].trim();
   }
 
   return sections;
@@ -93,7 +93,9 @@ export default function OnlineResults() {
   const parsed = parseReportSections(reportText);
   const vehicle = deriveVehicleFromSummary(rawVehicle, reportText);
 
-  // 👉 NEW RULE: show full report when it exists unless explicitly locked
+  const hasStructuredSections = Object.keys(parsed).length > 0;
+
+  // 👉 RULE: show full report when text exists unless explicitly locked
   const showFullReport = !!reportText && isUnlocked !== false;
 
   const preview =
@@ -114,7 +116,7 @@ export default function OnlineResults() {
         </p>
       </section>
 
-      {/* PREVIEW ONLY SHOWN IF FULL REPORT IS LOCKED */}
+      {/* PREVIEW ONLY if locked */}
       {!showFullReport && (
         <section className="rounded-lg border border-white/10 p-4">
           <h2 className="text-sm text-muted-foreground mb-1">
@@ -133,73 +135,85 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* FULL REPORT */}
-      {showFullReport && parsed && (
-        <div className="space-y-6">
+      {/* FULL REPORT — structured OR fallback */}
+      {showFullReport && (
+        <>
+          {hasStructuredSections ? (
+            <div className="space-y-6">
 
-          {parsed.confidence && (
+              {parsed.confidence && (
+                <section className="rounded-lg border border-white/10 p-4">
+                  <h3 className="text-sm text-muted-foreground mb-1">
+                    Confidence assessment
+                  </h3>
+                  <TextBlock value={parsed.confidence} />
+                </section>
+              )}
+
+              {parsed.whatThisMeans && (
+                <section className="rounded-lg border border-white/10 p-4">
+                  <h3 className="text-sm text-muted-foreground mb-1">
+                    What this means for you
+                  </h3>
+                  <TextBlock value={parsed.whatThisMeans} />
+                </section>
+              )}
+
+              {parsed.summary && (
+                <section className="rounded-lg border border-white/10 p-4">
+                  <h3 className="text-sm text-muted-foreground mb-1">
+                    CarVerity analysis — summary
+                  </h3>
+                  <TextBlock value={parsed.summary} />
+                </section>
+              )}
+
+              {parsed.risks && (
+                <section className="rounded-lg border border-white/10 p-4">
+                  <h3 className="text-sm text-muted-foreground mb-1">
+                    Things to check in person
+                  </h3>
+                  <TextBlock value={parsed.risks} />
+                </section>
+              )}
+
+              {parsed.considerations && (
+                <section className="rounded-lg border border-white/10 p-4">
+                  <h3 className="text-sm text-muted-foreground mb-1">
+                    Helpful things to focus on during inspection
+                  </h3>
+                  <TextBlock value={parsed.considerations} />
+                </section>
+              )}
+
+              {parsed.negotiation && (
+                <section className="rounded-lg border border-white/10 p-4">
+                  <h3 className="text-sm text-muted-foreground mb-1">
+                    Negotiation insights
+                  </h3>
+                  <TextBlock value={parsed.negotiation} />
+                </section>
+              )}
+
+              {parsed.ownership && (
+                <section className="rounded-lg border border-white/10 p-4">
+                  <h3 className="text-sm text-muted-foreground mb-1">
+                    General ownership notes
+                  </h3>
+                  <TextBlock value={parsed.ownership} />
+                </section>
+              )}
+            </div>
+          ) : (
+            /* 👉 FALLBACK — show the raw analysis so the buyer still benefits */
             <section className="rounded-lg border border-white/10 p-4">
               <h3 className="text-sm text-muted-foreground mb-1">
-                Confidence assessment
+                CarVerity analysis — full report
               </h3>
-              <TextBlock value={parsed.confidence} />
+              <TextBlock value={reportText} />
             </section>
           )}
-
-          {parsed.whatThisMeans && (
-            <section className="rounded-lg border border-white/10 p-4">
-              <h3 className="text-sm text-muted-foreground mb-1">
-                What this means for you
-              </h3>
-              <TextBlock value={parsed.whatThisMeans} />
-            </section>
-          )}
-
-          {parsed.summary && (
-            <section className="rounded-lg border border-white/10 p-4">
-              <h3 className="text-sm text-muted-foreground mb-1">
-                CarVerity analysis — summary
-              </h3>
-              <TextBlock value={parsed.summary} />
-            </section>
-          )}
-
-          {parsed.risks && (
-            <section className="rounded-lg border border-white/10 p-4">
-              <h3 className="text-sm text-muted-foreground mb-1">
-                Things to check in person
-              </h3>
-              <TextBlock value={parsed.risks} />
-            </section>
-          )}
-
-          {parsed.considerations && (
-            <section className="rounded-lg border border-white/10 p-4">
-              <h3 className="text-sm text-muted-foreground mb-1">
-                Helpful things to focus on during inspection
-              </h3>
-              <TextBlock value={parsed.considerations} />
-            </section>
-          )}
-
-          {parsed.negotiation && (
-            <section className="rounded-lg border border-white/10 p-4">
-              <h3 className="text-sm text-muted-foreground mb-1">
-                Negotiation insights
-              </h3>
-              <TextBlock value={parsed.negotiation} />
-            </section>
-          )}
-
-          {parsed.ownership && (
-            <section className="rounded-lg border border-white/10 p-4">
-              <h3 className="text-sm text-muted-foreground mb-1">
-                General ownership notes
-              </h3>
-              <TextBlock value={parsed.ownership} />
-            </section>
-          )}
-        </div>
+        </>
       )}
 
       <section className="rounded-lg border border-white/10 p-4">
@@ -212,17 +226,14 @@ export default function OnlineResults() {
             <span className="text-muted-foreground block">Make</span>
             <span>{vehicle.make || "—"}</span>
           </div>
-
           <div>
             <span className="text-muted-foreground block">Model</span>
             <span>{vehicle.model || "—"}</span>
           </div>
-
           <div>
             <span className="text-muted-foreground block">Year</span>
             <span>{vehicle.year || "—"}</span>
           </div>
-
           <div>
             <span className="text-muted-foreground block">Kilometres</span>
             <span>{vehicle.kilometres || "—"}</span>
