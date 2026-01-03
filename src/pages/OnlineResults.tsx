@@ -10,31 +10,44 @@ const UNLOCK_KEY = "carverity_debug_unlock_full_scan";
    Helpers
 ------------------------------ */
 
+function SectionCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/[0.04] shadow-[0_0_25px_rgba(0,0,0,0.25)] backdrop-blur-sm p-5">
+      <h2 className="text-sm font-medium text-indigo-300 mb-2">
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
 function TextBlock({ value }: { value?: string | null }) {
   if (!value) return null;
   return (
-    <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
+    <pre className="whitespace-pre-wrap text-slate-100 text-[15px] leading-relaxed">
       {value.trim()}
     </pre>
   );
 }
 
-/**
- * “Tease-style” preview — avoids giving away specifics.
- * Encourages unlocking while still feeling helpful.
- */
 function buildPreviewTeaser(confidenceText?: string | null) {
   if (!confidenceText) {
     return (
-      "Preview not available. The full scan includes clearer guidance on what’s " +
-      "worth checking in person, plus practical inspection tips for this vehicle."
+      "The preview is limited. The full scan provides clearer guidance on " +
+      "what’s worth checking in person for this vehicle, plus practical next-step advice."
     );
   }
 
   return (
     confidenceText.trim() +
-    " The full scan also provides practical guidance on what’s worth checking " +
-    "in person, based on the details in the listing."
+    " The full scan also provides clearer guidance on what’s worth checking " +
+    "in person, along with helpful inspection tips tailored to this listing."
   );
 }
 
@@ -65,10 +78,10 @@ export default function OnlineResults() {
 
   if (!result) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold mb-2">No scan data found</h1>
-        <p className="text-muted-foreground">
-          Run a scan to see your CarVerity results.
+      <div className="max-w-3xl mx-auto px-6 py-16 text-center">
+        <h1 className="text-2xl font-semibold mb-2">No scan results found</h1>
+        <p className="text-slate-400">
+          Run a scan to generate your CarVerity report.
         </p>
       </div>
     );
@@ -95,91 +108,83 @@ export default function OnlineResults() {
   const previewTeaser = buildPreviewTeaser(confidenceText);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
+    <div className="max-w-4xl mx-auto px-6 py-10 space-y-8">
 
-      {/* CONFIDENCE CARD */}
-      <section className="rounded-lg border border-white/10 p-4">
-        <h2 className="text-sm text-muted-foreground mb-1">
-          Listing confidence
-        </h2>
-        <p className="text-white font-medium">{confidenceLabel}</p>
-      </section>
+      {/* HEADER */}
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold text-white">
+          CarVerity online scan results
+        </h1>
+        <p className="text-slate-400">
+          Independent guidance based on the details in this listing.
+        </p>
+      </div>
+
+      {/* CONFIDENCE */}
+      <SectionCard title="Listing confidence">
+        <p className="text-lg font-medium text-white">{confidenceLabel}</p>
+      </SectionCard>
 
       {/* CONFIDENCE EXPLANATION */}
-      <section className="rounded-lg border border-white/10 p-4">
-        <h2 className="text-sm text-muted-foreground mb-1">
-          Confidence assessment
-        </h2>
-        <p className="text-slate-200 text-sm leading-relaxed">
+      <SectionCard title="Confidence assessment">
+        <p className="text-slate-200 leading-relaxed">
           {confidenceText ||
             "This listing looks mostly positive so far. The full scan provides clearer guidance on what’s worth checking in person."}
         </p>
-      </section>
+      </SectionCard>
 
-      {/* PREVIEW / LOCKED REPORT */}
+      {/* PREVIEW LOCKED */}
       {!showFull && (
-        <section className="rounded-lg border border-white/10 p-4 space-y-3">
-          <h2 className="text-sm text-muted-foreground mb-1">
-            CarVerity analysis — preview
-          </h2>
-
-          <p className="text-slate-200 text-sm leading-relaxed">
+        <SectionCard title="CarVerity analysis — preview">
+          <p className="text-slate-200 leading-relaxed mb-3">
             {previewTeaser}
           </p>
 
-          <div className="rounded-md border border-white/10 bg-white/5 backdrop-blur px-3 py-2 text-xs text-slate-400">
-            Full scan content is locked
+          <div className="rounded-md border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-slate-400">
+            Full report content is locked
           </div>
 
           <button
             onClick={unlockForTesting}
-            className="mt-1 inline-flex items-center justify-center rounded-md bg-indigo-500 px-3 py-2 text-xs font-medium hover:bg-indigo-600 transition"
+            className="mt-3 inline-flex items-center justify-center rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium hover:bg-indigo-600 transition"
           >
             Unlock full scan (testing)
           </button>
 
           <p className="text-[11px] text-slate-500 mt-1">
-            In the live app this area unlocks with a paid scan. This button is
-            only visible during development.
+            In the live app this area unlocks after purchasing a scan.
           </p>
-        </section>
+        </SectionCard>
       )}
 
-      {/* FULL REPORT (UNLOCKED) */}
-      {showFull && reportText && (
-        <section className="space-y-6">
+      {/* FULL REPORT */}
+      {showFull && (
+        <SectionCard title="Full CarVerity report">
           <TextBlock value={reportText} />
-        </section>
+        </SectionCard>
       )}
 
       {/* VEHICLE DETAILS */}
-      <section className="rounded-lg border border-white/10 p-4">
-        <h2 className="text-sm text-muted-foreground mb-2">
-          Vehicle details
-        </h2>
-
+      <SectionCard title="Vehicle details">
         <div className="grid grid-cols-2 gap-y-2 text-sm">
           <div>
-            <span className="text-muted-foreground block">Make</span>
-            <span>{vehicle.make || "—"}</span>
+            <span className="text-slate-400 block">Make</span>
+            <span className="text-white">{vehicle.make || "—"}</span>
           </div>
-
           <div>
-            <span className="text-muted-foreground block">Model</span>
-            <span>{vehicle.model || "—"}</span>
+            <span className="text-slate-400 block">Model</span>
+            <span className="text-white">{vehicle.model || "—"}</span>
           </div>
-
           <div>
-            <span className="text-muted-foreground block">Year</span>
-            <span>{vehicle.year || "—"}</span>
+            <span className="text-slate-400 block">Year</span>
+            <span className="text-white">{vehicle.year || "—"}</span>
           </div>
-
           <div>
-            <span className="text-muted-foreground block">Kilometres</span>
-            <span>{vehicle.kilometres || "—"}</span>
+            <span className="text-slate-400 block">Kilometres</span>
+            <span className="text-white">{vehicle.kilometres || "—"}</span>
           </div>
         </div>
-      </section>
+      </SectionCard>
     </div>
   );
 }
