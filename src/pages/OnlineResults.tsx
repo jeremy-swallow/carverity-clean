@@ -1,8 +1,49 @@
+// src/pages/OnlineResults.tsx
 import { useEffect, useState } from "react";
-import {
-  loadOnlineResults,
-  saveOnlineResults,
-} from "../utils/onlineResults";
+import { loadOnlineResults } from "../utils/onlineResults";
+
+/**
+ * Extracts structured sections from the Gemini report text.
+ * Falls back safely if formatting varies or sections are missing.
+ */
+function parseReportSections(text: string) {
+  if (!text) {
+    return {};
+  }
+
+  const sections: Record<string, string> = {};
+
+  const patterns: Record<string, RegExp> = {
+    confidence: /CONFIDENCE ASSESSMENT[\r\n]+([\s\S]*?)(?=\n{2,}|CONFIDENCE_CODE:|WHAT THIS MEANS FOR YOU|$)/i,
+    whatThisMeans: /WHAT THIS MEANS FOR YOU[\r\n]+([\s\S]*?)(?=\n{2,}|CARVERITY ANALYSIS|$)/i,
+    summary: /CARVERITY ANALYSIS[\s–-]*SUMMARY[\r\n]+([\s\S]*?)(?=\n{2,}|KEY RISK SIGNALS|$)/i,
+    risks: /KEY RISK SIGNALS[\r\n]+([\s\S]*?)(?=\n{2,}|BUYER CONSIDERATIONS|$)/i,
+    considerations: /BUYER CONSIDERATIONS[\r\n]+([\s\S]*?)(?=\n{2,}|NEGOTIATION INSIGHTS|$)/i,
+    negotiation: /NEGOTIATION INSIGHTS[\r\n]+([\s\S]*?)(?=\n{2,}|GENERAL OWNERSHIP NOTES|$)/i,
+    ownership: /GENERAL OWNERSHIP NOTES[\r\n]+([\s\S]*?)$/i,
+  };
+
+  for (const key of Object.keys(patterns)) {
+    const match = text.match(patterns[key]);
+    if (match?.[1]) {
+      sections[key] = match[1].trim();
+    }
+  }
+
+  return sections;
+}
+
+/**
+ * Renders multiline or markdown-ish text safely.
+ */
+function TextBlock({ value }: { value?: string }) {
+  if (!value) return null;
+  return (
+    <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
+      {value.trim()}
+    </pre>
+  );
+}
 
 export default function OnlineResults() {
   const [result, setResult] = useState<any>(null);
@@ -11,18 +52,11 @@ export default function OnlineResults() {
     setResult(loadOnlineResults());
   }, []);
 
-  function unlockScan() {
-    if (!result) return;
-    const updated = { ...result, isUnlocked: true };
-    saveOnlineResults(updated);
-    setResult(updated);
-  }
-
   if (!result) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-16 text-center text-slate-200">
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
         <h1 className="text-xl font-semibold mb-2">No scan data found</h1>
-        <p className="text-slate-400">
+        <p className="text-muted-foreground">
           Run a scan to see your CarVerity results.
         </p>
       </div>
@@ -38,153 +72,158 @@ export default function OnlineResults() {
     isUnlocked,
   } = result;
 
-  const baseSummary = summary || fullSummary || "";
+  const reportText = fullSummary || summary || "";
+  const parsed = parseReportSections(reportText);
+
   const preview =
-    (previewSummary && previewSummary.trim()) ||
-    baseSummary.split("\n").slice(0, 3).join(" ").trim();
-
-  const fullReport = fullSummary || summary || "";
-
-  // Friendly fallback formatting for vehicle details
-  const make = vehicle.make || "Not provided";
-  const model = vehicle.model || "Not provided";
-  const year = vehicle.year || "Not stated";
-  const kms =
-    vehicle.kilometres !== undefined && vehicle.kilometres !== null
-      ? String(vehicle.kilometres)
-      : "Not stated";
+    previewSummary ??
+    (summary
+      ?.split("\n")
+      .slice(0, 4)
+      .join(" ")
+      .trim() || null);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10 space-y-8 text-slate-200">
+    <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
 
       {/* CONFIDENCE */}
-      <section className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-5 shadow-sm">
-        <h2 className="text-sm text-slate-400 mb-1 uppercase tracking-wide">
+      <section className="rounded-lg border border-white/10 p-4">
+        <h2 className="text-sm text-muted-foreground mb-1">
           Listing confidence
         </h2>
-        <p className="text-lg font-semibold">
+        <p className="text-white font-medium">
           {confidenceCode
             ? `${confidenceCode} — listing confidence`
             : "Not available"}
         </p>
       </section>
 
-      {/* PREVIEW */}
-      <section className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-5 shadow-sm">
-        <h2 className="text-sm text-slate-400 mb-2 uppercase tracking-wide">
-          CarVerity analysis — preview
-        </h2>
+      {/* PREVIEW / FULL REPORT */}
+      {!isUnlocked && (
+        <section className="rounded-lg border border-white/10 p-4">
+          <h2 className="text-sm text-muted-foreground mb-1">
+            CarVerity analysis — preview
+          </h2>
 
-        <p className="text-slate-200 leading-relaxed">
-          {preview || "No preview available."}
-        </p>
+          {!preview && (
+            <p className="text-muted-foreground">No preview available.</p>
+          )}
 
-        {!isUnlocked && preview && (
-          <p className="text-indigo-300 text-sm mt-2">
-            You can unlock the full scan to read the complete report.
-          </p>
-        )}
-      </section>
+          {preview && (
+            <p className="text-slate-200 text-sm leading-relaxed">
+              {preview}…{" "}
+              <span className="text-indigo-400">
+                Unlock full scan to see the complete report.
+              </span>
+            </p>
+          )}
+        </section>
+      )}
 
-      {/* FULL REPORT */}
-      <section className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-5 shadow-sm">
-        <h2 className="text-sm text-slate-400 mb-3 uppercase tracking-wide">
-          Full CarVerity report
-        </h2>
+      {/* FULL REPORT — STRUCTURED SECTIONS */}
+      {isUnlocked && reportText && (
+        <div className="space-y-6">
 
-        {!isUnlocked && (
-          <div className="relative">
-            <div className="blur-sm opacity-60 pointer-events-none select-none">
-              <ReportBody text={fullReport} />
-            </div>
+          {/* CONFIDENCE ASSESSMENT */}
+          {parsed.confidence && (
+            <section className="rounded-lg border border-white/10 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                Confidence assessment
+              </h3>
+              <TextBlock value={parsed.confidence} />
+            </section>
+          )}
 
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-2xl border border-white/10">
-              <p className="text-slate-200 text-sm px-6 text-center mb-3">
-                Unlock to view the full analysis, buyer guidance and ownership notes.
-              </p>
+          {/* WHAT THIS MEANS FOR YOU */}
+          {parsed.whatThisMeans && (
+            <section className="rounded-lg border border-white/10 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                What this means for you
+              </h3>
+              <TextBlock value={parsed.whatThisMeans} />
+            </section>
+          )}
 
-              <button
-                onClick={unlockScan}
-                className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-sm font-medium shadow hover:bg-indigo-400"
-              >
-                Unlock full scan
-              </button>
+          {/* SUMMARY */}
+          {parsed.summary && (
+            <section className="rounded-lg border border-white/10 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                CarVerity analysis — summary
+              </h3>
+              <TextBlock value={parsed.summary} />
+            </section>
+          )}
 
-              <p className="text-xs text-slate-400 mt-2">
-                Your full report appears instantly after unlocking.
-              </p>
-            </div>
-          </div>
-        )}
+          {/* KEY RISK SIGNALS (framed as things to check) */}
+          {parsed.risks && (
+            <section className="rounded-lg border border-white/10 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                Things to check in person
+              </h3>
+              <TextBlock value={parsed.risks} />
+            </section>
+          )}
 
-        {isUnlocked && (
-          <ReportBody text={fullReport} />
-        )}
-      </section>
+          {/* BUYER CONSIDERATIONS */}
+          {parsed.considerations && (
+            <section className="rounded-lg border border-white/10 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                Helpful things to focus on during inspection
+              </h3>
+              <TextBlock value={parsed.considerations} />
+            </section>
+          )}
+
+          {/* NEGOTIATION INSIGHTS */}
+          {parsed.negotiation && (
+            <section className="rounded-lg border border-white/10 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                Negotiation insights
+              </h3>
+              <TextBlock value={parsed.negotiation} />
+            </section>
+          )}
+
+          {/* GENERAL OWNERSHIP NOTES */}
+          {parsed.ownership && (
+            <section className="rounded-lg border border-white/10 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                General ownership notes
+              </h3>
+              <TextBlock value={parsed.ownership} />
+            </section>
+          )}
+        </div>
+      )}
 
       {/* VEHICLE DETAILS */}
-      <section className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-5 shadow-sm">
-        <h2 className="text-sm text-slate-400 mb-2 uppercase tracking-wide">
+      <section className="rounded-lg border border-white/10 p-4">
+        <h2 className="text-sm text-muted-foreground mb-2">
           Vehicle details
         </h2>
 
-        <div className="grid grid-cols-2 gap-y-3 text-sm">
-          <Detail label="Make" value={make} />
-          <Detail label="Model" value={model} />
-          <Detail label="Year" value={year} />
-          <Detail label="Kilometres" value={kms} />
+        <div className="grid grid-cols-2 gap-y-2 text-sm">
+          <div>
+            <span className="text-muted-foreground block">Make</span>
+            <span>{vehicle.make || "—"}</span>
+          </div>
+
+          <div>
+            <span className="text-muted-foreground block">Model</span>
+            <span>{vehicle.model || "—"}</span>
+          </div>
+
+          <div>
+            <span className="text-muted-foreground block">Year</span>
+            <span>{vehicle.year || "—"}</span>
+          </div>
+
+          <div>
+            <span className="text-muted-foreground block">Kilometres</span>
+            <span>{vehicle.kilometres || "—"}</span>
+          </div>
         </div>
       </section>
-    </div>
-  );
-}
-
-/* ----------------------------------------
-   Report Rendering — Friendly Formatting
----------------------------------------- */
-
-function ReportBody({ text }: { text: string }) {
-  // Light post-processing to soften presentation — not rewriting content
-  const softened = text
-    // Rename “KEY RISK SIGNALS” → assistant-framed language
-    .replace(/KEY RISK SIGNALS/gi, "Things to check in person")
-    // Slightly friendlier interpretation headings
-    .replace(/BUYER CONSIDERATIONS/gi, "Helpful things to focus on in person")
-    .replace(/NEGOTIATION INSIGHTS/gi, "Negotiation tips (optional)")
-    .replace(/GENERAL OWNERSHIP NOTES/gi, "General ownership notes");
-
-  return (
-    <div className="space-y-4 text-slate-200 leading-relaxed">
-      {softened.split("\n").map((line, i) => {
-        if (!line.trim()) return <div key={i} className="h-1" />;
-
-        // Detect section headings
-        if (/^[A-Z][A-Z\s\-–]+$/.test(line.trim())) {
-          return (
-            <h3
-              key={i}
-              className="text-slate-300 font-semibold mt-4 mb-1 tracking-wide"
-            >
-              {line.trim()}
-            </h3>
-          );
-        }
-
-        return (
-          <p key={i} className="whitespace-pre-wrap">
-            {line}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <span className="text-slate-400 block">{label}</span>
-      <span>{value}</span>
     </div>
   );
 }
