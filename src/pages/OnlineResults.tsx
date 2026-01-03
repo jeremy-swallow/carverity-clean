@@ -7,9 +7,7 @@ import { loadOnlineResults } from "../utils/onlineResults";
  * Falls back safely if formatting varies or sections are missing.
  */
 function parseReportSections(text: string) {
-  if (!text) {
-    return {};
-  }
+  if (!text) return {};
 
   const sections: Record<string, string> = {};
 
@@ -31,6 +29,25 @@ function parseReportSections(text: string) {
   }
 
   return sections;
+}
+
+/**
+ * Extracts ONLY the Confidence Assessment paragraph for preview text.
+ */
+function extractConfidencePreview(text: string): string | null {
+  if (!text) return null;
+
+  const match = text.match(
+    /CONFIDENCE ASSESSMENT[\r\n]+([\s\S]*?)(?=\n{2,}|CONFIDENCE_CODE:|WHAT THIS MEANS FOR YOU|$)/i
+  );
+
+  if (!match?.[1]) return null;
+
+  // Clean markdown / excessive spacing
+  return match[1]
+    .replace(/\*\*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /**
@@ -66,22 +83,15 @@ export default function OnlineResults() {
   const {
     vehicle = {},
     confidenceCode,
-    previewSummary,
     fullSummary,
     summary,
-    isUnlocked,
   } = result;
 
   const reportText = fullSummary || summary || "";
   const parsed = parseReportSections(reportText);
 
-  const preview =
-    previewSummary ??
-    (summary
-      ?.split("\n")
-      .slice(0, 4)
-      .join(" ")
-      .trim() || null);
+  // Confidence-only preview
+  const preview = extractConfidencePreview(reportText);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
@@ -98,33 +108,27 @@ export default function OnlineResults() {
         </p>
       </section>
 
-      {/* PREVIEW / FULL REPORT */}
-      {!isUnlocked && (
-        <section className="rounded-lg border border-white/10 p-4">
-          <h2 className="text-sm text-muted-foreground mb-1">
-            CarVerity analysis — preview
-          </h2>
+      {/* PREVIEW (Confidence-only) */}
+      <section className="rounded-lg border border-white/10 p-4">
+        <h2 className="text-sm text-muted-foreground mb-1">
+          CarVerity analysis — preview
+        </h2>
 
-          {!preview && (
-            <p className="text-muted-foreground">No preview available.</p>
-          )}
+        {!preview && (
+          <p className="text-muted-foreground">No preview available.</p>
+        )}
 
-          {preview && (
-            <p className="text-slate-200 text-sm leading-relaxed">
-              {preview}…{" "}
-              <span className="text-indigo-400">
-                Unlock full scan to see the complete report.
-              </span>
-            </p>
-          )}
-        </section>
-      )}
+        {preview && (
+          <p className="text-slate-200 text-sm leading-relaxed">
+            {preview}
+          </p>
+        )}
+      </section>
 
-      {/* FULL REPORT — STRUCTURED SECTIONS */}
-      {isUnlocked && reportText && (
+      {/* FULL REPORT — ALWAYS SHOWN DURING DEVELOPMENT */}
+      {reportText && (
         <div className="space-y-6">
 
-          {/* CONFIDENCE ASSESSMENT */}
           {parsed.confidence && (
             <section className="rounded-lg border border-white/10 p-4">
               <h3 className="text-sm text-muted-foreground mb-1">
@@ -134,7 +138,6 @@ export default function OnlineResults() {
             </section>
           )}
 
-          {/* WHAT THIS MEANS FOR YOU */}
           {parsed.whatThisMeans && (
             <section className="rounded-lg border border-white/10 p-4">
               <h3 className="text-sm text-muted-foreground mb-1">
@@ -144,7 +147,6 @@ export default function OnlineResults() {
             </section>
           )}
 
-          {/* SUMMARY */}
           {parsed.summary && (
             <section className="rounded-lg border border-white/10 p-4">
               <h3 className="text-sm text-muted-foreground mb-1">
@@ -154,7 +156,6 @@ export default function OnlineResults() {
             </section>
           )}
 
-          {/* KEY RISK SIGNALS (framed as things to check) */}
           {parsed.risks && (
             <section className="rounded-lg border border-white/10 p-4">
               <h3 className="text-sm text-muted-foreground mb-1">
@@ -164,7 +165,6 @@ export default function OnlineResults() {
             </section>
           )}
 
-          {/* BUYER CONSIDERATIONS */}
           {parsed.considerations && (
             <section className="rounded-lg border border-white/10 p-4">
               <h3 className="text-sm text-muted-foreground mb-1">
@@ -174,7 +174,6 @@ export default function OnlineResults() {
             </section>
           )}
 
-          {/* NEGOTIATION INSIGHTS */}
           {parsed.negotiation && (
             <section className="rounded-lg border border-white/10 p-4">
               <h3 className="text-sm text-muted-foreground mb-1">
@@ -184,7 +183,6 @@ export default function OnlineResults() {
             </section>
           )}
 
-          {/* GENERAL OWNERSHIP NOTES */}
           {parsed.ownership && (
             <section className="rounded-lg border border-white/10 p-4">
               <h3 className="text-sm text-muted-foreground mb-1">
