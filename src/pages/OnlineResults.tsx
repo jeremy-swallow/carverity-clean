@@ -28,8 +28,7 @@ export default function OnlineResults() {
     isUnlocked,
   } = result;
 
-  // Prefer the dedicated preview if we have one; otherwise derive
-  // a short teaser from summary / fullSummary.
+  // Prefer stored preview, otherwise derive from summary text
   const baseSummaryText: string | null = summary || fullSummary || null;
 
   const derivedPreview =
@@ -41,8 +40,11 @@ export default function OnlineResults() {
 
   const preview = (previewSummary && previewSummary.trim()) || derivedPreview;
 
+  const fullReportText = fullSummary || summary || "";
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
+
       {/* CONFIDENCE */}
       <section className="rounded-lg border border-white/10 p-4">
         <h2 className="text-sm text-muted-foreground mb-1">
@@ -55,7 +57,7 @@ export default function OnlineResults() {
         </p>
       </section>
 
-      {/* PREVIEW / FULL REPORT */}
+      {/* PREVIEW */}
       <section className="rounded-lg border border-white/10 p-4">
         <h2 className="text-sm text-muted-foreground mb-1">
           CarVerity analysis — preview
@@ -74,9 +76,51 @@ export default function OnlineResults() {
           </p>
         )}
 
-        {isUnlocked && (fullSummary || summary) && (
+        {isUnlocked && (
           <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
-            {fullSummary || summary}
+            {preview}
+          </pre>
+        )}
+      </section>
+
+      {/* FULL REPORT (LOCKED / UNLOCKED) */}
+      <section className="rounded-lg border border-white/10 p-4">
+        <h2 className="text-sm text-muted-foreground mb-1">
+          Full CarVerity report
+        </h2>
+
+        {/* LOCKED — BLURRED */}
+        {!isUnlocked && (
+          <div className="relative">
+            <div className="blur-sm select-none pointer-events-none opacity-60">
+              <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
+                {fullReportText || "Full report loading…"}
+              </pre>
+            </div>
+
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-lg border border-white/10">
+              <p className="text-slate-200 text-sm px-6 text-center mb-3">
+                This section includes the full analysis, buyer considerations,
+                negotiation insights and general ownership notes.
+              </p>
+
+              <button
+                className="px-4 py-2 rounded-md bg-indigo-500 text-white text-sm font-medium shadow hover:bg-indigo-400 transition"
+              >
+                Unlock full scan
+              </button>
+
+              <p className="text-xs text-slate-400 mt-2">
+                You’ll see the complete report straight away after unlocking.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* UNLOCKED — CLEAR */}
+        {isUnlocked && (
+          <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
+            {fullReportText}
           </pre>
         )}
       </section>
