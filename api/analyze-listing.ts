@@ -38,16 +38,30 @@ function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
 
+  // YEAR — defensive
   let year = "";
   const labelled = text.match(
     /(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i
   );
+  const beforeMake = text.match(
+    /\b((19|20)\d{2})\b[^,\n]{0,30}(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)/i
+  );
+  const afterMake = text.match(
+    /(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)[^0-9]{0,20}\b((19|20)\d{2})\b/i
+  );
+
   if (labelled) year = labelled[2];
+  else if (beforeMake) year = beforeMake[1];
+  else if (afterMake) year = afterMake[2];
+
   year = normaliseYear(year);
 
+  // KILOMETRES
   let kilometres = "";
-  const kmMatch = text.match(/\b([\d,\.]+)\s*(km|kms|kilometres)\b/i);
-  if (kmMatch?.[1]) kilometres = normaliseKilometres(kmMatch[1]);
+  const kmMatch = text.match(/\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i);
+  if (kmMatch?.[1]) {
+    kilometres = normaliseKilometres(kmMatch[1]);
+  }
 
   return {
     make: makeMatch?.[1]?.trim() || "",
@@ -58,7 +72,7 @@ function extractBasicVehicleInfo(text: string) {
 }
 
 // ------------------------------
-// Gemini call
+// Gemini call helper
 // ------------------------------
 async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(
@@ -79,9 +93,9 @@ async function callGemini(prompt: string): Promise<string> {
 }
 
 // ------------------------------
-// PREVIEW PROMPT — minimal + neutral only
+// PREVIEW PROMPT — minimal + neutral
 // ------------------------------
-function buildPreviewPrompt(listingText: string) {
+function buildPreviewPrompt(listingText: string): string {
   return `
 You are CarVerity — an independent used-car assistant for Australian buyers.
 
@@ -93,8 +107,8 @@ Generate a SHORT PREVIEW SUMMARY that:
 • does NOT provide insights that would replace the full scan
 
 The preview MUST ONLY:
-• explain that this is an early high-level snapshot
-• invite the user to unlock the full scan for detailed checks
+• explain that this is an early high-level snapshot, and
+• invite the user to unlock the full scan for detailed checks.
 
 Length: 1–2 sentences only.
 
@@ -108,46 +122,63 @@ ${listingText}
 // ------------------------------
 // FULL SCAN PROMPT — main paid report
 // ------------------------------
-function buildFullPrompt(listingText: string) {
+function buildFullPrompt(listingText: string): string {
   return `
 You are CarVerity — an independent used-car assistant for Australian buyers.
-Write in warm, calm, practical language.
+Write in warm, calm, practical language that supports the buyer.
 
 SERVICE HISTORY — STRICT RULES
-Treat entries with workshop + odometer + “Done/Completed” as normal completed services.
-Do NOT infer missed services, gaps, risk or neglect unless the listing explicitly states it.
-If something looks unusual but no problem is stated, remain neutral.
+Treat logbook entries that include:
+• a workshop or dealer name
+• an odometer value
+• a status such as “Done” or “Completed”
+as NORMAL completed services — even if date formatting looks unusual.
+
+Do NOT infer:
+• missed or overdue services
+• gaps in servicing
+• neglect or risk
+
+unless the LISTING TEXT explicitly states this.
+Future or scheduled services are normal and must NOT be treated as a risk.
+If something looks unusual BUT the listing does not say there is a problem,
+you must remain neutral and not present it as a risk.
 
 CONFIDENCE MODEL
-LOW  = Feels comfortable so far — nothing concerning stands out
-MODERATE = Looks mostly fine — a couple of things may be worth checking in person
-HIGH = Proceed carefully — important details should be confirmed before moving ahead
+LOW      = Feels comfortable so far — nothing concerning stands out.
+MODERATE = Looks mostly fine — a couple of things may be worth checking in person.
+HIGH     = Proceed carefully — important details should be confirmed before moving ahead.
 
-OUTPUT IN THIS EXACT STRUCTURE:
+OUTPUT USING THIS EXACT STRUCTURE:
 
 CONFIDENCE ASSESSMENT
-(Plain-English explanation)
+(A short, plain-English explanation)
 
 CONFIDENCE_CODE: LOW / MODERATE / HIGH
 
 WHAT THIS MEANS FOR YOU
-(Supportive buyer-focused interpretation)
+(2–4 supportive sentences helping the buyer interpret the listing)
 
 CARVERITY ANALYSIS — SUMMARY
-(Overview based ONLY on listing text)
+(A helpful overview based ONLY on the listing — no speculation)
 
 KEY RISK SIGNALS
-(Only include genuine listing-supported risks)
+- Only include genuine, listing-supported buyer risks.
+- Do NOT invent problems or reinterpret normal formatting as risk.
 
 BUYER CONSIDERATIONS
-(Calm practical next-step guidance)
+- Calm, practical next-step guidance.
+- You may suggest a CarVerity in-person scan as a way to confirm real-world condition.
 
 NEGOTIATION INSIGHTS
-(Polite and realistic)
+- Realistic, polite talking points (e.g., cosmetic wear, age, kms).
 
 GENERAL OWNERSHIP NOTES
-• General guidance for similar vehicles/age
-• Do NOT imply these issues apply to THIS vehicle
+This section MUST:
+• Provide neutral, general-knowledge guidance about similar vehicles/age.
+• NOT imply these points definitely apply to THIS specific car.
+• Be phrased as “things some owners of similar vehicles watch for”.
+Keep this section short (3–5 bullet points).
 
 LISTING TEXT
 --------------------------------
@@ -178,23 +209,30 @@ export default async function handler(
       return res.status(400).json({ ok: false, error: "Missing listing URL" });
     }
 
+    console.log("🔎 Running AI scan for:", listingUrl);
+
     const html = await fetchListingHtml(listingUrl);
     const vehicle = extractBasicVehicleInfo(html);
 
-    // Generate preview (minimal)
+    // 1) Minimal preview
     const previewPrompt = buildPreviewPrompt(html);
     const preview = await callGemini(previewPrompt);
 
-    // Generate full paid scan
+    // 2) Full paid scan
     const fullPrompt = buildFullPrompt(html);
     const fullReport = await callGemini(fullPrompt);
     const confidenceCode = extractConfidence(fullReport);
 
+    // IMPORTANT: return BOTH new + legacy fields so the current UI keeps working.
     return res.status(200).json({
       ok: true,
       vehicle,
+      // New fields
       preview,
       fullReport,
+      // Legacy-style fields used elsewhere in the app
+      summary: preview,         // used by the preview card fallback
+      fullAnalysis: fullReport, // used by the full scan card
       confidenceCode,
       source: "gemini-2.5-flash",
     });
