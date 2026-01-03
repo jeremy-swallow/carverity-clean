@@ -45,6 +45,15 @@ export default function OnlineResults() {
 
   const fullReport = fullSummary || summary || "";
 
+  // Friendly fallback formatting for vehicle details
+  const make = vehicle.make || "Not provided";
+  const model = vehicle.model || "Not provided";
+  const year = vehicle.year || "Not stated";
+  const kms =
+    vehicle.kilometres !== undefined && vehicle.kilometres !== null
+      ? String(vehicle.kilometres)
+      : "Not stated";
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8 text-slate-200">
 
@@ -78,17 +87,15 @@ export default function OnlineResults() {
       </section>
 
       {/* FULL REPORT */}
-      <section className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-5 shadow-sm relative">
-        <h2 className="text-sm text-slate-400 mb-2 uppercase tracking-wide">
+      <section className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-5 shadow-sm">
+        <h2 className="text-sm text-slate-400 mb-3 uppercase tracking-wide">
           Full CarVerity report
         </h2>
 
         {!isUnlocked && (
           <div className="relative">
-            <div className="blur-sm opacity-60 pointer-events-none">
-              <pre className="whitespace-pre-wrap text-slate-300 text-sm leading-relaxed">
-                {fullReport}
-              </pre>
+            <div className="blur-sm opacity-60 pointer-events-none select-none">
+              <ReportBody text={fullReport} />
             </div>
 
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-2xl border border-white/10">
@@ -111,9 +118,7 @@ export default function OnlineResults() {
         )}
 
         {isUnlocked && (
-          <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
-            {fullReport}
-          </pre>
+          <ReportBody text={fullReport} />
         )}
       </section>
 
@@ -124,24 +129,62 @@ export default function OnlineResults() {
         </h2>
 
         <div className="grid grid-cols-2 gap-y-3 text-sm">
-          <div>
-            <span className="text-slate-400 block">Make</span>
-            <span>{vehicle.make || "—"}</span>
-          </div>
-          <div>
-            <span className="text-slate-400 block">Model</span>
-            <span>{vehicle.model || "—"}</span>
-          </div>
-          <div>
-            <span className="text-slate-400 block">Year</span>
-            <span>{vehicle.year || "—"}</span>
-          </div>
-          <div>
-            <span className="text-slate-400 block">Kilometres</span>
-            <span>{vehicle.kilometres || "—"}</span>
-          </div>
+          <Detail label="Make" value={make} />
+          <Detail label="Model" value={model} />
+          <Detail label="Year" value={year} />
+          <Detail label="Kilometres" value={kms} />
         </div>
       </section>
+    </div>
+  );
+}
+
+/* ----------------------------------------
+   Report Rendering — Friendly Formatting
+---------------------------------------- */
+
+function ReportBody({ text }: { text: string }) {
+  // Light post-processing to soften presentation — not rewriting content
+  const softened = text
+    // Rename “KEY RISK SIGNALS” → assistant-framed language
+    .replace(/KEY RISK SIGNALS/gi, "Things to check in person")
+    // Slightly friendlier interpretation headings
+    .replace(/BUYER CONSIDERATIONS/gi, "Helpful things to focus on in person")
+    .replace(/NEGOTIATION INSIGHTS/gi, "Negotiation tips (optional)")
+    .replace(/GENERAL OWNERSHIP NOTES/gi, "General ownership notes");
+
+  return (
+    <div className="space-y-4 text-slate-200 leading-relaxed">
+      {softened.split("\n").map((line, i) => {
+        if (!line.trim()) return <div key={i} className="h-1" />;
+
+        // Detect section headings
+        if (/^[A-Z][A-Z\s\-–]+$/.test(line.trim())) {
+          return (
+            <h3
+              key={i}
+              className="text-slate-300 font-semibold mt-4 mb-1 tracking-wide"
+            >
+              {line.trim()}
+            </h3>
+          );
+        }
+
+        return (
+          <p key={i} className="whitespace-pre-wrap">
+            {line}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span className="text-slate-400 block">{label}</span>
+      <span>{value}</span>
     </div>
   );
 }
