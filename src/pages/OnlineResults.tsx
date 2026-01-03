@@ -22,7 +22,7 @@ interface SavedResult {
 }
 
 /* =========================================================
-   Small UI helpers
+   UI Helpers
 ========================================================= */
 
 function Card(props: any) {
@@ -50,38 +50,53 @@ function Pill({ code }: { code?: string }) {
 }
 
 /* =========================================================
-   Conversion-focused preview teaser generator
+   Confidence-aware conversion teaser
 ========================================================= */
 
-function buildPreviewTeaser(source: string | null | undefined): string {
-  if (!source) {
-    return (
-      "The full scan gives clearer guidance on what’s worth checking in person, " +
-      "along with neutral risk context and practical negotiation tips tailored to this listing."
-    );
-  }
+function buildPreviewTeaser(
+  confidence: string | undefined,
+  source: string | null | undefined
+): string {
+  const DEFAULT_HOOK =
+    "The full scan gives clearer guidance on what’s worth checking in person, along with neutral risk context and practical negotiation tips tailored to this listing.";
 
-  // pull the first meaningful sentence
+  // Try to extract a meaningful first line from model output
   const first = source
-    .replace(/\*\*|#+|\-/g, "")
+    ?.replace(/\*\*|#+|\-/g, "")
     .split(/\.\s+/)[0]
     .trim();
 
-  // reject noise / headings / markers
-  if (!first || first.length < 40 || first.includes("CONFIDENCE_CODE")) {
+  const usable =
+    first && first.length > 40 && !first.includes("CONFIDENCE_CODE")
+      ? first.slice(0, 200).trim()
+      : null;
+
+  // Tone-matched hooks
+  if (confidence === "LOW") {
     return (
-      "The full scan gives clearer guidance on what’s worth checking in person, " +
-      "along with neutral risk context and practical negotiation tips tailored to this listing."
+      (usable ||
+        "This scan suggests the listing generally looks comfortable so far, with no major concerns standing out.") +
+      ". The full report includes supportive inspection tips and confidence-based context to help you feel reassured when you see the car in person."
     );
   }
 
-  // hard cap to keep it teaser-length
-  const clipped = first.slice(0, 200).trim();
+  if (confidence === "MODERATE") {
+    return (
+      (usable ||
+        "This scan highlights a few details that are worth confirming in person, while the overall listing still presents positively.") +
+      ". The full report adds clearer guidance on what to focus on during inspection, plus helpful context and negotiation pointers tailored to this car."
+    );
+  }
 
-  return (
-    clipped +
-    ". The full report includes practical inspection guidance, neutral confidence-based insights, and helpful negotiation pointers for this car."
-  );
+  if (confidence === "HIGH") {
+    return (
+      (usable ||
+        "This scan found a few meaningful details that would benefit from closer attention when you inspect the car in person.") +
+      ". The full report provides calm, practical guidance on what to check carefully, along with supportive next-step advice for your decision."
+    );
+  }
+
+  return DEFAULT_HOOK;
 }
 
 /* =========================================================
@@ -115,7 +130,7 @@ export default function OnlineResults() {
   } = result;
 
   const reportText = fullSummary || summary || "";
-  const teaser = buildPreviewTeaser(previewSummary || reportText);
+  const teaser = buildPreviewTeaser(confidenceCode, previewSummary || reportText);
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
@@ -136,7 +151,7 @@ export default function OnlineResults() {
         <Pill code={confidenceCode} />
       </Card>
 
-      {/* Confidence intro */}
+      {/* Intro */}
       <Card>
         <h2 className="text-xs font-medium text-slate-300 mb-2 tracking-wide">
           CONFIDENCE ASSESSMENT
@@ -147,7 +162,7 @@ export default function OnlineResults() {
         </p>
       </Card>
 
-      {/* Preview section */}
+      {/* Preview (locked) */}
       {!isUnlocked && (
         <Card>
           <h2 className="text-xs font-medium text-slate-300 mb-2 tracking-wide">
@@ -173,7 +188,7 @@ export default function OnlineResults() {
         </Card>
       )}
 
-      {/* Full report */}
+      {/* Full Report (unlocked) */}
       {isUnlocked && (
         <Card>
           <pre className="whitespace-pre-wrap text-slate-100 leading-relaxed text-sm">
