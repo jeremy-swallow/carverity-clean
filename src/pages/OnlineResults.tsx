@@ -152,7 +152,6 @@ function parseReportSections(text: string): ReportSection[] {
     const title = match[2]?.trim() ?? "Section";
     const body = match[3]?.trim() ?? "";
 
-    // Intro text before the first heading
     if (match.index > lastIndex && sections.length === 0) {
       const intro = text.slice(lastIndex, match.index).trim();
       if (intro) {
@@ -164,7 +163,6 @@ function parseReportSections(text: string): ReportSection[] {
     lastIndex = headingRegex.lastIndex;
   }
 
-  // If no headings were found, treat whole text as one section
   if (sections.length === 0) {
     const trimmed = text.trim();
     if (trimmed) {
@@ -210,7 +208,6 @@ function buildHighlights(opts: {
     highlights.push("Includes inspection tips, negotiation ideas & ownership notes");
   }
 
-  // keep it tidy – max 4 chips
   return highlights.slice(0, 4);
 }
 
@@ -272,9 +269,6 @@ export default function OnlineResults() {
   const reportText = fullSummary || summary || "";
   const hasStoredUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
 
-  // ✅ New logic:
-  // - For new scans (isUnlocked is set to false), the preview is shown until the user unlocks.
-  // - For very old stored results (no isUnlocked), we fall back to the global UNLOCK_KEY.
   const showUnlocked = (isUnlocked ?? hasStoredUnlock) === true;
 
   const sections = parseReportSections(reportText);
@@ -286,7 +280,7 @@ export default function OnlineResults() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-      {/* Sticky vehicle headline bar */}
+      {/* Sticky vehicle headline */}
       <div className="sticky top-0 z-30 -mx-4 px-4 py-2 bg-slate-950/70 backdrop-blur border-b border-white/5">
         <div className="flex items-center justify-between text-xs md:text-sm">
           <div className="text-slate-300 truncate">
@@ -299,7 +293,7 @@ export default function OnlineResults() {
         </div>
       </div>
 
-      {/* Page header with gauge */}
+      {/* Header */}
       <section
         id="overview"
         className="rounded-2xl bg-gradient-to-r from-violet-700/80 to-indigo-600/80 border border-white/10 shadow-lg px-6 py-5 md:py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
@@ -337,7 +331,7 @@ export default function OnlineResults() {
         <Pill label={confidenceLabel} tone={confidenceTone as any} />
       </SectionCard>
 
-      {/* Preview / CTA */}
+      {/* Preview */}
       {!showUnlocked && (
         <SectionCard id="analysis" title="CarVerity analysis — preview" icon="👁‍🗨">
           <p className="text-slate-300 text-sm">
@@ -362,35 +356,37 @@ export default function OnlineResults() {
         </SectionCard>
       )}
 
-      {/* Full report – modern layout */}
+      {/* ✨ Full Report — Premium Card Layout */}
       {showUnlocked && (
         <SectionCard id="report" title="Full CarVerity report" icon="✨">
-          {sections.length > 0 ? (
-            <div className="space-y-4">
-              {sections.map((section, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-xl border border-white/10 bg-slate-900/80 px-4 py-3 md:px-5 md:py-4 shadow-sm"
-                >
-                  <div className="flex items-center justify-between mb-2">
+          <div className="space-y-5">
+            {sections.map((section, idx) => (
+              <div
+                key={idx}
+                className="rounded-2xl border border-white/10 bg-gradient-to-b from-slate-900/90 to-slate-900/60 shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
+              >
+                {/* Banner */}
+                <div className="px-5 py-3 border-b border-white/10 bg-gradient-to-r from-indigo-600/25 to-violet-600/20 rounded-t-2xl flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📌</span>
                     <h3 className="text-sm font-semibold text-slate-100">
                       {section.title}
                     </h3>
-                    <span className="text-[10px] uppercase tracking-wide text-slate-500">
-                      Section {idx + 1}
-                    </span>
                   </div>
-                  <div className="whitespace-pre-wrap text-sm text-slate-200 leading-relaxed">
+                  <span className="text-[10px] uppercase tracking-wide text-slate-400">
+                    Section {idx + 1}
+                  </span>
+                </div>
+
+                {/* Body */}
+                <div className="px-5 py-4">
+                  <div className="rounded-xl bg-slate-950/40 border border-white/5 px-4 py-3 whitespace-pre-wrap text-sm text-slate-200 leading-relaxed">
                     {section.body}
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="whitespace-pre-wrap text-slate-200 leading-relaxed text-sm">
-              {reportText}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
 
           {!isUnlocked && (
             <p className="text-xs text-slate-500 mt-2">
@@ -400,7 +396,7 @@ export default function OnlineResults() {
         </SectionCard>
       )}
 
-      {/* Vehicle Details */}
+      {/* Vehicle */}
       <SectionCard id="vehicle" title="Vehicle details" icon="🚗">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-y-3 text-sm">
           <div>
