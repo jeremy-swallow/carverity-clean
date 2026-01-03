@@ -271,7 +271,12 @@ export default function OnlineResults() {
 
   const reportText = fullSummary || summary || "";
   const hasStoredUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
-  const showUnlocked = isUnlocked || hasStoredUnlock;
+
+  // ✅ New logic:
+  // - For new scans (isUnlocked is set to false), the preview is shown until the user unlocks.
+  // - For very old stored results (no isUnlocked), we fall back to the global UNLOCK_KEY.
+  const showUnlocked = (isUnlocked ?? hasStoredUnlock) === true;
+
   const sections = parseReportSections(reportText);
   const highlightChips = buildHighlights({
     confidenceCode,

@@ -4,9 +4,14 @@ import { useNavigate } from "react-router-dom";
 import {
   saveOnlineResults,
   type SavedResult,
+  type VehicleInfo,
   normaliseVehicle,
   LISTING_URL_KEY,
 } from "../utils/onlineResults";
+
+/* =========================================================
+   Preview builder
+========================================================= */
 
 /**
  * Builds a clean, natural preview using ONLY the
@@ -41,6 +46,80 @@ function buildPreviewFromConfidence(text: string): string {
 
   return (output || result.slice(0, 320)).trim();
 }
+
+/* =========================================================
+   Vehicle enrichment from summary
+========================================================= */
+
+const KNOWN_BRANDS = [
+  "Toyota",
+  "Kia",
+  "Mazda",
+  "Ford",
+  "Hyundai",
+  "Nissan",
+  "Mitsubishi",
+  "Subaru",
+  "Honda",
+  "Volkswagen",
+  "Audi",
+  "BMW",
+  "Mercedes",
+  "Holden",
+  "Peugeot",
+  "Renault",
+  "Jeep",
+  "Volvo",
+  "Lexus",
+];
+
+/**
+ * As an extra safety net, back-fill missing make/model
+ * from the AI summary text, without ever overwriting
+ * existing values.
+ */
+function enrichVehicleFromSummary(
+  vehicle: VehicleInfo,
+  summary: string | null
+): VehicleInfo {
+  if (!summary || !summary.trim()) return vehicle;
+
+  const updated: VehicleInfo = { ...vehicle };
+
+  // Use the first line if available, otherwise the whole text
+  const firstLine = summary.split(/\r?\n/)[0] || summary;
+  const text = firstLine || summary;
+
+  const brandRegex = new RegExp(`\\b(${KNOWN_BRANDS.join("|")})\\b`, "i");
+
+  if (!updated.make) {
+    const brandMatch = text.match(brandRegex);
+    if (brandMatch) {
+      updated.make = brandMatch[1];
+    }
+  }
+
+  if (!updated.model && updated.make) {
+    const lower = text.toLowerCase();
+    const idx = lower.indexOf(updated.make.toLowerCase());
+    if (idx !== -1) {
+      const after = text.slice(idx + updated.make.length);
+      const tokens = after.split(/[\s,.;:()]+/).filter(Boolean);
+      if (tokens.length > 0) {
+        const candidate = tokens[0];
+        if (candidate && candidate.length <= 24) {
+          updated.model = candidate;
+        }
+      }
+    }
+  }
+
+  return updated;
+}
+
+/* =========================================================
+   Component
+========================================================= */
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
@@ -95,12 +174,17 @@ export default function OnlineAnalyzing() {
       const data = await res.json();
       if (!res.ok || !data?.ok) throw new Error(data?.error || "Scan failed");
 
-      const vehicle = normaliseVehicle(data.vehicle ?? {});
+      // Start with the server-provided vehicle, normalised
+      let vehicle = normaliseVehicle(data.vehicle ?? {});
 
       const rawSummary: string | null =
         data.summary ?? data.fullSummary ?? data.previewSummary ?? null;
 
       const fullSummary: string | null = rawSummary ?? null;
+
+      // Add an extra client-side fallback to fill make/model,
+      // but never overwrite existing values.
+      vehicle = enrichVehicleFromSummary(vehicle, rawSummary);
 
       // 🎯 Preview = confidence assessment only
       const previewSummary: string | null = rawSummary
@@ -154,7 +238,6 @@ export default function OnlineAnalyzing() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-8 shadow-xl">
-
         {/* LOGO WITH SOFT GLOW */}
         <div className="relative w-24 h-24 mx-auto mb-5">
           <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-xl animate-[pulse_2.4s_ease-in-out_infinite]" />
