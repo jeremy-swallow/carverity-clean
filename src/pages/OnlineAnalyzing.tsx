@@ -1,3 +1,4 @@
+// src/pages/OnlineAnalyzing.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -7,17 +8,38 @@ import {
   LISTING_URL_KEY,
 } from "../utils/onlineResults";
 
-function buildPreview(summary: string): string {
-  const cleaned = summary.trim();
-  if (!cleaned) return "";
-  const sentences = cleaned.split(/(?<=[.!?])\s+/);
+/**
+ * Builds a clean, natural preview using ONLY the
+ * CONFIDENCE ASSESSMENT section of the report.
+ */
+function buildPreviewFromConfidence(text: string): string {
+  if (!text) return "";
+
+  const match = text.match(
+    /CONFIDENCE ASSESSMENT[\r\n]+([\s\S]*?)(?=\n{2,}|CONFIDENCE_CODE:|WHAT THIS MEANS FOR YOU|$)/i
+  );
+
+  let result = match?.[1] ?? text;
+
+  result = result
+    .replace(/\*\*/g, "")
+    .replace(/#+\s*/g, "")
+    .replace(/CONFIDENCE_CODE:.*/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!result) return "";
+
+  const sentences = result.split(/(?<=[.!?])\s+/);
   let output = "";
+
   for (const s of sentences) {
     const next = output ? `${output} ${s}` : s;
     if (next.length > 320) break;
     output = next;
   }
-  return output || cleaned.slice(0, 320);
+
+  return (output || result.slice(0, 320)).trim();
 }
 
 export default function OnlineAnalyzing() {
@@ -41,13 +63,10 @@ export default function OnlineAnalyzing() {
     return () => clearInterval(timer);
   }, []);
 
-  // Ambient looping progress bar
+  // Ambient progress loop
   useEffect(() => {
     const interval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 100) return 0;
-        return p + 2.2;
-      });
+      setProgress((p) => (p >= 100 ? 0 : p + 2.2));
     }, 90);
     return () => clearInterval(interval);
   }, []);
@@ -82,8 +101,10 @@ export default function OnlineAnalyzing() {
         data.summary ?? data.fullSummary ?? data.previewSummary ?? null;
 
       const fullSummary: string | null = rawSummary ?? null;
+
+      // 🎯 Preview = confidence assessment only
       const previewSummary: string | null = rawSummary
-        ? buildPreview(rawSummary)
+        ? buildPreviewFromConfidence(rawSummary)
         : null;
 
       const saved: SavedResult = {
@@ -108,7 +129,6 @@ export default function OnlineAnalyzing() {
 
         sections: [],
         signals: [],
-
         photos: { listing: [], meta: [] },
         isUnlocked: false,
 
@@ -117,7 +137,6 @@ export default function OnlineAnalyzing() {
         sellerType: data.sellerType ?? undefined,
 
         conditionSummary: "",
-
         kilometres: vehicle.kilometres ?? "",
         owners: "",
         notes: "",
@@ -146,7 +165,6 @@ export default function OnlineAnalyzing() {
           />
         </div>
 
-        {/* TITLE */}
         <h1 className="text-xl font-semibold mb-2">
           Scanning the listing…
         </h1>
@@ -156,7 +174,6 @@ export default function OnlineAnalyzing() {
           confident about your next steps.
         </p>
 
-        {/* DOT STEP RHYTHM */}
         <div className="flex items-center justify-center gap-2 mb-3">
           {[0, 1, 2, 3].map((i) => (
             <span
@@ -174,7 +191,6 @@ export default function OnlineAnalyzing() {
           {steps[stepIndex]}
         </p>
 
-        {/* AMBIENT PROGRESS BAR */}
         <div className="mt-5 w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
           <div
             className="h-full bg-indigo-400 rounded-full transition-all"
