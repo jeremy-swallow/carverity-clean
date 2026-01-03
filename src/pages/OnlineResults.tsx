@@ -1,3 +1,5 @@
+// src/pages/OnlineResults.tsx
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -7,10 +9,35 @@ import {
   type SavedResult,
 } from "../utils/onlineResults";
 
+// Helper to keep the preview short & non-actionable
+function sanitisePreview(raw?: string | null): string {
+  if (!raw) return "";
+
+  // Remove obvious bullet / list lines
+  const lines = raw.split("\n");
+  const noBullets = lines.filter((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    if (/^[-*•]/.test(trimmed)) return false;
+    return true;
+  });
+
+  const joined = noBullets.join(" ").replace(/\s+/g, " ").trim();
+  if (!joined) return "";
+
+  const words = joined.split(" ");
+  const limit = 140;
+
+  if (words.length <= limit) return joined;
+
+  return words.slice(0, limit).join(" ") + "…";
+}
+
 export default function OnlineResults() {
   const navigate = useNavigate();
   const [data, setData] = useState<SavedResult | null>(null);
 
+  // Load stored result
   useEffect(() => {
     const stored = loadOnlineResults();
     if (!stored) {
@@ -18,31 +45,47 @@ export default function OnlineResults() {
       return;
     }
 
-    setData({
-      ...stored,
-      vehicle: normaliseVehicle(stored.vehicle),
-    });
+    const vehicle = normaliseVehicle(stored.vehicle || {});
+    setData({ ...stored, vehicle });
   }, [navigate]);
 
+  // Persist whenever data changes (e.g. unlock)
   useEffect(() => {
-    if (data) saveOnlineResults(data);
+    if (data) {
+      saveOnlineResults(data);
+    }
   }, [data]);
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-16">
+        <h1 className="text-2xl font-semibold mb-4">
+          Scan results — AI-assisted review
+        </h1>
+        <p className="text-sm text-slate-400">Loading your scan…</p>
+      </div>
+    );
+  }
 
-  const unlocked = data.isUnlocked ?? false;
-  const preview =
-    data.previewText ||
-    data.summary ||
-    "";
-  const full =
-    data.fullAnalysis ||
-    data.summary ||
-    "";
+  const vehicle = data.vehicle || {};
+  const unlocked = !!data.isUnlocked;
+
+  const previewText = sanitisePreview(
+    data.previewSummary ?? data.previewText ?? data.summary ?? ""
+  );
+  const fullText = data.fullAnalysis ?? "";
+
+  const confidenceLabel =
+    data.confidenceSummary ||
+    (data.confidenceCode
+      ? `${data.confidenceCode} — listing confidence`
+      : "Listing confidence");
 
   function handleUnlock() {
-    setData(prev => prev ? { ...prev, isUnlocked: true } : prev);
+    setData((prev) => (prev ? { ...prev, isUnlocked: true } : prev));
   }
+
+  const hasFull = !!fullText;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12 space-y-6">
@@ -50,51 +93,103 @@ export default function OnlineResults() {
         Scan results — AI-assisted review
       </h1>
 
-      {/* Preview */}
-      <section className="rounded-lg border bg-slate-900/70 px-5 py-4">
-        <h2 className="text-sm font-semibold">CarVerity analysis — preview</h2>
+      {/* Confidence banner */}
+      {confidenceLabel && (
+        <section className="rounded-lg border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm flex items-center">
+          <span className="inline-flex h-2 w-2 rounded-full bg-amber-400 mr-2" />
+          <span className="font-medium">{confidenceLabel}</span>
+        </section>
+      )}
 
-        {preview ? (
-          <pre className="whitespace-pre-wrap text-sm">
-            {preview}
+      {/* Preview card */}
+      <section className="rounded-lg border border-slate-700 bg-slate-900/70 px-5 py-4 space-y-2">
+        <h2 className="text-sm font-semibold">
+          CarVerity analysis — preview
+        </h2>
+        <p className="text-xs text-slate-400">
+          (Free preview — the full scan provides a deeper, listing-specific
+          breakdown.)
+        </p>
+
+        {previewText ? (
+          <pre className="whitespace-pre-wrap text-sm leading-relaxed opacity-90">
+            {previewText}
           </pre>
         ) : (
           <p className="text-sm text-slate-400">
-            No preview available.
+            No preview available for this listing.
           </p>
         )}
       </section>
 
-      {/* Full Scan */}
-      <section className="relative rounded-lg border bg-slate-900/70 px-5 py-4">
+      {/* Vehicle details */}
+      <section className="rounded-lg border border-slate-700 bg-slate-900/70 px-5 py-4 text-sm">
+        <h2 className="text-sm font-semibold mb-3">Vehicle details</h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-8 text-sm">
+          <div>
+            <div className="text-xs text-slate-400">Make</div>
+            <div>{vehicle.make || "—"}</div>
+
+            <div className="mt-3 text-xs text-slate-400">Year</div>
+            <div>{vehicle.year || "—"}</div>
+
+            <div className="mt-3 text-xs text-slate-400">Kilometres</div>
+            <div>{vehicle.kilometres ?? "—"}</div>
+          </div>
+
+          <div>
+            <div className="text-xs text-slate-400">Model</div>
+            <div>{vehicle.model || "—"}</div>
+
+            <div className="mt-3 text-xs text-slate-400">Variant</div>
+            <div>{vehicle.variant || "—"}</div>
+
+            {vehicle.importStatus && (
+              <>
+                <div className="mt-3 text-xs text-slate-400">
+                  Import status
+                </div>
+                <div>{vehicle.importStatus}</div>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Full AI analysis */}
+      <section className="relative rounded-lg border border-slate-700 bg-slate-900/70 px-5 py-4 overflow-hidden">
         <h2 className="text-sm font-semibold mb-3">Full AI analysis</h2>
 
-        {full ? (
+        {hasFull ? (
           <>
             <pre
               className={
-                "whitespace-pre-wrap text-sm" +
-                (!unlocked ? " blur-sm select-none" : "")
+                "whitespace-pre-wrap text-sm leading-relaxed transition-all" +
+                (unlocked ? "" : " blur-sm select-none")
               }
             >
-              {full}
+              {fullText}
             </pre>
 
-              {!unlocked && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="bg-slate-950/85 px-6 py-3 rounded-md text-center">
-                    <p className="text-xs mb-2">
-                      Full scan locked — unlock to reveal detailed insights.
-                    </p>
-                    <button
-                      onClick={handleUnlock}
-                      className="bg-indigo-500 text-white px-3 py-1 rounded"
-                    >
-                      Unlock full scan
-                    </button>
-                  </div>
+            {!unlocked && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="pointer-events-auto bg-slate-950/85 backdrop-blur-md px-6 py-3 rounded-md text-center space-y-2 text-sm max-w-md">
+                  <p className="text-xs text-slate-200">
+                    Full scan locked — unlock to reveal detailed risk signals,
+                    tailored buyer checks and negotiation insights for this
+                    listing.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleUnlock}
+                    className="inline-flex items-center justify-center rounded-md bg-indigo-500 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-400 transition"
+                  >
+                    Unlock full scan
+                  </button>
                 </div>
-              )}
+              </div>
+            )}
           </>
         ) : (
           <p className="text-sm text-slate-400">
