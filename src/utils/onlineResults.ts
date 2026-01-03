@@ -1,7 +1,7 @@
 // src/utils/onlineResults.ts
 
 // ------------------------------
-// Types
+// Shared types
 // ------------------------------
 
 export interface ResultSection {
@@ -14,30 +14,39 @@ export interface SavedPhotos {
   meta?: any[];
 }
 
+// Basic vehicle info used across the online flow
 export interface VehicleInfo {
   make?: string;
   model?: string;
-  year?: string | number;
+  year?: string;
   kilometres?: string | number | null;
-  variant?: string;
-  importStatus?: string;
+  // allow extra fields without TS screaming
+  [key: string]: any;
 }
 
+// What we store for an online scan
 export interface SavedResult {
-  // Core metadata
   type: "online";
   step: string;
   createdAt: string;
 
-  // Listing
   listingUrl: string | null;
   vehicle: VehicleInfo;
 
-  // Content sections + photos
-  sections: ResultSection[];
-  photos: SavedPhotos;
+  // High-level confidence from the model
+  confidenceCode?: "LOW" | "MODERATE" | "HIGH";
 
-  // Lock state
+  // New split summaries
+  previewSummary?: string | null; // free preview
+  fullSummary?: string | null; // unlocked content
+
+  // Backwards-compat: some older code still reads `summary`
+  summary?: string | null;
+
+  sections: ResultSection[];
+  signals?: any[];
+
+  photos: SavedPhotos;
   isUnlocked: boolean;
 
   // Optional metadata
@@ -45,109 +54,95 @@ export interface SavedResult {
   analysisSource?: string;
   sellerType?: string;
 
-  // High-level summaries
-  summary?: string;
-  conditionSummary?: string;
-  notes?: string;
+  conditionSummary: string;
 
-  kilometres?: string | number | null;
+  kilometres?: number | string;
   owners?: string;
-
-  // 🔐 Preview vs full analysis split
-  previewSummary?: string; // short, non-actionable preview used on free tier
-  previewText?: string;    // legacy / fallback preview
-  fullAnalysis?: string;   // detailed paid analysis
-
-  // Confidence / trust signals
-  confidenceCode?: string | null;
-  confidenceSummary?: string;
-  confidenceAssessment?: string;
-
-  // Structured risk / signal data (optional, for future use)
-  signals?: any[];
+  notes?: string;
 }
 
 // ------------------------------
 // Storage keys
 // ------------------------------
 
-const STORAGE_KEY = "carverity_online_results_v2";
-const LISTING_URL_KEY = "carverity_online_listing_url";
+const RESULTS_STORAGE_KEY = "carverity_online_results_v2";
+export const LISTING_URL_KEY = "carverity_online_listing_url";
 
 // ------------------------------
-// Listing URL helpers
-// ------------------------------
-
-export function saveListingUrl(url: string) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(LISTING_URL_KEY, url);
-  } catch (err) {
-    console.error("❌ Failed to save listing URL:", err);
-  }
-}
-
-export function loadListingUrl(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    return localStorage.getItem(LISTING_URL_KEY);
-  } catch (err) {
-    console.error("❌ Failed to load listing URL:", err);
-    return null;
-  }
-}
-
-// ------------------------------
-// Result storage helpers
+// Core save/load for results
 // ------------------------------
 
 export function saveOnlineResults(data: SavedResult) {
-  if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(RESULTS_STORAGE_KEY, JSON.stringify(data));
   } catch (err) {
-    console.error("❌ Failed to save online results:", err);
+    console.error("Failed to save online results", err);
   }
 }
 
 export function loadOnlineResults(): SavedResult | null {
-  if (typeof window === "undefined") return null;
-
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return null;
-
   try {
-    const parsed = JSON.parse(raw) as SavedResult;
-    return parsed;
+    const raw = localStorage.getItem(RESULTS_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as SavedResult;
   } catch (err) {
-    console.error("❌ Failed to parse online results:", err);
+    console.error("Failed to load online results", err);
     return null;
   }
 }
 
-// ------------------------------
-// Normalisers
-// ------------------------------
-
-export function normaliseKilometres(
-  km?: string | number | null
-): string | null {
-  if (km === undefined || km === null || km === "") return null;
-
-  const n =
-    typeof km === "string" ? parseInt(km.replace(/\D/g, ""), 10) : km;
-
-  if (Number.isNaN(n)) return null;
-
-  return n.toLocaleString("en-AU") + " km";
+export function clearOnlineResults() {
+  try {
+    localStorage.removeItem(RESULTS_STORAGE_KEY);
+  } catch (err) {
+    console.error("Failed to clear online results", err);
+  }
 }
 
-export function normaliseVehicle(v: VehicleInfo): VehicleInfo {
-  const formattedKm = normaliseKilometres(v.kilometres);
+// ------------------------------
+// Helpers used by StartScan & others
+// (kept for backwards compatibility)
+// ------------------------------
+
+export function saveListingUrl(url: string) {
+  try {
+    localStorage.setItem(LISTING_URL_KEY, url);
+  } catch (err) {
+    console.error("Failed to save listing URL", err);
+  }
+}
+
+export function loadListingUrl(): string | null {
+  try {
+    return localStorage.getItem(LISTING_URL_KEY);
+  } catch (err) {
+    console.error("Failed to load listing URL", err);
+    return null;
+  }
+}
+
+// Normalise whatever the model / scraper gives us into a VehicleInfo
+export function normaliseVehicle(raw: any): VehicleInfo {
+  if (!raw || typeof raw !== "object") {
+    return {};
+  }
+
+  const { make, model, year, kilometres, kms, odo, ...rest } = raw as any;
+
+  const kmValue =
+    kilometres !== undefined
+      ? kilometres
+      : kms !== undefined
+      ? kms
+      : odo !== undefined
+      ? odo
+      : "";
 
   return {
-    ...v,
-    kilometres: formattedKm ?? null,
-    variant: v.variant || "—",
+    make: make ?? "",
+    model: model ?? "",
+    year: year ?? "",
+    kilometres: kmValue ?? "",
+    ...rest,
   };
 }

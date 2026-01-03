@@ -1,77 +1,107 @@
 // src/pages/OnlineAnalyzing.tsx
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { saveOnlineResults, loadListingUrl } from "../utils/onlineResults";
+import {
+  saveOnlineResults,
+  type SavedResult,
+} from "../utils/onlineResults";
 
-const STAGES = [
-  "Reading the vehicle listing…",
-  "Extracting key details…",
-  "Scanning for risk signals…",
-  "Preparing your AI summary…",
-];
+const LISTING_URL_KEY = "carverity_online_listing_url";
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
-  const [stageIndex, setStageIndex] = useState(0);
 
   useEffect(() => {
-    const listingUrl = loadListingUrl();
-    console.log("🔍 Analyzing listing — URL =", listingUrl);
+    const listingUrl = localStorage.getItem(LISTING_URL_KEY);
 
     if (!listingUrl) {
-      navigate("/scan/online", { replace: true });
+      console.warn("⚠️ No listing URL — aborting scan");
+      navigate("/start-scan", { replace: true });
       return;
     }
 
-    const interval = setInterval(() => {
-      setStageIndex((i) => (i + 1) % STAGES.length);
-    }, 2800);
-
+    console.log("🚀 Running scan for:", listingUrl);
     runScan(listingUrl);
-
-    return () => clearInterval(interval);
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function runScan(listingUrl: string) {
     try {
       const res = await fetch("/api/analyze-listing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: listingUrl }),
+        body: JSON.stringify({ listingUrl }),
       });
 
       if (!res.ok) {
-        console.error("❌ Scan failed", res.status);
-        navigate("/scan/online", { replace: true });
-        return;
+        const text = await res.text();
+        console.error("❌ Scan failed:", text);
+        throw new Error(text || "Scan failed");
       }
 
       const data = await res.json();
-      saveOnlineResults(data);
+
+      const previewSummary: string | null =
+        data.previewSummary ?? null;
+      const fullSummary: string | null = data.fullSummary ?? null;
+      const confidenceCode: "LOW" | "MODERATE" | "HIGH" | undefined =
+        data.confidenceCode ?? undefined;
+
+      const vehicle = data.vehicle ?? {};
+
+      const saved: SavedResult = {
+        type: "online",
+        step: "analysis-complete",
+        createdAt: new Date().toISOString(),
+
+        listingUrl,
+        vehicle: {
+          make: vehicle.make ?? "",
+          model: vehicle.model ?? "",
+          year: vehicle.year ?? "",
+          kilometres: vehicle.kilometres ?? "",
+          ...vehicle,
+        },
+
+        confidenceCode,
+        previewSummary,
+        fullSummary,
+        // keep summary for backwards compatibility
+        summary: fullSummary ?? previewSummary ?? null,
+
+        sections: [],
+        signals: [],
+        photos: { listing: [], meta: [] },
+        isUnlocked: false,
+
+        source: data.source ?? "gemini-2.5-flash",
+        analysisSource: "online-listing-v1",
+        sellerType: data.sellerType ?? undefined,
+
+        conditionSummary: "",
+        kilometres: vehicle.kilometres ?? "",
+        owners: "",
+        notes: "",
+      };
+
+      saveOnlineResults(saved);
 
       navigate("/scan/online/results", { replace: true });
-    } catch (err) {
-      console.error("❌ Network error running scan", err);
+    } catch (err: any) {
+      console.error("❌ Analysis error:", err);
+      // For now just bounce back; later we can show a nicer error page
       navigate("/scan/online", { replace: true });
     }
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
-      <h1 className="text-xl font-semibold mb-2">Analyzing your listing…</h1>
-
-      <p className="text-muted-foreground mb-3">
-        This normally takes <strong>10–30 seconds</strong>.
-        Sit tight while we review pricing signals, wording and seller flags.
+    <div className="max-w-4xl mx-auto px-4 py-16 text-center text-slate-100">
+      <h1 className="text-2xl font-semibold mb-2">
+        Scan results — AI-assisted review
+      </h1>
+      <p className="text-sm text-slate-400">
+        Running your online listing through CarVerity&hellip;
       </p>
-
-      <p className="mt-2 text-sm opacity-80">{STAGES[stageIndex]}</p>
-
-      <div className="mt-5 flex gap-2">
-        <div className="w-2 h-2 rounded-full bg-white/70 animate-pulse" />
-        <div className="w-2 h-2 rounded-full bg-white/70 animate-pulse delay-150" />
-        <div className="w-2 h-2 rounded-full bg-white/70 animate-pulse delay-300" />
-      </div>
     </div>
   );
 }
