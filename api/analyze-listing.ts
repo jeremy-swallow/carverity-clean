@@ -11,7 +11,9 @@ if (!GEMINI_API_KEY) {
 // ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-  if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch listing (${res.status})`);
+  }
   return await res.text();
 }
 
@@ -30,7 +32,7 @@ function normaliseKilometres(raw?: string | null): string {
   if (!raw) return "";
   const cleaned = raw.replace(/[,\.]/g, "").trim();
   const n = parseInt(cleaned, 10);
-  if (!n || n < 10 || n > 1000000) return "";
+  if (!n || n < 10 || n > 1_000_000) return "";
   return String(n);
 }
 
@@ -41,6 +43,7 @@ function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
 
+  // YEAR — defensive & preference-based
   let year = "";
   const labelled = text.match(
     /(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i
@@ -51,24 +54,27 @@ function extractBasicVehicleInfo(text: string) {
   const afterMake = text.match(
     /(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)[^0-9]{0,20}\b((19|20)\d{2})\b/i
   );
+  const myCode = text.match(/\bMY\s?(\d{2})\b/i);
 
   if (labelled) year = labelled[2];
   else if (beforeMake) year = beforeMake[1];
   else if (afterMake) year = afterMake[2];
+  else if (myCode) year = `20${myCode[1]}`;
 
   year = normaliseYear(year);
 
-  // Kilometres
+  // KILOMETRES
   let kilometres = "";
-  const kmPatterns = [
+  const kmPatterns: RegExp[] = [
     /\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i,
     /\bodometer[^0-9]{0,6}([\d,\.]+)\b/i,
+    /\btravelled[^0-9]{0,6}([\d,\.]+)\b/i,
   ];
 
-  for (const p of kmPatterns) {
-    const m = text.match(p);
-    if (m?.[1]) {
-      kilometres = normaliseKilometres(m[1]);
+  for (const pattern of kmPatterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      kilometres = normaliseKilometres(match[1]);
       if (kilometres) break;
     }
   }
@@ -82,75 +88,109 @@ function extractBasicVehicleInfo(text: string) {
 }
 
 // ------------------------------
-// Gemini Prompt — paid + preview safe rules
+// Gemini Prompt — Full CarVerity report
 // ------------------------------
 function buildPrompt(listingText: string): string {
   return `
 You are CarVerity — an independent used-car assistant for Australian buyers.
+Your purpose is to help the buyer feel informed, supported and confident — not overwhelmed or alarmed.
 
-Tone:
-• Warm, calm, reassuring, practical
-• No speculation, no alarmist language, no legal tone
-• Focus on clarity, confidence and helpful next steps
+Write in warm, calm, everyday language.
+Avoid analytical tone, legal tone, or dramatic framing.
+Do NOT mention anything about "free", "unlocking", "paywalls", "subscriptions", or "paid scans".
 
-SERVICE HISTORY RULES (STRICT — NO GUESSING)
-Treat entries with workshop name + odometer + status like “Done” or “Completed”
-as NORMAL completed services, even if formatting looks unusual.
+VALUES & TONE
+• Supportive, reassuring, practical
+• Buyer-centred and easy to understand
+• No speculation, no assumptions, no fear-based wording
+• Focus on clarity, confidence and next-step guidance
 
-Do NOT infer missed services, overdue maintenance, gaps, risk or neglect
-unless the listing explicitly states:
-“no service history”, “books missing”, “incomplete history”,
-“requires service”, or “overdue”.
+SERVICE HISTORY — STRICT SAFETY RULES
 
-If something appears unusual but no problem is stated,
-remain neutral and do NOT treat it as a risk.
+Treat logbook / service entries that show:
+• a workshop or dealer name
+• an odometer value
+• and language such as “Done”, “Completed”, “Service carried out”
+as NORMAL completed services — even if the date formatting looks odd or appears “future dated”.
 
-CONFIDENCE MODEL
-LOW  = Feels comfortable so far — nothing concerning stands out
-MODERATE = Looks mostly fine — a few things worth checking in person
-HIGH = Proceed carefully — important details should be confirmed first
+You MUST NOT infer:
+• missed services
+• overdue maintenance
+• gaps between services
+• odometer tampering
+• neglect or mechanical risk
 
-STRUCTURE (PAID FULL SCAN)
+UNLESS the LISTING TEXT clearly and explicitly states this (for example: “no service history”, “books missing”, “service history unknown”, “overdue for service”, “requires major service”, “odometer not correct”).
+
+If something in the service history looks unusual BUT the listing does not say there is a problem,
+you must remain neutral and you must NOT treat it as a risk. You may at most suggest politely
+clarifying the service history in person, without implying anything is wrong.
+
+Future or scheduled services are normal and must NOT be treated as a risk.
+
+CONFIDENCE MODEL — MUST MATCH HUMAN LANGUAGE
+
+First explain confidence in simple English the buyer can easily understand.
+
+Meaning alignment:
+LOW      = Feels comfortable so far — nothing concerning stands out
+MODERATE = Looks mostly fine — but a couple of things are worth checking in person
+HIGH     = Proceed carefully — important details should be confirmed before moving ahead
+
+Your explanation MUST match the code you output.
+If the listing looks generally fine with only cosmetic wear or normal used-car realities,
+LOW or MODERATE are usually appropriate. HIGH is reserved for genuinely significant buyer risks
+that are clearly supported by the listing text.
+
+Then output a separate line:
+
+CONFIDENCE_CODE: LOW
+or
+CONFIDENCE_CODE: MODERATE
+or
+CONFIDENCE_CODE: HIGH
+
+INSPECTION & NEXT STEPS
+• Prefer recommending a CarVerity in-person scan to confirm real-world condition.
+• A mechanic inspection may be mentioned only as an optional extra — not the default.
+
+GENERAL OWNERSHIP NOTES (SAFETY)
+In the final section you may provide general ownership notes for similar vehicles (age / class),
+but you must:
+• Keep them neutral and practical
+• NOT imply they apply specifically to THIS vehicle
+• Phrase them as “things some owners of similar vehicles watch for”
+• Avoid anything that sounds like a diagnosis or a statement that this car has that issue
+
+YOU MUST USE THIS EXACT STRUCTURE AND ORDER:
 
 CONFIDENCE ASSESSMENT
-(Short friendly explanation in plain English)
+(A short, friendly, plain-English explanation that matches the confidence code)
 
 CONFIDENCE_CODE: LOW / MODERATE / HIGH
 
 WHAT THIS MEANS FOR YOU
-(2–4 supportive buyer-focused sentences)
+(2–4 supportive sentences helping the buyer interpret the listing and what to focus on in person)
 
 CARVERITY ANALYSIS — SUMMARY
-(Helpful overview based ONLY on the listing)
+(A short helpful overview based ONLY on the listing — no speculation, no external data)
 
 KEY RISK SIGNALS
-(Only genuine, listing-supported risks — no speculation)
+- Only include genuine, listing-supported buyer risks
+- Do NOT invent problems
+- Cosmetic wear is allowed here, but keep language calm and practical
 
 BUYER CONSIDERATIONS
-(Calm, practical in-person checks + recommend CarVerity in-person scan)
+- Calm, practical next-step guidance
+- Encourage using a CarVerity in-person scan
 
 NEGOTIATION INSIGHTS
-(Polite, realistic talking points)
+- Realistic, polite talking points (e.g., cosmetic wear, age, kms, tyres)
+- Do not exaggerate or use aggressive tone
 
 GENERAL OWNERSHIP NOTES
-(3–5 neutral, general-knowledge tips — NOT implying faults)
-
-———
-
-FREE PREVIEW VERSION — IMPORTANT
-
-When producing the PREVIEW summary, you MUST:
-• Provide a light, high-level first impression ONLY
-• Include 1–2 reassuring observations
-• Clearly state that deeper insights require the full scan
-• Do NOT reveal risk signals, concerns, or negotiation advice
-• Do NOT mention service history interpretation
-• Do NOT imply that the user already has enough information
-
-Preview tone:
-Supportive, encouraging, curiosity-building — NOT fear-based.
-
-———
+- 3–5 short bullet points of neutral, general-knowledge guidance
+- Clearly framed as general tips for cars of this age/type, not diagnoses
 
 LISTING TEXT
 --------------------------------
@@ -160,7 +200,7 @@ ${listingText}
 }
 
 // ------------------------------
-// Gemini API Call
+// Gemini API
 // ------------------------------
 async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(
@@ -175,7 +215,9 @@ async function callGemini(prompt: string): Promise<string> {
     }
   );
 
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    throw new Error(await res.text());
+  }
   const data = await res.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
@@ -189,18 +231,6 @@ function extractConfidenceCode(text: string): string | null {
 }
 
 // ------------------------------
-// Create trimmed preview (teaser)
-// ------------------------------
-function buildPreviewFromFull(full: string): string {
-  const firstPara = full.split("\n").find(l => l.trim()) ?? "";
-  return `
-${firstPara.trim()}
-
-Unlock the full CarVerity scan to see detailed insights, risk signals, service-history context, and practical buyer guidance based on the fine details of this listing.
-  `.trim();
-}
-
-// ------------------------------
 // API Handler
 // ------------------------------
 export default async function handler(
@@ -208,28 +238,28 @@ export default async function handler(
   res: VercelResponse
 ) {
   try {
-    const listingUrl =
-      (req.body as any)?.listingUrl ?? (req.body as any)?.url;
-
+    const listingUrl = (req.body as any)?.listingUrl ?? (req.body as any)?.url;
     if (!listingUrl) {
-      return res.status(400).json({ ok: false, error: "Missing listing URL" });
+      return res
+        .status(400)
+        .json({ ok: false, error: "Missing listing URL" });
     }
+
+    console.log("🔎 Running AI scan for:", listingUrl);
 
     const html = await fetchListingHtml(listingUrl);
     const vehicle = extractBasicVehicleInfo(html);
 
     const prompt = buildPrompt(html);
-    const fullSummary = await callGemini(prompt);
-
-    const confidenceCode = extractConfidenceCode(fullSummary);
-    const preview = buildPreviewFromFull(fullSummary);
+    const summary = await callGemini(prompt);
+    const confidenceCode = extractConfidenceCode(summary);
 
     return res.status(200).json({
       ok: true,
+      message: "Scan complete",
       vehicle,
+      summary,
       confidenceCode,
-      previewSummary: preview,   // used in FREE mode
-      fullSummary,               // shown ONLY after unlock
       source: "gemini-2.5-flash",
     });
   } catch (err: any) {
