@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   loadOnlineResults,
   saveOnlineResults,
@@ -189,7 +189,6 @@ function getSectionTheme(title: string): VisualTheme {
       banner: "from-indigo-600/30 to-indigo-500/20",
     };
   }
-
   if (t.includes("what this means")) {
     return {
       icon: "✨",
@@ -197,7 +196,6 @@ function getSectionTheme(title: string): VisualTheme {
       banner: "from-violet-600/30 to-fuchsia-500/20",
     };
   }
-
   if (t.includes("risk")) {
     return {
       icon: "📝",
@@ -205,7 +203,6 @@ function getSectionTheme(title: string): VisualTheme {
       banner: "from-amber-600/30 to-amber-500/20",
     };
   }
-
   if (t.includes("buyer")) {
     return {
       icon: "🚶",
@@ -213,7 +210,6 @@ function getSectionTheme(title: string): VisualTheme {
       banner: "from-blue-600/30 to-blue-500/20",
     };
   }
-
   if (t.includes("negotiation")) {
     return {
       icon: "🤝",
@@ -221,7 +217,6 @@ function getSectionTheme(title: string): VisualTheme {
       banner: "from-teal-600/30 to-teal-500/20",
     };
   }
-
   if (t.includes("ownership")) {
     return {
       icon: "🧰",
@@ -235,6 +230,38 @@ function getSectionTheme(title: string): VisualTheme {
     accent: "from-slate-500/25 to-slate-400/10",
     banner: "from-slate-600/30 to-slate-500/20",
   };
+}
+
+/* =========================================================
+   Smart Summary Chips
+========================================================= */
+
+function buildSmartChips(opts: {
+  confidenceCode?: string;
+  vehicle: any;
+  reportText: string;
+}): string[] {
+  const { confidenceCode, vehicle, reportText } = opts;
+  const chips: string[] = [];
+
+  if (confidenceCode === "LOW") {
+    chips.push("Listing looks consistent so far");
+  } else if (confidenceCode === "MODERATE") {
+    chips.push("Mostly positive — worth confirming details in person");
+  } else if (confidenceCode === "HIGH") {
+    chips.push("Important details should be confirmed in person");
+  }
+
+  if (vehicle?.kilometres) chips.push("Kilometres listed in the ad");
+
+  const lower = (reportText || "").toLowerCase();
+  if (lower.includes("service")) chips.push("Service details mentioned");
+  if (lower.includes("dealer")) chips.push("Dealer-listed vehicle");
+  if (lower.includes("private")) chips.push("Private-seller listing");
+
+  if (chips.length === 0) chips.push("Guidance based on the listing only");
+
+  return chips.slice(0, 4);
 }
 
 function buildHighlights(opts: {
@@ -324,10 +351,14 @@ export default function OnlineResults() {
 
   const reportText = fullSummary || summary || "";
   const hasStoredUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
-
   const showUnlocked = (isUnlocked ?? hasStoredUnlock) === true;
 
   const sections = parseReportSections(reportText);
+  const smartChips = useMemo(
+    () => buildSmartChips({ confidenceCode, vehicle, reportText }),
+    [confidenceCode, vehicle, reportText]
+  );
+
   const highlightChips = buildHighlights({
     confidenceCode,
     vehicle,
@@ -351,31 +382,47 @@ export default function OnlineResults() {
       {/* Header */}
       <section
         id="overview"
-        className="rounded-2xl bg-gradient-to-r from-violet-700/80 to-indigo-600/80 border border-white/10 shadow-lg px-6 py-5 md:py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+        className="rounded-2xl bg-gradient-to-r from-violet-700/80 to-indigo-600/80 border border-white/10 shadow-lg px-6 py-5 md:py-6 flex flex-col gap-4"
       >
-        <div>
-          <h1 className="text-lg font-semibold text-white mb-1">
-            CarVerity online scan results
-          </h1>
-          <p className="text-slate-100/90 text-xs md:text-sm">
-            Independent guidance based on the details in this listing.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {highlightChips.map((chip, idx) => (
-              <span
-                key={idx}
-                className="px-2.5 py-1 rounded-full bg-slate-950/30 text-[11px] text-slate-100 border border-white/15"
-              >
-                {chip}
-              </span>
-            ))}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-lg font-semibold text-white mb-1">
+              CarVerity online scan results
+            </h1>
+            <p className="text-slate-100/90 text-xs md:text-sm">
+              Independent guidance based on the details in this listing.
+            </p>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {highlightChips.map((chip, idx) => (
+                <span
+                  key={idx}
+                  className="px-2.5 py-1 rounded-full bg-slate-950/30 text-[11px] text-slate-100 border border-white/15"
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <ConfidenceGauge code={confidenceCode} />
+            <span className="hidden md:inline-flex text-[11px] px-3 py-1 rounded-full bg-white/15 text-white border border-white/25">
+              Download PDF (coming soon)
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <ConfidenceGauge code={confidenceCode} />
-          <span className="hidden md:inline-flex text-[11px] px-3 py-1 rounded-full bg-white/15 text-white border border-white/25">
-            Download PDF (coming soon)
-          </span>
+
+        {/* Smart Summary Chips */}
+        <div className="mt-1 flex flex-wrap gap-2">
+          {smartChips.map((chip, i) => (
+            <span
+              key={i}
+              className="px-2.5 py-1 rounded-full border border-white/15 bg-white/10 text-[11px] text-slate-50"
+            >
+              {chip}
+            </span>
+          ))}
         </div>
       </section>
 
@@ -411,14 +458,12 @@ export default function OnlineResults() {
         </SectionCard>
       )}
 
-      {/* ✨ Full Report — Section-aware visuals + staggered reveal */}
+      {/* ✨ Full Report — themed + animated */}
       {showUnlocked && (
         <SectionCard id="report" title="Full CarVerity report" icon="✨">
           <div className="space-y-5">
             {sections.map((section, idx) => {
               const theme = getSectionTheme(section.title);
-
-              // Staggered animation delay per card
               const delayMs = 70 * idx;
 
               return (
@@ -433,7 +478,6 @@ export default function OnlineResults() {
                     shadow-[0_8px_30px_rgba(0,0,0,0.35)]
                   `}
                 >
-                  {/* Banner */}
                   <div
                     className={`px-5 py-3 border-b border-white/10 bg-gradient-to-r ${theme.banner} rounded-t-2xl flex items-center justify-between`}
                   >
@@ -448,7 +492,6 @@ export default function OnlineResults() {
                     </span>
                   </div>
 
-                  {/* Body */}
                   <div className="px-5 py-4">
                     <div className="rounded-xl bg-slate-950/40 border border-white/5 px-4 py-3 whitespace-pre-wrap text-sm text-slate-200 leading-relaxed">
                       {section.body}
