@@ -1,4 +1,3 @@
-// src/pages/OnlineResults.tsx
 import { useEffect, useState } from "react";
 import { loadOnlineResults } from "../utils/onlineResults";
 
@@ -12,42 +11,72 @@ function parseReportSections(text: string) {
   const sections: Record<string, string> = {};
 
   const patterns: Record<string, RegExp> = {
-    confidence: /CONFIDENCE ASSESSMENT[\r\n]+([\s\S]*?)(?=\n{2,}|CONFIDENCE_CODE:|WHAT THIS MEANS FOR YOU|$)/i,
-    whatThisMeans: /WHAT THIS MEANS FOR YOU[\r\n]+([\s\S]*?)(?=\n{2,}|CARVERITY ANALYSIS|$)/i,
-    summary: /CARVERITY ANALYSIS[\s–-]*SUMMARY[\r\n]+([\s\S]*?)(?=\n{2,}|KEY RISK SIGNALS|$)/i,
-    risks: /KEY RISK SIGNALS[\r\n]+([\s\S]*?)(?=\n{2,}|BUYER CONSIDERATIONS|$)/i,
-    considerations: /BUYER CONSIDERATIONS[\r\n]+([\s\S]*?)(?=\n{2,}|NEGOTIATION INSIGHTS|$)/i,
-    negotiation: /NEGOTIATION INSIGHTS[\r\n]+([\s\S]*?)(?=\n{2,}|GENERAL OWNERSHIP NOTES|$)/i,
-    ownership: /GENERAL OWNERSHIP NOTES[\r\n]+([\s\S]*?)$/i,
+    confidence:
+      /CONFIDENCE ASSESSMENT[\r\n]+([\s\S]*?)(?=\n{2,}|CONFIDENCE_CODE:|WHAT THIS MEANS FOR YOU|$)/i,
+    whatThisMeans:
+      /WHAT THIS MEANS FOR YOU[\r\n]+([\s\S]*?)(?=\n{2,}|CARVERITY ANALYSIS|$)/i,
+    summary:
+      /CARVERITY ANALYSIS[\s–-]*SUMMARY[\r\n]+([\s\S]*?)(?=\n{2,}|KEY RISK SIGNALS|$)/i,
+    risks:
+      /KEY RISK SIGNALS[\r\n]+([\s\S]*?)(?=\n{2,}|BUYER CONSIDERATIONS|$)/i,
+    considerations:
+      /BUYER CONSIDERATIONS[\r\n]+([\s\S]*?)(?=\n{2,}|NEGOTIATION INSIGHTS|$)/i,
+    negotiation:
+      /NEGOTIATION INSIGHTS[\r\n]+([\s\S]*?)(?=\n{2,}|GENERAL OWNERSHIP NOTES|$)/i,
+    ownership:
+      /GENERAL OWNERSHIP NOTES[\r\n]+([\s\S]*?)$/i,
   };
 
   for (const key of Object.keys(patterns)) {
     const match = text.match(patterns[key]);
-    if (match?.[1]) {
-      sections[key] = match[1].trim();
-    }
+    if (match?.[1]) sections[key] = match[1].trim();
   }
 
   return sections;
 }
 
 /**
- * Extracts ONLY the Confidence Assessment paragraph for preview text.
+ * Derives vehicle details from AI text when scraping misses values.
+ * Only fills blank fields — never overwrites existing ones.
  */
-function extractConfidencePreview(text: string): string | null {
-  if (!text) return null;
+function deriveVehicleFromSummary(
+  base: any,
+  reportText: string
+): any {
+  const vehicle = { ...base };
 
-  const match = text.match(
-    /CONFIDENCE ASSESSMENT[\r\n]+([\s\S]*?)(?=\n{2,}|CONFIDENCE_CODE:|WHAT THIS MEANS FOR YOU|$)/i
+  if (!reportText) return vehicle;
+
+  // Year + Make + Model (e.g., "This 2016 Mitsubishi Lancer ES Sport")
+  const lineMatch = reportText.match(
+    /\b(19|20)\d{2}\b\s+([A-Z][A-Za-z]+)\s+([A-Za-z0-9][A-Za-z0-9\s\-]+)/i
   );
 
-  if (!match?.[1]) return null;
+  if (lineMatch) {
+    const year = lineMatch[0].match(/\b(19|20)\d{2}\b/)?.[0];
 
-  // Clean markdown / excessive spacing
-  return match[1]
-    .replace(/\*\*/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+    if (!vehicle.year && year) vehicle.year = year;
+
+    if (!vehicle.make && lineMatch[2]) {
+      vehicle.make = lineMatch[2].trim();
+    }
+
+    if (!vehicle.model && lineMatch[3]) {
+      vehicle.model = lineMatch[3].trim();
+    }
+  }
+
+  // Kilometres pattern inside text (does not override real values)
+  if (!vehicle.kilometres) {
+    const kmMatch = reportText.match(
+      /\b([\d,\.]{4,})\s*(km|kms|kilometres|kilometers)\b/i
+    );
+    if (kmMatch?.[1]) {
+      vehicle.kilometres = kmMatch[1].replace(/[,\.]/g, "");
+    }
+  }
+
+  return vehicle;
 }
 
 /**
@@ -81,17 +110,28 @@ export default function OnlineResults() {
   }
 
   const {
-    vehicle = {},
+    vehicle: rawVehicle = {},
     confidenceCode,
+    previewSummary,
     fullSummary,
     summary,
+    isUnlocked,
   } = result;
 
   const reportText = fullSummary || summary || "";
   const parsed = parseReportSections(reportText);
 
-  // Confidence-only preview
-  const preview = extractConfidencePreview(reportText);
+  // 🔧 NEW — derive missing vehicle details from AI text
+  const vehicle = deriveVehicleFromSummary(rawVehicle, reportText);
+
+  // Preview stays lightweight & friendly
+  const preview =
+    previewSummary ??
+    (summary
+      ?.split("\n")
+      .slice(0, 3)
+      .join(" ")
+      .trim() || null);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
@@ -108,25 +148,30 @@ export default function OnlineResults() {
         </p>
       </section>
 
-      {/* PREVIEW (Confidence-only) */}
-      <section className="rounded-lg border border-white/10 p-4">
-        <h2 className="text-sm text-muted-foreground mb-1">
-          CarVerity analysis — preview
-        </h2>
+      {/* PREVIEW */}
+      {!isUnlocked && (
+        <section className="rounded-lg border border-white/10 p-4">
+          <h2 className="text-sm text-muted-foreground mb-1">
+            CarVerity analysis — preview
+          </h2>
 
-        {!preview && (
-          <p className="text-muted-foreground">No preview available.</p>
-        )}
+          {!preview && (
+            <p className="text-muted-foreground">No preview available.</p>
+          )}
 
-        {preview && (
-          <p className="text-slate-200 text-sm leading-relaxed">
-            {preview}
-          </p>
-        )}
-      </section>
+          {preview && (
+            <p className="text-slate-200 text-sm leading-relaxed">
+              {preview}…{" "}
+              <span className="text-indigo-400">
+                Unlock full scan to see the complete report.
+              </span>
+            </p>
+          )}
+        </section>
+      )}
 
-      {/* FULL REPORT — ALWAYS SHOWN DURING DEVELOPMENT */}
-      {reportText && (
+      {/* FULL REPORT (structured cards) */}
+      {isUnlocked && reportText && (
         <div className="space-y-6">
 
           {parsed.confidence && (
