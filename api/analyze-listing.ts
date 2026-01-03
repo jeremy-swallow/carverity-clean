@@ -11,14 +11,12 @@ if (!GEMINI_API_KEY) {
 // ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch listing (${res.status})`);
-  }
+  if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
   return await res.text();
 }
 
 // ------------------------------
-// Normalisers
+// Vehicle field helpers
 // ------------------------------
 function normaliseYear(raw?: string | null): string {
   if (!raw) return "";
@@ -32,49 +30,24 @@ function normaliseKilometres(raw?: string | null): string {
   if (!raw) return "";
   const cleaned = raw.replace(/[,\.]/g, "").trim();
   const n = parseInt(cleaned, 10);
-  if (!n || n < 10 || n > 1_000_000) return "";
+  if (!n || n < 10 || n > 1000000) return "";
   return String(n);
 }
 
-// ------------------------------
-// Extract structured vehicle info
-// ------------------------------
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
 
-  // YEAR — defensive
   let year = "";
   const labelled = text.match(
     /(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i
   );
-  const beforeMake = text.match(
-    /\b((19|20)\d{2})\b[^,\n]{0,30}(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)/i
-  );
-  const afterMake = text.match(
-    /(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)[^0-9]{0,20}\b((19|20)\d{2})\b/i
-  );
-
   if (labelled) year = labelled[2];
-  else if (beforeMake) year = beforeMake[1];
-  else if (afterMake) year = afterMake[2];
-
   year = normaliseYear(year);
 
-  // KILOMETRES
   let kilometres = "";
-  const kmPatterns: RegExp[] = [
-    /\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i,
-    /\bodometer[^0-9]{0,6}([\d,\.]+)\b/i,
-  ];
-
-  for (const p of kmPatterns) {
-    const m = text.match(p);
-    if (m?.[1]) {
-      kilometres = normaliseKilometres(m[1]);
-      if (kilometres) break;
-    }
-  }
+  const kmMatch = text.match(/\b([\d,\.]+)\s*(km|kms|kilometres)\b/i);
+  if (kmMatch?.[1]) kilometres = normaliseKilometres(kmMatch[1]);
 
   return {
     make: makeMatch?.[1]?.trim() || "",
@@ -85,77 +58,7 @@ function extractBasicVehicleInfo(text: string) {
 }
 
 // ------------------------------
-// Gemini Prompt — service-safe + preview/full split
-// ------------------------------
-function buildPrompt(listingText: string): string {
-  return `
-You are CarVerity — an independent used-car assistant for Australian buyers.
-Your purpose is to help the buyer feel informed, supported and confident — not alarmed.
-
-Tone:
-• Warm, calm, practical
-• Everyday language, no legal or dramatic framing
-• No speculation or guessing beyond the listing
-
-SERVICE HISTORY — STRICT RULES (NO GUESSING)
-• Treat logbook entries that show a workshop name, odometer reading, and notes as NORMAL completed services — even if the date formatting or page layout looks unusual.
-• Future-dated logbook entries on the same page as past services are COMMON. They are scheduling placeholders and must NOT be treated as a risk or anomaly.
-• Do NOT describe service history as an “anomaly”, “discrepancy”, “problem”, “unusual detail” or similar unless the LISTING TEXT explicitly says:
-  - “no service history”
-  - “books missing”
-  - “service history unknown”
-  - “incomplete history”
-  - “requires service” or “overdue”
-• If something in the service log looks different BUT the listing does not say there is a problem, stay neutral and DO NOT treat it as a risk or negotiation point.
-
-CONFIDENCE MODEL (MUST MATCH YOUR TONE)
-LOW       = Feels comfortable so far — nothing concerning stands out  
-MODERATE  = Looks mostly fine — a couple of things are worth checking in person  
-HIGH      = Proceed carefully — important details should be confirmed before moving ahead  
-
-You MUST output in this exact template and order:
-
-PREVIEW
-(A short, friendly overview of the listing in **no more than 150 words**. Focus on the big picture, not all details.)
-
-CONFIDENCE_CODE: LOW / MODERATE / HIGH
-
-FULL ANALYSIS
-CONFIDENCE ASSESSMENT
-(1–3 sentences, plain English, matching the confidence code)
-
-WHAT THIS MEANS FOR YOU
-(2–4 supportive sentences helping the buyer interpret the listing)
-
-CARVERITY ANALYSIS — SUMMARY
-(A concise overview based ONLY on the listing — no speculation)
-
-KEY RISK SIGNALS
-- Only include genuine buyer risks that are clearly supported by the listing
-- Do NOT invent mechanical faults or reinterpret normal formatting (like logbook layouts) as risk
-
-BUYER CONSIDERATIONS
-- Calm, practical next steps
-- It is fine to recommend a CarVerity in-person scan to confirm real-world condition
-
-NEGOTIATION INSIGHTS
-- Polite, realistic talking points (e.g., cosmetic wear, age, kms, clearly disclosed issues)
-- Do NOT use service history as a “problem” unless the listing explicitly says there is one
-
-GENERAL OWNERSHIP NOTES
-- 3–5 short bullet points of neutral, general guidance for similar vehicles (age/type)
-- Phrase as “things some owners of similar vehicles pay attention to”
-- Do NOT imply that these issues are present on THIS vehicle
-
-LISTING TEXT
---------------------------------
-${listingText}
---------------------------------
-`;
-}
-
-// ------------------------------
-// Gemini API
+// Gemini call
 // ------------------------------
 async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(
@@ -170,38 +73,95 @@ async function callGemini(prompt: string): Promise<string> {
     }
   );
 
-  if (!res.ok) {
-    throw new Error(await res.text());
-  }
+  if (!res.ok) throw new Error(await res.text());
   const data = await res.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
 
 // ------------------------------
-// Extractors + robust fallbacks
+// PREVIEW PROMPT — minimal + neutral only
 // ------------------------------
-function extractConfidenceCode(text: string): string | null {
+function buildPreviewPrompt(listingText: string) {
+  return `
+You are CarVerity — an independent used-car assistant for Australian buyers.
+
+Generate a SHORT PREVIEW SUMMARY that:
+• is neutral, calm and supportive
+• does NOT include risks, warnings, defects, or advice
+• does NOT interpret service history or condition
+• does NOT include negotiation or inspection guidance
+• does NOT provide insights that would replace the full scan
+
+The preview MUST ONLY:
+• explain that this is an early high-level snapshot
+• invite the user to unlock the full scan for detailed checks
+
+Length: 1–2 sentences only.
+
+LISTING TEXT
+--------------------------------
+${listingText}
+--------------------------------
+`;
+}
+
+// ------------------------------
+// FULL SCAN PROMPT — main paid report
+// ------------------------------
+function buildFullPrompt(listingText: string) {
+  return `
+You are CarVerity — an independent used-car assistant for Australian buyers.
+Write in warm, calm, practical language.
+
+SERVICE HISTORY — STRICT RULES
+Treat entries with workshop + odometer + “Done/Completed” as normal completed services.
+Do NOT infer missed services, gaps, risk or neglect unless the listing explicitly states it.
+If something looks unusual but no problem is stated, remain neutral.
+
+CONFIDENCE MODEL
+LOW  = Feels comfortable so far — nothing concerning stands out
+MODERATE = Looks mostly fine — a couple of things may be worth checking in person
+HIGH = Proceed carefully — important details should be confirmed before moving ahead
+
+OUTPUT IN THIS EXACT STRUCTURE:
+
+CONFIDENCE ASSESSMENT
+(Plain-English explanation)
+
+CONFIDENCE_CODE: LOW / MODERATE / HIGH
+
+WHAT THIS MEANS FOR YOU
+(Supportive buyer-focused interpretation)
+
+CARVERITY ANALYSIS — SUMMARY
+(Overview based ONLY on listing text)
+
+KEY RISK SIGNALS
+(Only include genuine listing-supported risks)
+
+BUYER CONSIDERATIONS
+(Calm practical next-step guidance)
+
+NEGOTIATION INSIGHTS
+(Polite and realistic)
+
+GENERAL OWNERSHIP NOTES
+• General guidance for similar vehicles/age
+• Do NOT imply these issues apply to THIS vehicle
+
+LISTING TEXT
+--------------------------------
+${listingText}
+--------------------------------
+`;
+}
+
+// ------------------------------
+// Extract confidence code
+// ------------------------------
+function extractConfidence(text: string): string | null {
   const m = text.match(/CONFIDENCE_CODE:\s*(LOW|MODERATE|HIGH)/i);
   return m ? m[1].toUpperCase() : null;
-}
-
-function extractPreview(text: string): string | null {
-  // From PREVIEW down to just before CONFIDENCE_CODE
-  const m =
-    text.match(/PREVIEW([\s\S]*?)CONFIDENCE_CODE:/i) ||
-    text.match(/PREVIEW([\s\S]*?)\nFULL ANALYSIS/i);
-  return m ? m[1].trim() : null;
-}
-
-function extractFullAnalysis(text: string): string | null {
-  const m = text.match(/FULL ANALYSIS([\s\S]*)$/i);
-  return m ? m[1].trim() : null;
-}
-
-function makePreviewFromWhole(text: string): string {
-  const words = text.split(/\s+/).filter(Boolean);
-  const maxWords = 150;
-  return words.slice(0, maxWords).join(" ");
 }
 
 // ------------------------------
@@ -218,36 +178,24 @@ export default async function handler(
       return res.status(400).json({ ok: false, error: "Missing listing URL" });
     }
 
-    console.log("🔎 Running AI scan for:", listingUrl);
-
     const html = await fetchListingHtml(listingUrl);
     const vehicle = extractBasicVehicleInfo(html);
 
-    const prompt = buildPrompt(html);
-    const output = await callGemini(prompt);
+    // Generate preview (minimal)
+    const previewPrompt = buildPreviewPrompt(html);
+    const preview = await callGemini(previewPrompt);
 
-    const confidenceCode = extractConfidenceCode(output);
-    let previewText = extractPreview(output);
-    let fullAnalysis = extractFullAnalysis(output);
+    // Generate full paid scan
+    const fullPrompt = buildFullPrompt(html);
+    const fullReport = await callGemini(fullPrompt);
+    const confidenceCode = extractConfidence(fullReport);
 
-    // Fallbacks — never return an empty scan if we have any text
-    if (!previewText && output) {
-      previewText = makePreviewFromWhole(output);
-    }
-    if (!fullAnalysis && output) {
-      fullAnalysis = output.trim();
-    }
-
-    // As a final safety net, if for some reason output is empty,
-    // keep fields as empty strings so the frontend can show its default messages.
     return res.status(200).json({
       ok: true,
-      message: "Scan complete",
       vehicle,
-      summary: output || "",
+      preview,
+      fullReport,
       confidenceCode,
-      previewText: previewText || "",
-      fullAnalysis: fullAnalysis || "",
       source: "gemini-2.5-flash",
     });
   } catch (err: any) {
