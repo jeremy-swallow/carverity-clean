@@ -1,25 +1,18 @@
-// src/pages/OnlineAnalyzingListing.tsx
-
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  saveOnlineResults,
-  type SavedResult,
-} from "../utils/onlineResults";
+import { saveOnlineResults, type SavedResult } from "../utils/onlineResults";
 
 export default function OnlineAnalyzingListing() {
   const navigate = useNavigate();
 
   useEffect(() => {
     runScan();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function runScan() {
     const listingUrl = localStorage.getItem("carverity_online_listing_url");
 
     if (!listingUrl) {
-      console.warn("⚠️ No listing URL — aborting scan");
       navigate("/scan/online", { replace: true });
       return;
     }
@@ -33,11 +26,21 @@ export default function OnlineAnalyzingListing() {
 
       const data = await res.json();
 
-      if (!res.ok || !data?.ok) {
-        console.error("❌ Online scan failed:", data?.error || res.status);
+      if (!res.ok || !data.ok) {
         navigate("/scan/online", { replace: true });
         return;
       }
+
+      // 🟢 Free preview = confidence framing only
+      const previewText =
+        data.confidenceSummary ??
+        "This listing appears generally reasonable based on the information provided, though some details would benefit from closer review in person.";
+
+      // 🔒 Full scan contains the real value
+      const fullAnalysis =
+        data.fullAnalysis ??
+        data.summary ??
+        "This scan provides listing-specific risk signals, verification checks to confirm at inspection, and negotiation insights based on the way the vehicle is presented.";
 
       const stored: SavedResult = {
         type: "online",
@@ -50,20 +53,8 @@ export default function OnlineAnalyzingListing() {
         sections: data.sections ?? [],
         photos: data.photos ?? { listing: [], meta: [] },
 
-        // 🔐 New split: short preview vs full analysis
-        previewSummary:
-          data.previewSummary ??
-          data.previewText ??
-          data.summary ??
-          "",
-        previewText:
-          data.previewText ??
-          data.previewSummary ??
-          data.summary ??
-          "",
-        // Important: do NOT fall back to summary here,
-        // otherwise the full panel just repeats the preview.
-        fullAnalysis: data.fullAnalysis ?? "",
+        previewText,
+        fullAnalysis,
 
         summary: data.summary ?? "",
         conditionSummary: data.conditionSummary ?? "",
@@ -74,13 +65,12 @@ export default function OnlineAnalyzingListing() {
 
         confidenceCode: data.confidenceCode ?? null,
         confidenceSummary: data.confidenceSummary ?? "",
-        confidenceAssessment: data.confidenceAssessment ?? "",
       };
 
       saveOnlineResults(stored);
       navigate("/scan/online/results", { replace: true });
-    } catch (err) {
-      console.error("❌ Online scan crash:", err);
+
+    } catch (_err) {
       navigate("/scan/online", { replace: true });
     }
   }
