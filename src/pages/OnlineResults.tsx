@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { loadOnlineResults } from "../utils/onlineResults";
+import {
+  loadOnlineResults,
+  saveOnlineResults,
+} from "../utils/onlineResults";
 
 interface ResultSection {
   title: string;
@@ -10,14 +13,20 @@ interface SavedResult {
   type: "online";
   step: string;
   createdAt: string;
+
   listingUrl: string | null;
   vehicle: any;
+
   confidenceCode?: "LOW" | "MODERATE" | "HIGH";
+
   previewSummary?: string | null;
   fullSummary?: string | null;
   summary?: string | null;
+
   sections: ResultSection[];
   photos: any;
+
+  conditionSummary: string;  // ✅ REQUIRED FIELD
   isUnlocked: boolean;
 }
 
@@ -50,17 +59,16 @@ function Pill({ code }: { code?: string }) {
 }
 
 /* =========================================================
-   Confidence-aware conversion teaser
+   Conversion-optimised teaser builder
 ========================================================= */
 
 function buildPreviewTeaser(
   confidence: string | undefined,
   source: string | null | undefined
 ): string {
-  const DEFAULT_HOOK =
+  const DEFAULT =
     "The full scan gives clearer guidance on what’s worth checking in person, along with neutral risk context and practical negotiation tips tailored to this listing.";
 
-  // Try to extract a meaningful first line from model output
   const first = source
     ?.replace(/\*\*|#+|\-/g, "")
     .split(/\.\s+/)[0]
@@ -71,7 +79,6 @@ function buildPreviewTeaser(
       ? first.slice(0, 200).trim()
       : null;
 
-  // Tone-matched hooks
   if (confidence === "LOW") {
     return (
       (usable ||
@@ -96,7 +103,7 @@ function buildPreviewTeaser(
     );
   }
 
-  return DEFAULT_HOOK;
+  return DEFAULT;
 }
 
 /* =========================================================
@@ -111,11 +118,27 @@ export default function OnlineResults() {
     if (stored) setResult(stored);
   }, []);
 
+  function unlockForTesting() {
+    if (!result) return;
+
+    // ✅ Preserve ALL required properties safely
+    const updated: SavedResult = {
+      ...result,
+      isUnlocked: true,
+      conditionSummary: result.conditionSummary ?? "",
+    };
+
+    saveOnlineResults(updated);
+    setResult(updated);
+  }
+
   if (!result) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold mb-2">No scan found</h1>
-        <p className="text-muted-foreground">Run a scan to view your CarVerity results.</p>
+        <h1 className="text-xl font-semibold mb-2">No scan data found</h1>
+        <p className="text-muted-foreground">
+          Run a scan to view your CarVerity results.
+        </p>
       </div>
     );
   }
@@ -135,7 +158,6 @@ export default function OnlineResults() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
 
-      {/* Header */}
       <div className="bg-gradient-to-r from-indigo-700/60 to-purple-700/60 border border-white/10 rounded-2xl p-6 shadow-2xl">
         <h1 className="text-lg font-semibold">CarVerity online scan results</h1>
         <p className="text-slate-200/80">
@@ -143,7 +165,6 @@ export default function OnlineResults() {
         </p>
       </div>
 
-      {/* Confidence */}
       <Card>
         <h2 className="text-xs font-medium text-slate-300 mb-2 tracking-wide">
           LISTING CONFIDENCE
@@ -151,18 +172,6 @@ export default function OnlineResults() {
         <Pill code={confidenceCode} />
       </Card>
 
-      {/* Intro */}
-      <Card>
-        <h2 className="text-xs font-medium text-slate-300 mb-2 tracking-wide">
-          CONFIDENCE ASSESSMENT
-        </h2>
-        <p className="text-slate-100">
-          Hello there! Let’s take a closer look at this {vehicle?.year} {vehicle?.make}{" "}
-          {vehicle?.model} to help you feel confident and informed.
-        </p>
-      </Card>
-
-      {/* Preview (locked) */}
       {!isUnlocked && (
         <Card>
           <h2 className="text-xs font-medium text-slate-300 mb-2 tracking-wide">
@@ -177,7 +186,7 @@ export default function OnlineResults() {
 
           <button
             className="bg-indigo-500 hover:bg-indigo-400 text-white px-4 py-2 rounded-lg text-sm font-medium"
-            onClick={() => window.location.reload()}
+            onClick={unlockForTesting}
           >
             Unlock full scan (testing)
           </button>
@@ -188,7 +197,6 @@ export default function OnlineResults() {
         </Card>
       )}
 
-      {/* Full Report (unlocked) */}
       {isUnlocked && (
         <Card>
           <pre className="whitespace-pre-wrap text-slate-100 leading-relaxed text-sm">
@@ -197,7 +205,6 @@ export default function OnlineResults() {
         </Card>
       )}
 
-      {/* Vehicle details */}
       <Card>
         <h2 className="text-xs font-medium text-slate-300 mb-2 tracking-wide">
           VEHICLE DETAILS
