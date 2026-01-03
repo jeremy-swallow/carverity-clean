@@ -5,18 +5,18 @@ if (!GEMINI_API_KEY) {
   throw new Error("Missing GOOGLE_API_KEY — add it in Vercel env vars.");
 }
 
-// ------------------------------
-// Fetch HTML
-// ------------------------------
+/* ===============================
+   Fetch listing HTML
+================================ */
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
   if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
   return await res.text();
 }
 
-// ------------------------------
-// Normalisers
-// ------------------------------
+/* ===============================
+   Normalisers
+================================ */
 function normaliseYear(raw?: string | null): string {
   if (!raw) return "";
   const n = parseInt(raw, 10);
@@ -33,17 +33,15 @@ function normaliseKilometres(raw?: string | null): string {
   return String(n);
 }
 
-// ------------------------------
-// Extract structured info from HTML (first-pass)
-// ------------------------------
+/* ===============================
+   Extract structured info from HTML
+================================ */
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
 
   let year = "";
-  const labelled = text.match(
-    /(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i
-  );
+  const labelled = text.match(/(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i);
   const beforeMake = text.match(
     /\b((19|20)\d{2})\b[^,\n]{0,30}(Hyundai|Toyota|Kia|Mazda|Ford|Nissan|Mitsubishi|Subaru|Honda|Volkswagen)/i
   );
@@ -60,13 +58,11 @@ function extractBasicVehicleInfo(text: string) {
   year = normaliseYear(year);
 
   let kilometres = "";
-  const kmPatterns: RegExp[] = [
+  for (const p of [
     /\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i,
     /\bodometer[^0-9]{0,6}([\d,\.]+)\b/i,
     /\btravelled[^0-9]{0,6}([\d,\.]+)\b/i,
-  ];
-
-  for (const p of kmPatterns) {
+  ]) {
     const m = text.match(p);
     if (m?.[1]) {
       kilometres = normaliseKilometres(m[1]);
@@ -82,10 +78,9 @@ function extractBasicVehicleInfo(text: string) {
   };
 }
 
-// ------------------------------
-// FALLBACK — derive make/model from Gemini summary
-// (fills missing values only — never overwrites good data)
-// ------------------------------
+/* ===============================
+   Fallback: derive make/model from AI summary
+================================ */
 const BRANDS = [
   "Toyota","Kia","Mazda","Ford","Hyundai","Nissan","Mitsubishi",
   "Subaru","Honda","Volkswagen","Audi","BMW","Mercedes","Holden",
@@ -114,77 +109,37 @@ function applySummaryFallback(vehicle: any, summary: string) {
   };
 }
 
-// ------------------------------
-// STRICT CARVERITY PROMPT — restored guard-rails
-// ------------------------------
+/* ===============================
+   Strict tone + structure prompt
+================================ */
 function buildPrompt(listingText: string): string {
   return `
 You are CarVerity — an assisting tool for Australian used-car buyers.
-Your goal is to help the buyer feel informed, supported, and confident — not alarmed.
+Your role is to help the buyer feel informed and confident — not alarmed.
 
-Write in calm, warm, everyday language.
-Avoid analytical, legal, mechanical, or diagnostic tone.
-Do NOT mention pricing, subscriptions, unlocking, or paywalls.
+Use calm, warm, human-friendly language.
+Do not speculate or diagnose. Do not imply risk unless the listing explicitly states it.
 Use Australian wording (“kilometres”, not “mileage”).
 
-SERVICE HISTORY — STRICT SAFETY RULES
+SERVICE HISTORY — STRICT RULES
+Treat stamped / logged entries as normal services, even if dates appear odd or future-dated.
+Do not infer missing history, tampering, or risk unless the listing clearly says so.
 
-If a service entry shows:
-• a workshop or dealer name
-• an odometer reading
-• wording such as “Done / Completed / Service carried out / Performed”
-→ Treat it as a NORMAL completed service, even if the date looks unusual or “future-dated”.
-
-You must NOT infer:
-• missed services
-• overdue maintenance
-• gaps between services
-• odometer tampering
-• neglect or mechanical risk
-
-UNLESS the listing clearly and explicitly states this
-(e.g. “no service history”, “books missing”, “overdue for service”, “odometer incorrect”).
-
-If something looks unusual BUT the listing does not say there is a problem,
-stay neutral — you may gently suggest confirming details in person,
-but do NOT imply risk or doubt.
-
-Future or scheduled services are NORMAL and must NOT be treated as a risk.
-
-CONFIDENCE MODEL — HUMAN-MEANING ALIGNMENT
-
+CONFIDENCE MODEL — MUST MATCH LANGUAGE
 LOW      = Feels comfortable so far — nothing concerning stands out
-MODERATE = Looks mostly positive — a couple of details are worth checking in person
+MODERATE = Mostly positive — a couple of details worth checking in person
 HIGH     = Proceed carefully — important details should be confirmed before moving ahead
 
-Your written explanation MUST match the confidence code you output.
-
-STRUCTURE — USE THIS EXACT ORDER:
+STRUCTURE — EXACT ORDER ONLY
 
 CONFIDENCE ASSESSMENT
-(short, friendly explanation matching the code)
-
 CONFIDENCE_CODE: LOW / MODERATE / HIGH
-
 WHAT THIS MEANS FOR YOU
-(2–4 calm sentences guiding what to focus on in person)
-
 CARVERITY ANALYSIS — SUMMARY
-(overview based ONLY on the listing — no speculation)
-
 KEY RISK SIGNALS
-(include only genuine, listing-supported items —
-frame them as practical things to check in person)
-
 BUYER CONSIDERATIONS
-(practical, supportive inspection + test-drive guidance)
-
 NEGOTIATION INSIGHTS
-(polite, realistic talking points — no exaggeration)
-
 GENERAL OWNERSHIP NOTES
-(3–5 neutral bullet points framed as
-“things some owners of similar vehicles watch for”)
 
 LISTING TEXT
 --------------------------------
@@ -193,9 +148,9 @@ ${listingText}
 `;
 }
 
-// ------------------------------
-// Gemini API
-// ------------------------------
+/* ===============================
+   Gemini API
+================================ */
 async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(
     "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=" +
@@ -210,49 +165,80 @@ async function callGemini(prompt: string): Promise<string> {
   );
 
   if (!res.ok) throw new Error(await res.text());
-
   const data = await res.json();
   const parts = data?.candidates?.[0]?.content?.parts || [];
   return parts.map((p: any) => p?.text || "").join("\n").trim();
 }
 
-// ------------------------------
-// Confidence code extractor
-// ------------------------------
+/* ===============================
+   Validation & Tone-Safety Layer
+================================ */
+const bannedPhrases = [
+  "red flag","serious risk","likely fault","dangerous",
+  "mechanical failure","tampered","suspicious","unsafe"
+];
+
+function softenTone(text: string): string {
+  let out = text;
+  for (const p of bannedPhrases) {
+    const r = new RegExp(p, "gi");
+    out = out.replace(r, "worth checking in person");
+  }
+  return out;
+}
+
 function extractConfidenceCode(text: string): string | null {
   const m = text.match(/CONFIDENCE_CODE:\s*(LOW|MODERATE|HIGH)/i);
   return m ? m[1].toUpperCase() : null;
 }
 
-// ------------------------------
-// API Handler
-// ------------------------------
+function ensureMinimumStructure(text: string): string {
+  if (!text.includes("CONFIDENCE ASSESSMENT")) {
+    return (
+      "CONFIDENCE ASSESSMENT\nThis listing looks mostly positive so far, with a few details worth confirming in person.\n\n" +
+      text
+    );
+  }
+  return text;
+}
+
+function validateAndRepair(text: string) {
+  let safe = softenTone(text);
+  safe = ensureMinimumStructure(safe);
+
+  const confidence = extractConfidenceCode(safe) ?? "MODERATE";
+  return { safe, confidence };
+}
+
+/* ===============================
+   API Handler
+================================ */
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
   try {
     const listingUrl = (req.body as any)?.listingUrl ?? (req.body as any)?.url;
-    if (!listingUrl) {
+    if (!listingUrl)
       return res.status(400).json({ ok: false, error: "Missing listing URL" });
-    }
 
     const html = await fetchListingHtml(listingUrl);
     let vehicle = extractBasicVehicleInfo(html);
 
     const prompt = buildPrompt(html);
-    const summary = await callGemini(prompt);
-    const confidenceCode = extractConfidenceCode(summary);
+    const raw = await callGemini(prompt);
 
-    // ✨ Fill missing make/model from AI summary (safe fallback)
-    vehicle = applySummaryFallback(vehicle, summary);
+    const { safe, confidence } = validateAndRepair(raw);
+
+    // Fill missing make/model from AI report (only when empty)
+    vehicle = applySummaryFallback(vehicle, safe);
 
     return res.status(200).json({
       ok: true,
       message: "Scan complete",
       vehicle,
-      summary,
-      confidenceCode,
+      summary: safe,
+      confidenceCode: confidence,
       source: "gemini-2.5-flash",
     });
   } catch (err: any) {
