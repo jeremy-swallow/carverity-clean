@@ -1,12 +1,11 @@
-// src/pages/OnlineAnalyzing.tsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   saveOnlineResults,
   type SavedResult,
-  LISTING_URL_KEY,
-  normaliseVehicle,
 } from "../utils/onlineResults";
+
+const LISTING_URL_KEY = "carverity_online_listing_url";
 
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
@@ -33,11 +32,10 @@ export default function OnlineAnalyzing() {
         body: JSON.stringify({ listingUrl }),
       });
 
-      if (!res.ok) throw new Error(await res.text());
-
       const data = await res.json();
+      if (!res.ok || !data?.ok) throw new Error(data?.error || "Scan failed");
 
-      const vehicle = normaliseVehicle(data.vehicle ?? {});
+      const vehicle = data.vehicle ?? {};
 
       const saved: SavedResult = {
         type: "online",
@@ -45,28 +43,35 @@ export default function OnlineAnalyzing() {
         createdAt: new Date().toISOString(),
 
         listingUrl,
-        vehicle,
+        vehicle: {
+          make: vehicle.make ?? "",
+          model: vehicle.model ?? "",
+          year: vehicle.year ?? "",
+          kilometres: vehicle.kilometres ?? "",
+          ...vehicle,
+        },
 
         confidenceCode: data.confidenceCode ?? undefined,
 
-        // new structure
         previewSummary: data.previewSummary ?? null,
         fullSummary: data.fullSummary ?? null,
 
-        // backwards compatibility
+        // Backwards-compat support
         summary: data.fullSummary ?? data.previewSummary ?? null,
 
         sections: [],
         signals: [],
-        photos: { listing: [], meta: [] },
 
+        photos: { listing: [], meta: [] },
         isUnlocked: false,
 
         source: data.source ?? "gemini-2.5-flash",
         analysisSource: "online-listing-v1",
         sellerType: data.sellerType ?? undefined,
 
+        // 👇 Required field (fixes TS error)
         conditionSummary: "",
+
         kilometres: vehicle.kilometres ?? "",
         owners: "",
         notes: "",
