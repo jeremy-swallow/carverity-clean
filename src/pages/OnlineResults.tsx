@@ -1,35 +1,36 @@
-// src/pages/OnlineResults.tsx
 import { useEffect, useState } from "react";
-import { loadOnlineResults, type SavedResult } from "../utils/onlineResults";
+import { loadOnlineResults, saveOnlineResults } from "../utils/onlineResults";
 
-/* -------------------------------------------------------
-   Helpers
-------------------------------------------------------- */
+/**
+ * Extracts structured sections from the Gemini report text.
+ */
+function parseReportSections(text: string) {
+  if (!text) return {};
 
-const UNLOCK_KEY = "carverity_full_report_unlocked";
+  const sections: Record<string, string> = {};
 
-function buildNaturalPreview(text?: string | null) {
-  if (!text) return null;
+  const patterns: Record<string, RegExp> = {
+    confidence: /CONFIDENCE ASSESSMENT[\r\n]+([\s\S]*?)(?=\n{2,}|CONFIDENCE_CODE:|WHAT THIS MEANS FOR YOU|$)/i,
+    whatThisMeans: /WHAT THIS MEANS FOR YOU[\r\n]+([\s\S]*?)(?=\n{2,}|CARVERITY ANALYSIS|$)/i,
+    summary: /CARVERITY ANALYSIS[\s–-]*SUMMARY[\r\n]+([\s\S]*?)(?=\n{2,}|KEY RISK SIGNALS|$)/i,
+    risks: /KEY RISK SIGNALS[\r\n]+([\s\S]*?)(?=\n{2,}|BUYER CONSIDERATIONS|$)/i,
+    considerations: /BUYER CONSIDERATIONS[\r\n]+([\s\S]*?)(?=\n{2,}|NEGOTIATION INSIGHTS|$)/i,
+    negotiation: /NEGOTIATION INSIGHTS[\r\n]+([\s\S]*?)(?=\n{2,}|GENERAL OWNERSHIP NOTES|$)/i,
+    ownership: /GENERAL OWNERSHIP NOTES[\r\n]+([\s\S]*?)$/i,
+  };
 
-  const confidence = text.match(
-    /CONFIDENCE ASSESSMENT[\r\n]+([\s\S]*?)(?=\n{2,}|$)/i
-  );
-  if (confidence?.[1]) {
-    return confidence[1]
-      .trim()
-      .replace(/\*\*/g, "")
-      .replace(/\s+/g, " ");
+  for (const key of Object.keys(patterns)) {
+    const match = text.match(patterns[key]);
+    if (match?.[1]) sections[key] = match[1].trim();
   }
 
-  return (
-    text
-      .split("\n")
-      .filter(Boolean)[0]
-      ?.trim() ?? null
-  );
+  return sections;
 }
 
-function TextBlock({ value }: { value?: string | null }) {
+/**
+ * Formats multiline text safely.
+ */
+function TextBlock({ value }: { value?: string }) {
   if (!value) return null;
   return (
     <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
@@ -38,117 +39,186 @@ function TextBlock({ value }: { value?: string | null }) {
   );
 }
 
-/* -------------------------------------------------------
-   Component
-------------------------------------------------------- */
+/**
+ * Converts a confidence code into a warm human-sentence.
+ */
+function confidenceToSentence(code?: string | null): string {
+  if (!code) return "This listing looks like a reasonable starting point so far.";
+  switch (code.toUpperCase()) {
+    case "LOW":
+      return "This listing looks like a comfortable starting point so far — nothing concerning stands out from the details provided.";
+    case "MODERATE":
+      return "This listing looks mostly positive, with a couple of details that are worth checking in person to make sure it feels right for you.";
+    case "HIGH":
+      return "This listing may still be worth considering, but there are a few important details you’ll want to check carefully in person before moving ahead.";
+    default:
+      return "This listing looks like a reasonable starting point so far.";
+  }
+}
 
 export default function OnlineResults() {
-  const [result, setResult] = useState<SavedResult | null>(null);
-  const [showFull, setShowFull] = useState(false);
+  const [result, setResult] = useState<any>(null);
 
   useEffect(() => {
-    const stored = loadOnlineResults();
-    if (!stored) return;
-
-    setResult(stored);
-
-    const persistedUnlock =
-      stored.isUnlocked || localStorage.getItem(UNLOCK_KEY) === "1";
-
-    setShowFull(Boolean(persistedUnlock));
+    setResult(loadOnlineResults());
   }, []);
-
-  function unlockReportForTesting() {
-    setShowFull(true);
-    localStorage.setItem(UNLOCK_KEY, "1");
-  }
 
   if (!result) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center">
         <h1 className="text-xl font-semibold mb-2">No scan data found</h1>
         <p className="text-muted-foreground">
-          Run a scan to view your CarVerity results.
+          Run a scan to see your CarVerity results.
         </p>
       </div>
     );
   }
 
-  const confidence =
-    result.confidenceCode?.toUpperCase() || "Not available";
+  const {
+    vehicle = {},
+    confidenceCode,
+    previewSummary,
+    fullSummary,
+    summary,
+    isUnlocked,
+  } = result;
 
-  const vehicle = result.vehicle ?? {};
+  const reportText = fullSummary || summary || "";
+  const parsed = parseReportSections(reportText);
 
-  const reportText = result.fullSummary || result.summary || "";
   const preview =
-    result.previewSummary || buildNaturalPreview(reportText);
+    previewSummary ??
+    (summary?.split("\n").slice(0, 4).join(" ").trim() || null);
+
+  function unlockForTesting() {
+    const updated = { ...result, isUnlocked: true };
+    saveOnlineResults(updated);
+    setResult(updated);
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
 
-      {/* CONFIDENCE */}
-      <section className="rounded-lg border border-white/10 p-4">
+      {/* CONFIDENCE CARD */}
+      <section className="rounded-xl border border-white/10 bg-white/5 p-4">
         <h2 className="text-sm text-muted-foreground mb-1">
-          Listing confidence
+          Confidence assessment
         </h2>
-        <p className="text-white font-medium">
-          {confidence
-            ? `${confidence} — listing confidence`
-            : "Not available"}
+        <p className="text-white text-sm leading-relaxed">
+          {confidenceToSentence(confidenceCode)}
         </p>
       </section>
 
-      {/* PREVIEW */}
-      <section className="rounded-lg border border-white/10 p-4">
-        <h2 className="text-sm text-muted-foreground mb-1">
-          CarVerity analysis — preview
-        </h2>
+      {/* PREVIEW (LOCKED) */}
+      {!isUnlocked && (
+        <section className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+          <h2 className="text-sm text-muted-foreground">
+            CarVerity analysis — preview
+          </h2>
 
-        {!preview && (
-          <p className="text-muted-foreground">
-            No preview available.
-          </p>
-        )}
+          {preview ? (
+            <p className="text-slate-200 text-sm leading-relaxed">
+              {preview}…
+            </p>
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              Preview not available.
+            </p>
+          )}
 
-        {preview && (
-          <p className="text-slate-200 text-sm leading-relaxed">
-            {preview}…{" "}
-            <span className="text-indigo-400">
-              Unlock full scan to see the complete report.
-            </span>
-          </p>
-        )}
-      </section>
-
-      {/* LOCKED FULL REPORT */}
-      {!showFull && (
-        <section className="rounded-lg border border-white/10 p-4 backdrop-blur-sm bg-white/5">
-          <p className="text-slate-300 text-sm mb-3">
-            This is your full CarVerity report, including detailed
-            guidance on what to look for in person.
-            <br />
-            In the live app this area will unlock with a paid scan.
-            For now, you can reveal it here while testing.
+          <p className="text-indigo-300 text-xs">
+            The full scan provides more context about what’s worth checking in
+            person when you see the car.
           </p>
 
+          {/* Blurred locked block */}
+          <div className="mt-2 rounded-lg border border-white/10 bg-slate-900/40 backdrop-blur-sm p-4">
+            <p className="text-slate-400 text-sm italic opacity-70">
+              Full scan content is locked
+            </p>
+          </div>
+
+          {/* Developer unlock button */}
           <button
-            onClick={unlockReportForTesting}
-            className="px-4 py-2 rounded-lg border border-white/20 text-sm hover:bg-white/10 transition"
+            onClick={unlockForTesting}
+            className="mt-3 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm"
           >
-            View full scan (testing)
+            Unlock full scan (testing)
           </button>
         </section>
       )}
 
-      {/* FULL REPORT CONTENT */}
-      {showFull && reportText && (
-        <section className="space-y-6 rounded-lg border border-white/10 p-4">
-          <TextBlock value={reportText} />
-        </section>
+      {/* FULL REPORT (UNLOCKED) */}
+      {isUnlocked && reportText && (
+        <div className="space-y-6">
+
+          {parsed.confidence && (
+            <section className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                Confidence assessment — full detail
+              </h3>
+              <TextBlock value={parsed.confidence} />
+            </section>
+          )}
+
+          {parsed.whatThisMeans && (
+            <section className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                What this means for you
+              </h3>
+              <TextBlock value={parsed.whatThisMeans} />
+            </section>
+          )}
+
+          {parsed.summary && (
+            <section className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                CarVerity analysis — summary
+              </h3>
+              <TextBlock value={parsed.summary} />
+            </section>
+          )}
+
+          {parsed.risks && (
+            <section className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                Things to check in person
+              </h3>
+              <TextBlock value={parsed.risks} />
+            </section>
+          )}
+
+          {parsed.considerations && (
+            <section className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                Helpful things to focus on during inspection
+              </h3>
+              <TextBlock value={parsed.considerations} />
+            </section>
+          )}
+
+          {parsed.negotiation && (
+            <section className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                Negotiation insights
+              </h3>
+              <TextBlock value={parsed.negotiation} />
+            </section>
+          )}
+
+          {parsed.ownership && (
+            <section className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 className="text-sm text-muted-foreground mb-1">
+                General ownership notes
+              </h3>
+              <TextBlock value={parsed.ownership} />
+            </section>
+          )}
+        </div>
       )}
 
       {/* VEHICLE DETAILS */}
-      <section className="rounded-lg border border-white/10 p-4">
+      <section className="rounded-xl border border-white/10 bg-white/5 p-4">
         <h2 className="text-sm text-muted-foreground mb-2">
           Vehicle details
         </h2>
