@@ -10,9 +10,7 @@ if (!GEMINI_API_KEY) {
 // ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch listing (${res.status})`);
-  }
+  if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
   return await res.text();
 }
 
@@ -31,7 +29,6 @@ function normaliseKilometres(raw?: string | null): string {
   if (!raw) return "";
   const cleaned = raw.replace(/[,\.]/g, "").trim();
   const n = parseInt(cleaned, 10);
-  // keep it simple for TS: no numeric separators
   if (!n || n < 10 || n > 1000000) return "";
   return String(n);
 }
@@ -43,7 +40,7 @@ function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
 
-  // YEAR — defensive & preference-based
+  // YEAR — defensive
   let year = "";
   const labelled = text.match(
     /(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i
@@ -54,27 +51,24 @@ function extractBasicVehicleInfo(text: string) {
   const afterMake = text.match(
     /(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)[^0-9]{0,20}\b((19|20)\d{2})\b/i
   );
-  const myCode = text.match(/\bMY\s?(\d{2})\b/i);
 
   if (labelled) year = labelled[2];
   else if (beforeMake) year = beforeMake[1];
   else if (afterMake) year = afterMake[2];
-  else if (myCode) year = `20${myCode[1]}`;
 
   year = normaliseYear(year);
 
   // KILOMETRES
   let kilometres = "";
-  const kmPatterns: RegExp[] = [
+  const kmPatterns = [
     /\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i,
     /\bodometer[^0-9]{0,6}([\d,\.]+)\b/i,
-    /\btravelled[^0-9]{0,6}([\d,\.]+)\b/i,
   ];
 
-  for (const pattern of kmPatterns) {
-    const match = text.match(pattern);
-    if (match?.[1]) {
-      kilometres = normaliseKilometres(match[1]);
+  for (const p of kmPatterns) {
+    const m = text.match(p);
+    if (m?.[1]) {
+      kilometres = normaliseKilometres(m[1]);
       if (kilometres) break;
     }
   }
@@ -88,96 +82,80 @@ function extractBasicVehicleInfo(text: string) {
 }
 
 // ------------------------------
-// Gemini Prompt — Assistive, Plain-English Confidence
+// Gemini Prompt — includes SAFE ownership notes
+// and STRONG service-history guard-rails
 // ------------------------------
 function buildPrompt(listingText: string): string {
   return `
 You are CarVerity — an independent used-car assistant for Australian buyers.
-Your purpose is to help the buyer feel informed, supported and confident — not overwhelmed or alarmed.
+Your purpose is to help the buyer feel informed, supported and confident.
 
-Write in warm, calm, everyday language.
-Avoid analytical tone, legal tone, or dramatic framing.
-
-VALUES & TONE
-• Supportive, reassuring, practical
-• Buyer-centred and easy to understand
-• No speculation, no assumptions, no fear-based wording
-• Focus on clarity, confidence and next-step guidance
+Tone:
+• Warm, calm, practical
+• No speculation or alarmist language
+• No legal tone or fear-based framing
 
 SERVICE HISTORY — STRICT RULES (NO GUESSING)
 
-Treat logbook entries with:
-• workshop / dealer
-• odometer value
-• status such as “Done” or “Completed”
-as NORMAL completed services — even if date formatting looks unusual.
+Treat logbook entries that show:
+• workshop / dealer name
+• odometer reading
+• a status such as “Done”, “Completed”, “Carried Out”, or similar
+as NORMAL completed services — even if the date formatting looks unusual.
+
+Future or scheduled services appearing in the logbook are NORMAL.
+They must NOT be treated as a risk or inconsistency.
 
 You MUST NOT infer:
 • missed services
-• overdue maintenance
 • gaps between services
-• neglect or risk
+• overdue maintenance
+• neglect or hidden risk
 
-unless the LISTING TEXT explicitly says this.
-
-Future or scheduled services are normal and must NOT be treated as risk.
-
-Only mention service history concerns when the listing clearly states:
+UNLESS the listing text explicitly says one of the following:
 • “no service history”
 • “books missing”
 • “service history unknown”
 • “incomplete history”
-• “requires service” or “overdue”
+• “requires service” / “overdue service”
 
-If something looks unusual BUT the listing does not say there is a problem,
-remain neutral and do not treat it as a risk.
+If something looks unusual BUT the listing does NOT say there is a problem,
+remain neutral and do NOT treat it as a risk.
 
-CONFIDENCE MODEL — MUST MATCH HUMAN LANGUAGE
+CONFIDENCE MODEL
+LOW       = Feels comfortable so far — nothing concerning stands out
+MODERATE  = Looks mostly fine — a couple of things are worth checking in person
+HIGH      = Proceed carefully — important details should be confirmed first
 
-First explain confidence in simple English the buyer can easily understand.
-
-Meaning alignment:
-LOW  = Feels comfortable so far — nothing concerning stands out
-MODERATE = Looks mostly fine — but a couple of things are worth checking in person
-HIGH = Proceed carefully — important details should be confirmed before moving ahead
-
-The tone of your explanation MUST match the code you output.
-
-Then output:
-
-CONFIDENCE_CODE: LOW
-or
-CONFIDENCE_CODE: MODERATE
-or
-CONFIDENCE_CODE: HIGH
-
-INSPECTION & NEXT STEPS
-• Prefer recommending a CarVerity in-person scan to confirm real-world condition.
-• A mechanic inspection may be mentioned only as an optional extra — not the default.
-
-YOU MUST USE THIS EXACT STRUCTURE:
+STRUCTURE — FOLLOW THIS EXACT ORDER
 
 CONFIDENCE ASSESSMENT
-(A short, friendly, plain-English explanation)
+(Short, friendly explanation)
 
 CONFIDENCE_CODE: LOW / MODERATE / HIGH
 
 WHAT THIS MEANS FOR YOU
-(2–4 supportive sentences helping the buyer interpret the listing)
+(2–4 supportive sentences)
 
 CARVERITY ANALYSIS — SUMMARY
-(A short helpful overview based ONLY on the listing — no speculation)
+(Helpful overview based ONLY on the listing)
 
 KEY RISK SIGNALS
-- Only include genuine, listing-supported buyer risks
-- Do NOT invent problems or reinterpret normal formatting as risk
+(Only genuine, listing-supported risks — do NOT invent issues)
 
 BUYER CONSIDERATIONS
-- Calm, practical next-step guidance
-- Encourage using a CarVerity in-person scan
+(Calm, practical next-step guidance — prefer recommending a CarVerity in-person scan)
 
 NEGOTIATION INSIGHTS
-- Realistic, polite talking points (e.g., cosmetic wear, age, kms)
+(Polite, realistic talking points — avoid exaggeration)
+
+GENERAL OWNERSHIP NOTES
+This MUST:
+• Provide neutral, general-knowledge guidance for similar vehicles / age / class
+• NOT imply these apply to THIS vehicle
+• Be phrased as “things some owners of similar vehicles watch for”
+• Avoid diagnosis, speculation or mechanical advice
+• Keep to 3–5 bullet points maximum
 
 LISTING TEXT
 --------------------------------
@@ -202,19 +180,22 @@ async function callGemini(prompt: string): Promise<string> {
     }
   );
 
-  if (!res.ok) {
-    throw new Error(await res.text());
-  }
+  if (!res.ok) throw new Error(await res.text());
   const data = await res.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
 
 // ------------------------------
-// Extract confidence code
+// Extract confidence + ownership notes
 // ------------------------------
-function extractConfidenceCode(text: string): string | null {
+function extractConfidence(text: string) {
   const m = text.match(/CONFIDENCE_CODE:\s*(LOW|MODERATE|HIGH)/i);
   return m ? m[1].toUpperCase() : null;
+}
+
+function extractOwnershipNotes(text: string): string | null {
+  const match = text.match(/GENERAL OWNERSHIP NOTES([\s\S]*?)(\n[A-Z ]+|$)/i);
+  return match ? match[1].trim() : null;
 }
 
 // ------------------------------
@@ -225,28 +206,28 @@ export default async function handler(
   res: VercelResponse
 ) {
   try {
-    const listingUrl = (req.body as any)?.listingUrl ?? (req.body as any)?.url;
-    if (!listingUrl) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Missing listing URL" });
-    }
+    const listingUrl =
+      (req.body as any)?.listingUrl ?? (req.body as any)?.url;
 
-    console.log("🔎 Running AI scan for:", listingUrl);
+    if (!listingUrl) {
+      return res.status(400).json({ ok: false, error: "Missing listing URL" });
+    }
 
     const html = await fetchListingHtml(listingUrl);
     const vehicle = extractBasicVehicleInfo(html);
 
     const prompt = buildPrompt(html);
     const summary = await callGemini(prompt);
-    const confidenceCode = extractConfidenceCode(summary);
+
+    const confidenceCode = extractConfidence(summary);
+    const ownershipNotes = extractOwnershipNotes(summary);
 
     return res.status(200).json({
       ok: true,
-      message: "Scan complete",
       vehicle,
       summary,
       confidenceCode,
+      ownershipNotes,
       source: "gemini-2.5-flash",
     });
   } catch (err: any) {
