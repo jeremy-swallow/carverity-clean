@@ -1,12 +1,8 @@
-// src/pages/OnlineResults.tsx
 import { useEffect, useState } from "react";
-import {
-  loadOnlineResults,
-  type SavedResult,
-} from "../utils/onlineResults";
+import { loadOnlineResults } from "../utils/onlineResults";
 
 export default function OnlineResults() {
-  const [result, setResult] = useState<SavedResult | null>(null);
+  const [result, setResult] = useState<any>(null);
 
   useEffect(() => {
     setResult(loadOnlineResults());
@@ -24,22 +20,21 @@ export default function OnlineResults() {
   }
 
   const {
-    vehicle,
+    vehicle = {},
     confidenceCode,
-    isUnlocked,
     previewSummary,
     fullSummary,
     summary,
+    isUnlocked,
   } = result;
 
-  const previewText =
+  const preview =
     previewSummary ??
-    summary
+    (summary
       ?.split("\n")
-      .slice(0, 3)
+      .slice(0, 4)
       .join(" ")
-      .trim() ??
-    null;
+      .trim() || null);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
@@ -56,30 +51,28 @@ export default function OnlineResults() {
         </p>
       </section>
 
-      {/* PREVIEW / FULL */}
+      {/* PREVIEW / FULL REPORT */}
       <section className="rounded-lg border border-white/10 p-4">
         <h2 className="text-sm text-muted-foreground mb-1">
           CarVerity analysis — preview
         </h2>
 
-        {!previewText && !fullSummary && (
-          <p className="text-muted-foreground">
-            No preview available.
-          </p>
+        {!preview && (
+          <p className="text-muted-foreground">No preview available.</p>
         )}
 
-        {!isUnlocked && previewText && (
+        {preview && !isUnlocked && (
           <p className="text-slate-200 text-sm leading-relaxed">
-            {previewText}…{" "}
+            {preview}…{" "}
             <span className="text-indigo-400">
-              Unlock full scan to read the complete report.
+              Unlock full scan to see the complete report.
             </span>
           </p>
         )}
 
-        {isUnlocked && (
+        {(isUnlocked && (fullSummary || summary)) && (
           <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
-            {fullSummary ?? summary ?? ""}
+            {fullSummary || summary}
           </pre>
         )}
       </section>
@@ -93,22 +86,22 @@ export default function OnlineResults() {
         <div className="grid grid-cols-2 gap-y-2 text-sm">
           <div>
             <span className="text-muted-foreground block">Make</span>
-            <span>{vehicle?.make || "—"}</span>
+            <span>{vehicle.make || "—"}</span>
           </div>
 
           <div>
             <span className="text-muted-foreground block">Model</span>
-            <span>{vehicle?.model || "—"}</span>
+            <span>{vehicle.model || "—"}</span>
           </div>
 
           <div>
             <span className="text-muted-foreground block">Year</span>
-            <span>{vehicle?.year || "—"}</span>
+            <span>{vehicle.year || "—"}</span>
           </div>
 
           <div>
             <span className="text-muted-foreground block">Kilometres</span>
-            <span>{vehicle?.kilometres || "—"}</span>
+            <span>{vehicle.kilometres || "—"}</span>
           </div>
         </div>
       </section>
