@@ -200,7 +200,7 @@ ${listingText}
 }
 
 // ------------------------------
-// Gemini API
+// Gemini API — ROBUST PARSER
 // ------------------------------
 async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(
@@ -215,11 +215,20 @@ async function callGemini(prompt: string): Promise<string> {
     }
   );
 
-  if (!res.ok) {
-    throw new Error(await res.text());
-  }
+  if (!res.ok) throw new Error(await res.text());
+
   const data = await res.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+
+  const text = parts
+    .map((p: any) => p?.text || "")
+    .join("\n")
+    .trim();
+
+  console.log("📝 Gemini output length:", text.length);
+
+  return text;
 }
 
 // ------------------------------
