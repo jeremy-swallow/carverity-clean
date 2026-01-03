@@ -42,9 +42,9 @@ export default function OnlineAnalyzingListing() {
         sections: data.sections ?? [],
         photos: data.photos ?? { listing: [], meta: [] },
 
-        // ---- THIS IS THE IMPORTANT FIX ----
-        previewText: data.previewText ?? data.summary ?? "",   // short preview
-        fullAnalysis: data.fullAnalysis ?? "",                 // full content only
+        // ---- IMPORTANT MAPPING ----
+        previewText: data.previewText ?? data.summary ?? "",
+        fullAnalysis: data.fullAnalysis ?? "",
 
         summary: data.summary ?? "",
         conditionSummary: data.conditionSummary ?? "",

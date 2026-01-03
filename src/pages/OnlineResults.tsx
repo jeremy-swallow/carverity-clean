@@ -17,7 +17,11 @@ export default function OnlineResults() {
       navigate("/scan/online", { replace: true });
       return;
     }
-    setData({ ...stored, vehicle: normaliseVehicle(stored.vehicle) });
+
+    setData({
+      ...stored,
+      vehicle: normaliseVehicle(stored.vehicle),
+    });
   }, [navigate]);
 
   useEffect(() => {
@@ -31,7 +35,9 @@ export default function OnlineResults() {
   const full = data.fullAnalysis;
 
   function handleUnlock() {
-    setData(prev => prev ? { ...prev, isUnlocked: true } : prev);
+    setData(prev =>
+      prev ? { ...prev, isUnlocked: true } : prev
+    );
   }
 
   return (
@@ -43,9 +49,15 @@ export default function OnlineResults() {
       {/* Preview */}
       <section className="rounded-lg border bg-slate-900/70 px-5 py-4">
         <h2 className="text-sm font-semibold">CarVerity analysis — preview</h2>
-        {preview
-          ? <pre className="whitespace-pre-wrap text-sm">{preview}</pre>
-          : <p className="text-sm text-slate-400">No preview available.</p>}
+        {preview ? (
+          <pre className="whitespace-pre-wrap text-sm">
+            {preview}
+          </pre>
+        ) : (
+          <p className="text-sm text-slate-400">
+            No preview available.
+          </p>
+        )}
       </section>
 
       {/* Full Scan */}
@@ -54,7 +66,12 @@ export default function OnlineResults() {
 
         {full ? (
           <>
-            <pre className={"whitespace-pre-wrap text-sm" + (!unlocked ? " blur-sm select-none" : "")}>
+            <pre
+              className={
+                "whitespace-pre-wrap text-sm" +
+                (!unlocked ? " blur-sm select-none" : "")
+              }
+            >
               {full}
             </pre>
 
@@ -64,7 +81,10 @@ export default function OnlineResults() {
                   <p className="text-xs mb-2">
                     Full scan locked — unlock to reveal detailed insights.
                   </p>
-                  <button onClick={handleUnlock} className="bg-indigo-500 text-white px-3 py-1 rounded">
+                  <button
+                    onClick={handleUnlock}
+                    className="bg-indigo-500 text-white px-3 py-1 rounded"
+                  >
                     Unlock full scan
                   </button>
                 </div>
