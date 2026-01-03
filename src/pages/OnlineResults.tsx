@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import {
   loadOnlineResults,
   saveOnlineResults,
@@ -354,10 +354,7 @@ export default function OnlineResults() {
   const showUnlocked = (isUnlocked ?? hasStoredUnlock) === true;
 
   const sections = parseReportSections(reportText);
-  const smartChips = useMemo(
-    () => buildSmartChips({ confidenceCode, vehicle, reportText }),
-    [confidenceCode, vehicle, reportText]
-  );
+  const smartChips = buildSmartChips({ confidenceCode, vehicle, reportText });
 
   const highlightChips = buildHighlights({
     confidenceCode,
@@ -407,7 +404,7 @@ export default function OnlineResults() {
 
           <div className="flex items-center gap-4">
             <ConfidenceGauge code={confidenceCode} />
-            <span className="hidden md:inline-flex text-[11px] px-3 py-1 rounded-full bg-white/15 text-white border border-white/25">
+            <span className="hidden md:inline-flex text-[11px] px-3 py-1 rounded-full bg-white/15 text.white border border-white/25">
               Download PDF (coming soon)
             </span>
           </div>
