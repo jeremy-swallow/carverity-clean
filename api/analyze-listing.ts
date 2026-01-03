@@ -1,4 +1,3 @@
-// /api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
@@ -11,9 +10,7 @@ if (!GEMINI_API_KEY) {
 // ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch listing (${res.status})`);
-  }
+  if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
   return await res.text();
 }
 
@@ -37,7 +34,7 @@ function normaliseKilometres(raw?: string | null): string {
 }
 
 // ------------------------------
-// Extract structured vehicle info
+// Extract structured info from HTML (first-pass)
 // ------------------------------
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
@@ -48,10 +45,10 @@ function extractBasicVehicleInfo(text: string) {
     /(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i
   );
   const beforeMake = text.match(
-    /\b((19|20)\d{2})\b[^,\n]{0,30}(Hyundai|Toyota|Kia|Mazda|Ford|Nissan|Mitsubishi)/i
+    /\b((19|20)\d{2})\b[^,\n]{0,30}(Hyundai|Toyota|Kia|Mazda|Ford|Nissan|Mitsubishi|Subaru|Honda|Volkswagen)/i
   );
   const afterMake = text.match(
-    /(Hyundai|Toyota|Kia|Mazda|Ford|Nissan|Mitsubishi)[^0-9]{0,20}\b((19|20)\d{2})\b/i
+    /(Hyundai|Toyota|Kia|Mazda|Ford|Nissan|Mitsubishi|Subaru|Honda|Volkswagen)[^0-9]{0,20}\b((19|20)\d{2})\b/i
   );
   const myCode = text.match(/\bMY\s?(\d{2})\b/i);
 
@@ -86,88 +83,108 @@ function extractBasicVehicleInfo(text: string) {
 }
 
 // ------------------------------
-// Gemini Prompt — CarVerity tone (Option-A preview style)
+// FALLBACK — derive make/model from Gemini summary
+// (fills missing values only — never overwrites good data)
+// ------------------------------
+const BRANDS = [
+  "Toyota","Kia","Mazda","Ford","Hyundai","Nissan","Mitsubishi",
+  "Subaru","Honda","Volkswagen","Audi","BMW","Mercedes","Holden",
+  "Peugeot","Renault","Jeep","Volvo","Lexus"
+];
+
+function applySummaryFallback(vehicle: any, summary: string) {
+  if (!summary) return vehicle;
+
+  const firstLine = summary.split("\n")[0] ?? "";
+  const brandRegex = new RegExp(
+    `\\b((19|20)\\d{2})?\\s*(${BRANDS.join("|")})\\s+([A-Za-z0-9-]+)`,
+    "i"
+  );
+
+  const match = firstLine.match(brandRegex);
+  if (!match) return vehicle;
+
+  const detectedMake = match[3]?.trim() || "";
+  const detectedModel = match[4]?.trim() || "";
+
+  return {
+    ...vehicle,
+    make: vehicle.make || detectedMake,
+    model: vehicle.model || detectedModel,
+  };
+}
+
+// ------------------------------
+// STRICT CARVERITY PROMPT — restored guard-rails
 // ------------------------------
 function buildPrompt(listingText: string): string {
   return `
-You are CarVerity — a calm assisting tool for Australian used-car buyers.
-Your role is to help the buyer feel informed and confident about what to look for.
-You are NOT a mechanic, inspector, or authority. Avoid diagnostic or alarmist wording.
+You are CarVerity — an assisting tool for Australian used-car buyers.
+Your goal is to help the buyer feel informed, supported, and confident — not alarmed.
 
-Write in steady, professional, human-friendly language.
-Avoid slang or casual greetings. Do NOT mention pricing, subscriptions, unlocking, or paywalls.
+Write in calm, warm, everyday language.
+Avoid analytical, legal, mechanical, or diagnostic tone.
+Do NOT mention pricing, subscriptions, unlocking, or paywalls.
 Use Australian wording (“kilometres”, not “mileage”).
 
-PREVIEW TONE — REQUIRED STYLE (Option A)
-Use a neutral, reassuring opening such as:
-“This listing looks like a fairly solid starting point, with a few details that are worth checking in person to make sure it feels right for you.”
-You may adapt wording to match context, but the tone must remain:
-• calm and supportive
-• non-dramatic
-• buyer-centred
-• focused on “worth checking in person”
+SERVICE HISTORY — STRICT SAFETY RULES
 
-SERVICE HISTORY — STRICT INTERPRETATION RULES
+If a service entry shows:
+• a workshop or dealer name
+• an odometer reading
+• wording such as “Done / Completed / Service carried out / Performed”
+→ Treat it as a NORMAL completed service, even if the date looks unusual or “future-dated”.
 
-If a service entry includes:
-• a workshop or dealer name, AND
-• an odometer reading, AND
-• a stamp, signature, or wording such as “service completed / carried out / done”
+You must NOT infer:
+• missed services
+• overdue maintenance
+• gaps between services
+• odometer tampering
+• neglect or mechanical risk
 
-→ Treat it as a NORMAL completed service entry.
+UNLESS the listing clearly and explicitly states this
+(e.g. “no service history”, “books missing”, “overdue for service”, “odometer incorrect”).
 
-Even if the date format is unusual or appears future-dated, you must remain neutral.
-You must NOT imply missing history, risk, uncertainty, or tampering
-UNLESS the listing text explicitly says so.
+If something looks unusual BUT the listing does not say there is a problem,
+stay neutral — you may gently suggest confirming details in person,
+but do NOT imply risk or doubt.
 
-Future bookings or formatting quirks are NOT risks on their own.
+Future or scheduled services are NORMAL and must NOT be treated as a risk.
 
-Never infer:
-• overdue servicing
-• neglected maintenance
-• odometer concern
-• mechanical risk
-unless explicitly stated in the listing.
-
-ASSISTING-TOOL PHILOSOPHY
-
-Speak as a supportive co-pilot.
-Encourage confirming details in person rather than assuming problems.
-Prefer wording such as “worth checking in person” instead of “risk” language.
-
-CONFIDENCE MODEL — EXPLANATION MUST MATCH CODE
+CONFIDENCE MODEL — HUMAN-MEANING ALIGNMENT
 
 LOW      = Feels comfortable so far — nothing concerning stands out
 MODERATE = Looks mostly positive — a couple of details are worth checking in person
 HIGH     = Proceed carefully — important details should be confirmed before moving ahead
 
-Then output:
-CONFIDENCE_CODE: LOW / MODERATE / HIGH
+Your written explanation MUST match the confidence code you output.
 
-REQUIRED STRUCTURE (exact order)
+STRUCTURE — USE THIS EXACT ORDER:
 
 CONFIDENCE ASSESSMENT
-(short, plain-English explanation that matches the code)
+(short, friendly explanation matching the code)
 
 CONFIDENCE_CODE: LOW / MODERATE / HIGH
 
 WHAT THIS MEANS FOR YOU
-(2–4 calm sentences about what to focus on in person)
+(2–4 calm sentences guiding what to focus on in person)
 
 CARVERITY ANALYSIS — SUMMARY
 (overview based ONLY on the listing — no speculation)
 
 KEY RISK SIGNALS
-(things to check in person — practical and non-alarmist)
+(include only genuine, listing-supported items —
+frame them as practical things to check in person)
 
 BUYER CONSIDERATIONS
-(gentle, practical guidance for inspection and test drive)
+(practical, supportive inspection + test-drive guidance)
 
 NEGOTIATION INSIGHTS
-(polite, realistic talking points buyers sometimes use)
+(polite, realistic talking points — no exaggeration)
 
 GENERAL OWNERSHIP NOTES
-(3–5 neutral tips framed as “things some owners of similar vehicles watch for”)
+(3–5 neutral bullet points framed as
+“things some owners of similar vehicles watch for”)
 
 LISTING TEXT
 --------------------------------
@@ -200,7 +217,7 @@ async function callGemini(prompt: string): Promise<string> {
 }
 
 // ------------------------------
-// Extract confidence code
+// Confidence code extractor
 // ------------------------------
 function extractConfidenceCode(text: string): string | null {
   const m = text.match(/CONFIDENCE_CODE:\s*(LOW|MODERATE|HIGH)/i);
@@ -221,11 +238,14 @@ export default async function handler(
     }
 
     const html = await fetchListingHtml(listingUrl);
-    const vehicle = extractBasicVehicleInfo(html);
+    let vehicle = extractBasicVehicleInfo(html);
 
     const prompt = buildPrompt(html);
     const summary = await callGemini(prompt);
     const confidenceCode = extractConfidenceCode(summary);
+
+    // ✨ Fill missing make/model from AI summary (safe fallback)
+    vehicle = applySummaryFallback(vehicle, summary);
 
     return res.status(200).json({
       ok: true,
