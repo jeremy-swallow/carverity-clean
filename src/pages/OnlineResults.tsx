@@ -1,14 +1,16 @@
-// src/pages/OnlineResults.tsx
 import { useEffect, useState } from "react";
 import {
   loadOnlineResults,
   type SavedResult,
-  normaliseVehicle,
 } from "../utils/onlineResults";
 
-const UNLOCK_KEY = "carverity_test_unlock_fullscan";
+const UNLOCK_KEY = "carverity_debug_unlock_full_scan";
 
-function TextBlock({ value }: { value?: string }) {
+/* ------------------------------
+   Helpers
+------------------------------ */
+
+function TextBlock({ value }: { value?: string | null }) {
   if (!value) return null;
   return (
     <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
@@ -18,27 +20,27 @@ function TextBlock({ value }: { value?: string }) {
 }
 
 /**
- * Create a reliable preview from either:
- * - previewSummary (preferred), or
- * - the first 2–3 sentences of the full report
+ * “Tease-style” preview — avoids giving away specifics.
+ * Encourages unlocking while still feeling helpful.
  */
-function buildPreview(result: SavedResult): string | null {
-  if (result.previewSummary) {
-    return result.previewSummary.trim();
+function buildPreviewTeaser(confidenceText?: string | null) {
+  if (!confidenceText) {
+    return (
+      "Preview not available. The full scan includes clearer guidance on what’s " +
+      "worth checking in person, plus practical inspection tips for this vehicle."
+    );
   }
 
-  const text = result.fullSummary || result.summary || "";
-  if (!text) return null;
-
-  const sentences = text
-    .replace(/\n+/g, " ")
-    .split(/(?<=[.!?])\s+/)
-    .slice(0, 3)
-    .join(" ")
-    .trim();
-
-  return sentences || null;
+  return (
+    confidenceText.trim() +
+    " The full scan also provides practical guidance on what’s worth checking " +
+    "in person, based on the details in the listing."
+  );
 }
+
+/* ------------------------------
+   Component
+------------------------------ */
 
 export default function OnlineResults() {
   const [result, setResult] = useState<SavedResult | null>(null);
@@ -72,72 +74,81 @@ export default function OnlineResults() {
     );
   }
 
-  const confidence =
-    result.confidenceCode?.toUpperCase() || "Not available";
+  const {
+    vehicle = {},
+    confidenceCode,
+    fullSummary,
+    summary,
+  } = result;
 
-  const vehicle = normaliseVehicle(result.vehicle || {});
-  const preview = buildPreview(result);
-  const fullText = result.fullSummary || result.summary || "";
+  const confidenceText =
+    summary?.split("\n")[0]?.trim() ||
+    fullSummary?.split("\n")[0]?.trim() ||
+    null;
+
+  const reportText = fullSummary || summary || "";
+
+  const confidenceLabel = confidenceCode
+    ? `${confidenceCode} — listing confidence`
+    : "Not available";
+
+  const previewTeaser = buildPreviewTeaser(confidenceText);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
 
-      {/* CONFIDENCE */}
+      {/* CONFIDENCE CARD */}
+      <section className="rounded-lg border border-white/10 p-4">
+        <h2 className="text-sm text-muted-foreground mb-1">
+          Listing confidence
+        </h2>
+        <p className="text-white font-medium">{confidenceLabel}</p>
+      </section>
+
+      {/* CONFIDENCE EXPLANATION */}
       <section className="rounded-lg border border-white/10 p-4">
         <h2 className="text-sm text-muted-foreground mb-1">
           Confidence assessment
         </h2>
-        <p className="text-white font-medium">
-          {confidence === "NOT AVAILABLE"
-            ? "Not available"
-            : `${confidence} — listing confidence`}
+        <p className="text-slate-200 text-sm leading-relaxed">
+          {confidenceText ||
+            "This listing looks mostly positive so far. The full scan provides clearer guidance on what’s worth checking in person."}
         </p>
       </section>
 
-      {/* PREVIEW */}
-      <section className="rounded-lg border border-white/10 p-4">
-        <h2 className="text-sm text-muted-foreground mb-1">
-          CarVerity analysis — preview
-        </h2>
+      {/* PREVIEW / LOCKED REPORT */}
+      {!showFull && (
+        <section className="rounded-lg border border-white/10 p-4 space-y-3">
+          <h2 className="text-sm text-muted-foreground mb-1">
+            CarVerity analysis — preview
+          </h2>
 
-        {!preview && (
-          <p className="text-muted-foreground text-sm">
-            Preview not available.
-            <br />
-            The full scan provides more context about what’s worth checking in
-            person when you see the car.
+          <p className="text-slate-200 text-sm leading-relaxed">
+            {previewTeaser}
           </p>
-        )}
 
-        {preview && !showFull && (
-          <>
-            <p className="text-slate-200 text-sm leading-relaxed">
-              {preview}…{" "}
-              <span className="text-indigo-400">
-                Unlock full scan to see the complete report.
-              </span>
-            </p>
+          <div className="rounded-md border border-white/10 bg-white/5 backdrop-blur px-3 py-2 text-xs text-slate-400">
+            Full scan content is locked
+          </div>
 
-            <div className="mt-3 rounded-md border border-white/10 bg-black/20 p-3 text-center">
-              <p className="text-xs text-muted-foreground mb-2">
-                Full scan content is locked
-              </p>
+          <button
+            onClick={unlockForTesting}
+            className="mt-1 inline-flex items-center justify-center rounded-md bg-indigo-500 px-3 py-2 text-xs font-medium hover:bg-indigo-600 transition"
+          >
+            Unlock full scan (testing)
+          </button>
 
-              <button
-                onClick={unlockForTesting}
-                className="px-3 py-1.5 text-xs rounded-md bg-indigo-500 hover:bg-indigo-600"
-              >
-                Unlock full scan (testing)
-              </button>
-            </div>
-          </>
-        )}
-      </section>
+          <p className="text-[11px] text-slate-500 mt-1">
+            In the live app this area unlocks with a paid scan. This button is
+            only visible during development.
+          </p>
+        </section>
+      )}
 
-      {/* FULL REPORT */}
-      {showFull && fullText && (
-        <section className="rounded-lg border border-white/10 p-4 space-y-4">
-          <TextBlock value={fullText} />
+      {/* FULL REPORT (UNLOCKED) */}
+      {showFull && reportText && (
+        <section className="space-y-6">
+          <TextBlock value={reportText} />
         </section>
       )}
 
