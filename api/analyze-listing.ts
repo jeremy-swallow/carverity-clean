@@ -1,9 +1,8 @@
+// /api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
-if (!GEMINI_API_KEY) {
-  throw new Error("Missing GOOGLE_API_KEY — add it in Vercel env vars.");
-}
+if (!GEMINI_API_KEY) throw new Error("Missing GOOGLE_API_KEY — add it in Vercel env vars.");
 
 // ------------------------------
 // Fetch HTML
@@ -40,38 +39,14 @@ function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
 
-  // YEAR — defensive
   let year = "";
-  const labelled = text.match(
-    /(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i
-  );
-  const beforeMake = text.match(
-    /\b((19|20)\d{2})\b[^,\n]{0,30}(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)/i
-  );
-  const afterMake = text.match(
-    /(Hyundai|Toyota|Kia|Mazda|Ford|Nissan)[^0-9]{0,20}\b((19|20)\d{2})\b/i
-  );
-
+  const labelled = text.match(/(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i);
   if (labelled) year = labelled[2];
-  else if (beforeMake) year = beforeMake[1];
-  else if (afterMake) year = afterMake[2];
-
   year = normaliseYear(year);
 
-  // KILOMETRES
   let kilometres = "";
-  const kmPatterns = [
-    /\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i,
-    /\bodometer[^0-9]{0,6}([\d,\.]+)\b/i,
-  ];
-
-  for (const p of kmPatterns) {
-    const m = text.match(p);
-    if (m?.[1]) {
-      kilometres = normaliseKilometres(m[1]);
-      if (kilometres) break;
-    }
-  }
+  const kmMatch = text.match(/\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i);
+  if (kmMatch?.[1]) kilometres = normaliseKilometres(kmMatch[1]);
 
   return {
     make: makeMatch?.[1]?.trim() || "",
@@ -82,80 +57,67 @@ function extractBasicVehicleInfo(text: string) {
 }
 
 // ------------------------------
-// Gemini Prompt — includes SAFE ownership notes
-// and STRONG service-history guard-rails
+// Prompt — stronger service rules + preview/full split
 // ------------------------------
 function buildPrompt(listingText: string): string {
   return `
 You are CarVerity — an independent used-car assistant for Australian buyers.
-Your purpose is to help the buyer feel informed, supported and confident.
 
-Tone:
-• Warm, calm, practical
-• No speculation or alarmist language
-• No legal tone or fear-based framing
+Write in warm, calm, supportive language. Avoid speculation, alarmist framing, or technical/legal tone.
 
-SERVICE HISTORY — STRICT RULES (NO GUESSING)
+SERVICE HISTORY — STRICT SAFETY RULES
 
-Treat logbook entries that show:
-• workshop / dealer name
-• odometer reading
-• a status such as “Done”, “Completed”, “Carried Out”, or similar
-as NORMAL completed services — even if the date formatting looks unusual.
+Treat logbook entries that include:
+• a workshop or dealer name
+• an odometer value
+• a stamp, tick, or handwritten completion note
 
-Future or scheduled services appearing in the logbook are NORMAL.
-They must NOT be treated as a risk or inconsistency.
+as NORMAL completed services — even if:
+• formatting looks unusual
+• the service page also includes future-scheduled boxes
+• the odometer differs slightly from the current value
 
-You MUST NOT infer:
-• missed services
-• gaps between services
-• overdue maintenance
-• neglect or hidden risk
+You MUST NOT label these as:
+“anomalies”, “mismatches”, “risks”, “concerns”, or “issues”
+unless the LISTING explicitly states there is a problem.
 
-UNLESS the listing text explicitly says one of the following:
+If a service entry appears on a logbook page that also contains future-scheduled service placeholders,
+assume it is standard logbook formatting and DO NOT treat it as a concern.
+
+Only mention service-history concerns when the listing clearly says:
 • “no service history”
 • “books missing”
-• “service history unknown”
 • “incomplete history”
-• “requires service” / “overdue service”
+• “requires service” or “overdue”
 
-If something looks unusual BUT the listing does NOT say there is a problem,
-remain neutral and do NOT treat it as a risk.
+Otherwise, remain neutral.
 
-CONFIDENCE MODEL
-LOW       = Feels comfortable so far — nothing concerning stands out
-MODERATE  = Looks mostly fine — a couple of things are worth checking in person
-HIGH      = Proceed carefully — important details should be confirmed first
+CONFIDENCE MODEL (must match tone)
+LOW = Feels comfortable so far — nothing concerning stands out
+MODERATE = Looks mostly fine — a couple of things are worth checking in person
+HIGH = Proceed carefully — important details should be confirmed before moving ahead
 
-STRUCTURE — FOLLOW THIS EXACT ORDER
+OUTPUT FORMAT (MANDATORY)
 
-CONFIDENCE ASSESSMENT
-(Short, friendly explanation)
+PREVIEW SECTION
+(This is the FREE preview. KEEP IT SHORT.)
+• 3–5 friendly sentences only
+• No bullet points
+• No risk signals
+• No negotiation insights
+• No detailed checklist guidance
 
 CONFIDENCE_CODE: LOW / MODERATE / HIGH
 
-WHAT THIS MEANS FOR YOU
-(2–4 supportive sentences)
-
-CARVERITY ANALYSIS — SUMMARY
-(Helpful overview based ONLY on the listing)
-
-KEY RISK SIGNALS
-(Only genuine, listing-supported risks — do NOT invent issues)
-
-BUYER CONSIDERATIONS
-(Calm, practical next-step guidance — prefer recommending a CarVerity in-person scan)
-
-NEGOTIATION INSIGHTS
-(Polite, realistic talking points — avoid exaggeration)
-
-GENERAL OWNERSHIP NOTES
-This MUST:
-• Provide neutral, general-knowledge guidance for similar vehicles / age / class
-• NOT imply these apply to THIS vehicle
-• Be phrased as “things some owners of similar vehicles watch for”
-• Avoid diagnosis, speculation or mechanical advice
-• Keep to 3–5 bullet points maximum
+FULL ANALYSIS (LOCKED CONTENT)
+(This section is ONLY for paid users.)
+Include:
+• WHAT THIS MEANS FOR YOU
+• CARVERITY ANALYSIS — SUMMARY
+• KEY RISK SIGNALS (listing-supported only)
+• BUYER CONSIDERATIONS
+• NEGOTIATION INSIGHTS
+• GENERAL OWNERSHIP NOTES
 
 LISTING TEXT
 --------------------------------
@@ -186,48 +148,48 @@ async function callGemini(prompt: string): Promise<string> {
 }
 
 // ------------------------------
-// Extract confidence + ownership notes
+// Extract confidence + split sections
 // ------------------------------
-function extractConfidence(text: string) {
+function extractConfidence(text: string): string | null {
   const m = text.match(/CONFIDENCE_CODE:\s*(LOW|MODERATE|HIGH)/i);
   return m ? m[1].toUpperCase() : null;
 }
 
-function extractOwnershipNotes(text: string): string | null {
-  const match = text.match(/GENERAL OWNERSHIP NOTES([\s\S]*?)(\n[A-Z ]+|$)/i);
-  return match ? match[1].trim() : null;
+function extractPreview(text: string): string | null {
+  const m = text.match(/PREVIEW SECTION([\s\S]*?)CONFIDENCE_CODE/i);
+  return m ? m[1].trim() : null;
+}
+
+function extractFull(text: string): string | null {
+  const m = text.match(/FULL ANALYSIS([\s\S]*)$/i);
+  return m ? m[1].trim() : null;
 }
 
 // ------------------------------
 // API Handler
 // ------------------------------
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const listingUrl =
-      (req.body as any)?.listingUrl ?? (req.body as any)?.url;
-
-    if (!listingUrl) {
+    const listingUrl = (req.body as any)?.listingUrl ?? (req.body as any)?.url;
+    if (!listingUrl)
       return res.status(400).json({ ok: false, error: "Missing listing URL" });
-    }
 
     const html = await fetchListingHtml(listingUrl);
     const vehicle = extractBasicVehicleInfo(html);
 
     const prompt = buildPrompt(html);
-    const summary = await callGemini(prompt);
+    const output = await callGemini(prompt);
 
-    const confidenceCode = extractConfidence(summary);
-    const ownershipNotes = extractOwnershipNotes(summary);
+    const confidenceCode = extractConfidence(output);
+    const preview = extractPreview(output);
+    const full = extractFull(output);
 
     return res.status(200).json({
       ok: true,
       vehicle,
-      summary,
+      preview,
+      full,
       confidenceCode,
-      ownershipNotes,
       source: "gemini-2.5-flash",
     });
   } catch (err: any) {
