@@ -13,7 +13,6 @@ export default function OnlineResults() {
 
   function unlockScan() {
     if (!result) return;
-
     const updated = { ...result, isUnlocked: true };
     saveOnlineResults(updated);
     setResult(updated);
@@ -21,9 +20,9 @@ export default function OnlineResults() {
 
   if (!result) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center text-slate-200">
         <h1 className="text-xl font-semibold mb-2">No scan data found</h1>
-        <p className="text-muted-foreground">
+        <p className="text-slate-400">
           Run a scan to see your CarVerity results.
         </p>
       </div>
@@ -39,28 +38,22 @@ export default function OnlineResults() {
     isUnlocked,
   } = result;
 
-  const baseSummaryText: string | null = summary || fullSummary || null;
+  const baseSummary = summary || fullSummary || "";
+  const preview =
+    (previewSummary && previewSummary.trim()) ||
+    baseSummary.split("\n").slice(0, 3).join(" ").trim();
 
-  const derivedPreview =
-    baseSummaryText
-      ?.split("\n")
-      .slice(0, 4)
-      .join(" ")
-      .trim() || null;
-
-  const preview = (previewSummary && previewSummary.trim()) || derivedPreview;
-
-  const fullReportText = fullSummary || summary || "";
+  const fullReport = fullSummary || summary || "";
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10 space-y-8">
+    <div className="max-w-4xl mx-auto px-4 py-10 space-y-8 text-slate-200">
 
       {/* CONFIDENCE */}
-      <section className="rounded-lg border border-white/10 p-4">
-        <h2 className="text-sm text-muted-foreground mb-1">
+      <section className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-5 shadow-sm">
+        <h2 className="text-sm text-slate-400 mb-1 uppercase tracking-wide">
           Listing confidence
         </h2>
-        <p className="text-white font-medium">
+        <p className="text-lg font-semibold">
           {confidenceCode
             ? `${confidenceCode} — listing confidence`
             : "Not available"}
@@ -68,101 +61,83 @@ export default function OnlineResults() {
       </section>
 
       {/* PREVIEW */}
-      <section className="rounded-lg border border-white/10 p-4">
-        <h2 className="text-sm text-muted-foreground mb-1">
+      <section className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-5 shadow-sm">
+        <h2 className="text-sm text-slate-400 mb-2 uppercase tracking-wide">
           CarVerity analysis — preview
         </h2>
 
-        {!preview && (
-          <p className="text-muted-foreground">No preview available.</p>
-        )}
+        <p className="text-slate-200 leading-relaxed">
+          {preview || "No preview available."}
+        </p>
 
-        {preview && !isUnlocked && (
-          <p className="text-slate-200 text-sm leading-relaxed">
-            {preview}{" "}
-            <span className="text-indigo-400">
-              – you can view the full scan for the complete report.
-            </span>
+        {!isUnlocked && preview && (
+          <p className="text-indigo-300 text-sm mt-2">
+            You can unlock the full scan to read the complete report.
           </p>
-        )}
-
-        {isUnlocked && (
-          <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
-            {preview}
-          </pre>
         )}
       </section>
 
       {/* FULL REPORT */}
-      <section className="rounded-lg border border-white/10 p-4 relative">
-        <h2 className="text-sm text-muted-foreground mb-1">
+      <section className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-5 shadow-sm relative">
+        <h2 className="text-sm text-slate-400 mb-2 uppercase tracking-wide">
           Full CarVerity report
         </h2>
 
-        {/* LOCKED (BLURRED) */}
         {!isUnlocked && (
           <div className="relative">
-
-            {/* The blurred content remains visible but non-interactive */}
-            <div className="blur-sm opacity-60 select-none pointer-events-none">
-              <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
-                {fullReportText}
+            <div className="blur-sm opacity-60 pointer-events-none">
+              <pre className="whitespace-pre-wrap text-slate-300 text-sm leading-relaxed">
+                {fullReport}
               </pre>
             </div>
 
-            {/* Overlay — NOW allows clicks on the button */}
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 rounded-lg border border-white/10">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-2xl border border-white/10">
               <p className="text-slate-200 text-sm px-6 text-center mb-3">
-                This section includes the full analysis, buyer considerations,
-                negotiation insights and general ownership notes.
+                Unlock to view the full analysis, buyer guidance and ownership notes.
               </p>
 
               <button
                 onClick={unlockScan}
-                className="px-4 py-2 rounded-md bg-indigo-500 text-white text-sm font-medium shadow hover:bg-indigo-400 transition"
+                className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-sm font-medium shadow hover:bg-indigo-400"
               >
                 Unlock full scan
               </button>
 
               <p className="text-xs text-slate-400 mt-2">
-                You’ll see the complete report straight away after unlocking.
+                Your full report appears instantly after unlocking.
               </p>
             </div>
           </div>
         )}
 
-        {/* UNLOCKED (CLEAR VIEW) */}
         {isUnlocked && (
           <pre className="whitespace-pre-wrap text-slate-200 text-sm leading-relaxed">
-            {fullReportText}
+            {fullReport}
           </pre>
         )}
       </section>
 
       {/* VEHICLE DETAILS */}
-      <section className="rounded-lg border border-white/10 p-4">
-        <h2 className="text-sm text-muted-foreground mb-2">
+      <section className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-5 shadow-sm">
+        <h2 className="text-sm text-slate-400 mb-2 uppercase tracking-wide">
           Vehicle details
         </h2>
 
-        <div className="grid grid-cols-2 gap-y-2 text-sm">
+        <div className="grid grid-cols-2 gap-y-3 text-sm">
           <div>
-            <span className="text-muted-foreground block">Make</span>
+            <span className="text-slate-400 block">Make</span>
             <span>{vehicle.make || "—"}</span>
           </div>
-
           <div>
-            <span className="text-muted-foreground block">Model</span>
+            <span className="text-slate-400 block">Model</span>
             <span>{vehicle.model || "—"}</span>
           </div>
-
           <div>
-            <span className="text-muted-foreground block">Year</span>
+            <span className="text-slate-400 block">Year</span>
             <span>{vehicle.year || "—"}</span>
           </div>
-
           <div>
-            <span className="text-muted-foreground block">Kilometres</span>
+            <span className="text-slate-400 block">Kilometres</span>
             <span>{vehicle.kilometres || "—"}</span>
           </div>
         </div>

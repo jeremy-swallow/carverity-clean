@@ -43,7 +43,6 @@ function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
 
-  // YEAR — defensive & preference-based
   let year = "";
   const labelled = text.match(
     /(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i
@@ -63,7 +62,6 @@ function extractBasicVehicleInfo(text: string) {
 
   year = normaliseYear(year);
 
-  // KILOMETRES
   let kilometres = "";
   const kmPatterns: RegExp[] = [
     /\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i,
@@ -71,10 +69,10 @@ function extractBasicVehicleInfo(text: string) {
     /\btravelled[^0-9]{0,6}([\d,\.]+)\b/i,
   ];
 
-  for (const pattern of kmPatterns) {
-    const match = text.match(pattern);
-    if (match?.[1]) {
-      kilometres = normaliseKilometres(match[1]);
+  for (const p of kmPatterns) {
+    const m = text.match(p);
+    if (m?.[1]) {
+      kilometres = normaliseKilometres(m[1]);
       if (kilometres) break;
     }
   }
@@ -88,107 +86,78 @@ function extractBasicVehicleInfo(text: string) {
 }
 
 // ------------------------------
-// Gemini Prompt — Full CarVerity report
+// Gemini Prompt — CarVerity tone
 // ------------------------------
 function buildPrompt(listingText: string): string {
   return `
-You are CarVerity — a friendly assisting tool for Australian used-car buyers.
-Your role is to act as a calm co-pilot: helping the buyer make sense of the listing,
-feel informed about what to look for, and feel confident about their next steps.
+You are CarVerity — a calm assisting tool for Australian used-car buyers.
+Your role is to help the buyer feel informed and confident about what to look for.
+You are NOT a mechanic, inspector, or authority. Avoid diagnostic or alarmist wording.
 
-You are NOT a mechanic, inspector, or authority figure.
-Avoid sounding diagnostic, judgmental, technical, or alarmist.
+Use warm, everyday Australian language (“kilometres”, not “mileage”).
+Do NOT mention pricing, subscriptions, unlocking, or paywalls.
 
-Write in warm, everyday, human language.
-Use Australian terminology (e.g. “kilometres”, not “mileage”).
-Do NOT mention anything about “free”, “unlocking”, “subscriptions”, or “paid scans”.
+SERVICE HISTORY — STRICT INTERPRETATION RULES
 
-VALUES & TONE
-• Supportive, reassuring, and buyer-centred
-• Observational rather than conclusive
-• Encourage confirming, clarifying and noticing things in person
-• No speculation, no assumptions, no fear-based language
+If a service entry includes:
+• a workshop or dealer name, and
+• an odometer reading, and
+• a stamp, signature, or wording such as “Service completed / carried out / done”
 
-SERVICE HISTORY — STRICT SAFETY RULES
+→ Treat it as a NORMAL completed service entry.
 
-Treat logbook / service entries that show:
-• a workshop or dealer name
-• an odometer value
-• and language such as “Done”, “Completed”, or “Service carried out”
-as NORMAL completed services — even if the date format looks unusual or appears “future dated”.
+Even if the date appears unusual or future-dated, you must still treat it as normal.
+You must NOT imply uncertainty, risk, missing history, or ask the buyer to “clarify”
+UNLESS the listing text explicitly states that something is missing or incorrect.
 
-You MUST NOT infer:
-• missed services
-• overdue maintenance
-• gaps between services
-• odometer tampering
-• neglect or mechanical risk
+Future bookings, forward-dated stamps, or unusual formatting are NOT risks on their own.
 
-UNLESS the LISTING TEXT clearly and explicitly states this
-(e.g. “no service history”, “books missing”, “overdue for service”, etc.).
+You must never infer:
+• overdue servicing
+• gaps or neglect
+• odometer concern
+• mechanical risk
+unless the listing clearly says so.
 
-If something looks unusual but the listing does not say there is a problem,
-remain neutral and at most suggest politely clarifying it in person.
+ASSISTING-TOOL PHILOSOPHY
 
-Future or scheduled services are normal and must NOT be treated as a risk.
+Write as a supportive co-pilot.
+Encourage seeing the car in person, confirming details, and noticing things calmly.
+Use phrasing such as “worth checking in person” instead of “risk” language.
 
-CONFIDENCE MODEL — MUST MATCH HUMAN LANGUAGE
-
-Explain confidence in plain English focused on buyer comfort:
+CONFIDENCE MODEL — MUST MATCH YOUR EXPLANATION
 
 LOW      = Feels comfortable so far — nothing concerning stands out
-MODERATE = Looks mostly positive — a couple of small things are worth checking in person
-HIGH     = Proceed carefully — there are important details to confirm in person before moving ahead
+MODERATE = Looks mostly positive — a couple of details are worth checking in person
+HIGH     = Proceed carefully — important details should be confirmed before moving ahead
 
-Your explanation MUST align with the confidence code you output.
+Then output:
+CONFIDENCE_CODE: LOW / MODERATE / HIGH
 
-Then output a separate line:
-
-CONFIDENCE_CODE: LOW
-or
-CONFIDENCE_CODE: MODERATE
-or
-CONFIDENCE_CODE: HIGH
-
-INSPECTION & NEXT STEPS
-• Encourage seeing the vehicle in person and confirming details
-• You may gently suggest a CarVerity in-person scan as a helpful next step
-• A mechanic inspection may be mentioned only as an optional extra
-
-GENERAL OWNERSHIP NOTES (SAFETY)
-These should be neutral and general — framed as
-“things some owners of similar vehicles like to keep an eye on”,
-NOT suggestions that this vehicle has an issue.
-
-YOU MUST USE THIS EXACT STRUCTURE AND ORDER:
+STRUCTURE (USE EXACT ORDER)
 
 CONFIDENCE ASSESSMENT
-(A short, supportive explanation focused on buyer confidence and next-step awareness)
+(Short, friendly explanation matching the code)
 
 CONFIDENCE_CODE: LOW / MODERATE / HIGH
 
 WHAT THIS MEANS FOR YOU
-(2–4 calm sentences helping the buyer interpret the listing and what to focus on in person)
+(2–4 calm sentences about what to focus on in person)
 
 CARVERITY ANALYSIS — SUMMARY
-(A simple overview based ONLY on the listing — no speculation or external assumptions)
+(Overview based ONLY on the listing)
 
 KEY RISK SIGNALS
-- Keep language calm and practical
-- Treat these as “things to check or confirm in person”
-- Only include genuine, listing-supported details
+(Treat these as things to check in person — practical, non-alarmist)
 
 BUYER CONSIDERATIONS
-- Gentle, practical suggestions for what to look for or ask about
-- Encourage confirming real-world condition
+(Gentle suggestions for inspection, test drive, clarifying details if relevant)
 
 NEGOTIATION INSIGHTS
-- Possible talking points some buyers use
-- Keep tone polite and non-aggressive
+(Polite talking points some buyers use — realistic and fair)
 
 GENERAL OWNERSHIP NOTES
-- 3–5 neutral general-knowledge tips for cars of similar age / type
-- Clearly not diagnoses or statements about this specific car
+(3–5 neutral tips phrased as “things some owners of similar vehicles watch for”)
 
 LISTING TEXT
 --------------------------------
@@ -198,7 +167,7 @@ ${listingText}
 }
 
 // ------------------------------
-// Gemini API — ROBUST PARSER
+// Gemini API
 // ------------------------------
 async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(
@@ -217,19 +186,9 @@ async function callGemini(prompt: string): Promise<string> {
 
   const data = await res.json();
   const parts = data?.candidates?.[0]?.content?.parts || [];
-
-  const text = parts
-    .map((p: any) => p?.text || "")
-    .join("\n")
-    .trim();
-
-  console.log("📝 Gemini output length:", text.length);
-
-  return text;
+  return parts.map((p: any) => p?.text || "").join("\n").trim();
 }
 
-// ------------------------------
-// Extract confidence code
 // ------------------------------
 function extractConfidenceCode(text: string): string | null {
   const m = text.match(/CONFIDENCE_CODE:\s*(LOW|MODERATE|HIGH)/i);
@@ -246,12 +205,8 @@ export default async function handler(
   try {
     const listingUrl = (req.body as any)?.listingUrl ?? (req.body as any)?.url;
     if (!listingUrl) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Missing listing URL" });
+      return res.status(400).json({ ok: false, error: "Missing listing URL" });
     }
-
-    console.log("🔎 Running AI scan for:", listingUrl);
 
     const html = await fetchListingHtml(listingUrl);
     const vehicle = extractBasicVehicleInfo(html);
@@ -269,7 +224,6 @@ export default async function handler(
       source: "gemini-2.5-flash",
     });
   } catch (err: any) {
-    console.error("❌ Analysis error:", err);
     return res.status(500).json({
       ok: false,
       error: err?.message || "Analysis failed",
