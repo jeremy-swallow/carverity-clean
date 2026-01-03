@@ -1,3 +1,4 @@
+// src/pages/OnlineAnalyzingListing.tsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { saveOnlineResults, type SavedResult } from "../utils/onlineResults";
@@ -31,17 +32,15 @@ export default function OnlineAnalyzingListing() {
         return;
       }
 
-      // 🔍 TEMP DEBUG — see exactly what the AI returned
-      console.log("🟡 RAW SCAN PAYLOAD", data);
-
-      const previewText =
-        data.previewText ??
-        data.confidenceSummary ??
+      // 🔥 FIELD NORMALISATION — tolerate different API shapes
+      const preview =
+        data.previewText ||   // new field
+        data.summary ||       // fallback
         "";
 
-      const fullAnalysis =
-        data.fullAnalysis ??
-        data.summary ??
+      const full =
+        data.fullAnalysis ||  // new field
+        data.summary ||       // fallback (same content for now)
         "";
 
       const stored: SavedResult = {
@@ -55,8 +54,8 @@ export default function OnlineAnalyzingListing() {
         sections: data.sections ?? [],
         photos: data.photos ?? { listing: [], meta: [] },
 
-        previewText,
-        fullAnalysis,
+        previewText: preview,
+        fullAnalysis: full,
 
         summary: data.summary ?? "",
         conditionSummary: data.conditionSummary ?? "",
@@ -69,12 +68,10 @@ export default function OnlineAnalyzingListing() {
         confidenceSummary: data.confidenceSummary ?? "",
       };
 
-      console.log("🟢 STORED RESULT", stored);
-
       saveOnlineResults(stored);
       navigate("/scan/online/results", { replace: true });
 
-    } catch (_err) {
+    } catch (err) {
       navigate("/scan/online", { replace: true });
     }
   }
