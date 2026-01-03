@@ -1,19 +1,14 @@
 // src/utils/onlineResults.ts
 
-/* =========================================================
-   Types
-========================================================= */
-
+// Basic vehicle shape used by online scans.
+// This is kept local to this file so we don’t depend on vehicleDetails.ts.
 export interface VehicleInfo {
-  make: string;
-  model: string;
-  year: string | number;
-  variant?: string | null;
-  // allow null + undefined so all callers are happy
-  kilometres?: string | number | null | undefined;
-
-  importStatus?: string | null;
-  owners?: string | null;
+  make?: string;
+  model?: string;
+  year?: string | number;
+  variant?: string;
+  kilometres?: string | number | null;
+  importStatus?: string;
 }
 
 export interface ResultSection {
@@ -27,107 +22,112 @@ export interface SavedPhotos {
 }
 
 export interface SavedResult {
-  // identity / flow
+  // core metadata
   type: "online";
   step: string;
   createdAt: string;
 
   // listing + vehicle
-  listingUrl?: string | null;
+  listingUrl: string | null;
   vehicle: VehicleInfo;
 
+  // structured analysis
+  sections: ResultSection[];
+  photos: SavedPhotos;
+  signals?: any[]; // optional, used by OnlineReport.tsx
+
   // preview + full text
-  preview: string;
+  // (we keep both names so older code still compiles)
+  preview?: string;
   previewText?: string;
   fullAnalysis?: string;
 
-  // lock state
-  isUnlocked: boolean;
-
-  // structured content
-  sections?: ResultSection[];
-  signals?: any[];
-  photos?: SavedPhotos;
-
-  // confidence metadata
-  confidenceCode?: string;
-  confidenceAssessment?: string;
-
-  // legacy / optional metadata
-  source?: string;
-  analysisSource?: string;
-  sellerType?: string;
-  conditionSummary?: string;
+  // summary fields
   summary?: string;
-
-  // duplicated for older code paths
-  kilometres?: string | number | null | undefined;
-  owners?: string;
+  conditionSummary?: string;
   notes?: string;
 
-  // safety net so extra fields (like previewText, confidenceCode, etc.)
-  // never cause "object literal may only specify known properties" errors
-  [key: string]: any;
+  // numeric bits
+  kilometres?: string | number | null;
+  isUnlocked?: boolean;
+
+  // confidence banner
+  confidenceCode?: string | null;
+  confidenceSummary?: string;
+  confidenceAssessment?: string;
 }
 
-/* =========================================================
-   Storage keys
-========================================================= */
-
+// storage keys
 const STORAGE_KEY = "carverity_online_results_v3";
 const LISTING_URL_KEY = "carverity_online_listing_url";
 
 /* =========================================================
-   Results storage
+   Save / load full online scan result
 ========================================================= */
 
-export function saveOnlineResults(data: SavedResult) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+export function saveOnlineResults(result: SavedResult) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(result));
+  } catch (err) {
+    console.error("❌ Failed to save online results", err);
+  }
 }
 
 export function loadOnlineResults(): SavedResult | null {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return null;
-
   try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
     return JSON.parse(raw) as SavedResult;
-  } catch {
+  } catch (err) {
+    console.error("❌ Failed to load online results", err);
     return null;
   }
 }
 
 /* =========================================================
-   Listing URL helpers (Start + Analyzing pages)
+   Save / load listing URL (used by OnlineStart / StartScan /
+   OnlineAnalyzing to pass the URL between pages)
 ========================================================= */
 
 export function saveListingUrl(url: string) {
-  localStorage.setItem(LISTING_URL_KEY, url);
+  try {
+    localStorage.setItem(LISTING_URL_KEY, url);
+  } catch (err) {
+    console.error("❌ Failed to save listing URL", err);
+  }
 }
 
 export function loadListingUrl(): string | null {
-  return localStorage.getItem(LISTING_URL_KEY);
+  try {
+    return localStorage.getItem(LISTING_URL_KEY);
+  } catch (err) {
+    console.error("❌ Failed to load listing URL", err);
+    return null;
+  }
 }
 
 /* =========================================================
    Normalisers
 ========================================================= */
 
-export function normaliseKilometres(km?: string | number | null) {
-  if (km === undefined || km === null || km === "") return null;
+export function normaliseKilometres(
+  km: string | number | null | undefined
+): string | number | null {
+  if (km == null || km === "") return null;
 
-  const n =
-    typeof km === "string" ? parseInt(km.replace(/\D/g, ""), 10) : km;
+  if (typeof km === "number") {
+    return `${km.toLocaleString()} km`;
+  }
 
+  const n = parseInt(km.replace(/\D/g, ""), 10);
   if (isNaN(n)) return null;
   return `${n.toLocaleString()} km`;
 }
 
-export function normaliseVehicle(v: VehicleInfo): VehicleInfo {
-  const formattedKm = normaliseKilometres(v.kilometres ?? null);
-
+export function normaliseVehicle(v: VehicleInfo = {}): VehicleInfo {
   return {
     ...v,
-    kilometres: formattedKm ?? null,
-    variant: v.variant || "—",
+    kilometres: normaliseKilometres(v.kilometres),
+    variant: v.variant ?? "—",
   };
 }

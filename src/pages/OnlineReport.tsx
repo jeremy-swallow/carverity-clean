@@ -1,81 +1,85 @@
+// src/pages/OnlineReport.tsx
+
 import { useEffect, useState } from "react";
-import { loadOnlineResults } from "../utils/onlineResults";
-import type { SavedResult } from "../utils/onlineResults";
+import { useNavigate } from "react-router-dom";
+import {
+  loadOnlineResults,
+  type SavedResult,
+} from "../utils/onlineResults";
 
 export default function OnlineReport() {
+  const navigate = useNavigate();
   const [result, setResult] = useState<SavedResult | null>(null);
 
   useEffect(() => {
     const stored = loadOnlineResults();
-    setResult(stored ?? null);
-  }, []);
+    if (!stored) {
+      navigate("/scan/online", { replace: true });
+      return;
+    }
+    setResult(stored);
+  }, [navigate]);
 
   if (!result) {
     return (
-      <div className="max-w-3xl mx-auto px-6 py-16 text-center">
-        <h1 className="text-2xl font-semibold mb-2">No report available</h1>
-        <p className="text-muted-foreground">
-          Run a scan first to generate a report.
-        </p>
+      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <h1 className="text-2xl font-semibold mb-2">
+          Full scan report
+        </h1>
+        <p className="text-sm text-slate-400">Loading report…</p>
       </div>
     );
   }
 
-  // 🟢 SAFE NORMALISED ARRAYS
-  const signals = Array.isArray(result.signals) ? result.signals : [];
-  const sections = Array.isArray(result.sections) ? result.sections : [];
+  const sections = result.sections ?? [];
+  const hasSections = sections.length > 0;
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10">
-      <h1 className="text-2xl font-semibold mb-4">Scan report</h1>
+    <div className="max-w-4xl mx-auto px-4 py-12 space-y-6">
+      <h1 className="text-2xl font-semibold mb-4">Full scan report</h1>
 
-      <p className="text-sm mb-4 text-muted-foreground break-all">
-        Listing URL:
-        <br />
-        {result.listingUrl || "—"}
-      </p>
-
-      {/* Signals */}
-      <div className="mb-6 p-4 border border-white/10 rounded bg-black/20">
-        <h2 className="font-medium mb-2">Signals detected</h2>
-
-        {signals.length > 0 ? (
-          <ul className="list-disc pl-4">
-            {signals.map((s, i) => (
-              <li key={i}>{String(s)}</li>
+      {/* Optional signals summary block */}
+      {result.signals && result.signals.length > 0 && (
+        <section className="rounded-lg border border-slate-700 bg-slate-900/70 px-5 py-4 text-sm">
+          <h2 className="text-sm font-semibold mb-2">Key signals</h2>
+          <ul className="list-disc list-inside space-y-1">
+            {result.signals.map((s, idx) => (
+              <li key={idx}>{String(s)}</li>
             ))}
           </ul>
-        ) : (
-          <p className="text-muted-foreground">
-            No signals recorded for this scan.
-          </p>
-        )}
-      </div>
+        </section>
+      )}
 
-      {/* Sections */}
-      <div className="mb-6">
-        <h2 className="font-medium mb-2">Analysis sections</h2>
-
-        {sections.length > 0 ? (
-          sections.map((sec, i) => (
-            <div
-              key={i}
-              className="border border-white/10 rounded p-4 mb-3"
+      {hasSections ? (
+        <div className="space-y-4">
+          {sections.map((section, idx) => (
+            <section
+              key={idx}
+              className="rounded-lg border border-slate-700 bg-slate-900/70 px-5 py-4 text-sm"
             >
-              <h3 className="font-semibold mb-1">
-                {sec?.title || "Untitled section"}
-              </h3>
-              <p className="text-muted-foreground">
-                {sec?.content || ""}
-              </p>
-            </div>
-          ))
-        ) : (
-          <p className="text-muted-foreground">
-            No additional analysis sections available.
-          </p>
-        )}
-      </div>
+              <h2 className="text-sm font-semibold mb-2">
+                {section.title || "Untitled section"}
+              </h2>
+              <pre className="whitespace-pre-wrap leading-relaxed opacity-90">
+                {section.content}
+              </pre>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <section className="rounded-lg border border-slate-700 bg-slate-900/70 px-5 py-4 text-sm">
+          <h2 className="text-sm font-semibold mb-2">Full analysis</h2>
+          {result.fullAnalysis ? (
+            <pre className="whitespace-pre-wrap leading-relaxed opacity-90">
+              {result.fullAnalysis}
+            </pre>
+          ) : (
+            <p className="text-slate-400">
+              No additional report content is available for this scan yet.
+            </p>
+          )}
+        </section>
+      )}
     </div>
   );
 }
