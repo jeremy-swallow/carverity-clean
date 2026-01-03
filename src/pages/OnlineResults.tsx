@@ -7,7 +7,7 @@ import {
 const UNLOCK_KEY = "carverity_debug_unlock_full_scan";
 
 /* ------------------------------
-   Helpers
+   UI Helpers
 ------------------------------ */
 
 function SectionCard({
@@ -36,18 +36,41 @@ function TextBlock({ value }: { value?: string | null }) {
   );
 }
 
-function buildPreviewTeaser(confidenceText?: string | null) {
-  if (!confidenceText) {
+/* ------------------------------
+   Preview copy generator
+------------------------------ */
+
+function buildPreviewTeaser(baseLine?: string | null): string {
+  if (!baseLine) {
     return (
-      "The preview is limited. The full scan provides clearer guidance on " +
-      "what’s worth checking in person for this vehicle, plus practical next-step advice."
+      "The full scan looks more closely at the cosmetic details, service log entry, " +
+      "and anything in the listing that may be worth confirming in person. It also " +
+      "includes practical inspection tips and gentle negotiation pointers tailored " +
+      "to this vehicle."
+    );
+  }
+
+  const text = baseLine.toLowerCase();
+
+  if (text.includes("couple of details") || text.includes("worth checking")) {
+    return (
+      "The full scan expands on those details, with clearer guidance on what’s worth " +
+      "confirming in person, plus inspection tips and negotiation pointers specific " +
+      "to this listing."
+    );
+  }
+
+  if (text.includes("positive") || text.includes("comfortable")) {
+    return (
+      "The full scan adds more context around the listing details, along with helpful " +
+      "inspection reminders and notes to give you extra confidence when you see the car."
     );
   }
 
   return (
-    confidenceText.trim() +
-    " The full scan also provides clearer guidance on what’s worth checking " +
-    "in person, along with helpful inspection tips tailored to this listing."
+    "The full scan takes a closer look at the listing information and highlights the " +
+    "areas that are worth paying attention to in person, along with practical tips " +
+    "to help you make a confident decision."
   );
 }
 
@@ -99,13 +122,13 @@ export default function OnlineResults() {
     fullSummary?.split("\n")[0]?.trim() ||
     null;
 
+  const previewTeaser = buildPreviewTeaser(confidenceText);
+
   const reportText = fullSummary || summary || "";
 
   const confidenceLabel = confidenceCode
     ? `${confidenceCode} — listing confidence`
     : "Not available";
-
-  const previewTeaser = buildPreviewTeaser(confidenceText);
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10 space-y-8">
@@ -125,7 +148,7 @@ export default function OnlineResults() {
         <p className="text-lg font-medium text-white">{confidenceLabel}</p>
       </SectionCard>
 
-      {/* CONFIDENCE EXPLANATION */}
+      {/* CONFIDENCE MESSAGE */}
       <SectionCard title="Confidence assessment">
         <p className="text-slate-200 leading-relaxed">
           {confidenceText ||
@@ -133,7 +156,7 @@ export default function OnlineResults() {
         </p>
       </SectionCard>
 
-      {/* PREVIEW LOCKED */}
+      {/* PREVIEW */}
       {!showFull && (
         <SectionCard title="CarVerity analysis — preview">
           <p className="text-slate-200 leading-relaxed mb-3">
