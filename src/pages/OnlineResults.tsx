@@ -89,9 +89,7 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 
   if (!markers.length) {
     const body = cleanSectionBody(cleaned);
-    return isMeaningfulContent(body)
-      ? [{ title: "Overview", body }]
-      : [];
+    return isMeaningfulContent(body) ? [{ title: "Overview", body }] : [];
   }
 
   const sections: ReportSection[] = [];
@@ -126,33 +124,56 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 }
 
 /* =========================================================
-   Smart teaser generator (REFINED CONVERSION TONE)
+   Smart teaser generator (IMPROVED)
+   Priority:
+   1) "What this means for you"
+   2) "Confidence assessment"
+   3) First good insight from any section
 ========================================================= */
+
+function pickFirstMeaningfulLine(body: string): string | null {
+  const lines = body
+    .split(/\n+/)
+    .map((l) => l.replace(/^•\s*/, "").replace(/^-\s*/, "").trim())
+    .filter((l) => l.length > 40 && l.length < 260);
+
+  return lines[0] ?? null;
+}
 
 function buildTeaserFromSections(sections: ReportSection[]): string[] {
   if (!sections.length) return [];
 
   const teaser: string[] = [];
 
-  for (const s of sections.slice(0, 3)) {
-    const firstLine =
-      s.body.split("\n").find((l) => l.trim().length > 0) ?? "";
+  // 1️⃣ WHAT THIS MEANS FOR YOU
+  const meaningSection = sections.find((s) =>
+    s.title.toLowerCase().includes("what this means")
+  );
+  if (meaningSection) {
+    const line = pickFirstMeaningfulLine(meaningSection.body);
+    if (line) teaser.push(line);
+  }
 
-    if (!firstLine) continue;
-
-    // Reframe into value-oriented buyer language
-    const rewritten = firstLine
-      .replace(/^•\s*/, "")
-      .replace(/^-\s*/, "")
-      .replace(/^This vehicle/i, "This car")
-      .replace(/^Overall/i, "From the listing details so far,")
-      .trim();
-
-    if (rewritten.length > 40 && rewritten.length < 260) {
-      teaser.push(rewritten);
+  // 2️⃣ CONFIDENCE ASSESSMENT
+  if (teaser.length < 2) {
+    const confidenceSection = sections.find((s) =>
+      s.title.toLowerCase().includes("confidence")
+    );
+    if (confidenceSection) {
+      const line = pickFirstMeaningfulLine(confidenceSection.body);
+      if (line) teaser.push(line);
     }
+  }
 
-    if (teaser.length >= 2) break;
+  // 3️⃣ FALLBACK — first meaningful insight anywhere
+  if (teaser.length < 2) {
+    for (const s of sections) {
+      const line = pickFirstMeaningfulLine(s.body);
+      if (line && !teaser.includes(line)) {
+        teaser.push(line);
+      }
+      if (teaser.length >= 2) break;
+    }
   }
 
   return teaser;
@@ -172,25 +193,53 @@ function getSectionTheme(title: string): SectionTheme {
   const t = title.toLowerCase();
 
   if (t.includes("confidence"))
-    return { icon: "🧭", headerGradient: "from-indigo-500 to-indigo-400", cardGradient: "from-indigo-950 to-slate-900" };
+    return {
+      icon: "🧭",
+      headerGradient: "from-indigo-500 to-indigo-400",
+      cardGradient: "from-indigo-950 to-slate-900",
+    };
 
   if (t.includes("what this means"))
-    return { icon: "✨", headerGradient: "from-violet-500 to-fuchsia-500", cardGradient: "from-violet-950 to-slate-900" };
+    return {
+      icon: "✨",
+      headerGradient: "from-violet-500 to-fuchsia-500",
+      cardGradient: "from-violet-950 to-slate-900",
+    };
 
   if (t.includes("risk"))
-    return { icon: "⚠️", headerGradient: "from-amber-500 to-orange-500", cardGradient: "from-amber-950 to-slate-900" };
+    return {
+      icon: "⚠️",
+      headerGradient: "from-amber-500 to-orange-500",
+      cardGradient: "from-amber-950 to-slate-900",
+    };
 
   if (t.includes("buyer"))
-    return { icon: "🛠️", headerGradient: "from-blue-500 to-sky-500", cardGradient: "from-sky-950 to-slate-900" };
+    return {
+      icon: "🛠️",
+      headerGradient: "from-blue-500 to-sky-500",
+      cardGradient: "from-sky-950 to-slate-900",
+    };
 
   if (t.includes("negotiation"))
-    return { icon: "🤝", headerGradient: "from-teal-500 to-emerald-500", cardGradient: "from-teal-950 to-slate-900" };
+    return {
+      icon: "🤝",
+      headerGradient: "from-teal-500 to-emerald-500",
+      cardGradient: "from-teal-950 to-slate-900",
+    };
 
   if (t.includes("ownership"))
-    return { icon: "🚗", headerGradient: "from-emerald-500 to-lime-500", cardGradient: "from-emerald-950 to-slate-900" };
+    return {
+      icon: "🚗",
+      headerGradient: "from-emerald-500 to-lime-500",
+      cardGradient: "from-emerald-950 to-slate-900",
+    };
 
   if (t.includes("analysis"))
-    return { icon: "📊", headerGradient: "from-violet-500 to-indigo-500", cardGradient: "from-violet-950 to-slate-900" };
+    return {
+      icon: "📊",
+      headerGradient: "from-violet-500 to-indigo-500",
+      cardGradient: "from-violet-950 to-slate-900",
+    };
 
   return {
     icon: "📌",
@@ -214,7 +263,9 @@ function ConfidenceGauge({ code }: { code?: string }) {
   const gradient =
     value === 0
       ? "conic-gradient(#1e293b 0deg,#1e293b 360deg)"
-      : `conic-gradient(#a855f7 ${pct * 3.6}deg,#1e293b ${pct * 3.6}deg 360deg)`;
+      : `conic-gradient(#a855f7 ${pct * 3.6}deg,#1e293b ${
+          pct * 3.6
+        }deg 360deg)`;
 
   return (
     <div className="flex items-center gap-3">
@@ -254,7 +305,13 @@ function CompactSection({ section }: { section: ReportSection }) {
   );
 }
 
-function FullReportSection({ section, index }: { section: ReportSection; index: number }) {
+function FullReportSection({
+  section,
+  index,
+}: {
+  section: ReportSection;
+  index: number;
+}) {
   const theme = getSectionTheme(section.title);
   const delayMs = 80 * index;
 
@@ -354,7 +411,9 @@ export default function OnlineResults() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
         <h1 className="text-xl font-semibold mb-2">No scan data found</h1>
-        <p className="text-slate-400">Run a scan to view your CarVerity results.</p>
+        <p className="text-slate-400">
+          Run a scan to view your CarVerity results.
+        </p>
       </div>
     );
   }
@@ -385,17 +444,22 @@ export default function OnlineResults() {
       <div className="sticky top-0 -mx-4 px-4 py-2 bg-slate-950/80 backdrop-blur border-b border-white/5 z-30">
         <div className="flex items-center justify-between text-xs md:text-sm text-slate-300">
           <span className="truncate">
-            {vehicle.year || "—"} {vehicle.make || "Vehicle"} {vehicle.model || ""}
+            {vehicle.year || "—"} {vehicle.make || "Vehicle"}{" "}
+            {vehicle.model || ""}
           </span>
-          <span>{vehicle.kilometres ? `${vehicle.kilometres} km` : "— km"}</span>
+          <span>
+            {vehicle.kilometres ? `${vehicle.kilometres} km` : "— km"}
+          </span>
         </div>
       </div>
 
       {/* Journey breadcrumb */}
-      <div className="flex items=center gap-2 text-[11px] md:text-xs text-slate-400 px-1 animate-[fadeUp_0.35s_ease-out]">
+      <div className="flex items-center gap-2 text-[11px] md:text-xs text-slate-400 px-1 animate-[fadeUp_0.35s_ease-out]">
         <span className="opacity-80">Online scan</span>
         <span className="opacity-40">›</span>
-        <span className="font-semibold text-slate-200">Results &amp; guidance</span>
+        <span className="font-semibold text-slate-200">
+          Results &amp; guidance
+        </span>
         <span className="opacity-40">›</span>
         <span className="opacity-80">In-person inspection</span>
       </div>
@@ -435,7 +499,7 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* PREVIEW MODE — refined tone */}
+      {/* PREVIEW MODE — improved teaser */}
       {!showUnlocked && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_18px_40px_rgba(0,0,0,0.55)] px-5 py-5 space-y-3">
           <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
@@ -445,9 +509,10 @@ export default function OnlineResults() {
           {teaserSnippets.length > 0 ? (
             <>
               <p className="text-sm text-slate-300">
-                Based on the listing details so far, here are **early insights** our analysis has surfaced for this car.
-                The full CarVerity report expands on these findings and highlights **specific checks, negotiation angles,
-                and ownership considerations** to review before inspecting in person.
+                Based on the listing details so far, here are early insights our
+                analysis has surfaced for this car. Unlock the full CarVerity
+                report to reveal deeper checks, negotiation angles, and
+                ownership considerations tailored specifically to this listing.
               </p>
 
               <ul className="mt-1 text-sm text-slate-200 space-y-2 list-disc list-inside">
@@ -457,19 +522,21 @@ export default function OnlineResults() {
               </ul>
 
               <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-2 text-sm text-slate-400">
-                Remaining guidance and full context locked — upgrade to continue
+                Remaining guidance and full context locked — upgrade to
+                continue.
               </div>
             </>
           ) : (
             <>
               <p className="text-sm text-slate-300">
-                This preview highlights a small portion of the analysis for this car. Unlock the full CarVerity report to
-                see deeper risk markers, in-person inspection priorities, negotiation insights, and ownership guidance —
-                tailored specifically to this vehicle.
+                This preview highlights a small portion of the analysis for this
+                car. Unlock the full CarVerity report to see deeper risk
+                markers, in-person inspection priorities, negotiation insights,
+                and ownership guidance — tailored specifically to this vehicle.
               </p>
 
               <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-3 text-sm text-slate-400">
-                Full report content locked — upgrade to continue
+                Full report content locked — upgrade to continue.
               </div>
             </>
           )}
@@ -551,7 +618,9 @@ export default function OnlineResults() {
           className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow flex items-center justify-between"
         >
           <span>Continue — in-person inspection</span>
-          <span className="text-[11px] font-medium opacity-80">Step 3 of 3</span>
+          <span className="text-[11px] font-medium opacity-80">
+            Step 3 of 3
+          </span>
         </button>
 
         <button
