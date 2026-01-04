@@ -1,3 +1,4 @@
+// src/pages/OnlineResults.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -71,12 +72,14 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 
   const sections: ReportSection[] = [];
 
+  // Intro before first marker → Overview
   const first = markers[0];
   if (first.idx > 0) {
     const intro = cleaned.slice(0, first.idx).trim();
     if (intro) sections.push({ title: "Overview", body: intro });
   }
 
+  // Each marker → section
   for (let i = 0; i < markers.length; i++) {
     const marker = markers[i];
     const start = marker.idx;
@@ -252,6 +255,7 @@ export default function OnlineResults() {
   const [result, setResult] = useState<SavedResult | null>(null);
   const [showFloatingBar, setShowFloatingBar] = useState(false);
 
+  // Floating CTA visibility on mobile
   useEffect(() => {
     function handleScroll() {
       setShowFloatingBar(window.scrollY > 520);
@@ -260,11 +264,13 @@ export default function OnlineResults() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Load saved result
   useEffect(() => {
     const stored = loadOnlineResults();
     if (stored) setResult(stored);
   }, []);
 
+  // Dev unlock button (for testing)
   function unlockForTesting() {
     if (!result) return;
     const updated: SavedResult = { ...result, isUnlocked: true };
@@ -273,11 +279,15 @@ export default function OnlineResults() {
     setResult(updated);
   }
 
+  // Reset unlock when arriving fresh if this scan isn't unlocked
   useEffect(() => {
     if (!result) return;
-    if (!result.isUnlocked) localStorage.removeItem(UNLOCK_KEY);
+    if (!result.isUnlocked) {
+      localStorage.removeItem(UNLOCK_KEY);
+    }
   }, [result]);
 
+  // Navigation helpers
   function goStartNewScan() {
     localStorage.removeItem(UNLOCK_KEY);
     navigate("/start-scan");
@@ -342,13 +352,13 @@ export default function OnlineResults() {
         <span className="opacity-80">Online scan</span>
         <span className="opacity-40">›</span>
         <span className="font-semibold text-slate-200">
-          Results / Guidance
+          Results &amp; guidance
         </span>
         <span className="opacity-40">›</span>
         <span className="opacity-80">In-person inspection</span>
       </div>
 
-      {/* Scan overview strip */}
+      {/* Scan overview strip + step indicator */}
       <section className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs md:text-sm text-slate-200">
           <div className="flex items-center gap-2">
@@ -357,8 +367,12 @@ export default function OnlineResults() {
             <span className="opacity-60">•</span>
             <span>{showUnlocked ? "Full report" : "Preview mode"}</span>
           </div>
-          <div className="opacity-80">
-            Saved on this device — {createdLabel}
+
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-white/20 bg-slate-800/70 px-2 py-0.5 text-[10px] tracking-wide text-slate-200">
+              STEP 2 OF 3 — Results &amp; guidance
+            </span>
+            <span className="opacity-80">{createdLabel}</span>
           </div>
         </div>
       </section>
@@ -379,7 +393,7 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* Preview */}
+      {/* Preview / teaser */}
       {!showUnlocked && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_18px_40px_rgba(0,0,0,0.55)] px-5 py-5 space-y-3">
           <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
@@ -398,7 +412,7 @@ export default function OnlineResults() {
           <ul className="mt-2 text-xs text-slate-300 space-y-1 list-disc list-inside">
             <li>What to double-check in person for this car</li>
             <li>Negotiation ideas based on the seller’s wording</li>
-            <li>Ownership tips tailored to age & kilometres</li>
+            <li>Ownership tips tailored to age &amp; kilometres</li>
             <li>Context to help you feel confident before inspecting</li>
           </ul>
 
@@ -415,7 +429,7 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* Full report */}
+      {/* FULL REPORT */}
       {showUnlocked && (
         <section className="rounded-2xl border border-white/12 bg-slate-950/85 shadow-[0_28px_70px_rgba(0,0,0,0.75)] px-5 py-5 space-y-5">
           <header className="flex items-center justify-between mb-1">
@@ -472,13 +486,16 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* Primary actions (desktop) */}
+      {/* ACTION FOOTER (desktop / tablet) */}
       <section className="hidden md:block rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-5 space-y-3">
         <button
           onClick={goInPersonFlow}
-          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow"
+          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow flex items-center justify-between"
         >
-          Continue — in-person inspection
+          <span>Continue — in-person inspection</span>
+          <span className="text-[11px] font-medium opacity-80">
+            Step 3 of 3
+          </span>
         </button>
 
         <button
@@ -502,9 +519,10 @@ export default function OnlineResults() {
           <div className="mx-3 mb-3 rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur shadow-[0_20px_60px_rgba(0,0,0,0.7)] px-4 py-3 space-y-2">
             <button
               onClick={goInPersonFlow}
-              className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow"
+              className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow flex items-center justify-between"
             >
-              Continue — in-person inspection
+              <span>Continue — in-person inspection</span>
+              <span className="text-[10px] opacity-80">Step 3 of 3</span>
             </button>
 
             <div className="flex gap-2">
