@@ -251,6 +251,18 @@ export default function OnlineResults() {
   const navigate = useNavigate();
   const [result, setResult] = useState<SavedResult | null>(null);
 
+  // Track scroll position for floating CTA
+  const [showFloatingBar, setShowFloatingBar] = useState(false);
+
+  useEffect(() => {
+    function handleScroll() {
+      const scrolled = window.scrollY > 520;
+      setShowFloatingBar(scrolled);
+    }
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   useEffect(() => {
     const stored = loadOnlineResults();
     if (stored) setResult(stored);
@@ -455,8 +467,8 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* ACTION FOOTER */}
-      <section className="rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-5 space-y-3">
+      {/* ACTION FOOTER (desktop & fallback) */}
+      <section className="hidden md:block rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-5 space-y-3">
         <button
           onClick={goInPersonFlow}
           className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow"
@@ -478,6 +490,36 @@ export default function OnlineResults() {
           View my scans
         </button>
       </section>
+
+      {/* FLOATING ACTION BAR — mobile only */}
+      {showFloatingBar && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40">
+          <div className="mx-3 mb-3 rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur shadow-[0_20px_60px_rgba(0,0,0,0.7)] px-4 py-3 space-y-2">
+            <button
+              onClick={goInPersonFlow}
+              className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow"
+            >
+              Continue — in-person inspection
+            </button>
+
+            <div className="flex gap-2">
+              <button
+                onClick={goStartNewScan}
+                className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 text-sm shadow"
+              >
+                New scan
+              </button>
+
+              <button
+                onClick={goMyScans}
+                className="flex-1 rounded-xl border border-white/25 text-slate-200 px-3 py-2 text-sm"
+              >
+                My scans
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes fadeUp {
