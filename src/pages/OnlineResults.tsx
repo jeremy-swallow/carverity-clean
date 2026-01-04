@@ -39,14 +39,10 @@ function sanitiseReportText(text: string): string {
     .split("\n")
     .filter((line) => {
       const lower = line.toLowerCase();
-
-      // Strip any “fake problem” about future dates / anomalies
       if (lower.includes("service history date anomaly")) return false;
       if (lower.includes("appears in the future")) return false;
-      if (lower.includes("future-dated") || lower.includes("future dated")) {
+      if (lower.includes("future-dated") || lower.includes("future dated"))
         return false;
-      }
-
       return true;
     });
 
@@ -74,35 +70,22 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 
   const sections: ReportSection[] = [];
 
-  // Intro before first marker → Overview
   const first = markers[0];
   if (first.idx > 0) {
     const intro = cleaned.slice(0, first.idx).trim();
-    if (intro) {
-      sections.push({
-        title: "Overview",
-        body: intro,
-      });
-    }
+    if (intro) sections.push({ title: "Overview", body: intro });
   }
 
-  // Each marker → section
   for (let i = 0; i < markers.length; i++) {
     const marker = markers[i];
     const start = marker.idx;
-    const end =
-      i + 1 < markers.length ? markers[i + 1].idx : cleaned.length;
+    const end = i + 1 < markers.length ? markers[i + 1].idx : cleaned.length;
 
     let body = cleaned.slice(start, end).trim();
-
-    // Remove the heading text itself from the body
     const headingRegex = new RegExp(marker.key + ":?", "i");
     body = body.replace(headingRegex, "").trim();
 
-    sections.push({
-      title: marker.label,
-      body,
-    });
+    sections.push({ title: marker.label, body });
   }
 
   return sections;
@@ -121,55 +104,48 @@ type SectionTheme = {
 function getSectionTheme(title: string): SectionTheme {
   const t = title.toLowerCase();
 
-  if (t.includes("confidence")) {
+  if (t.includes("confidence"))
     return {
       icon: "🧭",
       headerGradient: "from-indigo-500 to-indigo-400",
       cardGradient: "from-indigo-950 to-slate-900",
     };
-  }
-  if (t.includes("what this means")) {
+  if (t.includes("what this means"))
     return {
       icon: "✨",
       headerGradient: "from-violet-500 to-fuchsia-500",
       cardGradient: "from-violet-950 to-slate-900",
     };
-  }
-  if (t.includes("risk")) {
+  if (t.includes("risk"))
     return {
       icon: "⚠️",
       headerGradient: "from-amber-500 to-orange-500",
       cardGradient: "from-amber-950 to-slate-900",
     };
-  }
-  if (t.includes("buyer")) {
+  if (t.includes("buyer"))
     return {
       icon: "🛠️",
       headerGradient: "from-blue-500 to-sky-500",
       cardGradient: "from-sky-950 to-slate-900",
     };
-  }
-  if (t.includes("negotiation")) {
+  if (t.includes("negotiation"))
     return {
       icon: "🤝",
       headerGradient: "from-teal-500 to-emerald-500",
       cardGradient: "from-teal-950 to-slate-900",
     };
-  }
-  if (t.includes("ownership")) {
+  if (t.includes("ownership"))
     return {
       icon: "🚗",
       headerGradient: "from-emerald-500 to-lime-500",
       cardGradient: "from-emerald-950 to-slate-900",
     };
-  }
-  if (t.includes("analysis")) {
+  if (t.includes("analysis"))
     return {
       icon: "📊",
       headerGradient: "from-violet-500 to-indigo-500",
       cardGradient: "from-violet-950 to-slate-900",
     };
-  }
 
   return {
     icon: "📌",
@@ -290,7 +266,9 @@ export default function OnlineResults() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
         <h1 className="text-xl font-semibold mb-2">No scan data found</h1>
-        <p className="text-slate-400">Run a scan to view your CarVerity results.</p>
+        <p className="text-slate-400">
+          Run a scan to view your CarVerity results.
+        </p>
       </div>
     );
   }
@@ -308,7 +286,7 @@ export default function OnlineResults() {
   const sections = buildSectionsFromFreeText(rawReport);
 
   const storedUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
-  const showUnlocked = (isUnlocked ?? false) || storedUnlock;
+  const showUnlocked = Boolean(isUnlocked) || storedUnlock;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
@@ -347,6 +325,7 @@ export default function OnlineResults() {
           <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
             👁️ CARVERITY ANALYSIS — PREVIEW
           </h2>
+
           <p className="text-sm text-slate-300">
             {previewSummary ||
               "This short preview is based on the listing details only. Unlock the full CarVerity report to see tailored inspection tips, negotiation angles, and ownership guidance for THIS car."}
@@ -371,8 +350,7 @@ export default function OnlineResults() {
           </button>
 
           <p className="text-[11px] text-slate-500">
-            In the live app, this unlocks after purchasing a scan. Most buyers
-            unlock before contacting the seller.
+            In the live app, this unlocks after purchasing a scan.
           </p>
         </section>
       )}
@@ -405,6 +383,7 @@ export default function OnlineResults() {
         <h2 className="text-sm font-semibold flex items-center gap-2 text-slate-200">
           🚗 VEHICLE DETAILS
         </h2>
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-y-3 mt-3 text-sm">
           <div>
             <div className="text-slate-400 text-xs">Make</div>
@@ -433,7 +412,6 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* Animations */}
       <style>{`
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(6px); }
