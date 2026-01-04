@@ -250,14 +250,11 @@ function FullReportSection({
 export default function OnlineResults() {
   const navigate = useNavigate();
   const [result, setResult] = useState<SavedResult | null>(null);
-
-  // Track scroll position for floating CTA
   const [showFloatingBar, setShowFloatingBar] = useState(false);
 
   useEffect(() => {
     function handleScroll() {
-      const scrolled = window.scrollY > 520;
-      setShowFloatingBar(scrolled);
+      setShowFloatingBar(window.scrollY > 520);
     }
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
@@ -276,12 +273,9 @@ export default function OnlineResults() {
     setResult(updated);
   }
 
-  // Reset unlock when arriving fresh
   useEffect(() => {
     if (!result) return;
-    if (!result.isUnlocked) {
-      localStorage.removeItem(UNLOCK_KEY);
-    }
+    if (!result.isUnlocked) localStorage.removeItem(UNLOCK_KEY);
   }, [result]);
 
   function goStartNewScan() {
@@ -343,6 +337,17 @@ export default function OnlineResults() {
         </div>
       </div>
 
+      {/* Journey breadcrumb */}
+      <div className="flex items-center gap-2 text-[11px] md:text-xs text-slate-400 px-1 animate-[fadeUp_0.35s_ease-out]">
+        <span className="opacity-80">Online scan</span>
+        <span className="opacity-40">›</span>
+        <span className="font-semibold text-slate-200">
+          Results / Guidance
+        </span>
+        <span className="opacity-40">›</span>
+        <span className="opacity-80">In-person inspection</span>
+      </div>
+
       {/* Scan overview strip */}
       <section className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs md:text-sm text-slate-200">
@@ -374,7 +379,7 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* Preview / teaser */}
+      {/* Preview */}
       {!showUnlocked && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_18px_40px_rgba(0,0,0,0.55)] px-5 py-5 space-y-3">
           <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
@@ -410,7 +415,7 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* FULL REPORT */}
+      {/* Full report */}
       {showUnlocked && (
         <section className="rounded-2xl border border-white/12 bg-slate-950/85 shadow-[0_28px_70px_rgba(0,0,0,0.75)] px-5 py-5 space-y-5">
           <header className="flex items-center justify-between mb-1">
@@ -467,7 +472,7 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* ACTION FOOTER (desktop & fallback) */}
+      {/* Primary actions (desktop) */}
       <section className="hidden md:block rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-5 space-y-3">
         <button
           onClick={goInPersonFlow}
@@ -491,7 +496,7 @@ export default function OnlineResults() {
         </button>
       </section>
 
-      {/* FLOATING ACTION BAR — mobile only */}
+      {/* Floating CTA (mobile) */}
       {showFloatingBar && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40">
           <div className="mx-3 mb-3 rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur shadow-[0_20px_60px_rgba(0,0,0,0.7)] px-4 py-3 space-y-2">
