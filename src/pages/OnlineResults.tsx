@@ -31,7 +31,7 @@ const SECTION_MARKERS = [
 ];
 
 /* =========================================================
-   Text helpers & section cleaning
+   Text helpers & cleaning
 ========================================================= */
 
 function cleanSectionBody(text: string): string {
@@ -126,31 +126,35 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 }
 
 /* =========================================================
-   Smart teaser generator (PREVIEW MODE)
+   Smart teaser generator (Option B)
 ========================================================= */
 
-function buildTeaserFromSections(sections: ReportSection[]): string[] {
-  if (!sections.length) return [];
+function buildTeaserFromSections(sections: ReportSection[]): {
+  paragraph: string | null;
+  bullets: string[];
+} {
+  if (!sections.length) return { paragraph: null, bullets: [] };
 
-  // Take snippets from first 1–2 meaningful sections
-  const teaser: string[] = [];
+  // Prefer “What This Means For You”
+  const preferred =
+    sections.find((s) =>
+      s.title.toLowerCase().includes("what this means")
+    ) || sections[0];
 
-  for (const s of sections.slice(0, 3)) {
-    const firstLine =
-      s.body.split("\n").find((l) => l.trim().length > 0) ?? "";
+  const sentences = preferred.body
+    .split(/(?<=[.!?])\s+/)
+    .filter((s) => s.trim().length > 25);
 
-    if (firstLine && firstLine.length > 40 && firstLine.length < 220) {
-      teaser.push(firstLine.trim());
-    }
+  const paragraph = sentences[0] ?? null;
 
-    if (teaser.length >= 2) break;
-  }
+  // Take next 1–2 meaningful sentences as bullets
+  const bullets = sentences.slice(1, 3).map((s) => s.trim());
 
-  return teaser;
+  return { paragraph, bullets };
 }
 
 /* =========================================================
-   Theming
+   Theming + UI
 ========================================================= */
 
 type SectionTheme = {
@@ -164,22 +168,16 @@ function getSectionTheme(title: string): SectionTheme {
 
   if (t.includes("confidence"))
     return { icon: "🧭", headerGradient: "from-indigo-500 to-indigo-400", cardGradient: "from-indigo-950 to-slate-900" };
-
   if (t.includes("what this means"))
     return { icon: "✨", headerGradient: "from-violet-500 to-fuchsia-500", cardGradient: "from-violet-950 to-slate-900" };
-
   if (t.includes("risk"))
     return { icon: "⚠️", headerGradient: "from-amber-500 to-orange-500", cardGradient: "from-amber-950 to-slate-900" };
-
   if (t.includes("buyer"))
     return { icon: "🛠️", headerGradient: "from-blue-500 to-sky-500", cardGradient: "from-sky-950 to-slate-900" };
-
   if (t.includes("negotiation"))
     return { icon: "🤝", headerGradient: "from-teal-500 to-emerald-500", cardGradient: "from-teal-950 to-slate-900" };
-
   if (t.includes("ownership"))
     return { icon: "🚗", headerGradient: "from-emerald-500 to-lime-500", cardGradient: "from-emerald-950 to-slate-900" };
-
   if (t.includes("analysis"))
     return { icon: "📊", headerGradient: "from-violet-500 to-indigo-500", cardGradient: "from-violet-950 to-slate-900" };
 
@@ -189,10 +187,6 @@ function getSectionTheme(title: string): SectionTheme {
     cardGradient: "from-slate-950 to-slate-900",
   };
 }
-
-/* =========================================================
-   UI components
-========================================================= */
 
 function ConfidenceGauge({ code }: { code?: string }) {
   let value = 0;
@@ -361,7 +355,7 @@ export default function OnlineResults() {
 
   const rawReport = fullSummary || summary || "";
   const sections = buildSectionsFromFreeText(rawReport);
-  const teaserSnippets = buildTeaserFromSections(sections);
+  const { paragraph, bullets } = buildTeaserFromSections(sections);
 
   const storedUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
   const showUnlocked = Boolean(isUnlocked) || storedUnlock;
@@ -382,7 +376,7 @@ export default function OnlineResults() {
         </div>
       </div>
 
-      {/* Journey breadcrumb */}
+      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-[11px] md:text-xs text-slate-400 px-1 animate-[fadeUp_0.35s_ease-out]">
         <span className="opacity-80">Online scan</span>
         <span className="opacity-40">›</span>
@@ -391,7 +385,7 @@ export default function OnlineResults() {
         <span className="opacity-80">In-person inspection</span>
       </div>
 
-      {/* Scan overview strip */}
+      {/* Scan strip */}
       <section className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs md:text-sm text-slate-200">
           <div className="flex items-center gap-2">
@@ -426,39 +420,35 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* PREVIEW MODE — Smart teaser */}
+      {/* PREVIEW — Option B teaser */}
       {!showUnlocked && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_18px_40px_rgba(0,0,0,0.55)] px-5 py-5 space-y-3">
           <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
             👁️ CARVERITY ANALYSIS — PREVIEW
           </h2>
 
-          {teaserSnippets.length > 0 ? (
+          {paragraph ? (
             <>
-              <p className="text-sm text-slate-300">
-                Here are a couple of early insights detected from this listing.  
-                Unlock the full CarVerity report to reveal the complete analysis and tailored guidance for THIS car.
-              </p>
+              <p className="text-sm text-slate-200">{paragraph}</p>
 
-              <ul className="mt-1 text-sm text-slate-200 space-y-2 list-disc list-inside">
-                {teaserSnippets.map((t, i) => (
-                  <li key={i}>{t}</li>
-                ))}
-              </ul>
+              {bullets.length > 0 && (
+                <ul className="mt-1 text-sm text-slate-200 space-y-2 list-disc list-inside">
+                  {bullets.slice(0, 2).map((b, i) => (
+                    <li key={i}>{b}</li>
+                  ))}
+                </ul>
+              )}
 
               <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-2 text-sm text-slate-400">
-                Remaining sections locked — upgrade to continue
+                Remaining report content locked — upgrade to continue
               </div>
             </>
           ) : (
             <>
               <p className="text-sm text-slate-300">
-                This preview gives a small glimpse into the CarVerity analysis for this vehicle.
-                Unlock the full report to reveal deeper risk flags, negotiation angles, inspection
-                priorities, and ownership insights — tailored specifically to THIS listing.
+                Unlock the full CarVerity report to reveal deeper insights, negotiation angles and inspection priorities tailored specifically to this listing.
               </p>
-
-              <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-3 text-sm text-slate-400">
+              <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-2 text-sm text-slate-400">
                 Full report content locked — upgrade to continue
               </div>
             </>
@@ -500,7 +490,7 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* VEHICLE DETAILS */}
+      {/* Vehicle details */}
       <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5">
         <h2 className="text-sm font-semibold flex items-center gap-2 text-slate-200">
           🚗 VEHICLE DETAILS
@@ -534,7 +524,7 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* DESKTOP ACTIONS */}
+      {/* Desktop Actions */}
       <section className="hidden md:block rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-5 space-y-3">
         <button
           onClick={goInPersonFlow}
@@ -559,7 +549,7 @@ export default function OnlineResults() {
         </button>
       </section>
 
-      {/* MOBILE FLOATING CTA */}
+      {/* Mobile CTA */}
       {showFloatingBar && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40">
           <div className="mx-3 mb-3 rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur shadow-[0_20px_60px_rgba(0,0,0,0.7)] px-4 py-3 space-y-2">
