@@ -264,6 +264,7 @@ export default function OnlineResults() {
     setResult(updated);
   }
 
+  // Reset unlock when arriving fresh
   useEffect(() => {
     if (!result) return;
     if (!result.isUnlocked) {
@@ -284,11 +285,6 @@ export default function OnlineResults() {
     navigate("/inperson-start");
   }
 
-  function openListing(url?: string | null) {
-    if (!url) return;
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-
   if (!result) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
@@ -307,7 +303,7 @@ export default function OnlineResults() {
     fullSummary,
     summary,
     isUnlocked,
-    listingUrl,
+    createdAt,
   } = result;
 
   const rawReport = fullSummary || summary || "";
@@ -315,6 +311,10 @@ export default function OnlineResults() {
 
   const storedUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
   const showUnlocked = Boolean(isUnlocked) || storedUnlock;
+
+  const createdLabel = createdAt
+    ? new Date(createdAt).toLocaleString()
+    : "Saved locally";
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
@@ -330,6 +330,21 @@ export default function OnlineResults() {
           </span>
         </div>
       </div>
+
+      {/* Scan overview strip */}
+      <section className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs md:text-sm text-slate-200">
+          <div className="flex items-center gap-2">
+            <span>📡</span>
+            <span className="font-semibold">Online listing scan</span>
+            <span className="opacity-60">•</span>
+            <span>{showUnlocked ? "Full report" : "Preview mode"}</span>
+          </div>
+          <div className="opacity-80">
+            Saved on this device — {createdLabel}
+          </div>
+        </div>
+      </section>
 
       {/* Premium header */}
       <section className="rounded-2xl bg-gradient-to-r from-violet-700/85 to-indigo-600/85 border border-white/12 shadow-[0_24px_60px_rgba(0,0,0,0.7)] px-6 py-5 md:py-6 space-y-4">
@@ -347,7 +362,7 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* Preview */}
+      {/* Preview / teaser */}
       {!showUnlocked && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_18px_40px_rgba(0,0,0,0.55)] px-5 py-5 space-y-3">
           <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
@@ -383,7 +398,7 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* Full report */}
+      {/* FULL REPORT */}
       {showUnlocked && (
         <section className="rounded-2xl border border-white/12 bg-slate-950/85 shadow-[0_28px_70px_rgba(0,0,0,0.75)] px-5 py-5 space-y-5">
           <header className="flex items-center justify-between mb-1">
@@ -440,18 +455,8 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* Actions */}
+      {/* ACTION FOOTER */}
       <section className="rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-5 space-y-3">
-
-        {listingUrl && (
-          <button
-            onClick={() => openListing(listingUrl)}
-            className="w-full rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-semibold px-4 py-2 shadow"
-          >
-            Open original listing
-          </button>
-        )}
-
         <button
           onClick={goInPersonFlow}
           className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow"
