@@ -130,13 +130,10 @@ function MiniNav() {
 }
 
 /* =========================================================
-   Report helpers
+   Report parsing + themes
 ========================================================= */
 
-type ReportSection = {
-  title: string;
-  body: string;
-};
+type ReportSection = { title: string; body: string };
 
 function parseReportSections(text: string): ReportSection[] {
   const sections: ReportSection[] = [];
@@ -169,71 +166,29 @@ function parseReportSections(text: string): ReportSection[] {
   return sections;
 }
 
-/* =========================================================
-   Section-aware visual theming
-========================================================= */
-
-type VisualTheme = {
-  icon: string;
-  accent: string;
-  banner: string;
-};
+type VisualTheme = { icon: string; accent: string; banner: string };
 
 function getSectionTheme(title: string): VisualTheme {
   const t = title.toLowerCase();
 
-  if (t.includes("confidence")) {
-    return {
-      icon: "🧭",
-      accent: "from-indigo-500/25 to-indigo-400/10",
-      banner: "from-indigo-600/30 to-indigo-500/20",
-    };
-  }
-  if (t.includes("what this means")) {
-    return {
-      icon: "✨",
-      accent: "from-violet-500/25 to-fuchsia-400/10",
-      banner: "from-violet-600/30 to-fuchsia-500/20",
-    };
-  }
-  if (t.includes("risk")) {
-    return {
-      icon: "📝",
-      accent: "from-amber-500/25 to-amber-400/10",
-      banner: "from-amber-600/30 to-amber-500/20",
-    };
-  }
-  if (t.includes("buyer")) {
-    return {
-      icon: "🚶",
-      accent: "from-blue-500/25 to-blue-400/10",
-      banner: "from-blue-600/30 to-blue-500/20",
-    };
-  }
-  if (t.includes("negotiation")) {
-    return {
-      icon: "🤝",
-      accent: "from-teal-500/25 to-teal-400/10",
-      banner: "from-teal-600/30 to-teal-500/20",
-    };
-  }
-  if (t.includes("ownership")) {
-    return {
-      icon: "🧰",
-      accent: "from-slate-500/25 to-slate-400/10",
-      banner: "from-slate-600/30 to-slate-500/20",
-    };
-  }
+  if (t.includes("confidence"))
+    return { icon: "🧭", accent: "from-indigo-500/20 to-indigo-400/5", banner: "from-indigo-600/30 to-indigo-500/20" };
+  if (t.includes("what this means"))
+    return { icon: "✨", accent: "from-fuchsia-500/20 to-fuchsia-400/5", banner: "from-fuchsia-600/30 to-fuchsia-500/20" };
+  if (t.includes("risk"))
+    return { icon: "⚠️", accent: "from-amber-500/20 to-amber-400/5", banner: "from-amber-600/30 to-amber-500/20" };
+  if (t.includes("buyer"))
+    return { icon: "🛠️", accent: "from-blue-500/20 to-blue-400/5", banner: "from-blue-600/30 to-blue-500/20" };
+  if (t.includes("negotiation"))
+    return { icon: "🤝", accent: "from-teal-500/20 to-teal-400/5", banner: "from-teal-600/30 to-teal-500/20" };
+  if (t.includes("ownership"))
+    return { icon: "🚗", accent: "from-slate-500/20 to-slate-400/5", banner: "from-slate-600/30 to-slate-500/20" };
 
-  return {
-    icon: "📌",
-    accent: "from-slate-500/25 to-slate-400/10",
-    banner: "from-slate-600/30 to-slate-500/20",
-  };
+  return { icon: "📌", accent: "from-slate-500/20 to-slate-400/5", banner: "from-slate-600/30 to-slate-500/20" };
 }
 
 /* =========================================================
-   Smart Summary Chips
+   Smart chips + highlights
 ========================================================= */
 
 function buildSmartChips(opts: {
@@ -244,13 +199,9 @@ function buildSmartChips(opts: {
   const { confidenceCode, vehicle, reportText } = opts;
   const chips: string[] = [];
 
-  if (confidenceCode === "LOW") {
-    chips.push("Listing looks consistent so far");
-  } else if (confidenceCode === "MODERATE") {
-    chips.push("Mostly positive — worth confirming details in person");
-  } else if (confidenceCode === "HIGH") {
-    chips.push("Important details should be confirmed in person");
-  }
+  if (confidenceCode === "LOW") chips.push("Listing looks consistent so far");
+  else if (confidenceCode === "MODERATE") chips.push("Mostly positive — worth confirming details in person");
+  else if (confidenceCode === "HIGH") chips.push("Important details should be confirmed in person");
 
   if (vehicle?.kilometres) chips.push("Kilometres listed in the ad");
 
@@ -272,22 +223,19 @@ function buildHighlights(opts: {
   const { confidenceCode, vehicle, conditionSummary } = opts;
   const highlights: string[] = [];
 
-  const title = `${vehicle.year ?? ""} ${vehicle.make ?? "Vehicle"} ${
-    vehicle.model ?? ""
-  }`
+  const title = `${vehicle.year ?? ""} ${vehicle.make ?? "Vehicle"} ${vehicle.model ?? ""}`
     .replace(/\s+/g, " ")
     .trim();
   if (title) highlights.push(title);
 
   if (vehicle.kilometres) highlights.push(`${vehicle.kilometres} km listed`);
 
-  if (confidenceCode === "LOW") {
+  if (confidenceCode === "LOW")
     highlights.push("Nothing major stands out from the listing");
-  } else if (confidenceCode === "MODERATE") {
+  else if (confidenceCode === "MODERATE")
     highlights.push("Mostly positive with a few details to confirm in person");
-  } else if (confidenceCode === "HIGH") {
+  else if (confidenceCode === "HIGH")
     highlights.push("Several details are worth checking carefully in person");
-  }
 
   highlights.push(
     conditionSummary ||
@@ -355,12 +303,7 @@ export default function OnlineResults() {
 
   const sections = parseReportSections(reportText);
   const smartChips = buildSmartChips({ confidenceCode, vehicle, reportText });
-
-  const highlightChips = buildHighlights({
-    confidenceCode,
-    vehicle,
-    conditionSummary,
-  });
+  const highlightChips = buildHighlights({ confidenceCode, vehicle, conditionSummary });
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
@@ -455,7 +398,7 @@ export default function OnlineResults() {
         </SectionCard>
       )}
 
-      {/* ✨ Full Report — themed + animated */}
+      {/* ✨ Premium Full Report */}
       {showUnlocked && (
         <SectionCard id="report" title="Full CarVerity report" icon="✨">
           <div className="space-y-5">
@@ -472,9 +415,10 @@ export default function OnlineResults() {
                     animate-[fadeUp_0.42s_ease-out_forwards]
                     rounded-2xl border border-white/10
                     bg-gradient-to-b ${theme.accent}
-                    shadow-[0_8px_30px_rgba(0,0,0,0.35)]
+                    shadow-[0_8px_32px_rgba(0,0,0,0.45)]
                   `}
                 >
+                  {/* Premium banner */}
                   <div
                     className={`px-5 py-3 border-b border-white/10 bg-gradient-to-r ${theme.banner} rounded-t-2xl flex items-center justify-between`}
                   >
@@ -489,8 +433,9 @@ export default function OnlineResults() {
                     </span>
                   </div>
 
+                  {/* Premium body block */}
                   <div className="px-5 py-4">
-                    <div className="rounded-xl bg-slate-950/40 border border-white/5 px-4 py-3 whitespace-pre-wrap text-sm text-slate-200 leading-relaxed">
+                    <div className="rounded-xl bg-slate-950/50 border border-white/10 px-4 py-3 whitespace-pre-wrap text-sm text-slate-200 leading-relaxed">
                       {section.body}
                     </div>
                   </div>
