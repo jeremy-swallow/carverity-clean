@@ -51,10 +51,52 @@ function Pill({
     high: "bg-rose-500/15 text-rose-300 border border-rose-400/25",
     na: "bg-slate-500/15 text-slate-300 border border-slate-400/25",
   };
+
   return (
     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${toneMap[tone]}`}>
       {label}
     </span>
+  );
+}
+
+/* =========================================================
+   Confidence gauge
+========================================================= */
+
+function ConfidenceGauge({ code }: { code?: string }) {
+  let value = 0;
+  if (code === "LOW") value = 0.33;
+  if (code === "MODERATE") value = 0.66;
+  if (code === "HIGH") value = 1;
+
+  const percentage = Math.round(value * 100);
+  const gradient =
+    value === 0
+      ? "conic-gradient(#1e293b 0deg, #1e293b 360deg)"
+      : `conic-gradient(#a855f7 ${percentage * 3.6}deg, #1e293b ${
+          percentage * 3.6
+        }deg 360deg)`;
+
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className="w-11 h-11 rounded-full flex items-center justify-center border border-white/10 shadow-inner"
+        style={{ backgroundImage: gradient }}
+      >
+        <div className="w-7 h-7 rounded-full bg-slate-950/90 flex items-center justify-center text-[10px] font-semibold text-slate-100">
+          {code ?? "N/A"}
+        </div>
+      </div>
+      <div className="text-xs text-slate-200">
+        <div className="font-semibold">Confidence</div>
+        <div className="text-slate-300">
+          {code === "LOW" && "Comfortable so far"}
+          {code === "MODERATE" && "Mostly positive"}
+          {code === "HIGH" && "Proceed carefully"}
+          {!code && "Not available"}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -89,7 +131,7 @@ function MiniNav() {
 }
 
 /* =========================================================
-   Report helpers
+   Report parsing + theming
 ========================================================= */
 
 type ReportSection = {
@@ -97,104 +139,73 @@ type ReportSection = {
   body: string;
 };
 
-function parseReportSections(text: string): ReportSection[] {
+function parseSections(text: string): ReportSection[] {
   const sections: ReportSection[] = [];
-  if (!text || !text.trim()) return sections;
+  if (!text?.trim()) return sections;
 
-  const headingRegex =
-    /(^|\n)###\s+([^\n]+)\n([\s\S]*?)(?=\n###\s+|$)/g;
+  const headingRegex = /(^|\n)([A-Z][A-Z\s\-]+)\n([\s\S]*?)(?=\n[A-Z][A-Z\s\-]+\n|$)/g;
 
-  let lastIndex = 0;
   let match: RegExpExecArray | null;
-
   while ((match = headingRegex.exec(text)) !== null) {
-    const title = match[2]?.trim() ?? "Section";
-    const body = match[3]?.trim() ?? "";
-
-    if (match.index > lastIndex && sections.length === 0) {
-      const intro = text.slice(lastIndex, match.index).trim();
-      if (intro) sections.push({ title: "Overview", body: intro });
-    }
-
-    sections.push({ title, body });
-    lastIndex = headingRegex.lastIndex;
+    sections.push({
+      title: match[2].trim(),
+      body: match[3].trim(),
+    });
   }
 
-  if (sections.length === 0) {
-    const trimmed = text.trim();
-    if (trimmed) sections.push({ title: "Overview", body: trimmed });
+  if (!sections.length) {
+    sections.push({ title: "Overview", body: text.trim() });
   }
 
   return sections;
 }
 
+function themeFor(title: string) {
+  const t = title.toLowerCase();
+
+  if (t.includes("confidence"))
+    return { icon: "🧭", accent: "from-indigo-500/25 to-indigo-400/10", banner: "from-indigo-600/30 to-indigo-500/20" };
+
+  if (t.includes("risk"))
+    return { icon: "⚠️", accent: "from-amber-500/25 to-amber-400/10", banner: "from-amber-600/30 to-amber-500/20" };
+
+  if (t.includes("buyer"))
+    return { icon: "🚶", accent: "from-blue-500/25 to-blue-400/10", banner: "from-blue-600/30 to-blue-500/20" };
+
+  if (t.includes("negotiation"))
+    return { icon: "🤝", accent: "from-teal-500/25 to-teal-400/10", banner: "from-teal-600/30 to-teal-500/20" };
+
+  if (t.includes("ownership"))
+    return { icon: "🧰", accent: "from-slate-500/25 to-slate-400/10", banner: "from-slate-600/30 to-slate-500/20" };
+
+  return { icon: "📌", accent: "from-slate-500/25 to-slate-400/10", banner: "from-slate-600/30 to-slate-500/20" };
+}
+
 /* =========================================================
-   Smart Summary Chips
+   Smart chips
 ========================================================= */
 
-function buildSmartChips(opts: {
-  confidenceCode?: string;
-  vehicle: any;
-  reportText: string;
-}): string[] {
-  const { confidenceCode, vehicle, reportText } = opts;
+function buildChips(confidenceCode?: string, vehicle?: any, text?: string, conditionSummary?: string) {
   const chips: string[] = [];
 
-  if (confidenceCode === "LOW") {
-    chips.push("Listing looks consistent so far");
-  } else if (confidenceCode === "MODERATE") {
-    chips.push("Mostly positive — worth confirming details in person");
-  } else if (confidenceCode === "HIGH") {
-    chips.push("Important details should be confirmed in person");
-  }
+  if (confidenceCode === "LOW") chips.push("Listing looks consistent so far");
+  else if (confidenceCode === "MODERATE") chips.push("Mostly positive — confirm details in person");
+  else if (confidenceCode === "HIGH") chips.push("Important details worth checking in person");
 
   if (vehicle?.kilometres) chips.push("Kilometres listed in the ad");
 
-  const lower = (reportText || "").toLowerCase();
-  if (lower.includes("service")) chips.push("Service details mentioned");
-  if (lower.includes("dealer")) chips.push("Dealer-listed vehicle");
-  if (lower.includes("private")) chips.push("Private-seller listing");
+  if (conditionSummary) chips.push(conditionSummary);
 
-  if (chips.length === 0) chips.push("Guidance based on the listing only");
+  const lower = (text || "").toLowerCase();
+  if (lower.includes("service")) chips.push("Service details mentioned");
+
+  if (!chips.length) chips.push("Guidance based on the listing only");
 
   return chips.slice(0, 4);
 }
 
-function buildHighlights(opts: {
-  confidenceCode?: string;
-  vehicle: any;
-  conditionSummary?: string;
-}): string[] {
-  const { confidenceCode, vehicle, conditionSummary } = opts;
-  const highlights: string[] = [];
-
-  const title = `${vehicle.year ?? ""} ${vehicle.make ?? "Vehicle"} ${
-    vehicle.model ?? ""
-  }`
-    .replace(/\s+/g, " ")
-    .trim();
-  if (title) highlights.push(title);
-
-  if (vehicle.kilometres) highlights.push(`${vehicle.kilometres} km listed`);
-
-  if (confidenceCode === "LOW") {
-    highlights.push("Nothing major stands out from the listing");
-  } else if (confidenceCode === "MODERATE") {
-    highlights.push("Mostly positive with a few details to confirm in person");
-  } else if (confidenceCode === "HIGH") {
-    highlights.push("Several details are worth checking carefully in person");
-  }
-
-  highlights.push(
-    conditionSummary ||
-      "Includes inspection tips, negotiation ideas & ownership notes"
-  );
-
-  return highlights.slice(0, 4);
-}
-
 /* =========================================================
-   Main Component
+   Main component
 ========================================================= */
 
 export default function OnlineResults() {
@@ -225,23 +236,12 @@ export default function OnlineResults() {
   const {
     vehicle = {},
     confidenceCode,
+    previewSummary,
     fullSummary,
     summary,
     isUnlocked,
     conditionSummary,
   } = result;
-
-  const reportText = fullSummary || summary || "";
-  const hasStoredUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
-  const showUnlocked = (isUnlocked ?? hasStoredUnlock) === true;
-
-  const sections = parseReportSections(reportText);
-  const smartChips = buildSmartChips({ confidenceCode, vehicle, reportText });
-  const highlightChips = buildHighlights({
-    confidenceCode,
-    vehicle,
-    conditionSummary,
-  });
 
   const confidenceTone =
     confidenceCode === "LOW"
@@ -256,36 +256,39 @@ export default function OnlineResults() {
     ? `${confidenceCode} — listing confidence`
     : "Not available";
 
+  const report = fullSummary || summary || "";
+  const stored = localStorage.getItem(UNLOCK_KEY) === "1";
+  const showUnlocked = (isUnlocked ?? stored) === true;
+
+  const sections = parseSections(report);
+  const smartChips = buildChips(confidenceCode, vehicle, report, conditionSummary);
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-      {/* Sticky vehicle bar */}
+      {/* Sticky bar */}
       <div className="sticky top-0 z-30 -mx-4 px-4 py-2 bg-slate-950/70 backdrop-blur border-b border-white/5">
         <div className="flex items-center justify-between text-xs md:text-sm">
           <div className="text-slate-300 truncate">
             {vehicle.year || "—"} {vehicle.make || "Vehicle"} {vehicle.model || ""}
           </div>
-          <div className="text-slate-400">
-            {vehicle.kilometres ? `${vehicle.kilometres} km` : "— km"}
-          </div>
+          <div className="text-slate-400">{vehicle.kilometres ? `${vehicle.kilometres} km` : "— km"}</div>
         </div>
       </div>
 
-      {/* Header */}
+      {/* Premium header */}
       <section
         id="overview"
         className="rounded-2xl bg-gradient-to-r from-violet-700/80 to-indigo-600/80 border border-white/10 shadow-lg px-6 py-5 md:py-6 flex flex-col gap-4"
       >
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-lg font-semibold text-white mb-1">
-              CarVerity online scan results
-            </h1>
+            <h1 className="text-lg font-semibold text-white mb-1">CarVerity online scan results</h1>
             <p className="text-slate-100/90 text-xs md:text-sm">
               Independent guidance based on the details in this listing.
             </p>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              {highlightChips.map((chip, idx) => (
+              {smartChips.map((chip, idx) => (
                 <span
                   key={idx}
                   className="px-2.5 py-1 rounded-full bg-slate-950/30 text-[11px] text-slate-100 border border-white/15"
@@ -295,18 +298,13 @@ export default function OnlineResults() {
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Smart Chips */}
-        <div className="mt-1 flex flex-wrap gap-2">
-          {smartChips.map((chip, i) => (
-            <span
-              key={i}
-              className="px-2.5 py-1 rounded-full border border-white/15 bg-white/10 text-[11px] text-slate-50"
-            >
-              {chip}
+          <div className="flex items-center gap-4">
+            <ConfidenceGauge code={confidenceCode} />
+            <span className="hidden md:inline-flex text-[11px] px-3 py-1 rounded-full bg-white/15 border border-white/25">
+              Download PDF (coming soon)
             </span>
-          ))}
+          </div>
         </div>
       </section>
 
@@ -317,22 +315,23 @@ export default function OnlineResults() {
         <Pill label={confidenceLabel} tone={confidenceTone as any} />
       </SectionCard>
 
-      {/* Preview / Lock */}
+      {/* Preview teaser */}
       {!showUnlocked && (
-        <SectionCard id="analysis" title="CarVerity analysis — preview" icon="👁‍🗨">
+        <SectionCard id="analysis" title="CarVerity analysis — preview" icon="👁️">
           <p className="text-slate-300 text-sm">
-            This short preview is based on the listing details only. The full CarVerity report includes tailored inspection tips, negotiation angles, and ownership guidance for this exact vehicle.
+            {previewSummary ||
+              "This short preview is based on the listing details only. Unlock the full CarVerity report to see tailored inspection tips, negotiation angles, and ownership guidance for this exact vehicle."}
           </p>
 
           <div className="mt-3 rounded-xl border border-white/10 bg-slate-800/40 px-4 py-3 text-sm text-slate-400 select-none">
             Full report content locked — upgrade to continue
           </div>
 
-          <ul className="mt-3 text-slate-300 text-sm list-disc ml-4 space-y-1">
-            <li>What to double-check in person for THIS car</li>
-            <li>Negotiation insights based on the seller wording</li>
-            <li>Ownership tips tailored to age & kilometres</li>
-            <li>Context to help you feel confident before inspecting</li>
+          <ul className="mt-3 text-slate-300 text-sm space-y-1">
+            <li>• What to double-check in person for THIS car</li>
+            <li>• Negotiation ideas based on the seller’s wording</li>
+            <li>• Ownership tips tailored to age & kilometres</li>
+            <li>• Context to help you feel confident before inspecting</li>
           </ul>
 
           <button
@@ -343,7 +342,7 @@ export default function OnlineResults() {
           </button>
 
           <p className="text-xs text-slate-500 mt-2">
-            In the live app, this unlocks after purchasing a scan.
+            In the live app this unlocks after purchasing a scan.
           </p>
         </SectionCard>
       )}
@@ -352,19 +351,47 @@ export default function OnlineResults() {
       {showUnlocked && (
         <SectionCard id="report" title="Full CarVerity report" icon="✨">
           <div className="space-y-5">
-            {sections.map((s, idx) => (
-              <div
-                key={idx}
-                className="rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3 text-sm text-slate-200 whitespace-pre-wrap leading-relaxed"
-              >
-                {s.body}
-              </div>
-            ))}
+            {sections.map((s, i) => {
+              const theme = themeFor(s.title);
+              const delay = 70 * i;
+
+              return (
+                <div
+                  key={i}
+                  style={{ animationDelay: `${delay}ms` }}
+                  className={`
+                    opacity-0 translate-y-2
+                    animate-[fadeUp_0.42s_ease-out_forwards]
+                    rounded-2xl border border-white/10
+                    bg-gradient-to-b ${theme.accent}
+                    shadow-[0_8px_30px_rgba(0,0,0,0.35)]
+                  `}
+                >
+                  <div
+                    className={`px-5 py-3 border-b border-white/10 bg-gradient-to-r ${theme.banner} rounded-t-2xl flex items-center justify-between`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{theme.icon}</span>
+                      <h3 className="text-sm font-semibold text-slate-100">{s.title}</h3>
+                    </div>
+                    <span className="text-[10px] uppercase tracking-wide text-slate-400">
+                      Section {i + 1}
+                    </span>
+                  </div>
+
+                  <div className="px-5 py-4">
+                    <div className="rounded-xl bg-slate-950/40 border border-white/5 px-4 py-3 whitespace-pre-wrap text-sm text-slate-200 leading-relaxed">
+                      {s.body}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </SectionCard>
       )}
 
-      {/* Vehicle */}
+      {/* Vehicle Details */}
       <SectionCard id="vehicle" title="Vehicle details" icon="🚗">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-y-3 text-sm">
           <div>
@@ -381,12 +408,17 @@ export default function OnlineResults() {
           </div>
           <div>
             <div className="text-slate-400 text-xs">Kilometres</div>
-            <div className="font-medium text-slate-100">
-              {vehicle.kilometres || "—"}
-            </div>
+            <div className="font-medium text-slate-100">{vehicle.kilometres || "—"}</div>
           </div>
         </div>
       </SectionCard>
+
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
