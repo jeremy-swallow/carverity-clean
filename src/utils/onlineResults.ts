@@ -1,8 +1,35 @@
-// src/utils/onlineResults.ts
+/* =========================================================
+   CarVerity — Unified Local Persistence Layer (v3)
+   - Device-scoped storage (no login required)
+   - Forward-compatible for future account sync
+   - Backwards-compatible with older scan data
+========================================================= */
 
-// ------------------------------
-// Shared types
-// ------------------------------
+/* ===============================
+   Device Identity (persistent)
+================================ */
+
+const DEVICE_ID_KEY = "carverity_device_id";
+
+export function getDeviceId(): string {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    // Fallback if randomUUID is not available
+    const generated =
+      (typeof crypto !== "undefined" &&
+        (crypto as any).randomUUID &&
+        (crypto as any).randomUUID()) ||
+      `device_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    id = String(generated);
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
+
+/* ===============================
+   Online Scan Types
+================================ */
 
 export interface ResultSection {
   title: string;
@@ -14,34 +41,35 @@ export interface SavedPhotos {
   meta?: any[];
 }
 
-// Basic vehicle info used across the online flow
 export interface VehicleInfo {
   make?: string;
   model?: string;
   year?: string;
   kilometres?: string | number | null;
-  // allow extra fields without TS screaming
   [key: string]: any;
 }
 
-// What we store for an online scan
+export type ConfidenceLevel = "LOW" | "MODERATE" | "HIGH";
+
 export interface SavedResult {
+  id?: string;
+
   type: "online";
   step: string;
   createdAt: string;
 
+  // Optional in the type so older code compiles;
+  // we always hydrate this via normalisation.
+  deviceId?: string;
+
   listingUrl: string | null;
   vehicle: VehicleInfo;
 
-  /**
-   * High-level confidence from the model.
-   * 🟣 Persisted once per scan — never regenerated on reload.
-   */
-  confidenceCode?: "LOW" | "MODERATE" | "HIGH";
+  confidenceCode?: ConfidenceLevel;
 
   // Split summaries
-  previewSummary?: string | null; // free preview
-  fullSummary?: string | null;    // unlocked content
+  previewSummary?: string | null;
+  fullSummary?: string | null;
 
   // Backwards-compat — legacy code may still read this
   summary?: string | null;
@@ -50,7 +78,11 @@ export interface SavedResult {
   signals?: any[];
 
   photos: SavedPhotos;
+
+  // Unlock & lifecycle state
   isUnlocked: boolean;
+  inProgress?: boolean;
+  completed?: boolean;
 
   // Optional metadata
   source?: string;
@@ -64,37 +96,63 @@ export interface SavedResult {
   notes?: string;
 }
 
-// ------------------------------
-// Storage keys
-// ------------------------------
+/* ===============================
+   Storage Keys
+================================ */
 
-const RESULTS_STORAGE_KEY = "carverity_online_results_v2";
+const RESULTS_STORAGE_KEY = "carverity_online_results_v3";
 export const LISTING_URL_KEY = "carverity_online_listing_url";
 
-// ------------------------------
-// Core save/load for results
-// ------------------------------
+/* ===============================
+   Vehicle Normaliser
+================================ */
 
-/**
- * Persists a scan result.
- * 🔒 Confidence code is treated as an immutable value:
- * If a record already has a confidence value, it will not be replaced.
- */
+export function normaliseVehicle(raw: any): VehicleInfo {
+  if (!raw || typeof raw !== "object") {
+    return {};
+  }
+
+  const { make, model, year, kilometres, kms, odo, ...rest } = raw as any;
+
+  const kmValue = kilometres ?? kms ?? odo ?? "";
+
+  return {
+    make: make ?? "",
+    model: model ?? "",
+    year: year ?? "",
+    kilometres: kmValue ?? "",
+    ...rest,
+  };
+}
+
+/* ===============================
+   Result Normaliser
+================================ */
+
+function normaliseResult(record: any): SavedResult {
+  const deviceId = record.deviceId ?? getDeviceId();
+
+  return {
+    ...record,
+    deviceId,
+    inProgress: record.inProgress ?? false,
+    completed: record.completed ?? false,
+    vehicle: normaliseVehicle(record.vehicle ?? {}),
+  };
+}
+
+/* ===============================
+   Core save/load for results
+================================ */
+
 export function saveOnlineResults(data: SavedResult) {
   try {
-    const existing = loadOnlineResults();
-
-    // Preserve previously-stored confidenceCode if present
-    const confidenceCode =
-      existing?.confidenceCode ?? data.confidenceCode ?? "MODERATE";
-
-    const payload: SavedResult = {
+    const normalised = normaliseResult({
       ...data,
-      confidenceCode,
-      vehicle: normaliseVehicle(data.vehicle ?? {}),
-    };
+      deviceId: data.deviceId ?? getDeviceId(),
+    });
 
-    localStorage.setItem(RESULTS_STORAGE_KEY, JSON.stringify(payload));
+    localStorage.setItem(RESULTS_STORAGE_KEY, JSON.stringify(normalised));
   } catch (err) {
     console.error("Failed to save online results", err);
   }
@@ -106,16 +164,7 @@ export function loadOnlineResults(): SavedResult | null {
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as SavedResult;
-
-    // Backwards-compat hydration
-    parsed.vehicle = normaliseVehicle(parsed.vehicle ?? {});
-
-    // Stability fallback for old scans with no confidence value
-    if (!parsed.confidenceCode) {
-      parsed.confidenceCode = "MODERATE";
-    }
-
-    return parsed;
+    return normaliseResult(parsed);
   } catch (err) {
     console.error("Failed to load online results", err);
     return null;
@@ -130,10 +179,9 @@ export function clearOnlineResults() {
   }
 }
 
-// ------------------------------
-// Helpers used by StartScan & others
-// (kept for backwards compatibility)
-// ------------------------------
+/* ===============================
+   Helpers used by StartScan & others
+================================ */
 
 export function saveListingUrl(url: string) {
   try {
@@ -152,72 +200,49 @@ export function loadListingUrl(): string | null {
   }
 }
 
-// ------------------------------
-// Vehicle Normaliser
-// ------------------------------
-
-export function normaliseVehicle(raw: any): VehicleInfo {
-  if (!raw || typeof raw !== "object") {
-    return {};
-  }
-
-  const { make, model, year, kilometres, kms, odo, ...rest } = raw as any;
-
-  const kmValue =
-    kilometres ??
-    kms ??
-    odo ??
-    "";
-
-  return {
-    make: make ?? "",
-    model: model ?? "",
-    year: year ?? "",
-    kilometres: kmValue ?? "",
-    ...rest,
-  };
-}
-
 /* =========================================================
-   Scan Storage Utility
-   Local-only persistence (v1)
+   Scan Storage Utility (index of scans)
+   - Local-only persistence (v2)
+   - Device-scoped, forward-compatible with accounts
 ========================================================= */
 
 export type ScanType = "online" | "in-person";
 
-export type SavedScan = {
+export interface SavedScan {
   id: string;
   type: ScanType;
   title: string;
   createdAt: string;
+
+  deviceId?: string;
+
   listingUrl?: string;
   summary?: string;
 
-  // 👇 Added field (optional so old scans still load)
+  inProgress?: boolean;
   completed?: boolean;
-};
+}
 
-const STORAGE_KEY = "carverity_saved_scans";
+const SCAN_INDEX_KEY = "carverity_saved_scans_v2";
 
-/**
- * Normalises scans — ensures new fields exist
- */
-function normalizeScans(scans: any[]): SavedScan[] {
-  return scans.map((scan) => ({
+function normaliseScan(scan: any): SavedScan {
+  return {
     ...scan,
+    deviceId: scan.deviceId ?? getDeviceId(),
+    inProgress: scan.inProgress ?? false,
     completed: scan.completed ?? false,
-  })) as SavedScan[];
+  };
 }
 
 export function loadScans(): SavedScan[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(SCAN_INDEX_KEY);
     if (!raw) return [];
 
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
-    return normalizeScans(parsed);
+    return parsed.map(normaliseScan);
   } catch {
     return [];
   }
@@ -225,32 +250,26 @@ export function loadScans(): SavedScan[] {
 
 export function saveScan(scan: SavedScan) {
   const existing = loadScans();
-  const updated = [
-    { completed: false, ...scan },
-    ...existing,
-  ];
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  const updated = [normaliseScan(scan), ...existing];
+  localStorage.setItem(SCAN_INDEX_KEY, JSON.stringify(updated));
 }
 
-export function updateScanTitle(scanId: string, title: string) {
-  const updated = loadScans().map((scan) =>
-    scan.id === scanId ? { ...scan, title } : scan
+export function updateScan(scanId: string, update: Partial<SavedScan>) {
+  const updated = loadScans().map((s) =>
+    s.id === scanId ? { ...s, ...update } : s
   );
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  localStorage.setItem(SCAN_INDEX_KEY, JSON.stringify(updated));
 }
 
 export function deleteScan(scanId: string) {
   const filtered = loadScans().filter((s) => s.id !== scanId);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  localStorage.setItem(SCAN_INDEX_KEY, JSON.stringify(filtered));
 }
 
 export function clearAllScans() {
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(SCAN_INDEX_KEY);
 }
 
 export function generateScanId() {
-  return `scan_${Date.now()}_${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
+  return `scan_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
