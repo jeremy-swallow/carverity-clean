@@ -157,6 +157,10 @@ async function callGemini(prompt: string): Promise<string> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          topP: 0.9
+        }
       }),
     }
   );
@@ -168,13 +172,16 @@ async function callGemini(prompt: string): Promise<string> {
 }
 
 /* ===============================
-   Safety layer
+   Safety layer — extract confidence
 ================================ */
 function extractConfidenceCode(text: string): string | null {
   const m = text.match(/CONFIDENCE_CODE:\s*(LOW|MODERATE|HIGH)/i);
   return m ? m[1].toUpperCase() : null;
 }
 
+/* ===============================
+   Handler — confidence persists per scan
+================================ */
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -190,6 +197,7 @@ export default async function handler(
     const prompt = buildPrompt(html);
     const raw = await callGemini(prompt);
 
+    // 🟣 Confidence is generated ONCE per scan & stored by the client
     const confidenceCode = extractConfidenceCode(raw) ?? "MODERATE";
 
     vehicle = applySummaryFallback(vehicle, raw);
@@ -201,6 +209,7 @@ export default async function handler(
       summary: raw,
       confidenceCode,
       source: "gemini-2.5-flash",
+      analysisVersion: "v1-persistent-confidence"
     });
   } catch (err: any) {
     console.error("❌ Analysis error:", err);
