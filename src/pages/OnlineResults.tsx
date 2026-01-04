@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   loadOnlineResults,
   saveOnlineResults,
@@ -247,6 +248,7 @@ function FullReportSection({
 ========================================================= */
 
 export default function OnlineResults() {
+  const navigate = useNavigate();
   const [result, setResult] = useState<SavedResult | null>(null);
 
   useEffect(() => {
@@ -260,6 +262,31 @@ export default function OnlineResults() {
     saveOnlineResults(updated);
     localStorage.setItem(UNLOCK_KEY, "1");
     setResult(updated);
+  }
+
+  useEffect(() => {
+    if (!result) return;
+    if (!result.isUnlocked) {
+      localStorage.removeItem(UNLOCK_KEY);
+    }
+  }, [result]);
+
+  function goStartNewScan() {
+    localStorage.removeItem(UNLOCK_KEY);
+    navigate("/start-scan");
+  }
+
+  function goMyScans() {
+    navigate("/my-scans");
+  }
+
+  function goInPersonFlow() {
+    navigate("/inperson-start");
+  }
+
+  function openListing(url?: string | null) {
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   if (!result) {
@@ -280,6 +307,7 @@ export default function OnlineResults() {
     fullSummary,
     summary,
     isUnlocked,
+    listingUrl,
   } = result;
 
   const rawReport = fullSummary || summary || "";
@@ -319,7 +347,7 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* Preview / teaser */}
+      {/* Preview */}
       {!showUnlocked && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_18px_40px_rgba(0,0,0,0.55)] px-5 py-5 space-y-3">
           <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
@@ -355,7 +383,7 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* FULL REPORT */}
+      {/* Full report */}
       {showUnlocked && (
         <section className="rounded-2xl border border-white/12 bg-slate-950/85 shadow-[0_28px_70px_rgba(0,0,0,0.75)] px-5 py-5 space-y-5">
           <header className="flex items-center justify-between mb-1">
@@ -410,6 +438,40 @@ export default function OnlineResults() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Actions */}
+      <section className="rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-5 space-y-3">
+
+        {listingUrl && (
+          <button
+            onClick={() => openListing(listingUrl)}
+            className="w-full rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-semibold px-4 py-2 shadow"
+          >
+            Open original listing
+          </button>
+        )}
+
+        <button
+          onClick={goInPersonFlow}
+          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow"
+        >
+          Continue — in-person inspection
+        </button>
+
+        <button
+          onClick={goStartNewScan}
+          className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 shadow"
+        >
+          Start another online scan
+        </button>
+
+        <button
+          onClick={goMyScans}
+          className="w-full rounded-xl border border-white/20 text-slate-200 px-4 py-2"
+        >
+          View my scans
+        </button>
       </section>
 
       <style>{`
