@@ -31,37 +31,29 @@ const SECTION_MARKERS = [
 ];
 
 /* =========================================================
-   Text normalisation helpers
+   Text helpers & section cleaning
 ========================================================= */
 
 function cleanSectionBody(text: string): string {
   if (!text) return "";
-
   return text
-    .replace(/^\*\*\s*/gm, "")     // strip leading "**"
-    .replace(/^\*\s*/gm, "• ")     // normalise list bullets
-    .replace(/\n{3,}/g, "\n\n")    // collapse tall spacing
+    .replace(/^\*\*\s*/gm, "")
+    .replace(/^\*\s*/gm, "• ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
 function isMeaningfulContent(text: string): boolean {
   if (!text) return false;
   const t = text.trim();
-
-  if (t === "**") return false;
-  if (t === "--") return false;
-  if (t === "N/A") return false;
+  if (t === "**" || t === "--" || t === "N/A") return false;
   if (t.length < 2) return false;
-
-  // ignore bodies that contain no real characters
   if (!/[a-zA-Z0-9]/.test(t)) return false;
-
   return true;
 }
 
 function sanitiseReportText(text: string): string {
   if (!text) return "";
-
   const filtered = text
     .split("\n")
     .filter((line) => {
@@ -77,7 +69,7 @@ function sanitiseReportText(text: string): string {
 }
 
 /* =========================================================
-   Section builder with smart filtering
+   Section builder
 ========================================================= */
 
 function buildSectionsFromFreeText(text: string): ReportSection[] {
@@ -95,7 +87,6 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
     .filter((m): m is { key: string; label: string; idx: number } => !!m)
     .sort((a, b) => a.idx - b.idx);
 
-  // No markers → entire thing = overview (if meaningful)
   if (!markers.length) {
     const body = cleanSectionBody(cleaned);
     return isMeaningfulContent(body)
@@ -105,7 +96,6 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 
   const sections: ReportSection[] = [];
 
-  // Intro block before first marker → "Overview"
   const first = markers[0];
   if (first.idx > 0) {
     const intro = cleanSectionBody(cleaned.slice(0, first.idx));
@@ -114,21 +104,16 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
     }
   }
 
-  // Each marker → section
   for (let i = 0; i < markers.length; i++) {
     const marker = markers[i];
     const start = marker.idx;
     const end = i + 1 < markers.length ? markers[i + 1].idx : cleaned.length;
 
     let body = cleaned.slice(start, end).trim();
-
-    // Remove heading itself
     const headingRegex = new RegExp(marker.key + ":?", "i");
     body = body.replace(headingRegex, "").trim();
 
     const finalBody = cleanSectionBody(body);
-
-    // Skip empty / placeholder sections
     if (!isMeaningfulContent(finalBody)) continue;
 
     sections.push({
@@ -141,7 +126,7 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 }
 
 /* =========================================================
-   Section theming
+   Theming
 ========================================================= */
 
 type SectionTheme = {
@@ -154,47 +139,25 @@ function getSectionTheme(title: string): SectionTheme {
   const t = title.toLowerCase();
 
   if (t.includes("confidence"))
-    return {
-      icon: "🧭",
-      headerGradient: "from-indigo-500 to-indigo-400",
-      cardGradient: "from-indigo-950 to-slate-900",
-    };
+    return { icon: "🧭", headerGradient: "from-indigo-500 to-indigo-400", cardGradient: "from-indigo-950 to-slate-900" };
+
   if (t.includes("what this means"))
-    return {
-      icon: "✨",
-      headerGradient: "from-violet-500 to-fuchsia-500",
-      cardGradient: "from-violet-950 to-slate-900",
-    };
+    return { icon: "✨", headerGradient: "from-violet-500 to-fuchsia-500", cardGradient: "from-violet-950 to-slate-900" };
+
   if (t.includes("risk"))
-    return {
-      icon: "⚠️",
-      headerGradient: "from-amber-500 to-orange-500",
-      cardGradient: "from-amber-950 to-slate-900",
-    };
+    return { icon: "⚠️", headerGradient: "from-amber-500 to-orange-500", cardGradient: "from-amber-950 to-slate-900" };
+
   if (t.includes("buyer"))
-    return {
-      icon: "🛠️",
-      headerGradient: "from-blue-500 to-sky-500",
-      cardGradient: "from-sky-950 to-slate-900",
-    };
+    return { icon: "🛠️", headerGradient: "from-blue-500 to-sky-500", cardGradient: "from-sky-950 to-slate-900" };
+
   if (t.includes("negotiation"))
-    return {
-      icon: "🤝",
-      headerGradient: "from-teal-500 to-emerald-500",
-      cardGradient: "from-teal-950 to-slate-900",
-    };
+    return { icon: "🤝", headerGradient: "from-teal-500 to-emerald-500", cardGradient: "from-teal-950 to-slate-900" };
+
   if (t.includes("ownership"))
-    return {
-      icon: "🚗",
-      headerGradient: "from-emerald-500 to-lime-500",
-      cardGradient: "from-emerald-950 to-slate-900",
-    };
+    return { icon: "🚗", headerGradient: "from-emerald-500 to-lime-500", cardGradient: "from-emerald-950 to-slate-900" };
+
   if (t.includes("analysis"))
-    return {
-      icon: "📊",
-      headerGradient: "from-violet-500 to-indigo-500",
-      cardGradient: "from-violet-950 to-slate-900",
-    };
+    return { icon: "📊", headerGradient: "from-violet-500 to-indigo-500", cardGradient: "from-violet-950 to-slate-900" };
 
   return {
     icon: "📌",
@@ -204,7 +167,7 @@ function getSectionTheme(title: string): SectionTheme {
 }
 
 /* =========================================================
-   UI bits
+   UI components
 ========================================================= */
 
 function ConfidenceGauge({ code }: { code?: string }) {
@@ -214,12 +177,11 @@ function ConfidenceGauge({ code }: { code?: string }) {
   if (code === "HIGH") value = 1;
 
   const pct = Math.round(value * 100);
+
   const gradient =
     value === 0
       ? "conic-gradient(#1e293b 0deg,#1e293b 360deg)"
-      : `conic-gradient(#a855f7 ${pct * 3.6}deg,#1e293b ${
-          pct * 3.6
-        }deg 360deg)`;
+      : `conic-gradient(#a855f7 ${pct * 3.6}deg,#1e293b ${pct * 3.6}deg 360deg)`;
 
   return (
     <div className="flex items-center gap-3">
@@ -231,6 +193,7 @@ function ConfidenceGauge({ code }: { code?: string }) {
           {code ?? "N/A"}
         </div>
       </div>
+
       <div className="text-xs text-slate-200">
         <div className="font-semibold">Confidence</div>
         <div className="text-slate-300">
@@ -244,9 +207,6 @@ function ConfidenceGauge({ code }: { code?: string }) {
   );
 }
 
-/**
- * Compact form for short sections
- */
 function CompactSection({ section }: { section: ReportSection }) {
   const theme = getSectionTheme(section.title);
 
@@ -255,23 +215,16 @@ function CompactSection({ section }: { section: ReportSection }) {
       <span>{theme.icon}</span>
       <div>
         <div className="font-semibold">{section.title}</div>
-        <div className="text-slate-300">{section.body}</div>
+        <div className="text-slate-300 whitespace-pre-wrap">{section.body}</div>
       </div>
     </div>
   );
 }
 
-function FullReportSection({
-  section,
-  index,
-}: {
-  section: ReportSection;
-  index: number;
-}) {
+function FullReportSection({ section, index }: { section: ReportSection; index: number }) {
   const theme = getSectionTheme(section.title);
   const delayMs = 80 * index;
 
-  // Use compact layout for short content
   if (section.body.length < 120) {
     return <CompactSection section={section} />;
   }
@@ -299,6 +252,7 @@ function FullReportSection({
             {section.title}
           </h3>
         </div>
+
         <span className="text-[10px] uppercase tracking-wide text-slate-100/80">
           Section {index + 1}
         </span>
@@ -322,7 +276,6 @@ export default function OnlineResults() {
   const [result, setResult] = useState<SavedResult | null>(null);
   const [showFloatingBar, setShowFloatingBar] = useState(false);
 
-  // Floating mobile CTA visibility
   useEffect(() => {
     function handleScroll() {
       setShowFloatingBar(window.scrollY > 520);
@@ -331,13 +284,11 @@ export default function OnlineResults() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Load saved result
   useEffect(() => {
     const stored = loadOnlineResults();
     if (stored) setResult(stored);
   }, []);
 
-  // Dev unlock
   function unlockForTesting() {
     if (!result) return;
     const updated: SavedResult = { ...result, isUnlocked: true };
@@ -346,7 +297,6 @@ export default function OnlineResults() {
     setResult(updated);
   }
 
-  // Reset unlock if fresh load
   useEffect(() => {
     if (!result) return;
     if (!result.isUnlocked) {
@@ -354,7 +304,6 @@ export default function OnlineResults() {
     }
   }, [result]);
 
-  // Navigation actions
   function goStartNewScan() {
     localStorage.removeItem(UNLOCK_KEY);
     navigate("/start-scan");
@@ -372,9 +321,7 @@ export default function OnlineResults() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
         <h1 className="text-xl font-semibold mb-2">No scan data found</h1>
-        <p className="text-slate-400">
-          Run a scan to view your CarVerity results.
-        </p>
+        <p className="text-slate-400">Run a scan to view your CarVerity results.</p>
       </div>
     );
   }
@@ -382,7 +329,6 @@ export default function OnlineResults() {
   const {
     vehicle = {},
     confidenceCode,
-    previewSummary,
     fullSummary,
     summary,
     isUnlocked,
@@ -405,27 +351,22 @@ export default function OnlineResults() {
       <div className="sticky top-0 -mx-4 px-4 py-2 bg-slate-950/80 backdrop-blur border-b border-white/5 z-30">
         <div className="flex items-center justify-between text-xs md:text-sm text-slate-300">
           <span className="truncate">
-            {vehicle.year || "—"} {vehicle.make || "Vehicle"}{" "}
-            {vehicle.model || ""}
+            {vehicle.year || "—"} {vehicle.make || "Vehicle"} {vehicle.model || ""}
           </span>
-          <span>
-            {vehicle.kilometres ? `${vehicle.kilometres} km` : "— km"}
-          </span>
+          <span>{vehicle.kilometres ? `${vehicle.kilometres} km` : "— km"}</span>
         </div>
       </div>
 
-      {/* Breadcrumb */}
+      {/* Journey breadcrumb */}
       <div className="flex items-center gap-2 text-[11px] md:text-xs text-slate-400 px-1 animate-[fadeUp_0.35s_ease-out]">
         <span className="opacity-80">Online scan</span>
         <span className="opacity-40">›</span>
-        <span className="font-semibold text-slate-200">
-          Results &amp; guidance
-        </span>
+        <span className="font-semibold text-slate-200">Results &amp; guidance</span>
         <span className="opacity-40">›</span>
         <span className="opacity-80">In-person inspection</span>
       </div>
 
-      {/* Scan strip */}
+      {/* Scan overview strip */}
       <section className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs md:text-sm text-slate-200">
           <div className="flex items-center gap-2">
@@ -444,7 +385,7 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* Header */}
+      {/* Premium header */}
       <section className="rounded-2xl bg-gradient-to-r from-violet-700/85 to-indigo-600/85 border border-white/12 shadow-[0_24px_60px_rgba(0,0,0,0.7)] px-6 py-5 md:py-6 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -460,7 +401,7 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* Preview Mode */}
+      {/* PREVIEW MODE — Teaser Upgrade */}
       {!showUnlocked && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_18px_40px_rgba(0,0,0,0.55)] px-5 py-5 space-y-3">
           <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
@@ -468,8 +409,9 @@ export default function OnlineResults() {
           </h2>
 
           <p className="text-sm text-slate-300">
-            {previewSummary ||
-              "This short preview is based on the listing details only. Unlock the full CarVerity report to see tailored inspection tips, negotiation angles, and ownership guidance for THIS car."}
+            This preview gives a small glimpse into the CarVerity analysis for this vehicle.
+            Unlock the full report to reveal deeper risk flags, negotiation angles, inspection
+            priorities, and ownership insights — tailored specifically to THIS listing.
           </p>
 
           <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-3 text-sm text-slate-400">
@@ -477,10 +419,10 @@ export default function OnlineResults() {
           </div>
 
           <ul className="mt-2 text-xs text-slate-300 space-y-1 list-disc list-inside">
-            <li>What to double-check in person for this car</li>
-            <li>Negotiation ideas based on the seller’s wording</li>
-            <li>Ownership tips tailored to age &amp; kilometres</li>
-            <li>Context to help you feel confident before inspecting</li>
+            <li>Hidden risk markers that don’t show in the listing</li>
+            <li>What to prioritise when viewing this car in person</li>
+            <li>Buyer leverage &amp; negotiation opportunities</li>
+            <li>Ownership considerations based on age &amp; kilometres</li>
           </ul>
 
           <button
@@ -496,7 +438,7 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* Full Report */}
+      {/* FULL REPORT */}
       {showUnlocked && (
         <section className="rounded-2xl border border-white/12 bg-slate-950/85 shadow-[0_28px_70px_rgba(0,0,0,0.75)] px-5 py-5 space-y-5">
           <header className="flex items-center justify-between mb-1">
@@ -519,7 +461,7 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* Vehicle Details */}
+      {/* VEHICLE DETAILS */}
       <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5">
         <h2 className="text-sm font-semibold flex items-center gap-2 text-slate-200">
           🚗 VEHICLE DETAILS
@@ -553,16 +495,14 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* Desktop footer actions */}
+      {/* DESKTOP ACTIONS */}
       <section className="hidden md:block rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-5 space-y-3">
         <button
           onClick={goInPersonFlow}
           className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow flex items-center justify-between"
         >
           <span>Continue — in-person inspection</span>
-          <span className="text-[11px] font-medium opacity-80">
-            Step 3 of 3
-          </span>
+          <span className="text-[11px] font-medium opacity-80">Step 3 of 3</span>
         </button>
 
         <button
@@ -580,7 +520,7 @@ export default function OnlineResults() {
         </button>
       </section>
 
-      {/* Mobile floating CTA */}
+      {/* MOBILE FLOATING CTA */}
       {showFloatingBar && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40">
           <div className="mx-3 mb-3 rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur shadow-[0_20px_60px_rgba(0,0,0,0.7)] px-4 py-3 space-y-2">
