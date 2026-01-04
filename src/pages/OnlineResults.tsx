@@ -126,6 +126,30 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 }
 
 /* =========================================================
+   Smart teaser generator (PREVIEW MODE)
+========================================================= */
+
+function buildTeaserFromSections(sections: ReportSection[]): string[] {
+  if (!sections.length) return [];
+
+  // Take snippets from first 1–2 meaningful sections
+  const teaser: string[] = [];
+
+  for (const s of sections.slice(0, 3)) {
+    const firstLine =
+      s.body.split("\n").find((l) => l.trim().length > 0) ?? "";
+
+    if (firstLine && firstLine.length > 40 && firstLine.length < 220) {
+      teaser.push(firstLine.trim());
+    }
+
+    if (teaser.length >= 2) break;
+  }
+
+  return teaser;
+}
+
+/* =========================================================
    Theming
 ========================================================= */
 
@@ -337,6 +361,7 @@ export default function OnlineResults() {
 
   const rawReport = fullSummary || summary || "";
   const sections = buildSectionsFromFreeText(rawReport);
+  const teaserSnippets = buildTeaserFromSections(sections);
 
   const storedUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
   const showUnlocked = Boolean(isUnlocked) || storedUnlock;
@@ -401,29 +426,43 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* PREVIEW MODE — Teaser Upgrade */}
+      {/* PREVIEW MODE — Smart teaser */}
       {!showUnlocked && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_18px_40px_rgba(0,0,0,0.55)] px-5 py-5 space-y-3">
           <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
             👁️ CARVERITY ANALYSIS — PREVIEW
           </h2>
 
-          <p className="text-sm text-slate-300">
-            This preview gives a small glimpse into the CarVerity analysis for this vehicle.
-            Unlock the full report to reveal deeper risk flags, negotiation angles, inspection
-            priorities, and ownership insights — tailored specifically to THIS listing.
-          </p>
+          {teaserSnippets.length > 0 ? (
+            <>
+              <p className="text-sm text-slate-300">
+                Here are a couple of early insights detected from this listing.  
+                Unlock the full CarVerity report to reveal the complete analysis and tailored guidance for THIS car.
+              </p>
 
-          <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-3 text-sm text-slate-400">
-            Full report content locked — upgrade to continue
-          </div>
+              <ul className="mt-1 text-sm text-slate-200 space-y-2 list-disc list-inside">
+                {teaserSnippets.map((t, i) => (
+                  <li key={i}>{t}</li>
+                ))}
+              </ul>
 
-          <ul className="mt-2 text-xs text-slate-300 space-y-1 list-disc list-inside">
-            <li>Hidden risk markers that don’t show in the listing</li>
-            <li>What to prioritise when viewing this car in person</li>
-            <li>Buyer leverage &amp; negotiation opportunities</li>
-            <li>Ownership considerations based on age &amp; kilometres</li>
-          </ul>
+              <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-2 text-sm text-slate-400">
+                Remaining sections locked — upgrade to continue
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-slate-300">
+                This preview gives a small glimpse into the CarVerity analysis for this vehicle.
+                Unlock the full report to reveal deeper risk flags, negotiation angles, inspection
+                priorities, and ownership insights — tailored specifically to THIS listing.
+              </p>
+
+              <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-3 text-sm text-slate-400">
+                Full report content locked — upgrade to continue
+              </div>
+            </>
+          )}
 
           <button
             onClick={unlockForTesting}
