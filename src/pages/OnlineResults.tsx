@@ -8,7 +8,7 @@ import {
 const UNLOCK_KEY = "carverity_test_full_unlock";
 
 /* =========================================================
-   Helpers
+   Types & constants
 ========================================================= */
 
 type ReportSection = {
@@ -16,46 +16,101 @@ type ReportSection = {
   body: string;
 };
 
+const SECTION_MARKERS = [
+  { key: "CONFIDENCE ASSESSMENT", label: "Confidence assessment" },
+  { key: "CONFIDENCE_CODE", label: "Confidence code" },
+  { key: "WHAT THIS MEANS FOR YOU", label: "What this means for you" },
+  { key: "CARVERITY ANALYSIS — SUMMARY", label: "CarVerity analysis — summary" },
+  { key: "CARVERITY ANALYSIS - SUMMARY", label: "CarVerity analysis — summary" },
+  { key: "KEY RISK SIGNALS", label: "Key risk signals" },
+  { key: "BUYER CONSIDERATIONS", label: "Buyer considerations" },
+  { key: "NEGOTIATION INSIGHTS", label: "Negotiation insights" },
+  { key: "GENERAL OWNERSHIP NOTES", label: "General ownership notes" },
+];
+
+/* =========================================================
+   Text normalisation & section builder
+========================================================= */
+
 function sanitiseReportText(text: string): string {
   if (!text) return "";
 
-  // Strip out hallucinated service-history “date anomaly” warnings
   const filteredLines = text
     .split("\n")
     .filter((line) => {
       const lower = line.toLowerCase();
+
+      // Strip any “fake problem” about future dates / anomalies
       if (lower.includes("service history date anomaly")) return false;
       if (lower.includes("appears in the future")) return false;
+      if (lower.includes("future-dated") || lower.includes("future dated")) {
+        return false;
+      }
+
       return true;
     });
 
-  // Normalise excess blank lines
   return filteredLines.join("\n").replace(/\n{3,}/g, "\n\n");
 }
 
-function parseSections(text: string): ReportSection[] {
-  const out: ReportSection[] = [];
-  if (!text || !text.trim()) return out;
+function buildSectionsFromFreeText(text: string): ReportSection[] {
+  const cleaned = sanitiseReportText(text);
+  if (!cleaned.trim()) return [];
 
-  const headingRegex =
-    /(^|\n)###\s+([^\n]+)\n([\s\S]*?)(?=\n###\s+|$)/g;
+  const lower = cleaned.toLowerCase();
 
-  let match: RegExpExecArray | null;
-  let anyMatched = false;
+  const markers = SECTION_MARKERS
+    .map((m) => {
+      const idx = lower.indexOf(m.key.toLowerCase());
+      if (idx === -1) return null;
+      return { ...m, idx };
+    })
+    .filter((m): m is { key: string; label: string; idx: number } => !!m)
+    .sort((a, b) => a.idx - b.idx);
 
-  while ((match = headingRegex.exec(text)) !== null) {
-    anyMatched = true;
-    const title = match[2]?.trim() || "Section";
-    const body = match[3]?.trim() || "";
-    out.push({ title, body });
+  if (!markers.length) {
+    return [{ title: "Overview", body: cleaned.trim() }];
   }
 
-  if (!anyMatched) {
-    out.push({ title: "Overview", body: text.trim() });
+  const sections: ReportSection[] = [];
+
+  // Intro before first marker → Overview
+  const first = markers[0];
+  if (first.idx > 0) {
+    const intro = cleaned.slice(0, first.idx).trim();
+    if (intro) {
+      sections.push({
+        title: "Overview",
+        body: intro,
+      });
+    }
   }
 
-  return out;
+  // Each marker → section
+  for (let i = 0; i < markers.length; i++) {
+    const marker = markers[i];
+    const start = marker.idx;
+    const end =
+      i + 1 < markers.length ? markers[i + 1].idx : cleaned.length;
+
+    let body = cleaned.slice(start, end).trim();
+
+    // Remove the heading text itself from the body
+    const headingRegex = new RegExp(marker.key + ":?", "i");
+    body = body.replace(headingRegex, "").trim();
+
+    sections.push({
+      title: marker.label,
+      body,
+    });
+  }
+
+  return sections;
 }
+
+/* =========================================================
+   Section theming
+========================================================= */
 
 type SectionTheme = {
   icon: string;
@@ -108,6 +163,13 @@ function getSectionTheme(title: string): SectionTheme {
       cardGradient: "from-emerald-950 to-slate-900",
     };
   }
+  if (t.includes("analysis")) {
+    return {
+      icon: "📊",
+      headerGradient: "from-violet-500 to-indigo-500",
+      cardGradient: "from-violet-950 to-slate-900",
+    };
+  }
 
   return {
     icon: "📌",
@@ -115,6 +177,10 @@ function getSectionTheme(title: string): SectionTheme {
     cardGradient: "from-slate-950 to-slate-900",
   };
 }
+
+/* =========================================================
+   UI bits
+========================================================= */
 
 function ConfidenceGauge({ code }: { code?: string }) {
   let value = 0;
@@ -152,10 +218,6 @@ function ConfidenceGauge({ code }: { code?: string }) {
     </div>
   );
 }
-
-/* =========================================================
-   Sub-components
-========================================================= */
 
 function FullReportSection({
   section,
@@ -205,7 +267,7 @@ function FullReportSection({
 }
 
 /* =========================================================
-   Main Component
+   Main component
 ========================================================= */
 
 export default function OnlineResults() {
@@ -228,9 +290,7 @@ export default function OnlineResults() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
         <h1 className="text-xl font-semibold mb-2">No scan data found</h1>
-        <p className="text-slate-400">
-          Run a scan to view your CarVerity results.
-        </p>
+        <p className="text-slate-400">Run a scan to view your CarVerity results.</p>
       </div>
     );
   }
@@ -245,8 +305,7 @@ export default function OnlineResults() {
   } = result;
 
   const rawReport = fullSummary || summary || "";
-  const reportText = sanitiseReportText(rawReport);
-  const sections = parseSections(reportText);
+  const sections = buildSectionsFromFreeText(rawReport);
 
   const storedUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
   const showUnlocked = (isUnlocked ?? false) || storedUnlock;
