@@ -31,7 +31,7 @@ const SECTION_MARKERS = [
 ];
 
 /* =========================================================
-   Text helpers & cleaning
+   Text helpers & section cleaning
 ========================================================= */
 
 function cleanSectionBody(text: string): string {
@@ -126,35 +126,40 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 }
 
 /* =========================================================
-   Smart teaser generator (Option B)
+   Smart teaser generator (REFINED CONVERSION TONE)
 ========================================================= */
 
-function buildTeaserFromSections(sections: ReportSection[]): {
-  paragraph: string | null;
-  bullets: string[];
-} {
-  if (!sections.length) return { paragraph: null, bullets: [] };
+function buildTeaserFromSections(sections: ReportSection[]): string[] {
+  if (!sections.length) return [];
 
-  // Prefer “What This Means For You”
-  const preferred =
-    sections.find((s) =>
-      s.title.toLowerCase().includes("what this means")
-    ) || sections[0];
+  const teaser: string[] = [];
 
-  const sentences = preferred.body
-    .split(/(?<=[.!?])\s+/)
-    .filter((s) => s.trim().length > 25);
+  for (const s of sections.slice(0, 3)) {
+    const firstLine =
+      s.body.split("\n").find((l) => l.trim().length > 0) ?? "";
 
-  const paragraph = sentences[0] ?? null;
+    if (!firstLine) continue;
 
-  // Take next 1–2 meaningful sentences as bullets
-  const bullets = sentences.slice(1, 3).map((s) => s.trim());
+    // Reframe into value-oriented buyer language
+    const rewritten = firstLine
+      .replace(/^•\s*/, "")
+      .replace(/^-\s*/, "")
+      .replace(/^This vehicle/i, "This car")
+      .replace(/^Overall/i, "From the listing details so far,")
+      .trim();
 
-  return { paragraph, bullets };
+    if (rewritten.length > 40 && rewritten.length < 260) {
+      teaser.push(rewritten);
+    }
+
+    if (teaser.length >= 2) break;
+  }
+
+  return teaser;
 }
 
 /* =========================================================
-   Theming + UI
+   Theming
 ========================================================= */
 
 type SectionTheme = {
@@ -168,16 +173,22 @@ function getSectionTheme(title: string): SectionTheme {
 
   if (t.includes("confidence"))
     return { icon: "🧭", headerGradient: "from-indigo-500 to-indigo-400", cardGradient: "from-indigo-950 to-slate-900" };
+
   if (t.includes("what this means"))
     return { icon: "✨", headerGradient: "from-violet-500 to-fuchsia-500", cardGradient: "from-violet-950 to-slate-900" };
+
   if (t.includes("risk"))
     return { icon: "⚠️", headerGradient: "from-amber-500 to-orange-500", cardGradient: "from-amber-950 to-slate-900" };
+
   if (t.includes("buyer"))
     return { icon: "🛠️", headerGradient: "from-blue-500 to-sky-500", cardGradient: "from-sky-950 to-slate-900" };
+
   if (t.includes("negotiation"))
     return { icon: "🤝", headerGradient: "from-teal-500 to-emerald-500", cardGradient: "from-teal-950 to-slate-900" };
+
   if (t.includes("ownership"))
     return { icon: "🚗", headerGradient: "from-emerald-500 to-lime-500", cardGradient: "from-emerald-950 to-slate-900" };
+
   if (t.includes("analysis"))
     return { icon: "📊", headerGradient: "from-violet-500 to-indigo-500", cardGradient: "from-violet-950 to-slate-900" };
 
@@ -187,6 +198,10 @@ function getSectionTheme(title: string): SectionTheme {
     cardGradient: "from-slate-950 to-slate-900",
   };
 }
+
+/* =========================================================
+   UI components
+========================================================= */
 
 function ConfidenceGauge({ code }: { code?: string }) {
   let value = 0;
@@ -355,7 +370,7 @@ export default function OnlineResults() {
 
   const rawReport = fullSummary || summary || "";
   const sections = buildSectionsFromFreeText(rawReport);
-  const { paragraph, bullets } = buildTeaserFromSections(sections);
+  const teaserSnippets = buildTeaserFromSections(sections);
 
   const storedUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
   const showUnlocked = Boolean(isUnlocked) || storedUnlock;
@@ -376,8 +391,8 @@ export default function OnlineResults() {
         </div>
       </div>
 
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-[11px] md:text-xs text-slate-400 px-1 animate-[fadeUp_0.35s_ease-out]">
+      {/* Journey breadcrumb */}
+      <div className="flex items=center gap-2 text-[11px] md:text-xs text-slate-400 px-1 animate-[fadeUp_0.35s_ease-out]">
         <span className="opacity-80">Online scan</span>
         <span className="opacity-40">›</span>
         <span className="font-semibold text-slate-200">Results &amp; guidance</span>
@@ -385,7 +400,7 @@ export default function OnlineResults() {
         <span className="opacity-80">In-person inspection</span>
       </div>
 
-      {/* Scan strip */}
+      {/* Scan overview strip */}
       <section className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs md:text-sm text-slate-200">
           <div className="flex items-center gap-2">
@@ -420,35 +435,40 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* PREVIEW — Option B teaser */}
+      {/* PREVIEW MODE — refined tone */}
       {!showUnlocked && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_18px_40px_rgba(0,0,0,0.55)] px-5 py-5 space-y-3">
           <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
             👁️ CARVERITY ANALYSIS — PREVIEW
           </h2>
 
-          {paragraph ? (
+          {teaserSnippets.length > 0 ? (
             <>
-              <p className="text-sm text-slate-200">{paragraph}</p>
+              <p className="text-sm text-slate-300">
+                Based on the listing details so far, here are **early insights** our analysis has surfaced for this car.
+                The full CarVerity report expands on these findings and highlights **specific checks, negotiation angles,
+                and ownership considerations** to review before inspecting in person.
+              </p>
 
-              {bullets.length > 0 && (
-                <ul className="mt-1 text-sm text-slate-200 space-y-2 list-disc list-inside">
-                  {bullets.slice(0, 2).map((b, i) => (
-                    <li key={i}>{b}</li>
-                  ))}
-                </ul>
-              )}
+              <ul className="mt-1 text-sm text-slate-200 space-y-2 list-disc list-inside">
+                {teaserSnippets.map((t, i) => (
+                  <li key={i}>{t}</li>
+                ))}
+              </ul>
 
               <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-2 text-sm text-slate-400">
-                Remaining report content locked — upgrade to continue
+                Remaining guidance and full context locked — upgrade to continue
               </div>
             </>
           ) : (
             <>
               <p className="text-sm text-slate-300">
-                Unlock the full CarVerity report to reveal deeper insights, negotiation angles and inspection priorities tailored specifically to this listing.
+                This preview highlights a small portion of the analysis for this car. Unlock the full CarVerity report to
+                see deeper risk markers, in-person inspection priorities, negotiation insights, and ownership guidance —
+                tailored specifically to this vehicle.
               </p>
-              <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-2 text-sm text-slate-400">
+
+              <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-3 text-sm text-slate-400">
                 Full report content locked — upgrade to continue
               </div>
             </>
@@ -490,7 +510,7 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* Vehicle details */}
+      {/* VEHICLE DETAILS */}
       <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5">
         <h2 className="text-sm font-semibold flex items-center gap-2 text-slate-200">
           🚗 VEHICLE DETAILS
@@ -524,7 +544,7 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* Desktop Actions */}
+      {/* DESKTOP ACTIONS */}
       <section className="hidden md:block rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-5 space-y-3">
         <button
           onClick={goInPersonFlow}
@@ -549,7 +569,7 @@ export default function OnlineResults() {
         </button>
       </section>
 
-      {/* Mobile CTA */}
+      {/* MOBILE FLOATING CTA */}
       {showFloatingBar && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40">
           <div className="mx-3 mb-3 rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur shadow-[0_20px_60px_rgba(0,0,0,0.7)] px-4 py-3 space-y-2">
