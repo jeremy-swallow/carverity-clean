@@ -1,8 +1,10 @@
+// src/pages/InPersonSummary.tsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { clearProgress } from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
 import type { SavedScan } from "../utils/scanStorage";
+import { syncScanToCloud } from "../services/scanSyncService";
 
 export default function InPersonSummary() {
   const navigate = useNavigate();
@@ -12,7 +14,7 @@ export default function InPersonSummary() {
     clearProgress();
   }, []);
 
-  function handleSaveAndFinish() {
+  async function handleSaveAndFinish() {
     const listingUrl = localStorage.getItem("carverity_listing_url") || "";
 
     const scan: SavedScan = {
@@ -20,13 +22,26 @@ export default function InPersonSummary() {
       type: "in-person",
       title: "In-person inspection summary",
       createdAt: new Date().toISOString(),
-      summary:
-        listingUrl
-          ? `In-person inspection completed • Listing: ${listingUrl}`
-          : "In-person inspection completed",
+      listingUrl,
+      summary: listingUrl
+        ? `In-person inspection completed • Listing: ${listingUrl}`
+        : "In-person inspection completed",
+      completed: true,
     };
 
+    // Local save
     saveScan(scan);
+
+    // Cloud sync (safe if logged out)
+    await syncScanToCloud(scan, {
+      plan: "free",
+      report: {
+        listingUrl,
+        type: "in-person",
+        notes: scan.summary,
+      },
+    });
+
     navigate("/my-scans");
   }
 
@@ -101,8 +116,8 @@ export default function InPersonSummary() {
         }}
       >
         <p style={{ color: "#9aa3c7", fontSize: 13 }}>
-          This is not a mechanical inspection or official vehicle report —
-          it’s a guided checklist to support your decision-making.
+          This is not a mechanical inspection or official vehicle report — it’s
+          a guided checklist to support your decision-making.
         </p>
       </div>
 

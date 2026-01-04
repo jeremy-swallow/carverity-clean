@@ -8,6 +8,9 @@ import {
   normaliseVehicle,
   LISTING_URL_KEY,
 } from "../utils/onlineResults";
+import { saveScan, generateScanId } from "../utils/scanStorage";
+import type { SavedScan } from "../utils/scanStorage";
+import { syncScanToCloud } from "../services/scanSyncService";
 
 /* =========================================================
    Preview builder
@@ -140,7 +143,7 @@ export default function OnlineAnalyzing() {
       setStepIndex((i) => (i + 1) % steps.length);
     }, 1600);
     return () => clearInterval(timer);
-  }, []);
+  }, [steps.length]);
 
   // Ambient progress loop
   useEffect(() => {
@@ -226,7 +229,36 @@ export default function OnlineAnalyzing() {
         notes: "",
       };
 
+      // Save full result locally
       saveOnlineResults(saved);
+
+      // Create an index entry in My Scans (local)
+      const scan: SavedScan = {
+        id: generateScanId(),
+        type: "online",
+        title:
+          `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim() ||
+          "Online scan",
+        createdAt: saved.createdAt,
+        listingUrl,
+        summary: previewSummary ?? "Online scan saved",
+        completed: true,
+      };
+
+      saveScan(scan);
+
+      // Push to Supabase (safe even if user is logged out)
+      await syncScanToCloud(scan, {
+        plan: "free",
+        report: {
+          listingUrl,
+          vehicle,
+          confidenceCode: saved.confidenceCode,
+          previewSummary,
+          fullSummary,
+          source: saved.source,
+        },
+      });
 
       navigate("/scan/online/results", { replace: true });
     } catch (err) {
@@ -248,9 +280,7 @@ export default function OnlineAnalyzing() {
           />
         </div>
 
-        <h1 className="text-xl font-semibold mb-2">
-          Scanning the listing…
-        </h1>
+        <h1 className="text-xl font-semibold mb-2">Scanning the listing…</h1>
 
         <p className="text-slate-400 text-sm mb-6">
           CarVerity is thoughtfully reviewing the listing to help you feel
