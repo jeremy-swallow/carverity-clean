@@ -1,3 +1,4 @@
+// api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
@@ -34,7 +35,7 @@ function normaliseKilometres(raw?: string | null): string {
 }
 
 /* ===============================
-   Extract structured info from HTML
+   Extract structured info
 ================================ */
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
@@ -79,7 +80,7 @@ function extractBasicVehicleInfo(text: string) {
 }
 
 /* ===============================
-   Fallback: derive make/model from AI summary
+   Fallback brand extraction
 ================================ */
 const BRANDS = [
   "Toyota","Kia","Mazda","Ford","Hyundai","Nissan","Mitsubishi",
@@ -89,54 +90,50 @@ const BRANDS = [
 
 function applySummaryFallback(vehicle: any, summary: string) {
   if (!summary) return vehicle;
-
   const firstLine = summary.split("\n")[0] ?? "";
   const brandRegex = new RegExp(
     `\\b((19|20)\\d{2})?\\s*(${BRANDS.join("|")})\\s+([A-Za-z0-9-]+)`,
     "i"
   );
-
   const match = firstLine.match(brandRegex);
   if (!match) return vehicle;
 
-  const detectedMake = match[3]?.trim() || "";
-  const detectedModel = match[4]?.trim() || "";
-
   return {
     ...vehicle,
-    make: vehicle.make || detectedMake,
-    model: vehicle.model || detectedModel,
+    make: vehicle.make || match[3]?.trim() || "",
+    model: vehicle.model || match[4]?.trim() || "",
   };
 }
 
 /* ===============================
-   Strict tone + structure prompt
+   STRICT — tone & service rules
 ================================ */
 function buildPrompt(listingText: string): string {
   return `
 You are CarVerity — an assisting tool for Australian used-car buyers.
-Your role is to help the buyer feel informed and confident — not alarmed.
 
-Use calm, warm, human-friendly language.
-Do not speculate or diagnose. Do not imply risk unless the listing explicitly states it.
-Use Australian wording (“kilometres”, not “mileage”).
+Use calm, neutral, human-friendly language.
+Do NOT speculate, infer problems, or imply risk unless the listing explicitly states it.
 
-SERVICE HISTORY — STRICT RULES
-Treat stamped / logged entries as normal services, even if dates appear odd or future-dated.
-Do not infer missing history, tampering, or risk unless the listing clearly says so.
+SERVICE HISTORY — ZERO-SPECULATION RULES (CRITICAL)
+• Future-dated service entries are treated as normal booking or admin entries.
+• Do NOT call them anomalies, warnings, or risks.
+• Do NOT infer missing history unless the listing clearly says it is missing.
+• Do NOT imply odometer inconsistency unless the listing states a problem.
+• If the listing presents service history as complete or transparent, accept it as valid.
 
-CONFIDENCE MODEL — MUST MATCH LANGUAGE
-LOW      = Feels comfortable so far — nothing concerning stands out
-MODERATE = Mostly positive — a couple of details worth checking in person
-HIGH     = Proceed carefully — important details should be confirmed before moving ahead
+CONFIDENCE MODEL
+LOW = Comfortable so far — nothing concerning stands out
+MODERATE = Mostly positive — a few details worth checking in person
+HIGH = Proceed carefully — some details should be confirmed before moving ahead
 
-STRUCTURE — EXACT ORDER ONLY
+STRUCTURE — EXACT ORDER
 
 CONFIDENCE ASSESSMENT
 CONFIDENCE_CODE: LOW / MODERATE / HIGH
 WHAT THIS MEANS FOR YOU
 CARVERITY ANALYSIS — SUMMARY
-KEY RISK SIGNALS
+KEY RISK SIGNALS (ONLY IF THE LISTING ITSELF MENTIONS THEM)
 BUYER CONSIDERATIONS
 NEGOTIATION INSIGHTS
 GENERAL OWNERSHIP NOTES
@@ -149,11 +146,12 @@ ${listingText}
 }
 
 /* ===============================
-   Gemini API  (UPDATED AUTH FORMAT)
+   Gemini API
 ================================ */
 async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=" +
+      GEMINI_API_KEY,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -163,59 +161,20 @@ async function callGemini(prompt: string): Promise<string> {
     }
   );
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Gemini error ${res.status}: ${err}`);
-  }
-
+  if (!res.ok) throw new Error(await res.text());
   const data = await res.json();
   const parts = data?.candidates?.[0]?.content?.parts || [];
   return parts.map((p: any) => p?.text || "").join("\n").trim();
 }
 
 /* ===============================
-   Validation & Tone-Safety Layer
+   Safety layer
 ================================ */
-const bannedPhrases = [
-  "red flag","serious risk","likely fault","dangerous",
-  "mechanical failure","tampered","suspicious","unsafe"
-];
-
-function softenTone(text: string): string {
-  let out = text;
-  for (const p of bannedPhrases) {
-    const r = new RegExp(p, "gi");
-    out = out.replace(r, "worth checking in person");
-  }
-  return out;
-}
-
 function extractConfidenceCode(text: string): string | null {
   const m = text.match(/CONFIDENCE_CODE:\s*(LOW|MODERATE|HIGH)/i);
   return m ? m[1].toUpperCase() : null;
 }
 
-function ensureMinimumStructure(text: string): string {
-  if (!text.includes("CONFIDENCE ASSESSMENT")) {
-    return (
-      "CONFIDENCE ASSESSMENT\nThis listing looks mostly positive so far, with a few details worth confirming in person.\n\n" +
-      text
-    );
-  }
-  return text;
-}
-
-function validateAndRepair(text: string) {
-  let safe = softenTone(text);
-  safe = ensureMinimumStructure(safe);
-
-  const confidence = extractConfidenceCode(safe) ?? "MODERATE";
-  return { safe, confidence };
-}
-
-/* ===============================
-   API Handler
-================================ */
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -231,16 +190,16 @@ export default async function handler(
     const prompt = buildPrompt(html);
     const raw = await callGemini(prompt);
 
-    const { safe, confidence } = validateAndRepair(raw);
+    const confidenceCode = extractConfidenceCode(raw) ?? "MODERATE";
 
-    vehicle = applySummaryFallback(vehicle, safe);
+    vehicle = applySummaryFallback(vehicle, raw);
 
     return res.status(200).json({
       ok: true,
       message: "Scan complete",
       vehicle,
-      summary: safe,
-      confidenceCode: confidence,
+      summary: raw,
+      confidenceCode,
       source: "gemini-2.5-flash",
     });
   } catch (err: any) {
