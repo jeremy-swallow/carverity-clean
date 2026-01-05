@@ -175,42 +175,65 @@ export default async function handler(
 ) {
   try {
     const body = req.body as any;
-    const listingUrl = body?.listingUrl ?? body?.url;
-    const rawTextInput = body?.rawText ?? null;
 
-    if (!listingUrl && !rawTextInput) {
+    const listingUrl = body?.listingUrl ?? body?.url ?? null;
+    const pastedText = body?.pastedText ?? body?.rawText ?? null;
+
+    // Require at least one input source
+    if (!listingUrl && !pastedText) {
       return res.status(400).json({ ok: false, error: "Missing input" });
     }
 
     let listingText = "";
     let vehicle = { make: "", model: "", year: "", kilometres: "" };
-    let mode: "html" | "raw-fallback" = "html";
+    let mode: "html" | "assist-manual" | "raw-fallback" = "html";
 
+    /* -----------------------------------------------------
+       🟣 ASSIST MODE — Manual pasted text (no scraping)
+    ----------------------------------------------------- */
+    if (pastedText && pastedText.trim().length > 0) {
+      mode = "assist-manual";
+      listingText = String(pastedText).slice(0, 20000);
+      vehicle = extractBasicVehicleInfo(listingText);
+
+      const prompt = buildPromptFromListing(listingText);
+      const raw = await callGemini(prompt);
+      const confidenceCode = extractConfidenceCode(raw) ?? "MODERATE";
+
+      return res.status(200).json({
+        ok: true,
+        message: "Assist-mode scan complete",
+        vehicle,
+        summary: raw,
+        confidenceCode,
+        source: "gemini-2.5-flash",
+        analysisVersion: "v2-assist-manual",
+        mode,
+      });
+    }
+
+    /* -----------------------------------------------------
+       🌐 NORMAL MODE — Attempt HTML fetch
+    ----------------------------------------------------- */
     try {
-      if (listingUrl) {
-        const html = await fetchListingHtml(listingUrl);
-        const readable = extractReadableText(html);
+      const html = await fetchListingHtml(listingUrl!);
+      const readable = extractReadableText(html);
 
-        // 🚦 If blocked → return assist-mode BUT include clues
-        if (readable.length < 400) {
-          return res.status(200).json({
-            ok: false,
-            mode: "assist-required",
-            reason: "scrape-blocked",
-            vehicle: extractBasicVehicleInfo(html),
-            readablePreview: readable.slice(0, 1200),
-            listingUrl,
-          });
-        }
-
-        listingText = readable;
-        vehicle = extractBasicVehicleInfo(html);
-      } else {
-        mode = "raw-fallback";
-        listingText = String(rawTextInput || "");
+      // If blocked — trigger Assist Mode
+      if (readable.length < 400) {
+        return res.status(200).json({
+          ok: false,
+          mode: "assist-required",
+          reason: "scrape-blocked",
+          vehicle: extractBasicVehicleInfo(html),
+          readablePreview: readable.slice(0, 1200),
+          listingUrl,
+        });
       }
+
+      listingText = readable;
+      vehicle = extractBasicVehicleInfo(html);
     } catch {
-      // 🌧 Network / CORS / anti-bot → assist mode instead of failing
       return res.status(200).json({
         ok: false,
         mode: "assist-required",
