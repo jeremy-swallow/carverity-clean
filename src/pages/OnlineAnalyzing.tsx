@@ -86,6 +86,32 @@ function enrichVehicleFromSummary(
 }
 
 /* =========================================================
+   SAFE ASSIST PLACEHOLDER SAVE
+========================================================= */
+function saveAssistPlaceholder(listingUrl: string | null) {
+  const fallback: SavedResult = {
+    type: "online",
+    step: "assist-required",
+    createdAt: new Date().toISOString(),
+    listingUrl,
+    vehicle: {},
+    previewSummary: null,
+    fullSummary: null,
+    summary: null,
+    sections: [],
+    signals: [],
+    photos: { listing: [], meta: [] },
+    isUnlocked: false,
+    conditionSummary: "",
+    kilometres: "",
+    owners: "",
+    notes: "",
+  };
+
+  saveOnlineResults(fallback);
+}
+
+/* =========================================================
    Component
 ========================================================= */
 export default function OnlineAnalyzing() {
@@ -135,8 +161,24 @@ export default function OnlineAnalyzing() {
       });
 
       const data = await res.json();
+      const mode = data?.mode as
+        | "html"
+        | "raw-fallback"
+        | "assist-required"
+        | undefined;
+
+      // 🟣 API intentionally requested assist-mode (Carsales, blocked, etc.)
+      if (!data?.ok && mode === "assist-required") {
+        console.warn("🔁 Assist mode triggered by backend:", data?.reason);
+        saveAssistPlaceholder(listingUrl);
+        navigate("/scan/online/assist", { replace: true });
+        return;
+      }
+
+      // Any OTHER failure → treat as error → fallback to assist
       if (!res.ok || !data?.ok) throw new Error(data?.error || "Scan failed");
 
+      // ---------- Success path ----------
       let vehicle = normaliseVehicle(data.vehicle ?? {});
       const rawSummary: string | null =
         data.summary ?? data.fullSummary ?? data.previewSummary ?? null;
@@ -207,33 +249,10 @@ export default function OnlineAnalyzing() {
 
       navigate("/scan/online/results", { replace: true });
     } catch (err) {
-      console.error("❌ Analysis error — switching to assist mode:", err);
+      console.error("❌ Analysis error — forcing assist mode:", err);
 
-      // 🟣 FALLBACK — Assisted Scan Mode
       const listingUrl = localStorage.getItem(LISTING_URL_KEY);
-
-      const fallback: SavedResult = {
-        type: "online",
-        step: "assist-required",
-        createdAt: new Date().toISOString(),
-        listingUrl: listingUrl ?? null,
-        vehicle: {},
-        previewSummary: null,
-        fullSummary: null,
-        summary: null,
-        sections: [],
-        signals: [],
-        photos: { listing: [], meta: [] },
-        isUnlocked: false,
-        conditionSummary: "",
-        kilometres: "",
-        owners: "",
-        notes: "",
-      };
-
-      saveOnlineResults(fallback);
-
-      // 🚀 NEW — go to guided assist entry page
+      saveAssistPlaceholder(listingUrl);
       navigate("/scan/online/assist", { replace: true });
     }
   }
