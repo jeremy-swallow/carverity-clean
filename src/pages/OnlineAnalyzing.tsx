@@ -57,28 +57,32 @@ function enrichVehicleFromSummary(
   if (!summary || !summary.trim()) return vehicle;
 
   const updated: VehicleInfo = { ...vehicle };
-  const firstLine = summary.split(/\r?\n/)[0] || summary;
-  const text = firstLine || summary;
-  const brandRegex = new RegExp(`\\b(${KNOWN_BRANDS.join("|")})\\b`, "i");
+  const text = summary;
 
-  if (!updated.make) {
-    const brandMatch = text.match(brandRegex);
-    if (brandMatch) updated.make = brandMatch[1];
+  // Brand
+  const brandRegex = new RegExp(`\\b(${KNOWN_BRANDS.join("|")})\\b`, "i");
+  const brandMatch = text.match(brandRegex);
+  if (!updated.make && brandMatch) {
+    updated.make = brandMatch[1];
   }
 
+  // Model — first token after make
   if (!updated.model && updated.make) {
-    const lower = text.toLowerCase();
-    const idx = lower.indexOf(updated.make.toLowerCase());
-    if (idx !== -1) {
-      const after = text.slice(idx + updated.make.length);
-      const tokens = after.split(/[\s,.;:()]+/).filter(Boolean);
-      if (tokens.length > 0) {
-        const candidate = tokens[0];
-        if (candidate && candidate.length <= 24) {
-          updated.model = candidate;
-        }
-      }
-    }
+    const regex = new RegExp(`${updated.make}\\s+([A-Za-z0-9-]+)`, "i");
+    const m = text.match(regex);
+    if (m?.[1]) updated.model = m[1];
+  }
+
+  // Year
+  if (!updated.year) {
+    const yearMatch = text.match(/\b(20[0-4]\d|19[8-9]\d)\b/);
+    if (yearMatch) updated.year = yearMatch[1];
+  }
+
+  // Kilometres
+  if (!updated.kilometres) {
+    const kmMatch = text.match(/([\d,\.]+)\s*(km|kms|kilometres)/i);
+    if (kmMatch) updated.kilometres = kmMatch[1].replace(/[,\.]/g, "");
   }
 
   return updated;
@@ -117,17 +121,6 @@ export default function OnlineAnalyzing() {
     return () => clearInterval(i);
   }, []);
 
-  function ensureVehicleDefaults(v: VehicleInfo): VehicleInfo {
-    return {
-      make: v.make ?? "",
-      model: v.model ?? "",
-      year: v.year ?? "",
-      kilometres: v.kilometres ?? "",
-      ...v,
-    };
-  }
-
-  /* ===== Assist mode fallback ===== */
   function enterAssistMode(listingUrl: string | null) {
     const fallback: SavedResult = {
       type: "online",
@@ -152,30 +145,22 @@ export default function OnlineAnalyzing() {
     setTimeout(() => navigate("/scan/online/assist", { replace: true }), 0);
   }
 
-  /* ===== Startup ===== */
   useEffect(() => {
     const payloadRaw = localStorage.getItem("carverity_assist_payload");
     const listingUrl = localStorage.getItem(LISTING_URL_KEY);
-
-    if (!listingUrl) {
-      console.warn("⚠️ No listing URL — aborting scan");
-      navigate("/start-scan", { replace: true });
-      return;
-    }
 
     if (!hasRunRef.current) {
       hasRunRef.current = true;
 
       if (payloadRaw) {
         const payload = JSON.parse(payloadRaw);
-        runScan(listingUrl, payload);
+        runScan(listingUrl ?? "", payload);
       } else {
-        runScan(listingUrl);
+        runScan(listingUrl ?? "");
       }
     }
-  }, [navigate]);
+  }, []);
 
-  /* ===== Main Scan ===== */
   async function runScan(listingUrl: string, assistPayload?: any) {
     try {
       const res = await fetch("/api/analyze-listing", {
@@ -201,7 +186,6 @@ export default function OnlineAnalyzing() {
       const fullSummary: string | null = rawSummary ?? null;
 
       vehicle = enrichVehicleFromSummary(vehicle, rawSummary);
-      vehicle = ensureVehicleDefaults(vehicle);
 
       const previewSummary: string | null = rawSummary
         ? buildPreviewFromConfidence(rawSummary)
