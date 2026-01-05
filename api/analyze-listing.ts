@@ -1,4 +1,3 @@
-// api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
@@ -7,119 +6,110 @@ if (!GEMINI_API_KEY) {
 }
 
 /* =========================================================
-   Helpers
+   HTTP Fetch Helpers
 ========================================================= */
 
-function stripCodeFence(text: string): string {
-  if (!text) return "";
-  return text
-    .replace(/^```json/i, "")
-    .replace(/^```/i, "")
-    .replace(/```$/i, "")
-    .trim();
-}
-
-function safeJsonParse<T = any>(text: string): T | null {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-/* =========================================================
-   Fetch Listing HTML
-========================================================= */
-
-async function fetchListingHtml(url: string): Promise<string> {
+async function fetchHtml(url: string): Promise<string> {
   const res = await fetch(url, {
     method: "GET",
     headers: {
       "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/123.0 Safari/537.36",
-      "Accept-Language": "en-US,en;q=0.9",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36",
+      "Accept-Language": "en-AU,en;q=0.9",
     },
   });
 
-  if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
+  if (!res.ok) {
+    throw new Error(`fetch-failed:${res.status}`);
+  }
+
   return await res.text();
 }
 
 function extractReadableText(html: string): string {
   return html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 20000);
+    .trim();
 }
 
 /* =========================================================
-   Gemini Call — now returns JSON in code fence
+   Model Response — Safe JSON Extractor
 ========================================================= */
 
-async function callGemini(prompt: string) {
+function safeParseModelJson(raw: string): any {
+  if (!raw) throw new Error("empty-model-response");
+
+  // Grab ```json ... ``` if present
+  const fenced =
+    raw.match(/```json([\s\S]*?)```/i)?.[1] ??
+    raw.match(/```([\s\S]*?)```/i)?.[1];
+
+  const candidate = (fenced ?? raw)
+    .replace(/^[^\{]*/s, "") // trim anything before first {
+    .replace(/[^}]*$/s, ""); // trim anything after last }
+
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    throw new Error("model-json-parse-failed");
+  }
+}
+
+/* =========================================================
+   Gemini Call
+========================================================= */
+
+async function callModel(prompt: string) {
   const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=" +
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
       GEMINI_API_KEY,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2 },
       }),
     }
   );
 
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw new Error("model-call-failed");
+
   const data = await res.json();
+  const text =
+    data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim?.() ?? "";
 
-  const rawText =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-
-  const stripped = stripCodeFence(rawText);
-  const parsed = safeJsonParse<any>(stripped);
-
-  if (!parsed) throw new Error("Model returned invalid JSON format");
-
-  return parsed;
+  return safeParseModelJson(text);
 }
 
 /* =========================================================
-   Handler
+   API Handler
 ========================================================= */
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const { listingUrl, rawText } = req.body ?? {};
+    const body = (req.body ?? {}) as {
+      listingUrl?: string;
+      pastedText?: string;
+    };
 
-    if (!listingUrl && !rawText) {
-      return res.status(400).json({ ok: false, error: "Missing input" });
-    }
+    const { listingUrl, pastedText } = body;
+    const assistMode = Boolean(pastedText);
 
-    let listingText = "";
+    let listingText = pastedText ?? "";
 
-    if (listingUrl) {
+    // Normal mode — fetch from URL
+    if (!assistMode) {
+      if (!listingUrl) {
+        return res.status(400).json({ ok: false, error: "missing-url" });
+      }
+
       try {
-        const html = await fetchListingHtml(listingUrl);
+        const html = await fetchHtml(listingUrl);
         listingText = extractReadableText(html);
-
-        if (listingText.length < 300) {
-          return res.status(200).json({
-            ok: false,
-            mode: "assist-required",
-            reason: "scrape-blocked",
-            listingUrl,
-          });
-        }
       } catch {
         return res.status(200).json({
           ok: false,
@@ -128,28 +118,51 @@ export default async function handler(
           listingUrl,
         });
       }
-    } else {
-      listingText = String(rawText || "");
     }
 
-    const model = await callGemini(listingText);
+    // If text is still too small → ask user to paste
+    if (!listingText || listingText.length < 400) {
+      return res.status(200).json({
+        ok: false,
+        mode: assistMode ? "assist-manual" : "assist-required",
+        reason: "insufficient-text",
+        listingUrl,
+      });
+    }
+
+    /* =====================================================
+       Build structured analysis prompt
+    ====================================================== */
+
+    const prompt = `
+Analyse this Australian used-car listing and reply ONLY as JSON.
+
+Required JSON structure:
+{
+  "vehicle": { "make": "", "model": "", "year": "", "kilometres": "" },
+  "confidenceCode": "LOW | MODERATE | HIGH",
+  "previewSummary": "",
+  "fullSummary": ""
+}
+
+Listing text:
+${listingText}
+`;
+
+    const result = await callModel(prompt);
 
     return res.status(200).json({
       ok: true,
       mode: "analysis-complete",
       source: "gemini-2.5-flash",
-      vehicle: model.vehicle ?? {},
-      confidenceCode: model.confidenceCode ?? null,
-      previewSummary: model.previewSummary ?? null,
-      fullSummary: model.fullSummary ?? null,
-      summary: model.fullSummary ?? model.previewSummary ?? null,
-      sections: model.sections ?? [],
+      ...result,
     });
   } catch (err: any) {
-    console.error("❌ Analysis error", err);
-    return res.status(500).json({
+    console.error("❌ analyze-listing error:", err?.message || err);
+    return res.status(200).json({
       ok: false,
-      error: err?.message || "Analysis failed",
+      mode: "error",
+      reason: err?.message ?? "unknown-error",
     });
   }
 }
