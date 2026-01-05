@@ -202,6 +202,7 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
 
   const teaser: string[] = [];
 
+  // 1) What this means for you
   const meaning = sections.find((s) =>
     s.title.toLowerCase().includes("what this means")
   );
@@ -210,6 +211,7 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
     if (line) teaser.push(line);
   }
 
+  // 2) Confidence assessment
   if (teaser.length < 2) {
     const conf = sections.find((s) =>
       s.title.toLowerCase().includes("confidence")
@@ -220,6 +222,7 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
     }
   }
 
+  // 3) First good insight anywhere
   if (teaser.length < 2) {
     for (const s of sections) {
       const line = pickFirstMeaningfulLine(s.body);
@@ -228,7 +231,24 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
     }
   }
 
-  return teaser;
+  // 4) Final fallback — pull 1–2 sentences from Overview so
+  //    the preview still feels specific to this vehicle.
+  if (teaser.length === 0) {
+    const overview = sections.find((s) =>
+      s.title.toLowerCase().includes("overview")
+    );
+
+    if (overview) {
+      const sentences = overview.body
+        .split(".")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 30 && s.length < 220);
+
+      teaser.push(...sentences.slice(0, 2));
+    }
+  }
+
+  return teaser.slice(0, 2);
 }
 
 /* =========================================================
