@@ -6,12 +6,12 @@ if (!GEMINI_API_KEY) {
   throw new Error("Missing GOOGLE_API_KEY — add it in Vercel env vars.");
 }
 
-/* ===============================
-   Fetch listing HTML (UPGRADED)
-================================ */
+/* =========================================================
+   USER-AGENT & FETCH (ANTI-BLOCKING + FALLBACK READY)
+========================================================= */
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/121.0 Safari/537.36";
+  "(KHTML, like Gecko) Chrome/123.0 Safari/537.36";
 
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, {
@@ -24,10 +24,6 @@ async function fetchListingHtml(url: string): Promise<string> {
       "Cache-Control": "no-cache",
       Pragma: "no-cache",
       "Upgrade-Insecure-Requests": "1",
-      "Sec-Fetch-Dest": "document",
-      "Sec-Fetch-Mode": "navigate",
-      "Sec-Fetch-Site": "none",
-      "Sec-Fetch-User": "?1",
     },
   });
 
@@ -35,9 +31,9 @@ async function fetchListingHtml(url: string): Promise<string> {
   return await res.text();
 }
 
-/* ===============================
-   Normalisers
-================================ */
+/* =========================================================
+   BASIC FIELD NORMALISERS
+========================================================= */
 function normaliseYear(raw?: string | null): string {
   if (!raw) return "";
   const n = parseInt(raw, 10);
@@ -54,35 +50,23 @@ function normaliseKilometres(raw?: string | null): string {
   return String(n);
 }
 
-/* ===============================
-   Extract structured info
-================================ */
+/* =========================================================
+   LIGHT-TOUCH VEHICLE EXTRACTION
+   (SAFE — NEVER GUESSES OR INFERENCES)
+========================================================= */
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
 
   let year = "";
   const labelled = text.match(/(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i);
-  const beforeMake = text.match(
-    /\b((19|20)\d{2})\b[^,\n]{0,30}(Hyundai|Toyota|Kia|Mazda|Ford|Nissan|Mitsubishi|Subaru|Honda|Volkswagen)/i
-  );
-  const afterMake = text.match(
-    /(Hyundai|Toyota|Kia|Mazda|Ford|Nissan|Mitsubishi|Subaru|Honda|Volkswagen)[^0-9]{0,20}\b((19|20)\d{2})\b/i
-  );
-  const myCode = text.match(/\bMY\s?(\d{2})\b/i);
-
   if (labelled) year = labelled[2];
-  else if (beforeMake) year = beforeMake[1];
-  else if (afterMake) year = afterMake[2];
-  else if (myCode) year = `20${myCode[1]}`;
-
   year = normaliseYear(year);
 
   let kilometres = "";
   for (const p of [
     /\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i,
     /\bodometer[^0-9]{0,6}([\d,\.]+)\b/i,
-    /\btravelled[^0-9]{0,6}([\d,\.]+)\b/i,
   ]) {
     const m = text.match(p);
     if (m?.[1]) {
@@ -95,59 +79,36 @@ function extractBasicVehicleInfo(text: string) {
     make: makeMatch?.[1]?.trim() || "",
     model: modelMatch?.[1]?.trim() || "",
     year,
-    kilometres: kilometres || null,
+    // 🔧 ALWAYS a string ("" when unknown) so TS is happy
+    kilometres: kilometres || "",
   };
 }
 
-/* ===============================
-   Fallback brand extraction
-================================ */
-const BRANDS = [
-  "Toyota","Kia","Mazda","Ford","Hyundai","Nissan","Mitsubishi",
-  "Subaru","Honda","Volkswagen","Audi","BMW","Mercedes","Holden",
-  "Peugeot","Renault","Jeep","Volvo","Lexus"
-];
-
-function applySummaryFallback(vehicle: any, summary: string) {
-  if (!summary) return vehicle;
-  const firstLine = summary.split("\n")[0] ?? "";
-  const brandRegex = new RegExp(
-    `\\b((19|20)\\d{2})?\\s*(${BRANDS.join("|")})\\s+([A-Za-z0-9-]+)`,
-    "i"
-  );
-  const match = firstLine.match(brandRegex);
-  if (!match) return vehicle;
-
-  return {
-    ...vehicle,
-    make: vehicle.make || match[3]?.trim() || "",
-    model: vehicle.model || match[4]?.trim() || "",
-  };
-}
-
-/* ===============================
-   STRICT — tone & service rules
-================================ */
-function buildPrompt(listingText: string): string {
+/* =========================================================
+   STRICT — TRUST-FIRST, ZERO-SPECULATION PROMPT (PREMIUM)
+========================================================= */
+function buildPromptFromListing(listingText: string): string {
   return `
-You are CarVerity — an assisting tool for Australian used-car buyers.
+You are CarVerity — a calm, neutral guidance tool for Australian used-car buyers.
 
-Use calm, neutral, human-friendly language.
-Do NOT speculate, infer problems, or imply risk unless the listing explicitly states it.
+Tone requirements:
+• Human-friendly, measured, factual.
+• Do NOT speculate or infer problems.
+• Do NOT exaggerate risk or imply hidden issues.
+• Only discuss concerns if the listing explicitly states them.
 
 SERVICE HISTORY — ZERO-SPECULATION RULES (CRITICAL)
-• Future-dated service entries are treated as normal booking or admin entries.
-• Do NOT call them anomalies, warnings, or risks.
-• Do NOT infer missing history unless the listing clearly says it is missing.
-• Do NOT imply odometer inconsistency unless the listing states a problem.
-• If the listing presents service history as complete or transparent, accept it as valid.
+• Future-dated or administrative entries are treated as normal bookings.
+• Do NOT label them anomalies, warnings, or risks.
+• Do NOT infer missing history unless the listing clearly states it.
+• Do NOT imply odometer or ownership concerns unless stated.
 
 CONFIDENCE MODEL
 LOW = Comfortable so far — nothing concerning stands out
-MODERATE = Mostly positive — a few details worth checking in person
-HIGH = Proceed carefully — some details should be confirmed before moving ahead
+MODERATE = Mostly positive — a few details worth confirming in person
+HIGH = Proceed carefully — the listing itself mentions details worth checking
 
-STRUCTURE — EXACT ORDER
+OUTPUT FORMAT — EXACT ORDER
 
 CONFIDENCE ASSESSMENT
 CONFIDENCE_CODE: LOW / MODERATE / HIGH
@@ -158,6 +119,8 @@ BUYER CONSIDERATIONS
 NEGOTIATION INSIGHTS
 GENERAL OWNERSHIP NOTES
 
+Now analyse ONLY the text below.
+
 LISTING TEXT
 --------------------------------
 ${listingText}
@@ -165,9 +128,9 @@ ${listingText}
 `;
 }
 
-/* ===============================
-   Gemini API
-================================ */
+/* =========================================================
+   GEMINI CALL
+========================================================= */
 async function callGemini(prompt: string): Promise<string> {
   const res = await fetch(
     "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=" +
@@ -177,10 +140,7 @@ async function callGemini(prompt: string): Promise<string> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.2,
-          topP: 0.9
-        }
+        generationConfig: { temperature: 0.2, topP: 0.9 },
       }),
     }
   );
@@ -191,35 +151,76 @@ async function callGemini(prompt: string): Promise<string> {
   return parts.map((p: any) => p?.text || "").join("\n").trim();
 }
 
-/* ===============================
-   Safety layer — extract confidence
-================================ */
 function extractConfidenceCode(text: string): string | null {
   const m = text.match(/CONFIDENCE_CODE:\s*(LOW|MODERATE|HIGH)/i);
   return m ? m[1].toUpperCase() : null;
 }
 
-/* ===============================
-   Handler — confidence persists per scan
-================================ */
+/* =========================================================
+   RAW-TEXT FALLBACK MODE
+   (Used when scraping fails or page blocks bots)
+========================================================= */
+function extractReadableText(html: string): string {
+  const stripped = html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return stripped.slice(0, 20000); // safety limit
+}
+
+/* =========================================================
+   HANDLER
+========================================================= */
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
   try {
-    const listingUrl = (req.body as any)?.listingUrl ?? (req.body as any)?.url;
-    if (!listingUrl)
-      return res.status(400).json({ ok: false, error: "Missing listing URL" });
+    const body = req.body as any;
+    const listingUrl = body?.listingUrl ?? body?.url;
+    const rawTextInput = body?.rawText ?? null;
 
-    const html = await fetchListingHtml(listingUrl);
-    let vehicle = extractBasicVehicleInfo(html);
+    if (!listingUrl && !rawTextInput) {
+      return res.status(400).json({ ok: false, error: "Missing input" });
+    }
 
-    const prompt = buildPrompt(html);
+    let listingText = "";
+    let vehicle = { make: "", model: "", year: "", kilometres: "" };
+    let mode: "html" | "raw-fallback" = "html";
+
+    try {
+      if (listingUrl) {
+        const html = await fetchListingHtml(listingUrl);
+        const readable = extractReadableText(html);
+
+        // If page is heavily blocked / empty → trigger fallback
+        if (readable.length < 400 && rawTextInput) {
+          mode = "raw-fallback";
+          listingText = rawTextInput;
+        } else {
+          listingText = readable;
+          vehicle = extractBasicVehicleInfo(html);
+        }
+      } else {
+        mode = "raw-fallback";
+        listingText = String(rawTextInput || "");
+      }
+    } catch {
+      // Network fail → fallback to raw input if provided
+      if (rawTextInput) {
+        mode = "raw-fallback";
+        listingText = String(rawTextInput || "");
+      } else {
+        throw new Error("Listing could not be scraped and no fallback supplied");
+      }
+    }
+
+    const prompt = buildPromptFromListing(listingText);
     const raw = await callGemini(prompt);
-
     const confidenceCode = extractConfidenceCode(raw) ?? "MODERATE";
-
-    vehicle = applySummaryFallback(vehicle, raw);
 
     return res.status(200).json({
       ok: true,
@@ -228,7 +229,8 @@ export default async function handler(
       summary: raw,
       confidenceCode,
       source: "gemini-2.5-flash",
-      analysisVersion: "v1-persistent-confidence"
+      analysisVersion: "v2-raw-text-fallback",
+      mode,
     });
   } catch (err: any) {
     console.error("❌ Analysis error:", err);
