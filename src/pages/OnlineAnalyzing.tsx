@@ -46,9 +46,25 @@ function buildPreviewFromConfidence(text: string): string {
    Vehicle enrichment
 ========================================================= */
 const KNOWN_BRANDS = [
-  "Toyota","Kia","Mazda","Ford","Hyundai","Nissan","Mitsubishi",
-  "Subaru","Honda","Volkswagen","Audi","BMW","Mercedes","Holden",
-  "Peugeot","Renault","Jeep","Volvo","Lexus",
+  "Toyota",
+  "Kia",
+  "Mazda",
+  "Ford",
+  "Hyundai",
+  "Nissan",
+  "Mitsubishi",
+  "Subaru",
+  "Honda",
+  "Volkswagen",
+  "Audi",
+  "BMW",
+  "Mercedes",
+  "Holden",
+  "Peugeot",
+  "Renault",
+  "Jeep",
+  "Volvo",
+  "Lexus",
 ];
 
 function enrichVehicleFromSummary(
@@ -83,32 +99,6 @@ function enrichVehicleFromSummary(
   }
 
   return updated;
-}
-
-/* =========================================================
-   SAFE ASSIST PLACEHOLDER SAVE
-========================================================= */
-function saveAssistPlaceholder(listingUrl: string | null) {
-  const fallback: SavedResult = {
-    type: "online",
-    step: "assist-required",
-    createdAt: new Date().toISOString(),
-    listingUrl,
-    vehicle: {},
-    previewSummary: null,
-    fullSummary: null,
-    summary: null,
-    sections: [],
-    signals: [],
-    photos: { listing: [], meta: [] },
-    isUnlocked: false,
-    conditionSummary: "",
-    kilometres: "",
-    owners: "",
-    notes: "",
-  };
-
-  saveOnlineResults(fallback);
 }
 
 /* =========================================================
@@ -161,24 +151,42 @@ export default function OnlineAnalyzing() {
       });
 
       const data = await res.json();
-      const mode = data?.mode as
-        | "html"
-        | "raw-fallback"
-        | "assist-required"
-        | undefined;
 
-      // 🟣 API intentionally requested assist-mode (Carsales, blocked, etc.)
-      if (!data?.ok && mode === "assist-required") {
-        console.warn("🔁 Assist mode triggered by backend:", data?.reason);
-        saveAssistPlaceholder(listingUrl);
+      // ✅ NEW: explicit assist-mode handling from backend
+      if (data && data.ok === false && data.mode === "assist-required") {
+        console.warn(
+          "⚠️ Assist mode triggered by backend:",
+          data.reason || "scrape-blocked"
+        );
+
+        const fallback: SavedResult = {
+          type: "online",
+          step: "assist-required",
+          createdAt: new Date().toISOString(),
+          listingUrl,
+          vehicle: {},
+          previewSummary: null,
+          fullSummary: null,
+          summary: null,
+          sections: [],
+          signals: [],
+          photos: { listing: [], meta: [] },
+          isUnlocked: false,
+          conditionSummary: "",
+          kilometres: "",
+          owners: "",
+          notes: "",
+        };
+
+        saveOnlineResults(fallback);
         navigate("/scan/online/assist", { replace: true });
         return;
       }
 
-      // Any OTHER failure → treat as error → fallback to assist
-      if (!res.ok || !data?.ok) throw new Error(data?.error || "Scan failed");
+      if (!res.ok || data?.ok === false) {
+        throw new Error(data?.error || "Scan failed");
+      }
 
-      // ---------- Success path ----------
       let vehicle = normaliseVehicle(data.vehicle ?? {});
       const rawSummary: string | null =
         data.summary ?? data.fullSummary ?? data.previewSummary ?? null;
@@ -225,8 +233,9 @@ export default function OnlineAnalyzing() {
         id: generateScanId(),
         type: "online",
         title:
-          `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim() ||
-          "Online scan",
+          `${vehicle.year || ""} ${vehicle.make || ""} ${
+            vehicle.model || ""
+          }`.trim() || "Online scan",
         createdAt: saved.createdAt,
         listingUrl,
         summary: previewSummary ?? "Online scan saved",
@@ -249,10 +258,33 @@ export default function OnlineAnalyzing() {
 
       navigate("/scan/online/results", { replace: true });
     } catch (err) {
-      console.error("❌ Analysis error — forcing assist mode:", err);
+      console.error("❌ Analysis error — switching to assist mode:", err);
 
+      // 🟣 FALLBACK — Assisted Scan Mode
       const listingUrl = localStorage.getItem(LISTING_URL_KEY);
-      saveAssistPlaceholder(listingUrl);
+
+      const fallback: SavedResult = {
+        type: "online",
+        step: "assist-required",
+        createdAt: new Date().toISOString(),
+        listingUrl: listingUrl ?? null,
+        vehicle: {},
+        previewSummary: null,
+        fullSummary: null,
+        summary: null,
+        sections: [],
+        signals: [],
+        photos: { listing: [], meta: [] },
+        isUnlocked: false,
+        conditionSummary: "",
+        kilometres: "",
+        owners: "",
+        notes: "",
+      };
+
+      saveOnlineResults(fallback);
+
+      // 🚀 Go to guided assist entry page
       navigate("/scan/online/assist", { replace: true });
     }
   }
@@ -262,12 +294,17 @@ export default function OnlineAnalyzing() {
       <div className="max-w-md w-full text-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-8 shadow-xl">
         <div className="relative w-24 h-24 mx-auto mb-5">
           <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-xl animate-[pulse_2.4s_ease-in-out_infinite]" />
-          <img src="/logo.png" alt="CarVerity logo" className="relative w-24 h-24 mx-auto opacity-95" />
+          <img
+            src="/logo.png"
+            alt="CarVerity logo"
+            className="relative w-24 h-24 mx-auto opacity-95"
+          />
         </div>
 
         <h1 className="text-xl font-semibold mb-2">Scanning the listing…</h1>
         <p className="text-slate-400 text-sm mb-6">
-          CarVerity is thoughtfully reviewing the listing to help you feel confident about your next steps.
+          CarVerity is thoughtfully reviewing the listing to help you feel
+          confident about your next steps.
         </p>
 
         <div className="flex items-center justify-center gap-2 mb-3">
@@ -281,10 +318,15 @@ export default function OnlineAnalyzing() {
           ))}
         </div>
 
-        <p className="text-sm text-indigo-300 font-medium h-6">{steps[stepIndex]}</p>
+        <p className="text-sm text-indigo-300 font-medium h-6">
+          {steps[stepIndex]}
+        </p>
 
         <div className="mt-5 w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-          <div className="h-full bg-indigo-400 rounded-full transition-all" style={{ width: `${progress}%` }} />
+          <div
+            className="h-full bg-indigo-400 rounded-full transition-all"
+            style={{ width: `${progress}%` }}
+          />
         </div>
 
         <p className="text-xs text-slate-500 mt-6">
