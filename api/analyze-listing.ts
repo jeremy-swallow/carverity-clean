@@ -1,4 +1,3 @@
-// api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
@@ -6,223 +5,58 @@ if (!GEMINI_API_KEY) {
   throw new Error("Missing GOOGLE_API_KEY — add it in Vercel env vars.");
 }
 
-/* =========================================================
-   USER-AGENT & FETCH (ANTI-BLOCKING)
-========================================================= */
-const USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/123.0 Safari/537.36";
-
+// ------------------------------
+// Helper — fetch listing HTML
+// ------------------------------
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      "User-Agent": USER_AGENT,
-      "Accept-Language": "en-US,en;q=0.9",
-      "Accept":
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-      "Cache-Control": "no-cache",
-      Pragma: "no-cache",
-      "Upgrade-Insecure-Requests": "1",
-    },
+    headers: { "User-Agent": "Mozilla/5.0 CarVerityBot" },
   });
 
-  if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
+  if (!res.ok) {
+    throw new Error(`fetch-failed:${res.status}`);
+  }
+
   return await res.text();
 }
 
-/* =========================================================
-   BASIC FIELD NORMALISERS
-========================================================= */
-function normaliseYear(raw?: string | null): string {
-  if (!raw) return "";
-  const n = parseInt(raw, 10);
-  const now = new Date().getFullYear();
-  if (!n || n < 1970 || n > now + 1) return "";
-  return String(n);
-}
-
-function normaliseKilometres(raw?: string | null): string {
-  if (!raw) return "";
-  const cleaned = raw.replace(/[,\.]/g, "").trim();
-  const n = parseInt(cleaned, 10);
-  if (!n || n < 10 || n > 1_000_000) return "";
-  return String(n);
-}
-
-/* =========================================================
-   LIGHT-TOUCH VEHICLE EXTRACTION (HTML PATH ONLY)
-========================================================= */
-function extractBasicVehicleInfo(text: string) {
-  const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
-  const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
-
-  let year = "";
-  const labelled = text.match(
-    /(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i
-  );
-  if (labelled) year = labelled[2];
-  year = normaliseYear(year);
-
-  let kilometres = "";
-  for (const p of [
-    /\b([\d,\.]+)\s*(km|kms|kilometres|kilometers)\b/i,
-    /\bodometer[^0-9]{0,6}([\d,\.]+)\b/i,
-  ]) {
-    const m = text.match(p);
-    if (m?.[1]) {
-      kilometres = normaliseKilometres(m[1]);
-      if (kilometres) break;
-    }
-  }
-
-  return {
-    make: makeMatch?.[1]?.trim() || "",
-    model: modelMatch?.[1]?.trim() || "",
-    year,
-    kilometres: kilometres || "",
-  };
-}
-
-/* =========================================================
-   PROMPT
-========================================================= */
-function buildPromptFromListing(listingText: string): string {
-  return `
-You are CarVerity — a calm, neutral guidance tool for Australian used-car buyers.
-
-Tone requirements:
-• Human-friendly, measured, factual.
-• Do NOT speculate or infer problems.
-• Only discuss concerns if the listing explicitly states them.
-
-SERVICE HISTORY — ZERO-SPECULATION RULES
-• Future-dated entries are treated as normal bookings.
-• Do NOT infer missing history unless the listing states it.
-• Do NOT imply odometer or ownership issues unless stated.
-
-CONFIDENCE MODEL
-LOW = Comfortable so far
-MODERATE = Mostly positive — a few details worth confirming
-HIGH = Proceed carefully — listing mentions details to check
-
-OUTPUT FORMAT — EXACT ORDER
-
-CONFIDENCE ASSESSMENT
-CONFIDENCE_CODE: LOW / MODERATE / HIGH
-WHAT THIS MEANS FOR YOU
-CARVERITY ANALYSIS — SUMMARY
-KEY RISK SIGNALS
-BUYER CONSIDERATIONS
-NEGOTIATION INSIGHTS
-GENERAL OWNERSHIP NOTES
-
-LISTING TEXT
---------------------------------
-${listingText}
---------------------------------
-`;
-}
-
-/* =========================================================
-   GEMINI CALL
-========================================================= */
-async function callGemini(prompt: string): Promise<string> {
-  const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=" +
-      GEMINI_API_KEY,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2, topP: 0.9 },
-      }),
-    }
-  );
-
-  if (!res.ok) throw new Error(await res.text());
-  const data = await res.json();
-  const parts = data?.candidates?.[0]?.content?.parts || [];
-  return parts.map((p: any) => p?.text || "").join("\n").trim();
-}
-
-function extractConfidenceCode(text: string): string | null {
-  const m = text.match(/CONFIDENCE_CODE:\s*(LOW|MODERATE|HIGH)/i);
-  return m ? m[1].toUpperCase() : null;
-}
-
-/* =========================================================
-   RAW TEXT EXTRACTOR (HTML PATH)
-========================================================= */
-function extractReadableText(html: string): string {
-  const stripped = html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
+// ------------------------------
+// Normalize text before sending to AI
+// ------------------------------
+function cleanPastedText(text: string) {
+  return text
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
-
-  return stripped.slice(0, 20000);
 }
 
-/* =========================================================
-   HANDLER
-========================================================= */
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+// ------------------------------
+// API Handler
+// ------------------------------
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const body = req.body as any;
+    const body = req.body || {};
 
-    const listingUrl: string | null =
-      body?.listingUrl ?? body?.url ?? null;
-    const rawTextInput: string | null =
-      typeof body?.rawText === "string" ? body.rawText : null;
+    const mode = body.mode ?? "auto";
+    const listingUrl: string | null = body.listingUrl ?? null;
 
-    if (!listingUrl && !rawTextInput) {
-      return res.status(400).json({ ok: false, error: "Missing input" });
+    let listingText: string | null = null;
+
+    // ------------------------------------------
+    // 1️⃣  ASSIST MODE — pasted text from UI
+    // ------------------------------------------
+    if (mode === "assist-manual" && body.pastedText) {
+      listingText = cleanPastedText(body.pastedText);
     }
 
-    let listingText = "";
-    let vehicle = { make: "", model: "", year: "", kilometres: "" };
-    let mode: "html" | "raw-fallback" = "html";
-
-    /* ------------------------------------------
-       ✅ 1) ASSIST / PASTE MODE (PREFERRED)
-       If rawText is present, ALWAYS use it and
-       NEVER re-fetch the URL (even if provided).
-    ------------------------------------------- */
-    if (rawTextInput && rawTextInput.trim().length > 0) {
-      mode = "raw-fallback";
-      listingText = rawTextInput;
-    }
-
-    /* ------------------------------------------
-       🌐 2) NORMAL HTML MODE (NO rawText)
-    ------------------------------------------- */
-    else if (listingUrl) {
+    // ------------------------------------------
+    // 2️⃣  NORMAL MODE — fetch listing HTML
+    // ------------------------------------------
+    if (!listingText && listingUrl) {
       try {
         const html = await fetchListingHtml(listingUrl);
-        const readable = extractReadableText(html);
-
-        // If the scraped text is tiny → ask for assist
-        if (readable.length < 400) {
-          return res.status(200).json({
-            ok: false,
-            mode: "assist-required",
-            reason: "scrape-blocked",
-            vehicle: extractBasicVehicleInfo(html),
-            readablePreview: readable.slice(0, 1200),
-            listingUrl,
-          });
-        }
-
-        listingText = readable;
-        vehicle = extractBasicVehicleInfo(html);
-      } catch {
-        // Network / anti-bot → assist instead of hard fail
+        listingText = html;
+      } catch (err) {
         return res.status(200).json({
           ok: false,
           mode: "assist-required",
@@ -232,28 +66,68 @@ export default async function handler(
       }
     }
 
-    /* ------------------------------------------
-       🔍 3) Run Gemini on the chosen text
-    ------------------------------------------- */
-    const prompt = buildPromptFromListing(listingText);
-    const raw = await callGemini(prompt);
-    const confidenceCode = extractConfidenceCode(raw) ?? "MODERATE";
+    // ------------------------------------------
+    // 3️⃣  If still no text → fail gracefully
+    // ------------------------------------------
+    if (!listingText || !listingText.trim()) {
+      return res.status(200).json({
+        ok: false,
+        mode: "assist-required",
+        reason: "no-text",
+        listingUrl,
+      });
+    }
+
+    // ------------------------------------------
+    // 4️⃣  Send to Gemini
+    // ------------------------------------------
+    const aiRes = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
+        GEMINI_API_KEY,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `You are CarVerity. Analyse the following vehicle listing text.
+Return structured JSON ONLY.
+
+FIELDS:
+vehicle { make, model, year, kilometres }
+confidenceCode
+previewSummary
+fullSummary
+
+TEXT:
+${listingText}`,
+                },
+              ],
+            },
+          ],
+        }),
+      }
+    );
+
+    if (!aiRes.ok) throw new Error("ai-failed");
+
+    const aiJson = await aiRes.json();
 
     return res.status(200).json({
       ok: true,
-      message: "Scan complete",
-      vehicle,
-      summary: raw,
-      confidenceCode,
+      mode: "analysis-complete",
       source: "gemini-2.5-flash",
-      analysisVersion: "v2-raw-text-fallback",
-      mode,
+      ...aiJson,
     });
   } catch (err: any) {
-    console.error("❌ Analysis error:", err);
-    return res.status(500).json({
+    console.error("❌ analyze-listing error", err);
+
+    return res.status(200).json({
       ok: false,
-      error: err?.message || "Analysis failed",
+      mode: "assist-required",
+      reason: err?.message ?? "unknown-error",
     });
   }
 }
