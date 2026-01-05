@@ -5,6 +5,8 @@ import {
   loadOnlineResults,
   saveOnlineResults,
   type SavedResult,
+  type VehicleInfo,
+  normaliseVehicle,
 } from "../utils/onlineResults";
 
 const UNLOCK_KEY = "carverity_test_full_unlock";
@@ -249,6 +251,72 @@ function getSectionTheme(title: string): SectionTheme {
 }
 
 /* =========================================================
+   Vehicle display enrichment
+========================================================= */
+
+const KNOWN_BRANDS = [
+  "Toyota",
+  "Kia",
+  "Mazda",
+  "Ford",
+  "Hyundai",
+  "Nissan",
+  "Mitsubishi",
+  "Subaru",
+  "Honda",
+  "Volkswagen",
+  "Audi",
+  "BMW",
+  "Mercedes",
+  "Holden",
+  "Peugeot",
+  "Renault",
+  "Jeep",
+  "Volvo",
+  "Lexus",
+];
+
+function enrichVehicleForDisplay(
+  vehicle: VehicleInfo,
+  summary: string | null
+): VehicleInfo {
+  if (!summary || !summary.trim()) return vehicle;
+
+  const updated: VehicleInfo = { ...vehicle };
+  const firstLine = summary.split(/\r?\n/)[0] || summary;
+  const text = firstLine || summary;
+
+  const brandRegex = new RegExp(`\\b(${KNOWN_BRANDS.join("|")})\\b`, "i");
+
+  if (!updated.make) {
+    const brandMatch = text.match(brandRegex);
+    if (brandMatch) updated.make = brandMatch[1];
+  }
+
+  if (!updated.model && updated.make) {
+    const lower = text.toLowerCase();
+    const idx = lower.indexOf(updated.make.toLowerCase());
+    if (idx !== -1) {
+      const after = text.slice(idx + updated.make.length);
+      const tokens = after.split(/[\s,.;:()]+/).filter(Boolean);
+      if (tokens.length > 0) {
+        const candidate = tokens[0];
+        if (candidate && candidate.length <= 24) {
+          updated.model = candidate;
+        }
+      }
+    }
+  }
+
+  if (!updated.year) {
+    const yMatch = text.match(/\b(19|20)\d{2}\b/);
+    if (yMatch) updated.year = yMatch[0];
+  }
+
+  return updated;
+}
+
+/* =========================================================
    UI components
 ========================================================= */
 
@@ -430,7 +498,7 @@ export default function OnlineResults() {
   }
 
   const {
-    vehicle = {},
+    vehicle: storedVehicle = {},
     confidenceCode,
     fullSummary,
     summary,
@@ -509,6 +577,9 @@ export default function OnlineResults() {
   ====================================================== */
 
   const rawReport = fullSummary || summary || "";
+  const baseVehicle = normaliseVehicle(storedVehicle as VehicleInfo);
+  const displayVehicle = enrichVehicleForDisplay(baseVehicle, rawReport);
+
   const sections = buildSectionsFromFreeText(rawReport);
   const teaserSnippets = buildTeaserFromSections(sections);
 
@@ -525,11 +596,13 @@ export default function OnlineResults() {
       <div className="sticky top-0 -mx-4 px-4 py-2 bg-slate-950/80 backdrop-blur border-b border-white/5 z-30">
         <div className="flex items-center justify-between text-xs md:text-sm text-slate-300">
           <span className="truncate">
-            {vehicle.year || "—"} {vehicle.make || "Vehicle"}{" "}
-            {vehicle.model || ""}
+            {displayVehicle.year || "—"} {displayVehicle.make || "Vehicle"}{" "}
+            {displayVehicle.model || ""}
           </span>
           <span>
-            {vehicle.kilometres ? `${vehicle.kilometres} km` : "— km"}
+            {displayVehicle.kilometres
+              ? `${displayVehicle.kilometres} km`
+              : "— km"}
           </span>
         </div>
       </div>
@@ -668,25 +741,25 @@ export default function OnlineResults() {
           <div>
             <div className="text-slate-400 text-xs">Make</div>
             <div className="font-medium text-slate-100">
-              {vehicle.make || "—"}
+              {displayVehicle.make || "—"}
             </div>
           </div>
           <div>
             <div className="text-slate-400 text-xs">Model</div>
             <div className="font-medium text-slate-100">
-              {vehicle.model || "—"}
+              {displayVehicle.model || "—"}
             </div>
           </div>
           <div>
             <div className="text-slate-400 text-xs">Year</div>
             <div className="font-medium text-slate-100">
-              {vehicle.year || "—"}
+              {displayVehicle.year || "—"}
             </div>
           </div>
           <div>
             <div className="text-slate-400 text-xs">Kilometres</div>
             <div className="font-medium text-slate-100">
-              {vehicle.kilometres || "—"}
+              {displayVehicle.kilometres || "—"}
             </div>
           </div>
         </div>

@@ -46,9 +46,25 @@ function buildPreviewFromConfidence(text: string): string {
    Vehicle enrichment
 ========================================================= */
 const KNOWN_BRANDS = [
-  "Toyota","Kia","Mazda","Ford","Hyundai","Nissan","Mitsubishi",
-  "Subaru","Honda","Volkswagen","Audi","BMW","Mercedes","Holden",
-  "Peugeot","Renault","Jeep","Volvo","Lexus",
+  "Toyota",
+  "Kia",
+  "Mazda",
+  "Ford",
+  "Hyundai",
+  "Nissan",
+  "Mitsubishi",
+  "Subaru",
+  "Honda",
+  "Volkswagen",
+  "Audi",
+  "BMW",
+  "Mercedes",
+  "Holden",
+  "Peugeot",
+  "Renault",
+  "Jeep",
+  "Volvo",
+  "Lexus",
 ];
 
 function enrichVehicleFromSummary(
@@ -230,8 +246,9 @@ export default function OnlineAnalyzing() {
         id: generateScanId(),
         type: "online",
         title:
-          `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim() ||
-          "Online scan",
+          `${vehicle.year || ""} ${vehicle.make || ""} ${
+            vehicle.model || ""
+          }`.trim() || "Online scan",
         createdAt: saved.createdAt,
         listingUrl,
         summary: previewSummary ?? "Online scan saved",
