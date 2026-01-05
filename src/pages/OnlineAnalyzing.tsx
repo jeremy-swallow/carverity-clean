@@ -15,7 +15,6 @@ import { syncScanToCloud } from "../services/scanSyncService";
 /* =========================================================
    Preview builder
 ========================================================= */
-
 function buildPreviewFromConfidence(text: string): string {
   if (!text) return "";
   const match = text.match(
@@ -46,7 +45,6 @@ function buildPreviewFromConfidence(text: string): string {
 /* =========================================================
    Vehicle enrichment
 ========================================================= */
-
 const KNOWN_BRANDS = [
   "Toyota","Kia","Mazda","Ford","Hyundai","Nissan","Mitsubishi",
   "Subaru","Honda","Volkswagen","Audi","BMW","Mercedes","Holden",
@@ -90,7 +88,6 @@ function enrichVehicleFromSummary(
 /* =========================================================
    Component
 ========================================================= */
-
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
 
@@ -236,7 +233,8 @@ export default function OnlineAnalyzing() {
 
       saveOnlineResults(fallback);
 
-      navigate("/scan/online/results", { replace: true });
+      // 🚀 NEW — go to guided assist entry page
+      navigate("/scan/online/assist", { replace: true });
     }
   }
 
