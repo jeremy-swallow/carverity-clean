@@ -5,59 +5,42 @@ if (!GEMINI_API_KEY) {
   throw new Error("Missing GOOGLE_API_KEY — add it in Vercel env vars.");
 }
 
-const USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/123.0 Safari/537.36";
-
 async function fetchListingHtml(url: string): Promise<string> {
   const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      "User-Agent": USER_AGENT,
-      "Accept-Language": "en-US,en;q=0.9",
-      "Accept":
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-      "Cache-Control": "no-cache",
-      Pragma: "no-cache",
-      "Upgrade-Insecure-Requests": "1",
-    },
+    headers: { "User-Agent": "Mozilla/5.0" },
   });
-
   if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
   return await res.text();
 }
 
-/* =========================================================
-   CLEAN TEXT — removes seller bio / profile noise
-========================================================= */
 function extractReadableText(html: string): string {
-  const stripped = html
+  return html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
-    .trim();
-
-  let cleaned = stripped;
-
-  cleaned = cleaned
-    .replace(/member since\s+\d{4}/gi, "")
-    .replace(/dealer profile/gi, "")
-    .replace(/about our dealership[\s\S]*?(?=contact|summary|$)/gi, "");
-
-  return cleaned.slice(0, 20000);
+    .trim()
+    .slice(0, 20000);
 }
 
-/* =========================================================
-   (Gemini call + handler unchanged aside from above)
-========================================================= */
-
-function buildPromptFromListing(listingText: string): string {
+function buildPromptFromListing(text: string): string {
   return `
-You are CarVerity — a neutral guidance tool for Australian used-car buyers.
+You are CarVerity — provide neutral buyer guidance only.
 
-CONFIDENCE MODEL…
-${listingText}
+OUTPUT FORMAT
+CONFIDENCE ASSESSMENT
+CONFIDENCE_CODE: LOW / MODERATE / HIGH
+WHAT THIS MEANS FOR YOU
+CARVERITY ANALYSIS — SUMMARY
+KEY RISK SIGNALS
+BUYER CONSIDERATIONS
+NEGOTIATION INSIGHTS
+GENERAL OWNERSHIP NOTES
+
+LISTING TEXT
+--------------------------------
+${text}
+--------------------------------
 `;
 }
 
@@ -70,14 +53,13 @@ async function callGemini(prompt: string): Promise<string> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2, topP: 0.9 },
+        generationConfig: { temperature: 0.2 },
       }),
     }
   );
 
-  if (!res.ok) throw new Error(await res.text());
   const data = await res.json();
-  const parts = data?.candidates?.[0]?.content?.parts || [];
+  const parts = data?.candidates?.[0]?.content?.parts ?? [];
   return parts.map((p: any) => p?.text || "").join("\n").trim();
 }
 
@@ -89,57 +71,62 @@ function extractConfidenceCode(text: string): string | null {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const body = req.body as any;
-    const listingUrl = body?.listingUrl ?? body?.url;
-    const rawTextInput = body?.rawText ?? null;
-
-    if (!listingUrl && !rawTextInput) {
-      return res.status(400).json({ ok: false, error: "Missing input" });
-    }
+    const listingUrl = body?.listingUrl ?? null;
+    const rawText = body?.rawText ?? null;
 
     let listingText = "";
-    let vehicle = { make: "", model: "", year: "", kilometres: "" };
     let mode: "html" | "raw-fallback" = "html";
 
-    try {
-      if (listingUrl) {
-        const html = await fetchListingHtml(listingUrl);
-        const readable = extractReadableText(html);
-
-        if (readable.length < 400) {
-          return res.status(200).json({
-            ok: false,
-            mode: "assist-required",
-            reason: "scrape-blocked",
-            listingUrl,
-          });
-        }
-
-        listingText = readable;
-      } else {
-        mode = "raw-fallback";
-        listingText = String(rawTextInput || "");
-      }
-    } catch {
-      return res.status(200).json({
-        ok: false,
-        mode: "assist-required",
-        reason: "fetch-failed",
-        listingUrl,
-      });
+    /* ------------------------------------------
+       🔹 ASSIST MODE — RAW TEXT ONLY
+       ------------------------------------------ */
+    if (rawText && String(rawText).trim().length > 0) {
+      mode = "raw-fallback";
+      listingText = String(rawText);
     }
 
+    /* ------------------------------------------
+       🔹 NORMAL MODE — FETCH HTML
+       ------------------------------------------ */
+    else if (listingUrl) {
+      try {
+        const html = await fetchListingHtml(listingUrl);
+        listingText = extractReadableText(html);
+      } catch {
+        return res.status(200).json({
+          ok: false,
+          mode: "assist-required",
+          reason: "fetch-failed",
+          listingUrl,
+        });
+      }
+    }
+
+    /* ------------------------------------------
+       ❌ Nothing to analyse
+       ------------------------------------------ */
+    else {
+      return res
+        .status(400)
+        .json({ ok: false, error: "No listing or text provided" });
+    }
+
+    /* ------------------------------------------
+       🔹 Run model
+       ------------------------------------------ */
     const prompt = buildPromptFromListing(listingText);
     const raw = await callGemini(prompt);
+
     const confidenceCode = extractConfidenceCode(raw) ?? "MODERATE";
 
     return res.status(200).json({
       ok: true,
       message: "Scan complete",
-      vehicle,
+      vehicle: { make: "", model: "", year: "", kilometres: "" },
       summary: raw,
       confidenceCode,
       source: "gemini-2.5-flash",
-      analysisVersion: "v2-cleaned-text",
+      analysisVersion: "v2-assist-stable",
       mode,
     });
   } catch (err: any) {
