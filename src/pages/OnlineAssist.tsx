@@ -26,9 +26,7 @@ const MAKES = [
   "Subaru","Honda","Volkswagen","BMW","Mercedes","Audi","Holden"
 ];
 
-const YEARS = Array.from({ length: 26 }, (_, i) =>
-  String(2026 - i)
-);
+const YEARS = Array.from({ length: 26 }, (_, i) => String(2026 - i));
 
 /* =========================================================
    Component
@@ -47,6 +45,9 @@ export default function OnlineAssist() {
     photos: [],
   });
 
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [clipboardError, setClipboardError] = useState<string | null>(null);
+
   useEffect(() => {
     const stored = loadOnlineResults();
     if (!stored || stored.step !== "assist-required") {
@@ -58,6 +59,29 @@ export default function OnlineAssist() {
 
   function updateField<K extends keyof AssistForm>(key: K, value: AssistForm[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function handlePasteFromClipboard() {
+    setClipboardError(null);
+
+    try {
+      setIsExtracting(true);
+      const text = await navigator.clipboard.readText();
+
+      if (!text || text.trim().length < 20) {
+        setClipboardError("Nothing useful was found in the clipboard. Try copying the listing again, then paste.");
+        setIsExtracting(false);
+        return;
+      }
+
+      // Basic placeholder extraction for now — real heuristics can evolve
+      updateField("pastedDetails", text);
+
+    } catch {
+      setClipboardError("Your browser didn’t allow clipboard access. Please paste manually instead.");
+    } finally {
+      setIsExtracting(false);
+    }
   }
 
   async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -100,116 +124,157 @@ export default function OnlineAssist() {
   if (!result) return null;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10 space-y-6 text-slate-200">
-      <h1 className="text-lg font-semibold">
-        Assisted scan — help us complete your report
-      </h1>
+    <div className="max-w-3xl mx-auto px-4 py-10 space-y-8 text-slate-200">
 
-      <p className="text-slate-400 text-sm">
-        The listing could not be scanned automatically. Please provide a few key
-        details and optional photos so CarVerity can continue the analysis.
-      </p>
+      {/* HEADER */}
+      <header className="space-y-2">
+        <h1 className="text-xl font-semibold">
+          Assisted scan — we’ll help finish this one
+        </h1>
 
-      {/* VEHICLE DETAILS */}
-      <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5 space-y-4">
-        <h2 className="text-sm font-semibold">Vehicle details</h2>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          This listing couldn’t be scanned automatically. Some sites place limits on automated tools,
+          but you can still get a full CarVerity report using one of the easy options below.
+        </p>
+      </header>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-          <div>
-            <label className="text-xs text-slate-400">Make</label>
-            <select
-              className="w-full rounded-lg bg-slate-800 border border-white/10 px-2 py-1"
-              value={form.make}
-              onChange={(e) => updateField("make", e.target.value)}
+      {/* MODE SELECT */}
+      <section className="space-y-6">
+
+        {/* SMART PASTE */}
+        <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-5 space-y-4">
+          <div className="flex items-start justify-between">
+            <h2 className="text-sm font-semibold">
+              Smart Paste (recommended)
+            </h2>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+              Low effort
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed">
+            On your phone or computer, open the listing → Select All → Copy.
+            Then tap the button below and we’ll extract the key details automatically.
+          </p>
+
+          <div className="flex gap-3">
+            <button
+              onClick={handlePasteFromClipboard}
+              className="flex-1 rounded-xl bg-violet-400 hover:bg-violet-300 text-slate-900 font-semibold px-4 py-2 shadow text-sm"
             >
-              <option value="">Select</option>
-              {MAKES.map((m) => <option key={m}>{m}</option>)}
-            </select>
+              {isExtracting ? "Extracting…" : "Paste from clipboard"}
+            </button>
           </div>
 
-          <div>
-            <label className="text-xs text-slate-400">Model</label>
-            <input
-              className="w-full rounded-lg bg-slate-800 border border-white/10 px-2 py-1"
-              value={form.model}
-              onChange={(e) => updateField("model", e.target.value)}
-              placeholder="e.g. i30, CX-5"
-            />
+          {clipboardError && (
+            <p className="text-xs text-rose-300">{clipboardError}</p>
+          )}
+
+          <textarea
+            className="w-full h-28 rounded-lg bg-slate-800 border border-white/10 px-3 py-2 text-sm"
+            value={form.pastedDetails}
+            onChange={(e) => updateField("pastedDetails", e.target.value)}
+            placeholder="Or paste listing text here…"
+          />
+        </div>
+
+        {/* SCREENSHOT MODE */}
+        <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-5 space-y-4">
+          <div className="flex items-start justify-between">
+            <h2 className="text-sm font-semibold">
+              Upload screenshots instead
+            </h2>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-400/10 text-blue-300 border border-blue-400/30">
+              Mobile-friendly
+            </span>
           </div>
 
-          <div>
-            <label className="text-xs text-slate-400">Year</label>
-            <select
-              className="w-full rounded-lg bg-slate-800 border border-white/10 px-2 py-1"
-              value={form.year}
-              onChange={(e) => updateField("year", e.target.value)}
-            >
-              <option value="">Select</option>
-              {YEARS.map((y) => <option key={y}>{y}</option>)}
-            </select>
-          </div>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Take 1–2 screenshots of the listing (title, price, description, features)
+            and upload them. We’ll read the text automatically and pre-fill details.
+          </p>
 
-          <div>
-            <label className="text-xs text-slate-400">Kilometres</label>
-            <input
-              className="w-full rounded-lg bg-slate-800 border border-white/10 px-2 py-1"
-              value={form.kilometres}
-              onChange={(e) => updateField("kilometres", e.target.value)}
-              placeholder="e.g. 73500"
-            />
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handlePhotoUpload}
+            className="text-sm"
+          />
+
+          {form.photos.length > 0 && (
+            <div className="grid grid-cols-4 gap-2 mt-2">
+              {form.photos.map((p, i) => (
+                <img
+                  key={i}
+                  src={p}
+                  className="rounded-lg border border-white/10 object-cover"
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* MANUAL FINE-TUNE */}
+        <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-5 space-y-4">
+          <h2 className="text-sm font-semibold">
+            Fine-tune details (optional)
+          </h2>
+
+          <p className="text-xs text-slate-400">
+            If anything didn’t import cleanly, you can adjust the basics here.
+          </p>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div>
+              <label className="text-xs text-slate-400">Make</label>
+              <select
+                className="w-full rounded-lg bg-slate-800 border border-white/10 px-2 py-1"
+                value={form.make}
+                onChange={(e) => updateField("make", e.target.value)}
+              >
+                <option value="">Select</option>
+                {MAKES.map((m) => <option key={m}>{m}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-400">Model</label>
+              <input
+                className="w-full rounded-lg bg-slate-800 border border-white/10 px-2 py-1"
+                value={form.model}
+                onChange={(e) => updateField("model", e.target.value)}
+                placeholder="e.g. i30, CX-5"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-400">Year</label>
+              <select
+                className="w-full rounded-lg bg-slate-800 border border-white/10 px-2 py-1"
+                value={form.year}
+                onChange={(e) => updateField("year", e.target.value)}
+              >
+                <option value="">Select</option>
+                {YEARS.map((y) => <option key={y}>{y}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-400">Kilometres</label>
+              <input
+                className="w-full rounded-lg bg-slate-800 border border-white/10 px-2 py-1"
+                value={form.kilometres}
+                onChange={(e) => updateField("kilometres", e.target.value)}
+                placeholder="e.g. 73,500"
+              />
+            </div>
           </div>
         </div>
       </section>
 
-      {/* PASTE DETAILS */}
-      <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5 space-y-3">
-        <h2 className="text-sm font-semibold">Paste listing details</h2>
-
-        <p className="text-xs text-slate-400">
-          For best results, copy and paste **any text from the listing** such as
-          description, features, condition notes or seller comments.
-        </p>
-
-        <textarea
-          className="w-full h-32 rounded-lg bg-slate-800 border border-white/10 px-3 py-2 text-sm"
-          value={form.pastedDetails}
-          onChange={(e) => updateField("pastedDetails", e.target.value)}
-          placeholder="Paste listing text here…"
-        />
-      </section>
-
-      {/* PHOTOS */}
-      <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5 space-y-3">
-        <h2 className="text-sm font-semibold">Upload listing photos (optional)</h2>
-
-        <p className="text-xs text-slate-400">
-          Add up to 8 exterior or interior photos. This helps detect potential
-          bodywork or presentation concerns.
-        </p>
-
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handlePhotoUpload}
-          className="text-sm"
-        />
-
-        {form.photos.length > 0 && (
-          <div className="grid grid-cols-4 gap-2 mt-2">
-            {form.photos.map((p, i) => (
-              <img
-                key={i}
-                src={p}
-                className="rounded-lg border border-white/10 object-cover"
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
       {/* CTA */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 pt-2">
         <button
           onClick={() => navigate("/start-scan")}
           className="flex-1 rounded-xl border border-white/20 px-4 py-2 text-sm"
