@@ -54,6 +54,10 @@ function isMeaningfulContent(text: string): boolean {
   return true;
 }
 
+/**
+ * Remove lines that talk about future-dated membership / service
+ * anomalies – they’re about the seller, not the car.
+ */
 function sanitiseReportText(text: string): string {
   if (!text) return "";
   const filtered = text
@@ -64,6 +68,7 @@ function sanitiseReportText(text: string): string {
       if (lower.includes("appears in the future")) return false;
       if (lower.includes("future-dated") || lower.includes("future dated"))
         return false;
+      if (lower.includes("member since 2025")) return false;
       return true;
     });
 
@@ -86,9 +91,12 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
       if (idx === -1) return null;
       return { ...m, idx };
     })
-    .filter((m): m is { key: string; label: string; idx: number } => !!m)
+    .filter(
+      (m): m is { key: string; label: string; idx: number } => m !== null
+    )
     .sort((a, b) => a.idx - b.idx);
 
+  // No headings found → single overview section
   if (!markers.length) {
     const body = cleanSectionBody(cleaned);
     return isMeaningfulContent(body) ? [{ title: "Overview", body }] : [];
@@ -96,6 +104,7 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 
   const sections: ReportSection[] = [];
 
+  // Intro chunk before the first marker → "Overview"
   const first = markers[0];
   if (first.idx > 0) {
     const intro = cleanSectionBody(cleaned.slice(0, first.idx));
@@ -104,6 +113,7 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
     }
   }
 
+  // Each marker becomes a section
   for (let i = 0; i < markers.length; i++) {
     const marker = markers[i];
     const start = marker.idx;
@@ -126,7 +136,7 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 }
 
 /* =========================================================
-   Smart teaser generator (IMPROVED)
+   Smart teaser generator
    Priority:
    1) "What this means for you"
    2) "Confidence assessment"
@@ -383,6 +393,7 @@ function FullReportSection({
   const theme = getSectionTheme(section.title);
   const delayMs = 80 * index;
 
+  // Shorter sections use the compact layout
   if (section.body.length < 120) {
     return <CompactSection section={section} />;
   }
@@ -449,7 +460,13 @@ export default function OnlineResults() {
 
   function unlockForTesting() {
     if (!result) return;
-    const updated: SavedResult = { ...result, isUnlocked: true };
+
+    const updated: SavedResult = {
+      ...result,
+      type: "online", // ensure correct literal type
+      isUnlocked: true,
+    };
+
     saveOnlineResults(updated);
     localStorage.setItem(UNLOCK_KEY, "1");
     setResult(updated);
@@ -549,7 +566,7 @@ export default function OnlineResults() {
                 the make, model, year and kilometres from the listing.
               </p>
             </div>
-            <span className="hidden md-inline-block text-[11px] text-slate-400">
+            <span className="hidden md:inline-block text-[11px] text-slate-400">
               Saved {createdLabel}
             </span>
           </div>
@@ -653,7 +670,7 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* PREVIEW MODE — improved teaser */}
+      {/* PREVIEW MODE */}
       {!showUnlocked && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_18px_40px_rgba(0,0,0,0.55)] px-5 py-5 space-y-3">
           <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
