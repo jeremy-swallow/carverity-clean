@@ -407,13 +407,24 @@ export default function OnlineResults() {
     navigate("/inperson-start");
   }
 
+  function goAssistFlow() {
+    navigate("/scan/online/assist");
+  }
+
   if (!result) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-20 text-center">
         <h1 className="text-xl font-semibold mb-2">No scan data found</h1>
-        <p className="text-slate-400">
-          Run a scan to view your CarVerity results.
+        <p className="text-slate-400 mb-6">
+          It looks like there&apos;s no saved CarVerity online scan on this
+          device yet.
         </p>
+        <button
+          onClick={goStartNewScan}
+          className="inline-flex items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow"
+        >
+          Start a new scan
+        </button>
       </div>
     );
   }
@@ -425,7 +436,77 @@ export default function OnlineResults() {
     summary,
     isUnlocked,
     createdAt,
+    step,
   } = result;
+
+  const isAssistMode = step === "assist-required";
+
+  /* =====================================================
+     Assist-required state (scrape/API failed)
+  ====================================================== */
+  if (isAssistMode) {
+    const createdLabel = createdAt
+      ? new Date(createdAt).toLocaleString()
+      : "Just now";
+
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
+        <div className="flex items-center gap-2 text-[11px] md:text-xs text-slate-400 px-1">
+          <span className="opacity-80">Online scan</span>
+          <span className="opacity-40">›</span>
+          <span className="font-semibold text-slate-200">
+            Extra details needed
+          </span>
+        </div>
+
+        <section className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-xs md:text-sm text-amber-100 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
+          <div className="font-semibold mb-1">
+            We couldn&apos;t read this listing automatically
+          </div>
+          <p className="text-amber-100/90">
+            Some websites block automated tools from reading the page. We can
+            still help — we just need a couple of key details from you to
+            finish the CarVerity report.
+          </p>
+        </section>
+
+        <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-base md:text-lg font-semibold text-white">
+                Continue your CarVerity scan
+              </h1>
+              <p className="text-xs md:text-sm text-slate-300 mt-1">
+                We&apos;ll guide you through a short assist screen to capture
+                the make, model, year and kilometres from the listing.
+              </p>
+            </div>
+            <span className="hidden md-inline-block text-[11px] text-slate-400">
+              Saved {createdLabel}
+            </span>
+          </div>
+
+          <button
+            onClick={goAssistFlow}
+            className="mt-4 w-full rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2.5 shadow flex items-center justify-center gap-2"
+          >
+            <span>Continue — add vehicle details</span>
+          </button>
+
+          <button
+            onClick={goStartNewScan}
+            className="mt-2 w-full rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
+          >
+            Start a new online scan instead
+          </button>
+        </section>
+      </div>
+    );
+  }
+
+  /* =====================================================
+     Normal full-report / preview state
+  ====================================================== */
 
   const rawReport = fullSummary || summary || "";
   const sections = buildSectionsFromFreeText(rawReport);
