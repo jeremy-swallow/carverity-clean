@@ -1,4 +1,3 @@
-// src/pages/OnlineAnalyzing.tsx
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -46,25 +45,9 @@ function buildPreviewFromConfidence(text: string): string {
    Vehicle enrichment
 ========================================================= */
 const KNOWN_BRANDS = [
-  "Toyota",
-  "Kia",
-  "Mazda",
-  "Ford",
-  "Hyundai",
-  "Nissan",
-  "Mitsubishi",
-  "Subaru",
-  "Honda",
-  "Volkswagen",
-  "Audi",
-  "BMW",
-  "Mercedes",
-  "Holden",
-  "Peugeot",
-  "Renault",
-  "Jeep",
-  "Volvo",
-  "Lexus",
+  "Toyota","Kia","Mazda","Ford","Hyundai","Nissan","Mitsubishi",
+  "Subaru","Honda","Volkswagen","Audi","BMW","Mercedes","Holden",
+  "Peugeot","Renault","Jeep","Volvo","Lexus",
 ];
 
 function enrichVehicleFromSummary(
@@ -118,22 +101,20 @@ export default function OnlineAnalyzing() {
   const [stepIndex, setStepIndex] = useState(0);
   const [progress, setProgress] = useState(0);
 
-  /* Animated UI feedback */
   useEffect(() => {
-    const timer = setInterval(() => {
-      setStepIndex((i) => (i + 1) % steps.length);
-    }, 1600);
-    return () => clearInterval(timer);
+    const t = setInterval(() =>
+      setStepIndex((i) => (i + 1) % steps.length)
+    , 1600);
+    return () => clearInterval(t);
   }, [steps.length]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress((p) => (p >= 100 ? 0 : p + 2.2));
-    }, 90);
-    return () => clearInterval(interval);
+    const i = setInterval(() =>
+      setProgress((p) => (p >= 100 ? 0 : p + 2.2))
+    , 90);
+    return () => clearInterval(i);
   }, []);
 
-  /* ===== Centralised Assist Mode Entry ===== */
   function enterAssistMode(listingUrl: string | null) {
     const fallback: SavedResult = {
       type: "online",
@@ -155,43 +136,42 @@ export default function OnlineAnalyzing() {
     };
 
     saveOnlineResults(fallback);
-
-    // Important: yield to event loop to avoid navigation race issues
-    setTimeout(() => {
-      navigate("/scan/online/assist", { replace: true });
-    }, 0);
+    setTimeout(() => navigate("/scan/online/assist", { replace: true }), 0);
   }
 
-  /* ===== Startup ===== */
   useEffect(() => {
+    const payloadRaw = localStorage.getItem("carverity_assist_payload");
     const listingUrl = localStorage.getItem(LISTING_URL_KEY);
-    if (!listingUrl) {
-      console.warn("⚠️ No listing URL — aborting scan");
-      navigate("/start-scan", { replace: true });
-      return;
-    }
 
     if (!hasRunRef.current) {
       hasRunRef.current = true;
-      runScan(listingUrl);
+
+      // Assist mode → send pasted text
+      if (payloadRaw) {
+        const payload = JSON.parse(payloadRaw);
+        runScan(listingUrl ?? "", payload);
+      } else {
+        // Normal mode
+        runScan(listingUrl ?? "");
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ===== Main Scan ===== */
-  async function runScan(listingUrl: string) {
+  async function runScan(listingUrl: string, assistPayload?: any) {
     try {
       const res = await fetch("/api/analyze-listing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listingUrl }),
+        body: JSON.stringify(
+          assistPayload
+            ? assistPayload
+            : { listingUrl }
+        ),
       });
 
       const data = await res.json();
 
-      // Assist mode from backend
       if (data && data.ok === false && data.mode === "assist-required") {
-        console.warn("⚠️ Assist mode triggered by backend:", data.reason);
         enterAssistMode(listingUrl);
         return;
       }
@@ -216,13 +196,7 @@ export default function OnlineAnalyzing() {
         step: "analysis-complete",
         createdAt: new Date().toISOString(),
         listingUrl,
-        vehicle: {
-          make: vehicle.make ?? "",
-          model: vehicle.model ?? "",
-          year: vehicle.year ?? "",
-          kilometres: vehicle.kilometres ?? "",
-          ...vehicle,
-        },
+        vehicle,
         confidenceCode: data.confidenceCode ?? undefined,
         previewSummary,
         fullSummary,
@@ -233,7 +207,6 @@ export default function OnlineAnalyzing() {
         isUnlocked: false,
         source: data.source ?? "gemini-2.5-flash",
         analysisSource: "online-listing-v1",
-        sellerType: data.sellerType ?? undefined,
         conditionSummary: "",
         kilometres: vehicle.kilometres ?? "",
         owners: "",
@@ -246,9 +219,8 @@ export default function OnlineAnalyzing() {
         id: generateScanId(),
         type: "online",
         title:
-          `${vehicle.year || ""} ${vehicle.make || ""} ${
-            vehicle.model || ""
-          }`.trim() || "Online scan",
+          `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim() ||
+          "Online scan",
         createdAt: saved.createdAt,
         listingUrl,
         summary: previewSummary ?? "Online scan saved",
@@ -269,11 +241,11 @@ export default function OnlineAnalyzing() {
         },
       });
 
+      localStorage.removeItem("carverity_assist_payload");
       navigate("/scan/online/results", { replace: true });
     } catch (err) {
       console.error("❌ Analysis error — switching to assist mode:", err);
-      const url = localStorage.getItem(LISTING_URL_KEY);
-      enterAssistMode(url);
+      enterAssistMode(listingUrl);
     }
   }
 
@@ -282,11 +254,7 @@ export default function OnlineAnalyzing() {
       <div className="max-w-md w-full text-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-8 shadow-xl">
         <div className="relative w-24 h-24 mx-auto mb-5">
           <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-xl animate-[pulse_2.4s_ease-in-out_infinite]" />
-          <img
-            src="/logo.png"
-            alt="CarVerity logo"
-            className="relative w-24 h-24 mx-auto opacity-95"
-          />
+          <img src="/logo.png" alt="CarVerity logo" className="relative w-24 h-24 mx-auto opacity-95" />
         </div>
 
         <h1 className="text-xl font-semibold mb-2">Scanning the listing…</h1>
@@ -296,7 +264,7 @@ export default function OnlineAnalyzing() {
         </p>
 
         <div className="flex items-center justify-center gap-2 mb-3">
-          {[0, 1, 2, 3].map((i) => (
+          {[0,1,2,3].map((i) => (
             <span
               key={i}
               className={`w-2.5 h-2.5 rounded-full transition-all ${

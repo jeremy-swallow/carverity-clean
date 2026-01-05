@@ -1,14 +1,6 @@
-// src/pages/OnlineAssist.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  saveOnlineResults,
-  type SavedResult,
-  LISTING_URL_KEY,
-  normaliseVehicle,
-} from "../utils/onlineResults";
-import { saveScan, generateScanId } from "../utils/scanStorage";
-import type { SavedScan } from "../utils/scanStorage";
+import { LISTING_URL_KEY } from "../utils/onlineResults";
 
 export default function OnlineAssist() {
   const navigate = useNavigate();
@@ -31,72 +23,18 @@ export default function OnlineAssist() {
   async function handleGenerateReport() {
     if (!pastedText.trim()) return;
 
-    const listingUrlRaw = localStorage.getItem(LISTING_URL_KEY);
-    const listingUrl: string | undefined = listingUrlRaw ?? undefined;
+    // Save assist-mode payload so the analyzer can read it
+    localStorage.setItem(
+      "carverity_assist_payload",
+      JSON.stringify({
+        pastedText,
+        listingUrl: localStorage.getItem(LISTING_URL_KEY) ?? null,
+        mode: "assist-manual",
+      })
+    );
 
-    try {
-      const res = await fetch("/api/analyze-listing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          listingUrl,
-          pastedText,
-          mode: "assist-manual",
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || data?.ok === false) {
-        throw new Error(data?.error || "Assist analysis failed");
-      }
-
-      let vehicle = normaliseVehicle(data.vehicle ?? {});
-
-      const saved: SavedResult = {
-        type: "online",
-        step: "analysis-complete",
-        createdAt: new Date().toISOString(),
-        listingUrl: listingUrl ?? null,
-        vehicle,
-        confidenceCode: data.confidenceCode ?? undefined,
-        previewSummary: data.previewSummary ?? null,
-        summary: data.summary ?? null,
-        fullSummary: data.fullSummary ?? null,
-        sections: data.sections ?? [],
-        signals: data.signals ?? [],
-        photos: { listing: [], meta: [] },
-        isUnlocked: false,
-        source: data.source ?? "gemini-2.5-flash",
-        analysisSource: "online-assist-v1",
-        conditionSummary: "",
-        kilometres: vehicle.kilometres ?? "",
-        owners: "",
-        notes: "",
-      };
-
-      saveOnlineResults(saved);
-
-      const scan: SavedScan = {
-        id: generateScanId(),
-        type: "online",
-        title:
-          `${vehicle.year || ""} ${vehicle.make || ""} ${
-            vehicle.model || ""
-          }`.trim() || "Online scan (assist)",
-        createdAt: saved.createdAt,
-        listingUrl,
-        summary: saved.previewSummary || "Assist-mode scan saved",
-        completed: true,
-      };
-
-      saveScan(scan);
-
-      navigate("/scan/online/results", { replace: true });
-    } catch (err) {
-      console.error("Assist mode AI analysis failed", err);
-      alert("Something went wrong generating the report. Try again.");
-    }
+    // Route through the SAME analyzing screen as normal scans
+    navigate("/scan/online/analyzing", { replace: true });
   }
 
   return (
