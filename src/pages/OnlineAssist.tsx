@@ -1,5 +1,4 @@
 // src/pages/OnlineAssist.tsx
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -23,17 +22,17 @@ type AssistForm = {
 
 const MAKES = [
   "Toyota","Hyundai","Kia","Mazda","Ford","Nissan","Mitsubishi",
-  "Subaru","Honda","Volkswagen","BMW","Mercedes","Audi","Holden"
+  "Subaru","Honda","Volkswagen","BMW","Mercedes","Audi","Holden",
+  "Lexus","Volvo","Jeep","Peugeot","Renault"
 ];
 
 const YEARS = Array.from({ length: 26 }, (_, i) => String(2026 - i));
 
 /* =========================================================
-   Helpers
+   Helpers — HTML clean + parsing
 ========================================================= */
 
 function stripHtmlToText(html: string): string {
-  // Remove scripts, style blocks, svg metadata etc
   let cleaned = html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -41,13 +40,9 @@ function stripHtmlToText(html: string): string {
     .replace(/<svg[\s\S]*?<\/svg>/gi, "")
     .replace(/<!--[\s\S]*?-->/g, "");
 
-  // Replace block elements with newlines
   cleaned = cleaned.replace(/<\/(p|div|li|section|article|h[1-6])>/gi, "\n");
-
-  // Strip remaining tags
   cleaned = cleaned.replace(/<[^>]+>/g, " ");
 
-  // Normalise whitespace
   cleaned = cleaned
     .replace(/\u00a0/g, " ")
     .replace(/\s+/g, " ")
@@ -61,13 +56,57 @@ function looksUseful(text: string): boolean {
   if (!text) return false;
   const t = text.toLowerCase();
 
-  // reject URL-only or tiny fragments
   if (t.startsWith("http") && text.length < 200) return false;
 
-  // allow if it contains clear car-listing language
   return /\b(km|kilometres|toyota|price|automatic|hatch|service|model|year)\b/i.test(
     text
   );
+}
+
+/* =========================================================
+   Vehicle extraction logic
+========================================================= */
+
+function extractVehicleFromText(text: string) {
+  const lower = text.toLowerCase();
+
+  // YEAR — first valid year between 1990–2026
+  const yearMatch = text.match(/\b(19|20)\d{2}\b/);
+  const year =
+    yearMatch && Number(yearMatch[0]) >= 1990 && Number(yearMatch[0]) <= 2026
+      ? yearMatch[0]
+      : "";
+
+  // MAKE — first known brand appearing near the front of string
+  let make = "";
+  let model = "";
+
+  for (const brand of MAKES) {
+    const idx = lower.indexOf(brand.toLowerCase());
+    if (idx !== -1) {
+      make = brand;
+      const rest = text.slice(idx + brand.length).trim();
+      const token = rest.split(/[\s,.;:/()]+/)[0];
+      if (token && token.length <= 20) model = token;
+      break;
+    }
+  }
+
+  // KILOMETRES — supports: 102,850 km / 102850km / 102,850kms etc
+  const kmMatch = text.match(
+    /\b([\d.,]{3,9})\s*(?:km|kms|kilometres)\b/i
+  );
+  let kilometres = "";
+
+  if (kmMatch) {
+    const raw = kmMatch[1].replace(/,/g, "");
+    const n = Number(raw);
+    if (n > 0 && n < 1000000) {
+      kilometres = n.toLocaleString("en-AU");
+    }
+  }
+
+  return { year, make, model, kilometres };
 }
 
 /* =========================================================
@@ -90,6 +129,14 @@ export default function OnlineAssist() {
   const [isExtracting, setIsExtracting] = useState(false);
   const [clipboardError, setClipboardError] = useState<string | null>(null);
 
+  // track whether user has manually edited fields (don't override)
+  const [touched, setTouched] = useState({
+    make: false,
+    model: false,
+    year: false,
+    kilometres: false,
+  });
+
   useEffect(() => {
     const stored = loadOnlineResults();
     if (!stored || stored.step !== "assist-required") {
@@ -103,7 +150,11 @@ export default function OnlineAssist() {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  /* ===== Smart-Paste with HTML support ===== */
+  function markTouched(field: keyof typeof touched) {
+    setTouched((t) => ({ ...t, [field]: true }));
+  }
+
+  /* ===== Smart-Paste with auto-extraction ===== */
   async function handlePasteFromClipboard() {
     setClipboardError(null);
     setIsExtracting(true);
@@ -111,18 +162,15 @@ export default function OnlineAssist() {
     try {
       let textContent = "";
 
-      // Prefer structured clipboard formats if available
       if ("clipboard" in navigator && "read" in navigator.clipboard) {
         const items = await navigator.clipboard.read();
 
         for (const item of items) {
           if (item.types.includes("text/html")) {
             const blob = await item.getType("text/html");
-            const html = await blob.text();
-            textContent = stripHtmlToText(html);
+            textContent = stripHtmlToText(await blob.text());
             break;
           }
-
           if (item.types.includes("text/plain")) {
             const blob = await item.getType("text/plain");
             textContent = (await blob.text()).trim();
@@ -131,10 +179,8 @@ export default function OnlineAssist() {
         }
       }
 
-      // Fallback for browsers without clipboard.read
       if (!textContent) {
-        textContent = (await navigator.clipboard.readText()) ?? "";
-        textContent = textContent.trim();
+        textContent = (await navigator.clipboard.readText()).trim();
       }
 
       if (!looksUseful(textContent)) {
@@ -145,6 +191,19 @@ export default function OnlineAssist() {
       }
 
       updateField("pastedDetails", textContent);
+
+      // 🧠 Instant enrichment
+      const extracted = extractVehicleFromText(textContent);
+
+      setForm((f) => ({
+        ...f,
+        make: touched.make ? f.make : extracted.make || f.make,
+        model: touched.model ? f.model : extracted.model || f.model,
+        year: touched.year ? f.year : extracted.year || f.year,
+        kilometres: touched.kilometres
+          ? f.kilometres
+          : extracted.kilometres || f.kilometres,
+      }));
     } catch {
       setClipboardError(
         "Your browser didn’t grant clipboard access. Try pasting manually instead."
@@ -197,7 +256,6 @@ export default function OnlineAssist() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 space-y-8 text-slate-200">
-
       <header className="space-y-2">
         <h1 className="text-xl font-semibold">
           Assisted scan — we’ll help finish this one
@@ -287,10 +345,15 @@ export default function OnlineAssist() {
             <select
               className="w-full rounded-lg bg-slate-800 border border-white/10 px-2 py-1"
               value={form.make}
-              onChange={(e) => updateField("make", e.target.value)}
+              onChange={(e) => {
+                markTouched("make");
+                updateField("make", e.target.value);
+              }}
             >
               <option value="">Select</option>
-              {MAKES.map((m) => <option key={m}>{m}</option>)}
+              {MAKES.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
             </select>
           </div>
 
@@ -299,7 +362,10 @@ export default function OnlineAssist() {
             <input
               className="w-full rounded-lg bg-slate-800 border border-white/10 px-2 py-1"
               value={form.model}
-              onChange={(e) => updateField("model", e.target.value)}
+              onChange={(e) => {
+                markTouched("model");
+                updateField("model", e.target.value);
+              }}
               placeholder="e.g. i30, CX-5"
             />
           </div>
@@ -309,10 +375,15 @@ export default function OnlineAssist() {
             <select
               className="w-full rounded-lg bg-slate-800 border border-white/10 px-2 py-1"
               value={form.year}
-              onChange={(e) => updateField("year", e.target.value)}
+              onChange={(e) => {
+                markTouched("year");
+                updateField("year", e.target.value);
+              }}
             >
               <option value="">Select</option>
-              {YEARS.map((y) => <option key={y}>{y}</option>)}
+              {YEARS.map((y) => (
+                <option key={y}>{y}</option>
+              ))}
             </select>
           </div>
 
@@ -321,7 +392,10 @@ export default function OnlineAssist() {
             <input
               className="w-full rounded-lg bg-slate-800 border border-white/10 px-2 py-1"
               value={form.kilometres}
-              onChange={(e) => updateField("kilometres", e.target.value)}
+              onChange={(e) => {
+                markTouched("kilometres");
+                updateField("kilometres", e.target.value);
+              }}
               placeholder="e.g. 73,500"
             />
           </div>
