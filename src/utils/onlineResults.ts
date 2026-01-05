@@ -5,16 +5,11 @@
    - Backwards-compatible with older scan data
 ========================================================= */
 
-/* ===============================
-   Device Identity (persistent)
-================================ */
-
 const DEVICE_ID_KEY = "carverity_device_id";
 
 export function getDeviceId(): string {
   let id = localStorage.getItem(DEVICE_ID_KEY);
   if (!id) {
-    // Fallback if randomUUID is not available
     const generated =
       (typeof crypto !== "undefined" &&
         (crypto as any).randomUUID &&
@@ -58,8 +53,6 @@ export interface SavedResult {
   step: string;
   createdAt: string;
 
-  // Optional in the type so older code compiles;
-  // we always hydrate this via normalisation.
   deviceId?: string;
 
   listingUrl: string | null;
@@ -67,11 +60,9 @@ export interface SavedResult {
 
   confidenceCode?: ConfidenceLevel;
 
-  // Split summaries
   previewSummary?: string | null;
   fullSummary?: string | null;
 
-  // Backwards-compat — legacy code may still read this
   summary?: string | null;
 
   sections: ResultSection[];
@@ -79,12 +70,10 @@ export interface SavedResult {
 
   photos: SavedPhotos;
 
-  // Unlock & lifecycle state
   isUnlocked: boolean;
   inProgress?: boolean;
   completed?: boolean;
 
-  // Optional metadata
   source?: string;
   analysisSource?: string;
   sellerType?: string;
@@ -113,7 +102,6 @@ export function normaliseVehicle(raw: any): VehicleInfo {
   }
 
   const { make, model, year, kilometres, kms, odo, ...rest } = raw as any;
-
   const kmValue = kilometres ?? kms ?? odo ?? "";
 
   return {
@@ -180,7 +168,7 @@ export function clearOnlineResults() {
 }
 
 /* ===============================
-   Helpers used by StartScan & others
+   Helpers
 ================================ */
 
 export function saveListingUrl(url: string) {
@@ -201,9 +189,7 @@ export function loadListingUrl(): string | null {
 }
 
 /* =========================================================
-   Scan Storage Utility (index of scans)
-   - Local-only persistence (v2)
-   - Device-scoped, forward-compatible with accounts
+   Scan Storage Utility
 ========================================================= */
 
 export type ScanType = "online" | "in-person";

@@ -102,19 +102,32 @@ export default function OnlineAnalyzing() {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const t = setInterval(() =>
-      setStepIndex((i) => (i + 1) % steps.length)
-    , 1600);
+    const t = setInterval(
+      () => setStepIndex((i) => (i + 1) % steps.length),
+      1600
+    );
     return () => clearInterval(t);
   }, [steps.length]);
 
   useEffect(() => {
-    const i = setInterval(() =>
-      setProgress((p) => (p >= 100 ? 0 : p + 2.2))
-    , 90);
+    const i = setInterval(
+      () => setProgress((p) => (p >= 100 ? 0 : p + 2.2)),
+      90
+    );
     return () => clearInterval(i);
   }, []);
 
+  function ensureVehicleDefaults(v: VehicleInfo): VehicleInfo {
+    return {
+      make: v.make ?? "",
+      model: v.model ?? "",
+      year: v.year ?? "",
+      kilometres: v.kilometres ?? "",
+      ...v,
+    };
+  }
+
+  /* ===== Assist mode fallback ===== */
   function enterAssistMode(listingUrl: string | null) {
     const fallback: SavedResult = {
       type: "online",
@@ -139,34 +152,36 @@ export default function OnlineAnalyzing() {
     setTimeout(() => navigate("/scan/online/assist", { replace: true }), 0);
   }
 
+  /* ===== Startup ===== */
   useEffect(() => {
     const payloadRaw = localStorage.getItem("carverity_assist_payload");
     const listingUrl = localStorage.getItem(LISTING_URL_KEY);
 
+    if (!listingUrl) {
+      console.warn("⚠️ No listing URL — aborting scan");
+      navigate("/start-scan", { replace: true });
+      return;
+    }
+
     if (!hasRunRef.current) {
       hasRunRef.current = true;
 
-      // Assist mode → send pasted text
       if (payloadRaw) {
         const payload = JSON.parse(payloadRaw);
-        runScan(listingUrl ?? "", payload);
+        runScan(listingUrl, payload);
       } else {
-        // Normal mode
-        runScan(listingUrl ?? "");
+        runScan(listingUrl);
       }
     }
-  }, []);
+  }, [navigate]);
 
+  /* ===== Main Scan ===== */
   async function runScan(listingUrl: string, assistPayload?: any) {
     try {
       const res = await fetch("/api/analyze-listing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          assistPayload
-            ? assistPayload
-            : { listingUrl }
-        ),
+        body: JSON.stringify(assistPayload ? assistPayload : { listingUrl }),
       });
 
       const data = await res.json();
@@ -186,6 +201,7 @@ export default function OnlineAnalyzing() {
       const fullSummary: string | null = rawSummary ?? null;
 
       vehicle = enrichVehicleFromSummary(vehicle, rawSummary);
+      vehicle = ensureVehicleDefaults(vehicle);
 
       const previewSummary: string | null = rawSummary
         ? buildPreviewFromConfidence(rawSummary)
@@ -254,7 +270,11 @@ export default function OnlineAnalyzing() {
       <div className="max-w-md w-full text-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-8 shadow-xl">
         <div className="relative w-24 h-24 mx-auto mb-5">
           <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-xl animate-[pulse_2.4s_ease-in-out_infinite]" />
-          <img src="/logo.png" alt="CarVerity logo" className="relative w-24 h-24 mx-auto opacity-95" />
+          <img
+            src="/logo.png"
+            alt="CarVerity logo"
+            className="relative w-24 h-24 mx-auto opacity-95"
+          />
         </div>
 
         <h1 className="text-xl font-semibold mb-2">Scanning the listing…</h1>
@@ -264,7 +284,7 @@ export default function OnlineAnalyzing() {
         </p>
 
         <div className="flex items-center justify-center gap-2 mb-3">
-          {[0,1,2,3].map((i) => (
+          {[0, 1, 2, 3].map((i) => (
             <span
               key={i}
               className={`w-2.5 h-2.5 rounded-full transition-all ${
