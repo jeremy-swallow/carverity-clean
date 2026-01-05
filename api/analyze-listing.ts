@@ -52,7 +52,6 @@ function normaliseKilometres(raw?: string | null): string {
 
 /* =========================================================
    LIGHT-TOUCH VEHICLE EXTRACTION
-   (SAFE — NEVER GUESSES OR INFERENCES)
 ========================================================= */
 function extractBasicVehicleInfo(text: string) {
   const makeMatch = text.match(/Make:\s*([A-Za-z0-9\s]+)/i);
@@ -79,13 +78,12 @@ function extractBasicVehicleInfo(text: string) {
     make: makeMatch?.[1]?.trim() || "",
     model: modelMatch?.[1]?.trim() || "",
     year,
-    // 🔧 ALWAYS a string ("" when unknown) so TS is happy
     kilometres: kilometres || "",
   };
 }
 
 /* =========================================================
-   STRICT — TRUST-FIRST, ZERO-SPECULATION PROMPT (PREMIUM)
+   PROMPT
 ========================================================= */
 function buildPromptFromListing(listingText: string): string {
   return `
@@ -118,8 +116,6 @@ KEY RISK SIGNALS (ONLY IF THE LISTING ITSELF MENTIONS THEM)
 BUYER CONSIDERATIONS
 NEGOTIATION INSIGHTS
 GENERAL OWNERSHIP NOTES
-
-Now analyse ONLY the text below.
 
 LISTING TEXT
 --------------------------------
@@ -157,8 +153,7 @@ function extractConfidenceCode(text: string): string | null {
 }
 
 /* =========================================================
-   RAW-TEXT FALLBACK MODE
-   (Used when scraping fails or page blocks bots)
+   RAW TEXT EXTRACTOR
 ========================================================= */
 function extractReadableText(html: string): string {
   const stripped = html
@@ -168,7 +163,7 @@ function extractReadableText(html: string): string {
     .replace(/\s+/g, " ")
     .trim();
 
-  return stripped.slice(0, 20000); // safety limit
+  return stripped.slice(0, 20000);
 }
 
 /* =========================================================
@@ -196,26 +191,28 @@ export default async function handler(
         const html = await fetchListingHtml(listingUrl);
         const readable = extractReadableText(html);
 
-        // If page is heavily blocked / empty → trigger fallback
-        if (readable.length < 400 && rawTextInput) {
-          mode = "raw-fallback";
-          listingText = rawTextInput;
-        } else {
-          listingText = readable;
-          vehicle = extractBasicVehicleInfo(html);
+        // If Carsales blocks us → force assist mode instead of error
+        if (readable.length < 400) {
+          return res.status(200).json({
+            ok: false,
+            mode: "assist-required",
+            reason: "scrape-blocked",
+          });
         }
+
+        listingText = readable;
+        vehicle = extractBasicVehicleInfo(html);
       } else {
         mode = "raw-fallback";
         listingText = String(rawTextInput || "");
       }
     } catch {
-      // Network fail → fallback to raw input if provided
-      if (rawTextInput) {
-        mode = "raw-fallback";
-        listingText = String(rawTextInput || "");
-      } else {
-        throw new Error("Listing could not be scraped and no fallback supplied");
-      }
+      // Network fail — enter assist mode (no crash)
+      return res.status(200).json({
+        ok: false,
+        mode: "assist-required",
+        reason: "fetch-failed",
+      });
     }
 
     const prompt = buildPromptFromListing(listingText);
