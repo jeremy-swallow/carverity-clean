@@ -1,5 +1,5 @@
 // src/pages/OnlineAnalyzing.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   saveOnlineResults,
@@ -46,25 +46,9 @@ function buildPreviewFromConfidence(text: string): string {
    Vehicle enrichment
 ========================================================= */
 const KNOWN_BRANDS = [
-  "Toyota",
-  "Kia",
-  "Mazda",
-  "Ford",
-  "Hyundai",
-  "Nissan",
-  "Mitsubishi",
-  "Subaru",
-  "Honda",
-  "Volkswagen",
-  "Audi",
-  "BMW",
-  "Mercedes",
-  "Holden",
-  "Peugeot",
-  "Renault",
-  "Jeep",
-  "Volvo",
-  "Lexus",
+  "Toyota","Kia","Mazda","Ford","Hyundai","Nissan","Mitsubishi",
+  "Subaru","Honda","Volkswagen","Audi","BMW","Mercedes","Holden",
+  "Peugeot","Renault","Jeep","Volvo","Lexus",
 ];
 
 function enrichVehicleFromSummary(
@@ -106,6 +90,7 @@ function enrichVehicleFromSummary(
 ========================================================= */
 export default function OnlineAnalyzing() {
   const navigate = useNavigate();
+  const hasRunRef = useRef(false);
 
   const steps = [
     "Fetching the listing details…",
@@ -117,6 +102,7 @@ export default function OnlineAnalyzing() {
   const [stepIndex, setStepIndex] = useState(0);
   const [progress, setProgress] = useState(0);
 
+  /* Animated UI feedback */
   useEffect(() => {
     const timer = setInterval(() => {
       setStepIndex((i) => (i + 1) % steps.length);
@@ -131,6 +117,36 @@ export default function OnlineAnalyzing() {
     return () => clearInterval(interval);
   }, []);
 
+  /* ===== Centralised Assist Mode Entry ===== */
+  function enterAssistMode(listingUrl: string | null) {
+    const fallback: SavedResult = {
+      type: "online",
+      step: "assist-required",
+      createdAt: new Date().toISOString(),
+      listingUrl: listingUrl ?? null,
+      vehicle: {},
+      previewSummary: null,
+      fullSummary: null,
+      summary: null,
+      sections: [],
+      signals: [],
+      photos: { listing: [], meta: [] },
+      isUnlocked: false,
+      conditionSummary: "",
+      kilometres: "",
+      owners: "",
+      notes: "",
+    };
+
+    saveOnlineResults(fallback);
+
+    // Important: yield to event loop to avoid navigation race issues
+    setTimeout(() => {
+      navigate("/scan/online/assist", { replace: true });
+    }, 0);
+  }
+
+  /* ===== Startup ===== */
   useEffect(() => {
     const listingUrl = localStorage.getItem(LISTING_URL_KEY);
     if (!listingUrl) {
@@ -138,10 +154,15 @@ export default function OnlineAnalyzing() {
       navigate("/start-scan", { replace: true });
       return;
     }
-    runScan(listingUrl);
+
+    if (!hasRunRef.current) {
+      hasRunRef.current = true;
+      runScan(listingUrl);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* ===== Main Scan ===== */
   async function runScan(listingUrl: string) {
     try {
       const res = await fetch("/api/analyze-listing", {
@@ -152,34 +173,10 @@ export default function OnlineAnalyzing() {
 
       const data = await res.json();
 
-      // ✅ NEW: explicit assist-mode handling from backend
+      // Assist mode from backend
       if (data && data.ok === false && data.mode === "assist-required") {
-        console.warn(
-          "⚠️ Assist mode triggered by backend:",
-          data.reason || "scrape-blocked"
-        );
-
-        const fallback: SavedResult = {
-          type: "online",
-          step: "assist-required",
-          createdAt: new Date().toISOString(),
-          listingUrl,
-          vehicle: {},
-          previewSummary: null,
-          fullSummary: null,
-          summary: null,
-          sections: [],
-          signals: [],
-          photos: { listing: [], meta: [] },
-          isUnlocked: false,
-          conditionSummary: "",
-          kilometres: "",
-          owners: "",
-          notes: "",
-        };
-
-        saveOnlineResults(fallback);
-        navigate("/scan/online/assist", { replace: true });
+        console.warn("⚠️ Assist mode triggered by backend:", data.reason);
+        enterAssistMode(listingUrl);
         return;
       }
 
@@ -233,9 +230,8 @@ export default function OnlineAnalyzing() {
         id: generateScanId(),
         type: "online",
         title:
-          `${vehicle.year || ""} ${vehicle.make || ""} ${
-            vehicle.model || ""
-          }`.trim() || "Online scan",
+          `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim() ||
+          "Online scan",
         createdAt: saved.createdAt,
         listingUrl,
         summary: previewSummary ?? "Online scan saved",
@@ -259,33 +255,8 @@ export default function OnlineAnalyzing() {
       navigate("/scan/online/results", { replace: true });
     } catch (err) {
       console.error("❌ Analysis error — switching to assist mode:", err);
-
-      // 🟣 FALLBACK — Assisted Scan Mode
-      const listingUrl = localStorage.getItem(LISTING_URL_KEY);
-
-      const fallback: SavedResult = {
-        type: "online",
-        step: "assist-required",
-        createdAt: new Date().toISOString(),
-        listingUrl: listingUrl ?? null,
-        vehicle: {},
-        previewSummary: null,
-        fullSummary: null,
-        summary: null,
-        sections: [],
-        signals: [],
-        photos: { listing: [], meta: [] },
-        isUnlocked: false,
-        conditionSummary: "",
-        kilometres: "",
-        owners: "",
-        notes: "",
-      };
-
-      saveOnlineResults(fallback);
-
-      // 🚀 Go to guided assist entry page
-      navigate("/scan/online/assist", { replace: true });
+      const url = localStorage.getItem(LISTING_URL_KEY);
+      enterAssistMode(url);
     }
   }
 
