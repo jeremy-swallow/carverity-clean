@@ -20,17 +20,67 @@ type ReportSection = {
   body: string;
 };
 
-const SECTION_MARKERS = [
-  { key: "CONFIDENCE ASSESSMENT", label: "Confidence assessment" },
-  { key: "CONFIDENCE_CODE", label: "Confidence code" },
-  { key: "WHAT THIS MEANS FOR YOU", label: "What this means for you" },
-  { key: "CARVERITY ANALYSIS — SUMMARY", label: "CarVerity analysis — summary" },
-  { key: "CARVERITY ANALYSIS - SUMMARY", label: "CarVerity analysis — summary" },
-  { key: "KEY RISK SIGNALS", label: "Key risk signals" },
-  { key: "BUYER CONSIDERATIONS", label: "Buyer considerations" },
-  { key: "NEGOTIATION INSIGHTS", label: "Negotiation insights" },
-  { key: "GENERAL OWNERSHIP NOTES", label: "General ownership notes" },
-];
+/**
+ * Normalises headings so we can match things like:
+ *  — KEY RISK SIGNALS —
+ *  **NEGOTIATION ADVICE**
+ *  Key risks & warnings
+ */
+function normaliseHeading(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/\*/g, "")
+    .replace(/[—\-_:•|]+/g, " ")
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const SECTION_ALIASES: Record<string, string[]> = {
+  "Confidence assessment": [
+    "confidence assessment",
+    "confidence code",
+    "assessment summary",
+  ],
+  "What this means for you": [
+    "what this means for you",
+    "what this means",
+    "buyer takeaway",
+  ],
+  "Key risk signals": [
+    "key risk signals",
+    "key risks",
+    "risk signals",
+    "risks and warnings",
+    "risk assessment",
+  ],
+  "Buyer considerations": [
+    "buyer considerations",
+    "important considerations",
+    "things to consider",
+  ],
+  "Negotiation insights": [
+    "negotiation insights",
+    "negotiation advice",
+    "price negotiation",
+    "negotiation tips",
+  ],
+  "General ownership notes": [
+    "general ownership notes",
+    "ownership notes",
+    "ownership guidance",
+    "running cost considerations",
+  ],
+  "CarVerity analysis — summary": [
+    "carverity analysis summary",
+    "summary",
+    "analysis summary",
+  ],
+};
+
+const SECTION_MARKERS = Object.entries(SECTION_ALIASES).map(
+  ([label, aliases]) => ({ label, aliases })
+);
 
 /* =========================================================
    Text helpers & section cleaning
@@ -55,8 +105,7 @@ function isMeaningfulContent(text: string): boolean {
 }
 
 /**
- * Remove lines that talk about future-dated membership / service
- * anomalies – they’re about the seller, not the car.
+ * Remove irrelevant seller / metadata noise
  */
 function sanitiseReportText(text: string): string {
   if (!text) return "";
@@ -76,59 +125,59 @@ function sanitiseReportText(text: string): string {
 }
 
 /* =========================================================
-   Section builder
+   Section builder (restored + more robust)
 ========================================================= */
 
 function buildSectionsFromFreeText(text: string): ReportSection[] {
   const cleaned = sanitiseReportText(text);
   if (!cleaned.trim()) return [];
 
-  const lower = cleaned.toLowerCase();
+  const lines = cleaned.split(/\r?\n/);
+  const indexed: { idx: number; label: string }[] = [];
 
-  const markers = SECTION_MARKERS
-    .map((m) => {
-      const idx = lower.indexOf(m.key.toLowerCase());
-      if (idx === -1) return null;
-      return { ...m, idx };
-    })
-    .filter(
-      (m): m is { key: string; label: string; idx: number } => m !== null
-    )
-    .sort((a, b) => a.idx - b.idx);
+  // Detect headings by normalised comparison
+  for (let i = 0; i < lines.length; i++) {
+    const norm = normaliseHeading(lines[i]);
+    if (!norm) continue;
 
-  // No headings found → single overview section
-  if (!markers.length) {
+    for (const marker of SECTION_MARKERS) {
+      if (marker.aliases.some((a) => norm.includes(a))) {
+        indexed.push({ idx: i, label: marker.label });
+        break;
+      }
+    }
+  }
+
+  // No real markers → treat as overview only
+  if (!indexed.length) {
     const body = cleanSectionBody(cleaned);
     return isMeaningfulContent(body) ? [{ title: "Overview", body }] : [];
   }
 
   const sections: ReportSection[] = [];
 
-  // Intro chunk before the first marker → "Overview"
-  const first = markers[0];
-  if (first.idx > 0) {
-    const intro = cleanSectionBody(cleaned.slice(0, first.idx));
+  // Intro text before first heading → Overview
+  if (indexed[0].idx > 0) {
+    const intro = cleanSectionBody(lines.slice(0, indexed[0].idx).join("\n"));
     if (isMeaningfulContent(intro)) {
       sections.push({ title: "Overview", body: intro });
     }
   }
 
-  // Each marker becomes a section
-  for (let i = 0; i < markers.length; i++) {
-    const marker = markers[i];
-    const start = marker.idx;
-    const end = i + 1 < markers.length ? markers[i + 1].idx : cleaned.length;
+  // Build each section block
+  for (let i = 0; i < indexed.length; i++) {
+    const startIdx = indexed[i].idx;
+    const endIdx =
+      i + 1 < indexed.length ? indexed[i + 1].idx : lines.length;
 
-    let body = cleaned.slice(start, end).trim();
-    const headingRegex = new RegExp(marker.key + ":?", "i");
-    body = body.replace(headingRegex, "").trim();
+    let body = lines.slice(startIdx + 1, endIdx).join("\n");
+    body = cleanSectionBody(body);
 
-    const finalBody = cleanSectionBody(body);
-    if (!isMeaningfulContent(finalBody)) continue;
+    if (!isMeaningfulContent(body)) continue;
 
     sections.push({
-      title: marker.label,
-      body: finalBody,
+      title: indexed[i].label,
+      body,
     });
   }
 
@@ -137,10 +186,6 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 
 /* =========================================================
    Smart teaser generator
-   Priority:
-   1) "What this means for you"
-   2) "Confidence assessment"
-   3) First good insight from any section
 ========================================================= */
 
 function pickFirstMeaningfulLine(body: string): string | null {
@@ -157,33 +202,28 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
 
   const teaser: string[] = [];
 
-  // 1️⃣ WHAT THIS MEANS FOR YOU
-  const meaningSection = sections.find((s) =>
+  const meaning = sections.find((s) =>
     s.title.toLowerCase().includes("what this means")
   );
-  if (meaningSection) {
-    const line = pickFirstMeaningfulLine(meaningSection.body);
+  if (meaning) {
+    const line = pickFirstMeaningfulLine(meaning.body);
     if (line) teaser.push(line);
   }
 
-  // 2️⃣ CONFIDENCE ASSESSMENT
   if (teaser.length < 2) {
-    const confidenceSection = sections.find((s) =>
+    const conf = sections.find((s) =>
       s.title.toLowerCase().includes("confidence")
     );
-    if (confidenceSection) {
-      const line = pickFirstMeaningfulLine(confidenceSection.body);
+    if (conf) {
+      const line = pickFirstMeaningfulLine(conf.body);
       if (line) teaser.push(line);
     }
   }
 
-  // 3️⃣ FALLBACK — first meaningful insight anywhere
   if (teaser.length < 2) {
     for (const s of sections) {
       const line = pickFirstMeaningfulLine(s.body);
-      if (line && !teaser.includes(line)) {
-        teaser.push(line);
-      }
+      if (line && !teaser.includes(line)) teaser.push(line);
       if (teaser.length >= 2) break;
     }
   }
@@ -393,7 +433,6 @@ function FullReportSection({
   const theme = getSectionTheme(section.title);
   const delayMs = 80 * index;
 
-  // Shorter sections use the compact layout
   if (section.body.length < 120) {
     return <CompactSection section={section} />;
   }
@@ -463,7 +502,7 @@ export default function OnlineResults() {
 
     const updated: SavedResult = {
       ...result,
-      type: "online", // ensure correct literal type
+      type: "online",
       isUnlocked: true,
     };
 
@@ -527,7 +566,7 @@ export default function OnlineResults() {
   const isAssistMode = step === "assist-required";
 
   /* =====================================================
-     Assist-required state (scrape/API failed)
+     Assist-required state
   ====================================================== */
   if (isAssistMode) {
     const createdLabel = createdAt
