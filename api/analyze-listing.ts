@@ -7,10 +7,30 @@ if (!GEMINI_API_KEY) {
 }
 
 /* ===============================
-   Fetch listing HTML
+   Fetch listing HTML (UPGRADED)
 ================================ */
+const USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/121.0 Safari/537.36";
+
 async function fetchListingHtml(url: string): Promise<string> {
-  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "User-Agent": USER_AGENT,
+      "Accept-Language": "en-US,en;q=0.9",
+      "Accept":
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+      "Upgrade-Insecure-Requests": "1",
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1",
+    },
+  });
+
   if (!res.ok) throw new Error(`Failed to fetch listing (${res.status})`);
   return await res.text();
 }
@@ -197,7 +217,6 @@ export default async function handler(
     const prompt = buildPrompt(html);
     const raw = await callGemini(prompt);
 
-    // 🟣 Confidence is generated ONCE per scan & stored by the client
     const confidenceCode = extractConfidenceCode(raw) ?? "MODERATE";
 
     vehicle = applySummaryFallback(vehicle, raw);
