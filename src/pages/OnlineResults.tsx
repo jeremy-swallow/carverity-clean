@@ -125,7 +125,130 @@ function sanitiseReportText(text: string): string {
 }
 
 /* =========================================================
-   Section builder (restored + more robust)
+   Synthetic sections (when no headings come back)
+========================================================= */
+
+function pickSentencesByKeywords(
+  sentences: string[],
+  keywords: string[]
+): string[] {
+  const lowerKeywords = keywords.map((k) => k.toLowerCase());
+  return sentences.filter((s) =>
+    lowerKeywords.some((k) => s.toLowerCase().includes(k))
+  );
+}
+
+function buildSyntheticSections(cleaned: string): ReportSection[] {
+  const overviewBody = cleanSectionBody(cleaned);
+  if (!isMeaningfulContent(overviewBody)) return [];
+
+  const sentences = overviewBody
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 25);
+
+  if (!sentences.length) {
+    return [{ title: "Overview", body: overviewBody }];
+  }
+
+  const sections: ReportSection[] = [];
+
+  // Overview = first 1–2 sentences
+  const overviewSentences = sentences.slice(0, 2);
+  sections.push({
+    title: "Overview",
+    body: overviewSentences.join(" "),
+  });
+
+  const remaining = sentences.slice(overviewSentences.length);
+
+  const riskSentences =
+    pickSentencesByKeywords(remaining, [
+      "risk",
+      "concern",
+      "issue",
+      "warning",
+      "red flag",
+      "accident",
+      "damage",
+      "write-off",
+      "unknown",
+      "import",
+      "compliance",
+      "repair",
+      "history",
+    ]) || [];
+  if (riskSentences.length) {
+    sections.push({
+      title: "Key risk signals",
+      body: riskSentences.join(" "),
+    });
+  }
+
+  const buyerSentences =
+    pickSentencesByKeywords(remaining, [
+      "price",
+      "value",
+      "market",
+      "budget",
+      "good fit",
+      "buyer",
+      "suitable",
+      "consider",
+      "offer",
+      "deal",
+    ]) || [];
+  if (buyerSentences.length) {
+    sections.push({
+      title: "Buyer considerations",
+      body: buyerSentences.join(" "),
+    });
+  }
+
+  const ownershipSentences =
+    pickSentencesByKeywords(remaining, [
+      "ownership",
+      "warranty",
+      "servicing",
+      "service",
+      "maintenance",
+      "running costs",
+      "fuel",
+      "economy",
+      "long-term",
+      "daily use",
+    ]) || [];
+  if (ownershipSentences.length) {
+    sections.push({
+      title: "General ownership notes",
+      body: ownershipSentences.join(" "),
+    });
+  }
+
+  // If we still only have 1 section, split the text into 3 chunks just for layout
+  if (sections.length <= 1 && sentences.length > 3) {
+    const third = Math.ceil(sentences.length / 3);
+    sections.length = 0;
+
+    sections.push({
+      title: "Overview",
+      body: sentences.slice(0, third).join(" "),
+    });
+    sections.push({
+      title: "Key risk signals",
+      body: sentences.slice(third, third * 2).join(" "),
+    });
+    sections.push({
+      title: "Buyer considerations",
+      body: sentences.slice(third * 2).join(" "),
+    });
+  }
+
+  return sections;
+}
+
+/* =========================================================
+   Section builder (marker-based + synthetic fallback)
 ========================================================= */
 
 function buildSectionsFromFreeText(text: string): ReportSection[] {
@@ -148,40 +271,44 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
     }
   }
 
-  // No real markers → treat as overview only
-  if (!indexed.length) {
-    const body = cleanSectionBody(cleaned);
-    return isMeaningfulContent(body) ? [{ title: "Overview", body }] : [];
-  }
-
   const sections: ReportSection[] = [];
 
-  // Intro text before first heading → Overview
-  if (indexed[0].idx > 0) {
-    const intro = cleanSectionBody(lines.slice(0, indexed[0].idx).join("\n"));
-    if (isMeaningfulContent(intro)) {
-      sections.push({ title: "Overview", body: intro });
+  if (indexed.length) {
+    // Intro text before first heading → Overview
+    if (indexed[0].idx > 0) {
+      const intro = cleanSectionBody(
+        lines.slice(0, indexed[0].idx).join("\n")
+      );
+      if (isMeaningfulContent(intro)) {
+        sections.push({ title: "Overview", body: intro });
+      }
+    }
+
+    // Build each section block
+    for (let i = 0; i < indexed.length; i++) {
+      const startIdx = indexed[i].idx;
+      const endIdx =
+        i + 1 < indexed.length ? indexed[i + 1].idx : lines.length;
+
+      let body = lines.slice(startIdx + 1, endIdx).join("\n");
+      body = cleanSectionBody(body);
+
+      if (!isMeaningfulContent(body)) continue;
+
+      sections.push({
+        title: indexed[i].label,
+        body,
+      });
     }
   }
 
-  // Build each section block
-  for (let i = 0; i < indexed.length; i++) {
-    const startIdx = indexed[i].idx;
-    const endIdx =
-      i + 1 < indexed.length ? indexed[i + 1].idx : lines.length;
-
-    let body = lines.slice(startIdx + 1, endIdx).join("\n");
-    body = cleanSectionBody(body);
-
-    if (!isMeaningfulContent(body)) continue;
-
-    sections.push({
-      title: indexed[i].label,
-      body,
-    });
+  // If marker-based parsing gave us multiple sections, use them.
+  if (sections.length > 1) {
+    return sections;
   }
 
-  return sections;
+  // Otherwise, build synthetic multi-section layout from the full text.
+  return buildSyntheticSections(cleaned);
 }
 
 /* =========================================================
