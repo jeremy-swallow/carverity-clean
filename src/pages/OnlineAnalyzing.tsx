@@ -16,17 +16,11 @@ import { syncScanToCloud } from "../services/scanSyncService";
    Preview builder
 ========================================================= */
 
-/**
- * Builds a clean, natural preview using ONLY the
- * CONFIDENCE ASSESSMENT section of the report.
- */
 function buildPreviewFromConfidence(text: string): string {
   if (!text) return "";
-
   const match = text.match(
     /CONFIDENCE ASSESSMENT[\r\n]+([\s\S]*?)(?=\n{2,}|CONFIDENCE_CODE:|WHAT THIS MEANS FOR YOU|$)/i
   );
-
   let result = match?.[1] ?? text;
 
   result = result
@@ -37,7 +31,6 @@ function buildPreviewFromConfidence(text: string): string {
     .trim();
 
   if (!result) return "";
-
   const sentences = result.split(/(?<=[.!?])\s+/);
   let output = "";
 
@@ -51,36 +44,15 @@ function buildPreviewFromConfidence(text: string): string {
 }
 
 /* =========================================================
-   Vehicle enrichment from summary
+   Vehicle enrichment
 ========================================================= */
 
 const KNOWN_BRANDS = [
-  "Toyota",
-  "Kia",
-  "Mazda",
-  "Ford",
-  "Hyundai",
-  "Nissan",
-  "Mitsubishi",
-  "Subaru",
-  "Honda",
-  "Volkswagen",
-  "Audi",
-  "BMW",
-  "Mercedes",
-  "Holden",
-  "Peugeot",
-  "Renault",
-  "Jeep",
-  "Volvo",
-  "Lexus",
+  "Toyota","Kia","Mazda","Ford","Hyundai","Nissan","Mitsubishi",
+  "Subaru","Honda","Volkswagen","Audi","BMW","Mercedes","Holden",
+  "Peugeot","Renault","Jeep","Volvo","Lexus",
 ];
 
-/**
- * As an extra safety net, back-fill missing make/model
- * from the AI summary text, without ever overwriting
- * existing values.
- */
 function enrichVehicleFromSummary(
   vehicle: VehicleInfo,
   summary: string | null
@@ -88,18 +60,13 @@ function enrichVehicleFromSummary(
   if (!summary || !summary.trim()) return vehicle;
 
   const updated: VehicleInfo = { ...vehicle };
-
-  // Use the first line if available, otherwise the whole text
   const firstLine = summary.split(/\r?\n/)[0] || summary;
   const text = firstLine || summary;
-
   const brandRegex = new RegExp(`\\b(${KNOWN_BRANDS.join("|")})\\b`, "i");
 
   if (!updated.make) {
     const brandMatch = text.match(brandRegex);
-    if (brandMatch) {
-      updated.make = brandMatch[1];
-    }
+    if (brandMatch) updated.make = brandMatch[1];
   }
 
   if (!updated.model && updated.make) {
@@ -137,7 +104,6 @@ export default function OnlineAnalyzing() {
   const [stepIndex, setStepIndex] = useState(0);
   const [progress, setProgress] = useState(0);
 
-  // Step rhythm
   useEffect(() => {
     const timer = setInterval(() => {
       setStepIndex((i) => (i + 1) % steps.length);
@@ -145,7 +111,6 @@ export default function OnlineAnalyzing() {
     return () => clearInterval(timer);
   }, [steps.length]);
 
-  // Ambient progress loop
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress((p) => (p >= 100 ? 0 : p + 2.2));
@@ -155,13 +120,11 @@ export default function OnlineAnalyzing() {
 
   useEffect(() => {
     const listingUrl = localStorage.getItem(LISTING_URL_KEY);
-
     if (!listingUrl) {
       console.warn("⚠️ No listing URL — aborting scan");
       navigate("/start-scan", { replace: true });
       return;
     }
-
     runScan(listingUrl);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -177,19 +140,13 @@ export default function OnlineAnalyzing() {
       const data = await res.json();
       if (!res.ok || !data?.ok) throw new Error(data?.error || "Scan failed");
 
-      // Start with the server-provided vehicle, normalised
       let vehicle = normaliseVehicle(data.vehicle ?? {});
-
       const rawSummary: string | null =
         data.summary ?? data.fullSummary ?? data.previewSummary ?? null;
-
       const fullSummary: string | null = rawSummary ?? null;
 
-      // Add an extra client-side fallback to fill make/model,
-      // but never overwrite existing values.
       vehicle = enrichVehicleFromSummary(vehicle, rawSummary);
 
-      // 🎯 Preview = confidence assessment only
       const previewSummary: string | null = rawSummary
         ? buildPreviewFromConfidence(rawSummary)
         : null;
@@ -198,7 +155,6 @@ export default function OnlineAnalyzing() {
         type: "online",
         step: "analysis-complete",
         createdAt: new Date().toISOString(),
-
         listingUrl,
         vehicle: {
           make: vehicle.make ?? "",
@@ -207,32 +163,25 @@ export default function OnlineAnalyzing() {
           kilometres: vehicle.kilometres ?? "",
           ...vehicle,
         },
-
         confidenceCode: data.confidenceCode ?? undefined,
-
         previewSummary,
         fullSummary,
         summary: rawSummary,
-
         sections: [],
         signals: [],
         photos: { listing: [], meta: [] },
         isUnlocked: false,
-
         source: data.source ?? "gemini-2.5-flash",
         analysisSource: "online-listing-v1",
         sellerType: data.sellerType ?? undefined,
-
         conditionSummary: "",
         kilometres: vehicle.kilometres ?? "",
         owners: "",
         notes: "",
       };
 
-      // Save full result locally
       saveOnlineResults(saved);
 
-      // Create an index entry in My Scans (local)
       const scan: SavedScan = {
         id: generateScanId(),
         type: "online",
@@ -247,7 +196,6 @@ export default function OnlineAnalyzing() {
 
       saveScan(scan);
 
-      // Push to Supabase (safe even if user is logged out)
       await syncScanToCloud(scan, {
         plan: "free",
         report: {
@@ -262,29 +210,47 @@ export default function OnlineAnalyzing() {
 
       navigate("/scan/online/results", { replace: true });
     } catch (err) {
-      console.error("❌ Analysis error:", err);
-      navigate("/scan/online", { replace: true });
+      console.error("❌ Analysis error — switching to assist mode:", err);
+
+      // 🟣 FALLBACK — Assisted Scan Mode
+      const listingUrl = localStorage.getItem(LISTING_URL_KEY);
+
+      const fallback: SavedResult = {
+        type: "online",
+        step: "assist-required",
+        createdAt: new Date().toISOString(),
+        listingUrl: listingUrl ?? null,
+        vehicle: {},
+        previewSummary: null,
+        fullSummary: null,
+        summary: null,
+        sections: [],
+        signals: [],
+        photos: { listing: [], meta: [] },
+        isUnlocked: false,
+        conditionSummary: "",
+        kilometres: "",
+        owners: "",
+        notes: "",
+      };
+
+      saveOnlineResults(fallback);
+
+      navigate("/scan/online/results", { replace: true });
     }
   }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-8 shadow-xl">
-        {/* LOGO WITH SOFT GLOW */}
         <div className="relative w-24 h-24 mx-auto mb-5">
           <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-xl animate-[pulse_2.4s_ease-in-out_infinite]" />
-          <img
-            src="/logo.png"
-            alt="CarVerity logo"
-            className="relative w-24 h-24 mx-auto opacity-95"
-          />
+          <img src="/logo.png" alt="CarVerity logo" className="relative w-24 h-24 mx-auto opacity-95" />
         </div>
 
         <h1 className="text-xl font-semibold mb-2">Scanning the listing…</h1>
-
         <p className="text-slate-400 text-sm mb-6">
-          CarVerity is thoughtfully reviewing the listing to help you feel
-          confident about your next steps.
+          CarVerity is thoughtfully reviewing the listing to help you feel confident about your next steps.
         </p>
 
         <div className="flex items-center justify-center gap-2 mb-3">
@@ -292,23 +258,16 @@ export default function OnlineAnalyzing() {
             <span
               key={i}
               className={`w-2.5 h-2.5 rounded-full transition-all ${
-                i === stepIndex
-                  ? "bg-indigo-400 scale-110"
-                  : "bg-slate-600"
+                i === stepIndex ? "bg-indigo-400 scale-110" : "bg-slate-600"
               }`}
             />
           ))}
         </div>
 
-        <p className="text-sm text-indigo-300 font-medium h-6">
-          {steps[stepIndex]}
-        </p>
+        <p className="text-sm text-indigo-300 font-medium h-6">{steps[stepIndex]}</p>
 
         <div className="mt-5 w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-indigo-400 rounded-full transition-all"
-            style={{ width: `${progress}%` }}
-          />
+          <div className="h-full bg-indigo-400 rounded-full transition-all" style={{ width: `${progress}%` }} />
         </div>
 
         <p className="text-xs text-slate-500 mt-6">
