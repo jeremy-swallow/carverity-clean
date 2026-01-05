@@ -20,12 +20,7 @@ type ReportSection = {
   body: string;
 };
 
-/**
- * Normalises headings so we can match things like:
- *  — KEY RISK SIGNALS —
- *  **NEGOTIATION ADVICE**
- *  Key risks & warnings
- */
+/** Normalise messy AI headings so alias matching works */
 function normaliseHeading(text: string): string {
   return text
     .toLowerCase()
@@ -83,7 +78,7 @@ const SECTION_MARKERS = Object.entries(SECTION_ALIASES).map(
 );
 
 /* =========================================================
-   Text helpers & section cleaning
+   Text helpers
 ========================================================= */
 
 function cleanSectionBody(text: string): string {
@@ -104,9 +99,7 @@ function isMeaningfulContent(text: string): boolean {
   return true;
 }
 
-/**
- * Remove irrelevant seller / metadata noise
- */
+/** Remove irrelevant noise */
 function sanitiseReportText(text: string): string {
   if (!text) return "";
   const filtered = text
@@ -125,7 +118,7 @@ function sanitiseReportText(text: string): string {
 }
 
 /* =========================================================
-   Section builder (restored + more robust)
+   Section builder — restores proper multi-section feel
 ========================================================= */
 
 function buildSectionsFromFreeText(text: string): ReportSection[] {
@@ -135,7 +128,6 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
   const lines = cleaned.split(/\r?\n/);
   const indexed: { idx: number; label: string }[] = [];
 
-  // Detect headings by normalised comparison
   for (let i = 0; i < lines.length; i++) {
     const norm = normaliseHeading(lines[i]);
     if (!norm) continue;
@@ -148,7 +140,7 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
     }
   }
 
-  // No real markers → treat as overview only
+  // No headings → single overview
   if (!indexed.length) {
     const body = cleanSectionBody(cleaned);
     return isMeaningfulContent(body) ? [{ title: "Overview", body }] : [];
@@ -156,7 +148,7 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 
   const sections: ReportSection[] = [];
 
-  // Intro text before first heading → Overview
+  // Intro → Overview
   if (indexed[0].idx > 0) {
     const intro = cleanSectionBody(lines.slice(0, indexed[0].idx).join("\n"));
     if (isMeaningfulContent(intro)) {
@@ -164,7 +156,7 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
     }
   }
 
-  // Build each section block
+  // Build sections
   for (let i = 0; i < indexed.length; i++) {
     const startIdx = indexed[i].idx;
     const endIdx =
@@ -185,7 +177,7 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 }
 
 /* =========================================================
-   Smart teaser generator
+   Preview teaser builder — MUST feel vehicle-specific
 ========================================================= */
 
 function pickFirstMeaningfulLine(body: string): string | null {
@@ -202,7 +194,7 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
 
   const teaser: string[] = [];
 
-  // 1) What this means for you
+  // Priority 1 — What this means for you
   const meaning = sections.find((s) =>
     s.title.toLowerCase().includes("what this means")
   );
@@ -211,7 +203,7 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
     if (line) teaser.push(line);
   }
 
-  // 2) Confidence assessment
+  // Priority 2 — Confidence
   if (teaser.length < 2) {
     const conf = sections.find((s) =>
       s.title.toLowerCase().includes("confidence")
@@ -222,7 +214,7 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
     }
   }
 
-  // 3) First good insight anywhere
+  // Priority 3 — First good insight anywhere
   if (teaser.length < 2) {
     for (const s of sections) {
       const line = pickFirstMeaningfulLine(s.body);
@@ -231,8 +223,7 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
     }
   }
 
-  // 4) Final fallback — pull 1–2 sentences from Overview so
-  //    the preview still feels specific to this vehicle.
+  // Final fallback — pull 1–2 sentences from Overview
   if (teaser.length === 0) {
     const overview = sections.find((s) =>
       s.title.toLowerCase().includes("overview")
@@ -321,29 +312,33 @@ function getSectionTheme(title: string): SectionTheme {
 }
 
 /* =========================================================
-   Vehicle display enrichment
+   Vehicle enrichment — expanded brand coverage
 ========================================================= */
 
 const KNOWN_BRANDS = [
-  "Toyota",
-  "Kia",
-  "Mazda",
-  "Ford",
-  "Hyundai",
-  "Nissan",
-  "Mitsubishi",
-  "Subaru",
-  "Honda",
-  "Volkswagen",
-  "Audi",
-  "BMW",
-  "Mercedes",
+  // Mainstream
+  "Toyota","Kia","Mazda","Ford","Hyundai","Nissan","Mitsubishi","Subaru","Honda",
+  "Suzuki","Isuzu","Great Wall","Haval","Chery","MG","BYD",
+
+  // European
+  "Volkswagen","Audi","BMW","Mercedes","Skoda","Seat","Peugeot","Citroen",
+  "Renault","Volvo","Saab","Fiat","Alfa Romeo","Mini","Opel",
+
+  // UK / 4x4
+  "Land Rover","Range Rover","Jaguar","Jeep",
+
+  // US
+  "Chevrolet","Dodge","Chrysler","Buick","Cadillac","GMC","Ram","Lincoln",
+
+  // AU legacy
   "Holden",
-  "Peugeot",
-  "Renault",
-  "Jeep",
-  "Volvo",
-  "Lexus",
+
+  // Premium & performance
+  "Lexus","Porsche","Ferrari","Lamborghini","Maserati","Bentley",
+  "Aston Martin","Rolls Royce","McLaren",
+
+  // EV
+  "Tesla","Polestar","Rivian","Lucid"
 ];
 
 function enrichVehicleForDisplay(
@@ -387,7 +382,7 @@ function enrichVehicleForDisplay(
 }
 
 /* =========================================================
-   UI components
+   UI Components
 ========================================================= */
 
 function ConfidenceGauge({ code }: { code?: string }) {
@@ -538,22 +533,14 @@ export default function OnlineResults() {
     }
   }, [result]);
 
-  function goStartNewScan() {
+  const goStartNewScan = () => {
     localStorage.removeItem(UNLOCK_KEY);
     navigate("/start-scan");
-  }
+  };
 
-  function goMyScans() {
-    navigate("/my-scans");
-  }
-
-  function goInPersonFlow() {
-    navigate("/inperson-start");
-  }
-
-  function goAssistFlow() {
-    navigate("/scan/online/assist");
-  }
+  const goMyScans = () => navigate("/my-scans");
+  const goInPersonFlow = () => navigate("/inperson-start");
+  const goAssistFlow = () => navigate("/scan/online/assist");
 
   if (!result) {
     return (
@@ -585,9 +572,7 @@ export default function OnlineResults() {
 
   const isAssistMode = step === "assist-required";
 
-  /* =====================================================
-     Assist-required state
-  ====================================================== */
+  /* Assist mode */
   if (isAssistMode) {
     const createdLabel = createdAt
       ? new Date(createdAt).toLocaleString()
@@ -608,9 +593,8 @@ export default function OnlineResults() {
             We couldn&apos;t read this listing automatically
           </div>
           <p className="text-amber-100/90">
-            Some websites block automated tools from reading the page. We can
-            still help — we just need a couple of key details from you to
-            finish the CarVerity report.
+            Some websites block automated tools. We can still help — we just
+            need a couple of key details to finish the report.
           </p>
         </section>
 
@@ -621,8 +605,7 @@ export default function OnlineResults() {
                 Continue your CarVerity scan
               </h1>
               <p className="text-xs md:text-sm text-slate-300 mt-1">
-                We&apos;ll guide you through a short assist screen to capture
-                the make, model, year and kilometres from the listing.
+                We&apos;ll capture make, model, year and kilometres.
               </p>
             </div>
             <span className="hidden md:inline-block text-[11px] text-slate-400">
@@ -632,9 +615,9 @@ export default function OnlineResults() {
 
           <button
             onClick={goAssistFlow}
-            className="mt-4 w-full rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2.5 shadow flex items-center justify-center gap-2"
+            className="mt-4 w-full rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2.5 shadow"
           >
-            <span>Continue — add vehicle details</span>
+            Continue — add vehicle details
           </button>
 
           <button
@@ -648,9 +631,7 @@ export default function OnlineResults() {
     );
   }
 
-  /* =====================================================
-     Normal full-report / preview state
-  ====================================================== */
+  /* Normal state */
 
   const rawReport = fullSummary || summary || "";
   const baseVehicle = normaliseVehicle(storedVehicle as VehicleInfo);
@@ -694,26 +675,7 @@ export default function OnlineResults() {
         <span className="opacity-80">In-person inspection</span>
       </div>
 
-      {/* Scan overview strip */}
-      <section className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs md:text-sm text-slate-200">
-          <div className="flex items-center gap-2">
-            <span>📡</span>
-            <span className="font-semibold">Online listing scan</span>
-            <span className="opacity-60">•</span>
-            <span>{showUnlocked ? "Full report" : "Preview mode"}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="rounded-full border border-white/20 bg-slate-800/70 px-2 py-0.5 text-[10px] tracking-wide text-slate-200">
-              STEP 2 OF 3 — Results &amp; guidance
-            </span>
-            <span className="opacity-80">{createdLabel}</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Premium header */}
+      {/* Scan header */}
       <section className="rounded-2xl bg-gradient-to-r from-violet-700/85 to-indigo-600/85 border border-white/12 shadow-[0_24px_60px_rgba(0,0,0,0.7)] px-6 py-5 md:py-6 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -738,13 +700,6 @@ export default function OnlineResults() {
 
           {teaserSnippets.length > 0 ? (
             <>
-              <p className="text-sm text-slate-300">
-                Based on the listing details so far, here are early insights our
-                analysis has surfaced for this car. Unlock the full CarVerity
-                report to reveal deeper checks, negotiation angles, and
-                ownership considerations tailored specifically to this listing.
-              </p>
-
               <ul className="mt-1 text-sm text-slate-200 space-y-2 list-disc list-inside">
                 {teaserSnippets.map((t, i) => (
                   <li key={i}>{t}</li>
@@ -757,18 +712,9 @@ export default function OnlineResults() {
               </div>
             </>
           ) : (
-            <>
-              <p className="text-sm text-slate-300">
-                This preview highlights a small portion of the analysis for this
-                car. Unlock the full CarVerity report to see deeper risk
-                markers, in-person inspection priorities, negotiation insights,
-                and ownership guidance — tailored specifically to this vehicle.
-              </p>
-
-              <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-3 text-sm text-slate-400">
-                Full report content locked — upgrade to continue.
-              </div>
-            </>
+            <div className="rounded-xl border border-white/12 bg-slate-800/60 px-4 py-3 text-sm text-slate-400">
+              Full report content locked — upgrade to continue.
+            </div>
           )}
 
           <button
@@ -868,7 +814,7 @@ export default function OnlineResults() {
         </button>
       </section>
 
-      {/* MOBILE FLOATING CTA */}
+      {/* MOBILE CTA */}
       {showFloatingBar && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40">
           <div className="mx-3 mb-3 rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur shadow-[0_20px_60px_rgba(0,0,0,0.7)] px-4 py-3 space-y-2">
