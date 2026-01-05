@@ -9,6 +9,7 @@ import OnlineVehicleDetails from "./pages/OnlineVehicleDetails";
 import OnlinePhotos from "./pages/OnlinePhotos";
 import OnlineNextActions from "./pages/OnlineNextActions";
 import OnlineResults from "./pages/OnlineResults";
+import OnlineAssist from "./pages/OnlineAssist";   // ✅ NEW — Assist Mode
 import MyScans from "./pages/MyScans";
 import Pricing from "./pages/Pricing";
 
@@ -23,7 +24,8 @@ export default function App() {
       <Route path="/scan/online" element={<OnlineStart />} />
       <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
 
-      {/* (Removed old analyzing-listing path) */}
+      {/* Assisted Scan Mode */}
+      <Route path="/scan/online/assist" element={<OnlineAssist />} />  {/* ✅ ADDED */}
 
       <Route
         path="/scan/online/vehicle-details"
