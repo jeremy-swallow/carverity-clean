@@ -58,7 +58,9 @@ function extractBasicVehicleInfo(text: string) {
   const modelMatch = text.match(/Model:\s*([A-Za-z0-9\s]+)/i);
 
   let year = "";
-  const labelled = text.match(/(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i);
+  const labelled = text.match(
+    /(Build|Compliance|Year)[^0-9]{0,8}((19|20)\d{2})/i
+  );
   if (labelled) year = labelled[2];
   year = normaliseYear(year);
 
@@ -92,19 +94,17 @@ You are CarVerity — a calm, neutral guidance tool for Australian used-car buye
 Tone requirements:
 • Human-friendly, measured, factual.
 • Do NOT speculate or infer problems.
-• Do NOT exaggerate risk or imply hidden issues.
 • Only discuss concerns if the listing explicitly states them.
 
-SERVICE HISTORY — ZERO-SPECULATION RULES (CRITICAL)
-• Future-dated or administrative entries are treated as normal bookings.
-• Do NOT label them anomalies, warnings, or risks.
-• Do NOT infer missing history unless the listing clearly states it.
-• Do NOT imply odometer or ownership concerns unless stated.
+SERVICE HISTORY — ZERO-SPECULATION RULES
+• Future-dated entries are treated as normal bookings.
+• Do NOT infer missing history unless the listing states it.
+• Do NOT imply odometer or ownership issues unless stated.
 
 CONFIDENCE MODEL
-LOW = Comfortable so far — nothing concerning stands out
-MODERATE = Mostly positive — a few details worth confirming in person
-HIGH = Proceed carefully — the listing itself mentions details worth checking
+LOW = Comfortable so far
+MODERATE = Mostly positive — a few details worth confirming
+HIGH = Proceed carefully — listing mentions details to check
 
 OUTPUT FORMAT — EXACT ORDER
 
@@ -112,7 +112,7 @@ CONFIDENCE ASSESSMENT
 CONFIDENCE_CODE: LOW / MODERATE / HIGH
 WHAT THIS MEANS FOR YOU
 CARVERITY ANALYSIS — SUMMARY
-KEY RISK SIGNALS (ONLY IF THE LISTING ITSELF MENTIONS THEM)
+KEY RISK SIGNALS
 BUYER CONSIDERATIONS
 NEGOTIATION INSIGHTS
 GENERAL OWNERSHIP NOTES
@@ -191,12 +191,15 @@ export default async function handler(
         const html = await fetchListingHtml(listingUrl);
         const readable = extractReadableText(html);
 
-        // If Carsales blocks us → force assist mode instead of error
+        // 🚦 If blocked → return assist-mode BUT include clues
         if (readable.length < 400) {
           return res.status(200).json({
             ok: false,
             mode: "assist-required",
             reason: "scrape-blocked",
+            vehicle: extractBasicVehicleInfo(html),
+            readablePreview: readable.slice(0, 1200),
+            listingUrl,
           });
         }
 
@@ -207,11 +210,12 @@ export default async function handler(
         listingText = String(rawTextInput || "");
       }
     } catch {
-      // Network fail — enter assist mode (no crash)
+      // 🌧 Network / CORS / anti-bot → assist mode instead of failing
       return res.status(200).json({
         ok: false,
         mode: "assist-required",
         reason: "fetch-failed",
+        listingUrl,
       });
     }
 
