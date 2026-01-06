@@ -349,6 +349,132 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
 }
 
 /* =========================================================
+   Suggested questions for the seller
+   (guidance-only, non-alarmist)
+========================================================= */
+
+function buildSellerQuestions(rawReport: string): string[] {
+  const text = (rawReport || "").toLowerCase();
+  const questions = new Set<string>();
+
+  if (!text.trim()) {
+    // Generic guidance when we don't have much context
+    questions.add(
+      "Can you confirm that the current odometer reading is accurate and matches the service records and PPSR report?"
+    );
+    questions.add(
+      "Has the vehicle ever been written off, involved in a significant accident or had major repair work done? If so, can you share details or invoices?"
+    );
+    questions.add(
+      "Is there anything not mentioned in the listing that a buyer should be aware of — mechanical, cosmetic or finance related?"
+    );
+    return Array.from(questions).slice(0, 6);
+  }
+
+  const mentionsService =
+    text.includes("service history") ||
+    text.includes("logbook") ||
+    text.includes("log book") ||
+    text.includes("service book") ||
+    text.includes("servicing") ||
+    text.includes("service records");
+
+  const mentionsImportOrCompliance =
+    text.includes("import") ||
+    text.includes("grey import") ||
+    text.includes("compliance") ||
+    text.includes("compliance plate") ||
+    text.includes("parallel import");
+
+  const mentionsAccidentOrDamage =
+    text.includes("accident") ||
+    text.includes("write-off") ||
+    text.includes("write off") ||
+    text.includes("hail") ||
+    text.includes("damage") ||
+    text.includes("panel") ||
+    text.includes("repair");
+
+  const mentionsPricingOrValue =
+    text.includes("price") ||
+    text.includes("market value") ||
+    text.includes("overpriced") ||
+    text.includes("undervalued") ||
+    text.includes("negotiation");
+
+  const mentionsUsageOrOwnership =
+    text.includes("previous owner") ||
+    text.includes("owners") ||
+    text.includes("rental") ||
+    text.includes("fleet") ||
+    text.includes("rideshare") ||
+    text.includes("ride share") ||
+    text.includes("company car");
+
+  // Baseline, non-alarmist questions
+  questions.add(
+    "Can you confirm that the current odometer reading is accurate and matches the service records and PPSR report?"
+  );
+  questions.add(
+    "Is the vehicle currently registered and does it have a current roadworthy/safety certificate? If so, when was it issued?"
+  );
+
+  // Service history — framed as confirmation, not fault
+  if (mentionsService) {
+    questions.add(
+      "Could you share clear photos or scans of the logbook and any service receipts, including the most recent service and who completed it?"
+    );
+    questions.add(
+      "Has the vehicle ever missed a scheduled service or had a longer-than-normal gap between services that I should be aware of?"
+    );
+  }
+
+  // Import / compliance — gently confirm the basics
+  if (mentionsImportOrCompliance) {
+    questions.add(
+      "Can you confirm the vehicle’s import and compliance status, and whether it has a local compliance plate and full approval for registration in this state?"
+    );
+    questions.add(
+      "Has the car ever had any issues with registration, insurance, or compliance checks in Australia?"
+    );
+  }
+
+  // Accident / damage — focus on clarity, not blame
+  if (mentionsAccidentOrDamage) {
+    questions.add(
+      "Has the vehicle ever been written off, involved in a significant accident or had major structural repairs? If so, can you provide details or repair invoices?"
+    );
+    questions.add(
+      "Are there any cosmetic or structural issues (paint, panels, rust, underbody) that don’t appear clearly in the photos?"
+    );
+  }
+
+  // Pricing / negotiation — keep it calm and factual
+  if (mentionsPricingOrValue) {
+    questions.add(
+      "Is the asking price flexible at all, and are you open to discussing how it compares to similar vehicles currently on the market?"
+    );
+  }
+
+  // Ownership / usage
+  if (mentionsUsageOrOwnership) {
+    questions.add(
+      "How has the vehicle mainly been used day-to-day (commuting, highway trips, city driving, rideshare, fleet, etc.), and roughly how many kilometres per year?"
+    );
+    questions.add(
+      "Roughly how long have you owned the car, and why are you selling it now?"
+    );
+  }
+
+  // Always finish with an open-ended, buyer-friendly prompt
+  questions.add(
+    "Is there anything else you think a cautious buyer should double-check or ask about before committing to an inspection or purchase?"
+  );
+
+  return Array.from(questions).slice(0, 7);
+}
+
+/* =========================================================
    Theming
 ========================================================= */
 
@@ -824,6 +950,7 @@ export default function OnlineResults() {
 
   const sections = buildSectionsFromFreeText(rawReport);
   const teaserSnippets = buildTeaserFromSections(sections);
+  const sellerQuestions = buildSellerQuestions(rawReport);
 
   const storedUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
   const showUnlocked = Boolean(isUnlocked) || storedUnlock;
@@ -973,6 +1100,41 @@ export default function OnlineResults() {
         </section>
       )}
 
+      {/* QUESTIONS TO ASK THE SELLER */}
+      {sellerQuestions.length > 0 && (
+        <section className="rounded-2xl border border-violet-500/30 bg-gradient-to-br from-slate-950/90 via-slate-900/90 to-violet-950/50 px-5 py-5 space-y-3 shadow-[0_22px_60px_rgba(0,0,0,0.75)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span>💬</span>
+              <h2 className="text-sm md:text-base font-semibold text-slate-50">
+                Questions to ask the seller
+              </h2>
+            </div>
+            <span className="hidden md:inline text-[11px] text-slate-400">
+              Use these as a guide — adjust to your style and situation.
+            </span>
+          </div>
+
+          <p className="text-xs md:text-sm text-slate-300">
+            These questions are based only on the listing details and this
+            CarVerity report. They&apos;re designed to help you confirm
+            important points calmly, not to accuse the seller of doing anything
+            wrong.
+          </p>
+
+          <ul className="mt-2 text-sm text-slate-100 space-y-2 list-disc list-inside">
+            {sellerQuestions.map((q, idx) => (
+              <li key={idx}>{q}</li>
+            ))}
+          </ul>
+
+          <p className="text-[11px] text-slate-400 mt-1">
+            You don&apos;t need to ask all of these — pick the ones that feel
+            most relevant to you and the car.
+          </p>
+        </section>
+      )}
+
       {/* NEXT STEPS GUIDANCE */}
       <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5 space-y-3">
         <div className="flex items-center justify-between gap-3">
@@ -1068,7 +1230,7 @@ export default function OnlineResults() {
 
         <button
           onClick={goMyScans}
-          className="w-full rounded-xl border border-white/20 text-slate-200 px-4 py-2"
+          className="w-full rounded-XL border border-white/20 text-slate-200 px-4 py-2"
         >
           View my scans
         </button>
