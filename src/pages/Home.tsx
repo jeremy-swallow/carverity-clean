@@ -1,10 +1,19 @@
-import { Link } from "react-router-dom";
+// src/pages/Home.tsx
+import { Link, useNavigate } from "react-router-dom";
+import { loadProgress } from "../utils/scanProgress";
 
 export default function Home() {
-  return (
-    <div className="bg-slate-900 text-white min-h-screen">
+  const navigate = useNavigate();
+  const progress = loadProgress();
 
-      {/* HERO SECTION */}
+  function resumeScan() {
+    if (!progress?.step) return;
+    navigate(progress.step);
+  }
+
+  return (
+    <div className="text-white">
+      {/* HERO */}
       <section className="relative w-full overflow-hidden border-b border-white/10">
         <img
           src="/photo-guides/hero.png"
@@ -14,59 +23,77 @@ export default function Home() {
 
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/70 to-black/85" />
 
-        <div className="relative max-w-5xl mx-auto px-6 py-24 sm:py-28">
-          <h1 className="text-4xl sm:text-5xl font-bold leading-tight">
+        <div className="relative max-w-5xl mx-auto px-6 py-24 flex flex-col gap-4">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
             Smarter used-car checks with CarVerity
           </h1>
 
-          <p className="mt-4 text-slate-300 max-w-xl">
-            Analyse car listings, spot risk signals before you buy, and guide
-            your in-person inspections with confidence.
+          <p className="text-slate-200 max-w-2xl">
+            Analyse an online listing, or guide your in-person inspection — step-by-step,
+            with helpful prompts and context.
           </p>
 
-          <div className="mt-6 flex gap-4 flex-wrap">
-            <Link
-              to="/start-scan"
-              className="px-4 py-2 rounded-md bg-indigo-500 hover:bg-indigo-600"
+          <div className="flex flex-wrap gap-3 mt-3">
+            <button
+              onClick={() => navigate("/scan/online")}
+              className="px-4 py-2 rounded-xl bg-blue-400 text-black font-semibold"
             >
-              Start a scan
-            </Link>
+              Start Online Scan
+            </button>
 
-            <Link
-              to="/my-scans"
-              className="px-4 py-2 rounded-md bg-slate-800 hover:bg-slate-700"
+            <button
+              onClick={() => navigate("/scan/in-person/start")}
+              className="px-4 py-2 rounded-xl bg-slate-300 text-black font-semibold"
             >
-              My scans
-            </Link>
+              Start In-Person Scan
+            </button>
+
+            {progress?.step && (
+              <button
+                onClick={resumeScan}
+                className="px-4 py-2 rounded-xl bg-amber-400 text-black font-semibold"
+              >
+                Resume Scan
+              </button>
+            )}
           </div>
+
+          <Link
+            to="/my-scans"
+            className="text-slate-300 underline text-sm mt-1"
+          >
+            View My Scans
+          </Link>
         </div>
       </section>
 
-      {/* FEATURE CARDS */}
-      <section className="max-w-5xl mx-auto px-6 py-10 grid gap-6 md:grid-cols-2">
-
-        <div className="border border-white/10 rounded-xl p-5 bg-slate-800/30 backdrop-blur">
-          <h3 className="font-semibold mb-2">Online Listing Scan</h3>
+      {/* INFORMATION CARDS */}
+      <section className="max-w-5xl mx-auto px-6 py-12 grid gap-6 md:grid-cols-2">
+        <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-5">
+          <h2 className="text-lg font-semibold mb-1">Online Listing Scan</h2>
           <p className="text-slate-300 text-sm mb-3">
-            Paste a listing link and instantly analyse pricing, wording risks,
-            and seller flags.
+            Paste a listing link and instantly analyse wording risks, missing details,
+            and seller-provided information.
           </p>
-          <Link to="/start-scan" className="text-indigo-300 hover:text-indigo-200">
+          <Link to="/scan/online" className="text-blue-400 text-sm underline">
             Start online scan →
           </Link>
         </div>
 
-        <div className="border border-white/10 rounded-xl p-5 bg-slate-800/30 backdrop-blur">
-          <h3 className="font-semibold mb-2">In-Person Inspection Mode</h3>
+        <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-5">
+          <h2 className="text-lg font-semibold mb-1">In-Person Inspection Mode</h2>
           <p className="text-slate-300 text-sm mb-3">
-            Guided on-site checklist with photos, prompts, and risk highlights.
+            Guided photo checklist with prompts, observations, and condition awareness
+            helpful for real-world viewing.
           </p>
-          <Link to="/inperson-start" className="text-indigo-300 hover:text-indigo-200">
+          <Link
+            to="/scan/in-person/start"
+            className="text-blue-400 text-sm underline"
+          >
             Start in-person scan →
           </Link>
         </div>
       </section>
-
     </div>
   );
 }
