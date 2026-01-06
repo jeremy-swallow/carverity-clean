@@ -1,4 +1,3 @@
-// api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
@@ -20,10 +19,7 @@ async function fetchHtml(url: string): Promise<string> {
     },
   });
 
-  if (!res.ok) {
-    throw new Error(`fetch-failed:${res.status}`);
-  }
-
+  if (!res.ok) throw new Error(`fetch-failed:${res.status}`);
   return await res.text();
 }
 
@@ -52,11 +48,7 @@ function safeParseModelJson(raw: string): any {
     .replace(/^[^{]*/s, "")
     .replace(/[^}]*$/s, "");
 
-  try {
-    return JSON.parse(candidate);
-  } catch {
-    throw new Error("model-json-parse-failed");
-  }
+  return JSON.parse(candidate);
 }
 
 /* =========================================================
@@ -72,6 +64,7 @@ async function callModel(prompt: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4 },
       }),
     }
   );
@@ -101,11 +94,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let listingText = pastedText ?? "";
 
-    // Normal mode — fetch from URL
     if (!assistMode) {
-      if (!listingUrl) {
+      if (!listingUrl)
         return res.status(400).json({ ok: false, error: "missing-url" });
-      }
 
       try {
         const html = await fetchHtml(listingUrl);
@@ -120,7 +111,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // If text is still too small → ask user to paste
     if (!listingText || listingText.length < 400) {
       return res.status(200).json({
         ok: false,
@@ -131,53 +121,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     /* =====================================================
-       Guided CarVerity Analysis Prompt (Restored)
+       UPGRADED — Structured Guidance Prompt
     ====================================================== */
 
     const prompt = `
-Analyse this Australian used-car listing and respond ONLY as JSON.
+Analyse this Australian used-car listing and reply ONLY as JSON.
 
-Your role is an independent buyer-side assistant.
-Write in clear everyday language — practical, calm, supportive.
+Your role: A cautious, consumer-advocate buyer assistant.
+Focus on risk awareness, realistic expectations, and actionable next steps.
 
-Return this structure exactly:
+Required JSON structure (do not remove fields):
 
 {
-  "vehicle": {
-    "make": "",
-    "model": "",
-    "year": "",
-    "kilometres": ""
-  },
+  "vehicle": { "make": "", "model": "", "year": "", "kilometres": "" },
 
   "confidenceCode": "LOW | MODERATE | HIGH",
 
-  "previewSummary": "1–2 short sentences tailored to THIS car, not generic.",
-
-  "fullSummary": "A clear narrative overview of the car and situation.",
+  "previewSummary": "",
+  "fullSummary": "",
 
   "sections": [
-    { "title": "Confidence assessment", "body": "" },
-    { "title": "What this means for you", "body": "" },
     { "title": "Key risk signals", "body": "" },
     { "title": "Buyer considerations", "body": "" },
     { "title": "Negotiation insights", "body": "" },
-    { "title": "General ownership notes", "body": "" }
+    { "title": "Ownership outlook", "body": "" }
   ],
 
-  "signals": [
-    { "type": "risk" | "value" | "unknown", "text": "" }
-  ]
+  "repairEstimates": [
+    {
+      "issue": "",
+      "estimatedCostMin": 0,
+      "estimatedCostMax": 0,
+      "notes": ""
+    }
+  ],
+
+  "suggestedNegotiationStart": {
+    "reasoning": "",
+    "recommendedOffer": 0,
+    "confidence": "LOW | MEDIUM | HIGH"
+  }
 }
 
-Content rules:
-
-- Base conclusions ONLY on the listing text.
-- Prefer guidance phrasing over technical description.
-- Mention price context, service history confidence, risk uncertainty where relevant.
-- Do not invent facts — say "not mentioned" where details are missing.
-- Keep each section useful and vehicle-specific.
-- Avoid repeating the same sentence across multiple sections.
+Guidance rules:
+• Extract real clues from the listing (not assumptions).
+• If there are no known mechanical risks, say so safely.
+• Repair estimates must be realistic Australian workshop pricing.
+• Negotiation advice must be ethical, conservative, and evidence-based.
+• Prefer caution over optimism.
 
 Listing text:
 ${listingText}
