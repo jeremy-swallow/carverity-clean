@@ -1,5 +1,5 @@
 // src/pages/InPersonSummary.tsx
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { clearProgress } from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
@@ -9,11 +9,11 @@ import { syncScanToCloud } from "../services/scanSyncService";
 export default function InPersonSummary() {
   const navigate = useNavigate();
 
-  // Detect whether this scan has an associated listing
-  const listingUrl = useMemo(
-    () => localStorage.getItem("carverity_listing_url") || "",
-    []
-  );
+  // Journey flags
+  const hasOnlineScan =
+    localStorage.getItem("carverity_online_completed") === "1";
+  const hasInPersonScan = true; // we are on the in-person completion screen
+  const dualJourneyComplete = hasOnlineScan && hasInPersonScan;
 
   useEffect(() => {
     // The scan is complete — clear progress so Resume won't appear
@@ -21,6 +21,8 @@ export default function InPersonSummary() {
   }, []);
 
   async function handleSaveAndFinish() {
+    const listingUrl = localStorage.getItem("carverity_listing_url") || "";
+
     const scan: SavedScan = {
       id: generateScanId(),
       type: "in-person",
@@ -28,7 +30,7 @@ export default function InPersonSummary() {
       createdAt: new Date().toISOString(),
       listingUrl,
       summary: listingUrl
-        ? `In-person inspection completed • Linked listing: ${listingUrl}`
+        ? `In-person inspection completed • Listing: ${listingUrl}`
         : "In-person inspection completed",
       completed: true,
     };
@@ -46,10 +48,17 @@ export default function InPersonSummary() {
       },
     });
 
+    // Mark journey step complete
+    localStorage.setItem("carverity_inperson_completed", "1");
+
     navigate("/my-scans");
   }
 
-  function startOnlineScan() {
+  function goOnlineScan() {
+    navigate("/scan/online");
+  }
+
+  function startNewScan() {
     navigate("/start-scan");
   }
 
@@ -75,6 +84,27 @@ export default function InPersonSummary() {
       >
         In-person scan · Step 4 of 4 — Completed
       </span>
+
+      {/* Dual-journey badge */}
+      {dualJourneyComplete && (
+        <div
+          style={{
+            borderRadius: 16,
+            padding: 16,
+            background: "rgba(16,120,80,0.18)",
+            border: "1px solid rgba(16,160,110,0.45)",
+          }}
+        >
+          <strong style={{ color: "#c9ffe5", fontSize: 14 }}>
+            ✅ Dual-scan complete — strongest confidence
+          </strong>
+          <p style={{ color: "#b5f5db", fontSize: 13, marginTop: 6 }}>
+            You’ve completed both the in-person inspection and the online
+            listing analysis. Together they provide the most balanced
+            understanding of this vehicle.
+          </p>
+        </div>
+      )}
 
       <h1 style={{ fontSize: 26, fontWeight: 800 }}>
         Your in-person inspection summary
@@ -102,8 +132,8 @@ export default function InPersonSummary() {
 
         <SummaryCard
           title="Good next steps"
-          body="Confirm service records, ask about recent maintenance and consider a
-          mechanical inspection if the car still feels like a good option."
+          body="Ask questions about service history, request maintenance records or
+          consider a mechanical inspection if the car still feels like a good option."
         />
 
         <SummaryCard
@@ -113,7 +143,47 @@ export default function InPersonSummary() {
         />
       </div>
 
-      {/* ⚖️ Guidance disclaimer */}
+      {/* Optional encouragement — ONLY when online scan not done */}
+      {!hasOnlineScan && (
+        <div
+          style={{
+            borderRadius: 16,
+            padding: 18,
+            background: "rgba(80,120,255,0.12)",
+            border: "1px solid rgba(140,170,255,0.35)",
+          }}
+        >
+          <strong style={{ fontSize: 14, color: "#dfe6ff" }}>
+            🧭 Optional next step — online listing scan
+          </strong>
+
+          <p style={{ color: "#c8d2ff", fontSize: 13, marginTop: 6 }}>
+            If this car also has an online listing, you can run a quick online
+            scan to analyse the wording, omissions and seller-provided details.
+            It’s optional — some buyers prefer to rely on the in-person
+            inspection alone — but completing both stages can help build a more
+            rounded picture.
+          </p>
+
+          <button
+            onClick={goOnlineScan}
+            style={{
+              marginTop: 10,
+              padding: "12px 18px",
+              borderRadius: 12,
+              fontSize: 14,
+              fontWeight: 700,
+              background: "#7aa2ff",
+              color: "#0b1020",
+              border: "none",
+            }}
+          >
+            Run an online listing scan
+          </button>
+        </div>
+      )}
+
+      {/* Save notice */}
       <div
         style={{
           marginTop: 6,
@@ -124,69 +194,10 @@ export default function InPersonSummary() {
         }}
       >
         <p style={{ color: "#9aa3c7", fontSize: 13 }}>
-          This isn’t a mechanical inspection — it’s a guided checklist to help
-          you make a more informed decision.
+          This is not a mechanical inspection or official vehicle report — it’s
+          a guided checklist to support your decision-making.
         </p>
       </div>
-
-      {/* 💡 Optional dual-journey encouragement (only if NO listing is linked) */}
-      {!listingUrl && (
-        <div
-          style={{
-            marginTop: 4,
-            padding: 20,
-            borderRadius: 16,
-            background:
-              "linear-gradient(135deg, rgba(88,105,255,0.25), rgba(30,41,82,0.6))",
-            border: "1px solid rgba(120,140,255,0.35)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
-          }}
-        >
-          <strong style={{ fontSize: 15 }}>
-            Want an extra layer of guidance?
-          </strong>
-
-          <p style={{ color: "#cfd9ff", fontSize: 14 }}>
-            If this car also has an online listing, you can run a CarVerity
-            listing scan to analyse the wording, seller details and service
-            information. It’s optional — but useful when you want the bigger
-            picture.
-          </p>
-
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button
-              onClick={startOnlineScan}
-              style={{
-                padding: "12px 18px",
-                borderRadius: 12,
-                fontSize: 15,
-                fontWeight: 700,
-                background: "#7aa2ff",
-                color: "#0b1020",
-                border: "none",
-              }}
-            >
-              Run an online listing scan
-            </button>
-
-            <button
-              onClick={handleSaveAndFinish}
-              style={{
-                padding: "12px 18px",
-                borderRadius: 12,
-                fontSize: 15,
-                background: "transparent",
-                border: "1px solid rgba(255,255,255,0.25)",
-                color: "#cbd5f5",
-              }}
-            >
-              Skip — save this scan only
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Actions */}
       <div
@@ -213,7 +224,7 @@ export default function InPersonSummary() {
         </button>
 
         <button
-          onClick={() => navigate("/start-scan")}
+          onClick={startNewScan}
           style={{
             padding: "14px 22px",
             borderRadius: 12,
