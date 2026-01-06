@@ -14,7 +14,10 @@ import OnlinePhotos from "./pages/OnlinePhotos";
 import OnlineNextActions from "./pages/OnlineNextActions";
 import OnlineResults from "./pages/OnlineResults";
 
+// In-person flow
 import InPersonStart from "./pages/InPersonStart";
+import InPersonPhotos from "./pages/InPersonPhotos";
+import InPersonChecks from "./pages/InPersonChecks"; // (next stage)
 
 import MyScans from "./pages/MyScans";
 import Pricing from "./pages/Pricing";
@@ -22,7 +25,7 @@ import Pricing from "./pages/Pricing";
 export default function App() {
   return (
     <Routes>
-      {/* 🌐 App Shell — header, credits, navigation */}
+      {/* 🌐 App Shell — header + navigation */}
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
 
@@ -41,6 +44,8 @@ export default function App() {
 
         {/* In-Person Scan Flow */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
+        <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
+        <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
 
         {/* My Scans */}
         <Route path="/my-scans" element={<MyScans />} />
