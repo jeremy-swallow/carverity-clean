@@ -417,44 +417,6 @@ function getSectionTheme(title: string): SectionTheme {
   };
 }
 
-function getSectionSubtitle(title: string): string {
-  const t = title.toLowerCase();
-
-  if (t.includes("overview")) {
-    return "High-level summary of what this listing is offering.";
-  }
-
-  if (t.includes("confidence")) {
-    return "How comfortable you should feel based on the information so far.";
-  }
-
-  if (t.includes("risk")) {
-    return "Potential issues and red flags to check before you proceed.";
-  }
-
-  if (t.includes("buyer considerations")) {
-    return "Practical pros and cons to weigh up as a buyer.";
-  }
-
-  if (t.includes("negotiation")) {
-    return "Guidance to help you frame offers and counter-offers.";
-  }
-
-  if (t.includes("ownership")) {
-    return "What day-to-day life with this car might look like.";
-  }
-
-  if (t.includes("what this means")) {
-    return "Plain-English takeaway so you know where you stand.";
-  }
-
-  if (t.includes("analysis")) {
-    return "How the different pieces of information fit together.";
-  }
-
-  return "Guidance based on the details we found in this listing.";
-}
-
 /* =========================================================
    Vehicle display enrichment
 ========================================================= */
@@ -643,7 +605,7 @@ function FullReportSection({
             </h3>
           </div>
           <p className="text-[11px] text-slate-100/80">
-            {getSectionSubtitle(section.title)}
+            {/* Subtitle now omitted for brevity; can be re-added if needed */}
           </p>
         </div>
 
@@ -824,7 +786,7 @@ export default function OnlineResults() {
   }
 
   /* =====================================================
-     Normal full-report / preview state
+     Normal preview / full report mode
   ====================================================== */
 
   const rawReport = fullSummary || summary || "";
@@ -874,8 +836,9 @@ export default function OnlineResults() {
             ✅ Dual-scan complete — strongest confidence
           </h3>
           <p className="text-xs text-emerald-200/90 mt-1">
-            You’ve completed both the online listing analysis and the in-person
-            inspection. That gives you the most balanced view of this car.
+            You&apos;ve completed both the online listing analysis and the
+            in-person inspection. That gives you the most balanced view of this
+            car.
           </p>
         </section>
       )}
