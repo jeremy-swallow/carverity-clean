@@ -1,5 +1,5 @@
 // src/pages/InPersonSummary.tsx
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { clearProgress } from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
@@ -9,14 +9,18 @@ import { syncScanToCloud } from "../services/scanSyncService";
 export default function InPersonSummary() {
   const navigate = useNavigate();
 
+  // Detect whether this scan has an associated listing
+  const listingUrl = useMemo(
+    () => localStorage.getItem("carverity_listing_url") || "",
+    []
+  );
+
   useEffect(() => {
     // The scan is complete — clear progress so Resume won't appear
     clearProgress();
   }, []);
 
   async function handleSaveAndFinish() {
-    const listingUrl = localStorage.getItem("carverity_listing_url") || "";
-
     const scan: SavedScan = {
       id: generateScanId(),
       type: "in-person",
@@ -24,7 +28,7 @@ export default function InPersonSummary() {
       createdAt: new Date().toISOString(),
       listingUrl,
       summary: listingUrl
-        ? `In-person inspection completed • Listing: ${listingUrl}`
+        ? `In-person inspection completed • Linked listing: ${listingUrl}`
         : "In-person inspection completed",
       completed: true,
     };
@@ -46,7 +50,6 @@ export default function InPersonSummary() {
   }
 
   function startOnlineScan() {
-    // Optional hint: keep same vehicle context if present
     navigate("/start-scan");
   }
 
@@ -99,8 +102,8 @@ export default function InPersonSummary() {
 
         <SummaryCard
           title="Good next steps"
-          body="Ask questions about service history, request maintenance records or
-          consider a mechanical inspection if the car still feels like a good option."
+          body="Confirm service records, ask about recent maintenance and consider a
+          mechanical inspection if the car still feels like a good option."
         />
 
         <SummaryCard
@@ -110,54 +113,7 @@ export default function InPersonSummary() {
         />
       </div>
 
-      {/* Dual-journey encouragement */}
-      <div
-        style={{
-          marginTop: 4,
-          padding: 18,
-          borderRadius: 14,
-          background:
-            "linear-gradient(135deg, rgba(99,102,241,0.25), rgba(79,70,229,0.22))",
-          border: "1px solid rgba(180,190,255,0.25)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-        }}
-      >
-        <strong style={{ fontSize: 15, color: "#ffffff" }}>
-          Get a stronger, well-rounded assessment
-        </strong>
-
-        <p style={{ color: "#cfd6ff", fontSize: 14 }}>
-          Many buyers complete both an in-person inspection <em>and</em> an
-          online listing scan. The online scan analyses the advert wording and
-          details — helping surface potential gaps or things worth confirming
-          with the seller before you go further.
-        </p>
-
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button
-            onClick={startOnlineScan}
-            style={{
-              padding: "12px 18px",
-              borderRadius: 12,
-              fontSize: 15,
-              fontWeight: 700,
-              background: "#8b9cff",
-              color: "#0b1020",
-              border: "none",
-            }}
-          >
-            Add an online listing scan for this car
-          </button>
-
-          <span style={{ color: "#9aa3c7", fontSize: 13 }}>
-            Optional — you can do this now or later from My Scans.
-          </span>
-        </div>
-      </div>
-
-      {/* Save notice */}
+      {/* ⚖️ Guidance disclaimer */}
       <div
         style={{
           marginTop: 6,
@@ -168,10 +124,69 @@ export default function InPersonSummary() {
         }}
       >
         <p style={{ color: "#9aa3c7", fontSize: 13 }}>
-          This is not a mechanical inspection or official vehicle report — it’s
-          a guided checklist to support your decision-making.
+          This isn’t a mechanical inspection — it’s a guided checklist to help
+          you make a more informed decision.
         </p>
       </div>
+
+      {/* 💡 Optional dual-journey encouragement (only if NO listing is linked) */}
+      {!listingUrl && (
+        <div
+          style={{
+            marginTop: 4,
+            padding: 20,
+            borderRadius: 16,
+            background:
+              "linear-gradient(135deg, rgba(88,105,255,0.25), rgba(30,41,82,0.6))",
+            border: "1px solid rgba(120,140,255,0.35)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
+          <strong style={{ fontSize: 15 }}>
+            Want an extra layer of guidance?
+          </strong>
+
+          <p style={{ color: "#cfd9ff", fontSize: 14 }}>
+            If this car also has an online listing, you can run a CarVerity
+            listing scan to analyse the wording, seller details and service
+            information. It’s optional — but useful when you want the bigger
+            picture.
+          </p>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              onClick={startOnlineScan}
+              style={{
+                padding: "12px 18px",
+                borderRadius: 12,
+                fontSize: 15,
+                fontWeight: 700,
+                background: "#7aa2ff",
+                color: "#0b1020",
+                border: "none",
+              }}
+            >
+              Run an online listing scan
+            </button>
+
+            <button
+              onClick={handleSaveAndFinish}
+              style={{
+                padding: "12px 18px",
+                borderRadius: 12,
+                fontSize: 15,
+                background: "transparent",
+                border: "1px solid rgba(255,255,255,0.25)",
+                color: "#cbd5f5",
+              }}
+            >
+              Skip — save this scan only
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div
