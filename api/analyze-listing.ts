@@ -185,7 +185,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     /* =====================================================
-       Structured analysis prompt
+       Structured analysis prompt (service-history rules strengthened)
     ====================================================== */
 
     const prompt = `
@@ -202,20 +202,36 @@ Return exactly this structure:
   "fullSummary": ""
 }
 
-Rules for reasoning (very important):
+Reasoning rules (strict and non-negotiable):
 
-1) Do not speculate or invent risks. Only describe concerns that are *clearly supported* by the listing text itself.
+1) Do not speculate or invent problems. Only mention risks that are
+   *clearly supported by the listing text itself*.
 
-2) Service-history rule:
-   • If the listing shows a photographed logbook entry, dealer stamp, receipt, or service-book page, treat this as **evidence of a completed service**.
-   • Do NOT treat unusual or future-looking dates as a red flag by themselves — these are often formatting or clerical entries.
-   • Only classify a service entry as a *risk* if the listing text explicitly indicates tampering, falsification, odometer inconsistency, or missing records.
-   • If something looks unusual but there is no contradiction, describe it as **"worth confirming with the seller"** — not a fault.
+2) Service-history interpretation (very important):
 
-3) Use Australian terminology and kilometres.
+   Treat photographed logbook pages, workshop stamps, handwritten service notes,
+   receipts, or images of a stamped service-book entry as **evidence of a
+   completed service**.
 
-4) The previewSummary should contain a short, neutral summary.
-   The fullSummary may include risk context, but must remain factual and grounded.
+   — If a date appears future-dated because it is part of a printed
+     schedule layout, or the page is stamped with recorded work completed,
+     this is **NOT a red flag**.
+
+   — Only treat service history as a risk if the listing text explicitly
+     indicates:
+       • odometer inconsistency or rollback
+       • missing or blank service records
+       • evidence of tampering or falsification
+       • contradictory mileage vs service entries
+
+   — If something looks unusual but there is no contradiction,
+     describe it neutrally as **“worth confirming with the seller”**,
+     not as a fault or risk.
+
+3) Use Australian language, kilometres, and neutral tone.
+
+4) previewSummary = short neutral overview.
+   fullSummary = factual explanation with grounded context only.
 
 Listing text:
 ${listingText}
