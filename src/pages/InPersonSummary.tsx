@@ -45,6 +45,11 @@ export default function InPersonSummary() {
     navigate("/my-scans");
   }
 
+  function startOnlineScan() {
+    // Optional hint: keep same vehicle context if present
+    navigate("/start-scan");
+  }
+
   return (
     <div
       style={{
@@ -103,6 +108,53 @@ export default function InPersonSummary() {
           body="Saving multiple scans in My Scans makes it easier to compare vehicles
           later instead of relying on memory."
         />
+      </div>
+
+      {/* Dual-journey encouragement */}
+      <div
+        style={{
+          marginTop: 4,
+          padding: 18,
+          borderRadius: 14,
+          background:
+            "linear-gradient(135deg, rgba(99,102,241,0.25), rgba(79,70,229,0.22))",
+          border: "1px solid rgba(180,190,255,0.25)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
+        <strong style={{ fontSize: 15, color: "#ffffff" }}>
+          Get a stronger, well-rounded assessment
+        </strong>
+
+        <p style={{ color: "#cfd6ff", fontSize: 14 }}>
+          Many buyers complete both an in-person inspection <em>and</em> an
+          online listing scan. The online scan analyses the advert wording and
+          details — helping surface potential gaps or things worth confirming
+          with the seller before you go further.
+        </p>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            onClick={startOnlineScan}
+            style={{
+              padding: "12px 18px",
+              borderRadius: 12,
+              fontSize: 15,
+              fontWeight: 700,
+              background: "#8b9cff",
+              color: "#0b1020",
+              border: "none",
+            }}
+          >
+            Add an online listing scan for this car
+          </button>
+
+          <span style={{ color: "#9aa3c7", fontSize: 13 }}>
+            Optional — you can do this now or later from My Scans.
+          </span>
+        </div>
       </div>
 
       {/* Save notice */}
