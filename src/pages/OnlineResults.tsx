@@ -105,21 +105,20 @@ function isMeaningfulContent(text: string): boolean {
 }
 
 /**
- * Remove irrelevant seller / metadata noise
+ * SAFE sanitiser — only removes true noise
  */
 function sanitiseReportText(text: string): string {
   if (!text) return "";
-  const filtered = text
-    .split("\n")
-    .filter((line) => {
-      const lower = line.toLowerCase();
-      if (lower.includes("service history date anomaly")) return false;
-      if (lower.includes("appears in the future")) return false;
-      if (lower.includes("future-dated") || lower.includes("future dated"))
-        return false;
-      if (lower.includes("member since 2025")) return false;
-      return true;
-    });
+
+  const filtered = text.split("\n").filter((line) => {
+    const lower = line.toLowerCase().trim();
+
+    if (lower === "null" || lower === "undefined") return false;
+    if (lower.startsWith("service history date anomaly")) return false;
+    if (lower.startsWith("appears in the future")) return false;
+
+    return true;
+  });
 
   return filtered.join("\n").replace(/\n{3,}/g, "\n\n");
 }
@@ -153,14 +152,12 @@ function buildSyntheticSections(cleaned: string): ReportSection[] {
 
   const sections: ReportSection[] = [];
 
-  // Overview = first 1–2 sentences
-  const overviewSentences = sentences.slice(0, 2);
   sections.push({
     title: "Overview",
-    body: overviewSentences.join(" "),
+    body: sentences.slice(0, 2).join(" "),
   });
 
-  const remaining = sentences.slice(overviewSentences.length);
+  const remaining = sentences.slice(2);
 
   const riskSentences =
     pickSentencesByKeywords(remaining, [
@@ -171,7 +168,6 @@ function buildSyntheticSections(cleaned: string): ReportSection[] {
       "red flag",
       "accident",
       "damage",
-      "write-off",
       "unknown",
       "import",
       "compliance",
@@ -191,7 +187,6 @@ function buildSyntheticSections(cleaned: string): ReportSection[] {
       "value",
       "market",
       "budget",
-      "good fit",
       "buyer",
       "suitable",
       "consider",
@@ -225,30 +220,15 @@ function buildSyntheticSections(cleaned: string): ReportSection[] {
     });
   }
 
-  // If we still only have 1 section, split the text into 3 chunks just for layout
-  if (sections.length <= 1 && sentences.length > 3) {
-    const third = Math.ceil(sentences.length / 3);
-    sections.length = 0;
-
-    sections.push({
-      title: "Overview",
-      body: sentences.slice(0, third).join(" "),
-    });
-    sections.push({
-      title: "Key risk signals",
-      body: sentences.slice(third, third * 2).join(" "),
-    });
-    sections.push({
-      title: "Buyer considerations",
-      body: sentences.slice(third * 2).join(" "),
-    });
+  if (sections.length === 0) {
+    sections.push({ title: "Overview", body: overviewBody });
   }
 
   return sections;
 }
 
 /* =========================================================
-   Section builder (marker-based + synthetic fallback)
+   Section builder
 ========================================================= */
 
 function buildSectionsFromFreeText(text: string): ReportSection[] {
@@ -258,7 +238,6 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
   const lines = cleaned.split(/\r?\n/);
   const indexed: { idx: number; label: string }[] = [];
 
-  // Detect headings by normalised comparison
   for (let i = 0; i < lines.length; i++) {
     const norm = normaliseHeading(lines[i]);
     if (!norm) continue;
@@ -274,7 +253,6 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
   const sections: ReportSection[] = [];
 
   if (indexed.length) {
-    // Intro text before first heading → Overview
     if (indexed[0].idx > 0) {
       const intro = cleanSectionBody(
         lines.slice(0, indexed[0].idx).join("\n")
@@ -284,7 +262,6 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
       }
     }
 
-    // Build each section block
     for (let i = 0; i < indexed.length; i++) {
       const startIdx = indexed[i].idx;
       const endIdx =
@@ -302,13 +279,11 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
     }
   }
 
-  // If marker-based parsing gave us multiple sections, use them.
-  if (sections.length > 1) {
-    return sections;
+  if (sections.length <= 1) {
+    return buildSyntheticSections(cleaned);
   }
 
-  // Otherwise, build synthetic multi-section layout from the full text.
-  return buildSyntheticSections(cleaned);
+  return sections;
 }
 
 /* =========================================================
@@ -329,7 +304,6 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
 
   const teaser: string[] = [];
 
-  // 1) What this means for you
   const meaning = sections.find((s) =>
     s.title.toLowerCase().includes("what this means")
   );
@@ -338,7 +312,6 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
     if (line) teaser.push(line);
   }
 
-  // 2) Confidence assessment
   if (teaser.length < 2) {
     const conf = sections.find((s) =>
       s.title.toLowerCase().includes("confidence")
@@ -349,7 +322,6 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
     }
   }
 
-  // 3) First good insight anywhere
   if (teaser.length < 2) {
     for (const s of sections) {
       const line = pickFirstMeaningfulLine(s.body);
@@ -358,8 +330,6 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
     }
   }
 
-  // 4) Final fallback — pull 1–2 sentences from Overview so
-  //    the preview still feels specific to this vehicle.
   if (teaser.length === 0) {
     const overview = sections.find((s) =>
       s.title.toLowerCase().includes("overview")
@@ -486,7 +456,7 @@ function getSectionSubtitle(title: string): string {
 }
 
 /* =========================================================
-   Vehicle display enrichment (expanded brand list)
+   Vehicle display enrichment
 ========================================================= */
 
 const KNOWN_BRANDS = [
@@ -559,7 +529,7 @@ function enrichVehicleForDisplay(
     const idx = lower.indexOf(updated.make.toLowerCase());
     if (idx !== -1) {
       const after = text.slice(idx + updated.make.length);
-      const tokens = after.split(/[\s,.;:()]+/).filter(Boolean);
+      const tokens = after.split(/[\s,.;:()]+/).filter(Boolean); // <-- FIXED
       if (tokens.length > 0) {
         const candidate = tokens[0];
         if (candidate && candidate.length <= 24) {
