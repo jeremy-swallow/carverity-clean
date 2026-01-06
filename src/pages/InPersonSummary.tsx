@@ -1,459 +1,223 @@
 // src/pages/InPersonSummary.tsx
-import { useEffect, useMemo } from "react";
+
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { clearProgress, loadProgress } from "../utils/scanProgress";
+import { loadProgress, clearProgress } from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
-import type { SavedScan } from "../utils/scanStorage";
-import { syncScanToCloud } from "../services/scanSyncService";
 
 export default function InPersonSummary() {
   const navigate = useNavigate();
-  const progress: any = loadProgress();
+  const progress = loadProgress();
 
-  // Journey flags
-  const hasOnlineScan =
-    localStorage.getItem("carverity_online_completed") === "1";
-  const hasInPersonScan = true;
-  const dualJourneyComplete = hasOnlineScan && hasInPersonScan;
+  const imperfections = (progress as any)?.imperfections ?? [];
+  const followUps = (progress as any)?.followUpPhotos ?? [];
+  const checks = (progress as any)?.checks ?? {};
+  const fromOnlineScan = Boolean((progress as any)?.fromOnlineScan);
 
-  // Extract logged observations
-  const imperfections = progress?.imperfections ?? [];
-  const followUps = progress?.followUpPhotos ?? [];
-  const checks = progress?.checks ?? {};
+  const [savedId, setSavedId] = useState<string | null>(null);
 
   /* =========================================================
-     Derived guidance groupings
+     Build readable insight summary
   ========================================================== */
 
-  const sellerQuestions = useMemo(() => {
-    const list: string[] = [];
+  const findings = useMemo(() => {
+    const notes: string[] = [];
 
-    imperfections.forEach((i: any) => {
-      if (i?.type) list.push(`Confirm details about: ${i.type}`);
-    });
+    if (imperfections.length > 0) {
+      notes.push(
+        `You recorded ${imperfections.length} observation${
+          imperfections.length === 1 ? "" : "s"
+        } during your visit.`
+      );
+    }
 
-    followUps
-      .filter((f: any) => !f.completed)
-      .forEach((f: any) => list.push(`Ask to clarify: ${f.label}`));
+    const unusual = Object.values(checks).filter(
+      (v) => v === "Something seemed unusual — worth confirming"
+    ).length;
 
-    Object.entries(checks).forEach(([k, v]) => {
-      if (typeof v === "string" && v.includes("worth confirming")) {
-        list.push(`Discuss inspection finding: ${k}`);
-      }
-    });
+    if (unusual > 0) {
+      notes.push(
+        `${unusual} real-world check${
+          unusual === 1 ? "" : "s"
+        } were marked as worth confirming with the seller.`
+      );
+    }
 
-    return list;
-  }, [imperfections, followUps, checks]);
+    if (!notes.length) {
+      notes.push(
+        "No significant concerns were recorded — this inspection mainly helped you document condition and photos for reference."
+      );
+    }
 
-  const possibleCostAreas = useMemo(() => {
-    const list: string[] = [];
-
-    imperfections.forEach((i: any) => {
-      const t = (i?.type ?? "").toLowerCase();
-
-      if (t.includes("tyre")) list.push("Tyres may require replacement soon.");
-      if (t.includes("scratch") || t.includes("paint"))
-        list.push("Cosmetic paintwork may need touch-ups.");
-      if (t.includes("dent"))
-        list.push("Panel dents may require repair depending on severity.");
-      if (t.includes("interior"))
-        list.push("Interior wear may affect resale value.");
-    });
-
-    return list;
-  }, [imperfections]);
-
-  const generalImpressions = useMemo(() => {
-    const list: string[] = [];
-
-    Object.entries(checks).forEach(([k, v]) => {
-      if (typeof v === "string" && v.includes("everything seemed normal")) {
-        list.push(`No issues noticed for: ${k}`);
-      }
-    });
-
-    return list;
-  }, [checks]);
+    return notes;
+  }, [imperfections, checks]);
 
   /* =========================================================
-     Save + persist scan
+     Save scan → My Scans
   ========================================================== */
 
-  useEffect(() => {
-    clearProgress(); // scan complete — stop showing Resume
-  }, []);
+  function saveToLibrary() {
+    const id = generateScanId();
 
-  async function handleSaveAndFinish() {
-    const listingUrl = localStorage.getItem("carverity_listing_url") || "";
-
-    const scan: SavedScan = {
-      id: generateScanId(),
-      type: "in-person",
-      title: "In-person inspection summary",
+    // No explicit SavedScan type here so we can safely include extra metadata
+    const scan = {
+      id,
+      type: "in-person" as const,
+      title: fromOnlineScan
+        ? "In-person follow-up inspection"
+        : "In-person inspection — stand-alone",
       createdAt: new Date().toISOString(),
-      listingUrl,
-      summary: "In-person guided inspection completed",
-      completed: true,
+      summary:
+        "Buyer-led in-person inspection capturing observations, follow-up checks and photo priorities.",
+      // Extra metadata for future detail screens
+      context: fromOnlineScan ? "linked-online" : "standalone",
+      data: {
+        imperfections,
+        followUps,
+        checks,
+      },
     };
 
-    saveScan(scan);
-
-    await syncScanToCloud(scan, {
-      plan: "free",
-      report: {
-        listingUrl,
-        type: "in-person",
-        notes: scan.summary,
-        observations: { imperfections, followUps, checks },
-      },
-    });
-
+    saveScan(scan as any);
     localStorage.setItem("carverity_inperson_completed", "1");
-    navigate("/my-scans");
-  }
 
-  function goOnlineScan() {
-    navigate("/scan/online");
+    // Clear active journey state
+    clearProgress();
+    setSavedId(id);
   }
 
   function startNewScan() {
+    clearProgress();
     navigate("/start-scan");
   }
 
+  function viewMyScans() {
+    navigate("/my-scans");
+  }
+
   /* =========================================================
-     UI
+     Render
   ========================================================== */
 
   return (
-    <div
-      style={{
-        maxWidth: 820,
-        margin: "0 auto",
-        padding: "clamp(24px, 6vw, 64px)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 28,
-      }}
-    >
-      <span
-        style={{
-          fontSize: 13,
-          letterSpacing: 0.8,
-          textTransform: "uppercase",
-          color: "#9aa3c7",
-        }}
-      >
-        In-person scan · Step 4 of 4 — Completed
+    <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
+      <span className="text-[11px] tracking-wide uppercase text-slate-400">
+        In-person scan — Inspection summary
       </span>
 
-      {dualJourneyComplete && (
-        <div
-          style={{
-            borderRadius: 16,
-            padding: 16,
-            background: "rgba(16,120,80,0.18)",
-            border: "1px solid rgba(16,160,110,0.45)",
-          }}
-        >
-          <strong style={{ color: "#c9ffe5", fontSize: 14 }}>
-            ✅ Dual-scan complete — strongest confidence
-          </strong>
-          <p style={{ color: "#b5f5db", fontSize: 13, marginTop: 6 }}>
-            You’ve completed both the in-person inspection and the online
-            listing scan. Together they provide a clearer and more balanced
-            understanding of this vehicle.
-          </p>
-        </div>
-      )}
-
-      <h1 style={{ fontSize: 26, fontWeight: 800 }}>
+      <h1 className="text-xl md:text-2xl font-semibold text-white">
         Your in-person inspection summary
       </h1>
 
-      <p style={{ color: "#cbd5f5", fontSize: 15 }}>
-        This summary captures what you observed during your in-person visit.
-        Nothing here is labelled as a fault — it highlights areas that are
-        either normal, worth confirming with the seller, or may influence your
-        decision.
-      </p>
+      {/* High-level takeaway */}
+      <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-4 space-y-2">
+        <h2 className="text-sm font-semibold text-slate-100">
+          What this inspection captured
+        </h2>
 
-      {!!sellerQuestions.length && (
-        <SummaryBlock
-          title="Things worth confirming with the seller"
-          tone="neutral"
-          items={sellerQuestions}
-        />
-      )}
+        <ul className="text-sm text-slate-300 list-disc list-inside space-y-1">
+          {findings.map((f, i) => (
+            <li key={i}>{f}</li>
+          ))}
+        </ul>
 
-      {!!possibleCostAreas.length && (
-        <SummaryBlock
-          title="Areas that may affect cost or negotiation"
-          tone="caution"
-          items={possibleCostAreas}
-          footnote="These aren’t automatically problems — they may involve repair or maintenance costs depending on condition."
-        />
-      )}
-
-      {!!generalImpressions.length && (
-        <SummaryBlock
-          title="General condition impressions"
-          tone="positive"
-          items={generalImpressions}
-        />
-      )}
-
-      {!sellerQuestions.length &&
-        !possibleCostAreas.length &&
-        !generalImpressions.length && (
-          <SummaryCard
-            title="Inspection completed"
-            body="No specific issues or uncertainties were recorded during this guided check. If you’d like extra peace of mind, you can still discuss the vehicle with the seller or arrange a mechanical inspection."
-          />
-        )}
-
-      <TestDriveCard />
-
-      {!hasOnlineScan && (
-        <EncouragementCard
-          onClick={goOnlineScan}
-          label="🧭 Optional next step — online listing scan"
-          body="If this car has an online listing, you can run a quick CarVerity listing scan to analyse the wording, omissions and seller-provided details. Completing both stages can help build a more rounded picture."
-          button="Run an online listing scan"
-        />
-      )}
-
-      <NoticeCard text="This is not a mechanical inspection or formal defect report — it’s a guided record to support your decision-making." />
-
-      <Actions onSave={handleSaveAndFinish} onNew={startNewScan} />
-    </div>
-  );
-}
-
-/* =========================================================
-   Small UI helpers
-========================================================= */
-
-function SummaryBlock({
-  title,
-  tone,
-  items,
-  footnote,
-}: {
-  title: string;
-  tone: "neutral" | "caution" | "positive";
-  items: string[];
-  footnote?: string;
-}) {
-  const bg =
-    tone === "caution"
-      ? "rgba(255,180,80,0.10)"
-      : tone === "positive"
-      ? "rgba(100,220,180,0.12)"
-      : "rgba(255,255,255,0.05)";
-
-  const border =
-    tone === "caution"
-      ? "rgba(255,200,120,0.35)"
-      : tone === "positive"
-      ? "rgba(120,240,200,0.35)"
-      : "rgba(255,255,255,0.15)";
-
-  return (
-    <div
-      style={{
-        borderRadius: 16,
-        padding: 18,
-        background: bg,
-        border: `1px solid ${border}`,
-      }}
-    >
-      <strong style={{ fontSize: 15 }}>{title}</strong>
-
-      <ul style={{ marginTop: 8, color: "#dfe6ff", fontSize: 14 }}>
-        {items.map((i, idx) => (
-          <li key={idx} style={{ marginTop: 6 }}>
-            {i}
-          </li>
-        ))}
-      </ul>
-
-      {footnote && (
-        <p style={{ color: "#b9c3ff", fontSize: 12, marginTop: 10 }}>
-          {footnote}
+        <p className="text-[11px] text-slate-400 mt-1">
+          This summary doesn’t label issues as faults — it helps you document
+          observations and decide what to confirm with the seller.
         </p>
-      )}
-    </div>
-  );
-}
+      </section>
 
-function SummaryCard({ title, body }: { title: string; body: string }) {
-  return (
-    <div
-      style={{
-        padding: 18,
-        borderRadius: 14,
-        background: "rgba(255,255,255,0.06)",
-        border: "1px solid rgba(255,255,255,0.15)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-      }}
-    >
-      <strong style={{ fontSize: 16 }}>{title}</strong>
-      <p style={{ color: "#cbd5f5", fontSize: 14 }}>{body}</p>
-    </div>
-  );
-}
+      {/* Imperfections */}
+      <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4">
+        <h2 className="text-sm font-semibold text-amber-200">
+          Observations you recorded
+        </h2>
 
-function TestDriveCard() {
-  return (
-    <div
-      style={{
-        borderRadius: 16,
-        padding: 18,
-        background: "rgba(255,255,255,0.05)",
-        border: "1px solid rgba(255,255,255,0.18)",
-      }}
-    >
-      <strong style={{ fontSize: 15 }}>Before your test drive</strong>
-      <ul style={{ marginTop: 8, color: "#dfe6ff", fontSize: 14 }}>
-        <li style={{ marginTop: 6 }}>
-          Listen for knocks, rattles or whining noises when driving over bumps,
-          turning, braking and accelerating.
-        </li>
-        <li style={{ marginTop: 6 }}>
-          Check that the steering feels stable and the car tracks straight
-          without constant correction on a flat road.
-        </li>
-        <li style={{ marginTop: 6 }}>
-          Watch the dashboard for any warning lights that stay on or appear
-          during the drive.
-        </li>
-        <li style={{ marginTop: 6 }}>
-          If the car has{" "}
-          <strong>advanced safety / driver-assist features (ADAS)</strong> —
-          such as lane-keep assist, adaptive cruise, AEB, blind-spot monitoring
-          or parking sensors/camera — make sure:
-          <ul style={{ marginTop: 4, marginLeft: 18, listStyle: "disc" }}>
-            <li>they switch on as expected</li>
-            <li>no warning messages appear</li>
-            <li>they behave predictably and safely when used appropriately</li>
+        {imperfections.length === 0 ? (
+          <p className="text-sm text-slate-300 mt-1">
+            No observations were recorded during this visit.
+          </p>
+        ) : (
+          <ul className="text-sm text-slate-300 space-y-1 mt-2">
+            {imperfections.map((i: any) => (
+              <li key={i.id}>
+                • {i.area}: {i.type}
+                {i.note ? ` — ${i.note}` : ""}
+              </li>
+            ))}
           </ul>
-        </li>
-        <li style={{ marginTop: 6 }}>
-          After the drive, check for smells, smoke, or fresh drips under the
-          car once it has been parked for a few minutes.
-        </li>
-      </ul>
-      <p style={{ color: "#b9c3ff", fontSize: 12, marginTop: 10 }}>
-        Only use driver-assist features where it’s safe and legal to do so, and
-        never rely on them in place of your own attention.
-      </p>
-    </div>
-  );
-}
+        )}
+      </section>
 
-function EncouragementCard({
-  onClick,
-  label,
-  body,
-  button,
-}: {
-  onClick: () => void;
-  label: string;
-  body: string;
-  button: string;
-}) {
-  return (
-    <div
-      style={{
-        borderRadius: 16,
-        padding: 18,
-        background: "rgba(80,120,255,0.12)",
-        border: "1px solid rgba(140,170,255,0.35)",
-      }}
-    >
-      <strong style={{ fontSize: 14, color: "#dfe6ff" }}>{label}</strong>
-      <p style={{ color: "#c8d2ff", fontSize: 13, marginTop: 6 }}>{body}</p>
+      {/* Follow-up areas */}
+      {followUps.length > 0 && (
+        <section className="rounded-2xl border border-indigo-400/30 bg-indigo-600/10 px-5 py-4 space-y-2">
+          <h2 className="text-sm font-semibold text-indigo-200">
+            Suggested areas you reviewed
+          </h2>
 
-      <button
-        onClick={onClick}
-        style={{
-          marginTop: 10,
-          padding: "12px 18px",
-          borderRadius: 12,
-          fontSize: 14,
-          fontWeight: 700,
-          background: "#7aa2ff",
-          color: "#0b1020",
-          border: "none",
-        }}
-      >
-        {button}
-      </button>
-    </div>
-  );
-}
+          <ul className="text-sm text-slate-300 space-y-1">
+            {followUps.map((f: any) => (
+              <li key={f.id}>• {f.label}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
-function NoticeCard({ text }: { text: string }) {
-  return (
-    <div
-      style={{
-        padding: 18,
-        borderRadius: 14,
-        background: "rgba(255,255,255,0.05)",
-        border: "1px solid rgba(255,255,255,0.12)",
-      }}
-    >
-      <p style={{ color: "#9aa3c7", fontSize: 13 }}>{text}</p>
-    </div>
-  );
-}
+      {/* Condition check recap */}
+      <section className="rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-4 space-y-2">
+        <h2 className="text-sm font-semibold text-slate-100">
+          Condition-awareness checks
+        </h2>
 
-function Actions({
-  onSave,
-  onNew,
-}: {
-  onSave: () => void;
-  onNew: () => void;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: 12,
-        marginTop: 6,
-        flexWrap: "wrap",
-      }}
-    >
-      <button
-        onClick={onSave}
-        style={{
-          padding: "14px 22px",
-          borderRadius: 12,
-          fontSize: 16,
-          fontWeight: 700,
-          background: "#7aa2ff",
-          color: "#0b1020",
-          border: "none",
-        }}
-      >
-        Save to My Scans
-      </button>
+        {Object.keys(checks).length === 0 ? (
+          <p className="text-sm text-slate-300">
+            No condition-awareness responses were recorded.
+          </p>
+        ) : (
+          <ul className="text-sm text-slate-300 space-y-1">
+            {Object.entries(checks).map(([id, value]) => (
+              <li key={id}>• {value as string}</li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-      <button
-        onClick={onNew}
-        style={{
-          padding: "14px 22px",
-          borderRadius: 12,
-          fontSize: 16,
-          background: "transparent",
-          border: "1px solid rgba(255,255,255,0.25)",
-          color: "#cbd5f5",
-        }}
-      >
-        Start another scan
-      </button>
+      {/* Actions */}
+      {!savedId ? (
+        <>
+          <button
+            onClick={saveToLibrary}
+            className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 shadow"
+          >
+            Save inspection to My Scans
+          </button>
+
+          <p className="text-[11px] text-slate-400 text-center">
+            Once saved, you can revisit this inspection any time.
+          </p>
+        </>
+      ) : (
+        <>
+          <section className="rounded-2xl border border-emerald-400/40 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-200">
+            Inspection saved successfully.
+          </section>
+
+          <button
+            onClick={viewMyScans}
+            className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-3 shadow"
+          >
+            View this inspection in My Scans
+          </button>
+
+          <button
+            onClick={startNewScan}
+            className="w-full mt-2 rounded-xl border border-white/25 text-slate-200 px-4 py-2"
+          >
+            Start a new scan
+          </button>
+        </>
+      )}
     </div>
   );
 }

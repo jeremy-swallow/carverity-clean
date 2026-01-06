@@ -14,10 +14,9 @@ import OnlinePhotos from "./pages/OnlinePhotos";
 import OnlineNextActions from "./pages/OnlineNextActions";
 import OnlineResults from "./pages/OnlineResults";
 
-// In-person flow
 import InPersonStart from "./pages/InPersonStart";
 import InPersonPhotos from "./pages/InPersonPhotos";
-import InPersonChecks from "./pages/InPersonChecks"; // (next stage)
+import InPersonChecks from "./pages/InPersonChecks";
 
 import MyScans from "./pages/MyScans";
 import Pricing from "./pages/Pricing";
@@ -25,12 +24,15 @@ import Pricing from "./pages/Pricing";
 export default function App() {
   return (
     <Routes>
-      {/* 🌐 App Shell — header + navigation */}
+      {/* 🌐 App Shell — header, credits, hamburger, resume pill */}
       <Route element={<Layout />}>
+        {/* Home */}
         <Route path="/" element={<Home />} />
 
-        {/* Online Scan Flow */}
+        {/* Start Scan Hub */}
         <Route path="/start-scan" element={<StartScan />} />
+
+        {/* Online Scan Flow */}
         <Route path="/scan/online" element={<OnlineStart />} />
         <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
         <Route path="/scan/online/assist" element={<OnlineAssist />} />

@@ -78,6 +78,11 @@ export default function InPersonChecks() {
   const [followUpList, setFollowUpList] =
     useState<FollowUpPhoto[]>(followUps);
 
+  // 🟡 Improvement — keep list in sync when data loads later
+  useEffect(() => {
+    setFollowUpList(followUps);
+  }, [followUps]);
+
   function markCompleted(id: string) {
     setFollowUpList((p) =>
       p.map((f) => (f.id === id ? { ...f, completed: true } : f))
@@ -85,7 +90,7 @@ export default function InPersonChecks() {
   }
 
   /* =========================================================
-     Guided condition-awareness checks
+     Guided condition awareness checks
   ========================================================== */
 
   const checks = [
@@ -183,7 +188,7 @@ export default function InPersonChecks() {
         Final checks before finishing your inspection
       </h1>
 
-      {/* Follow-up photos from online scan */}
+      {/* Follow-up photos */}
       {followUpList.length > 0 && (
         <section className="rounded-2xl border border-indigo-400/25 bg-indigo-600/10 px-5 py-4 space-y-2">
           <h2 className="text-sm font-semibold text-indigo-200">
@@ -224,7 +229,7 @@ export default function InPersonChecks() {
         </section>
       )}
 
-      {/* Condition awareness checks */}
+      {/* Condition checks */}
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-4 space-y-3">
         <h2 className="text-sm font-semibold text-slate-100">
           Quick real-world condition checks
