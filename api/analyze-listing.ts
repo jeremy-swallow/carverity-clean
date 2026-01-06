@@ -1,3 +1,4 @@
+// api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
@@ -43,14 +44,13 @@ function extractReadableText(html: string): string {
 function safeParseModelJson(raw: string): any {
   if (!raw) throw new Error("empty-model-response");
 
-  // Grab ```json ... ``` if present
   const fenced =
     raw.match(/```json([\s\S]*?)```/i)?.[1] ??
     raw.match(/```([\s\S]*?)```/i)?.[1];
 
   const candidate = (fenced ?? raw)
-    .replace(/^[^\{]*/s, "") // trim anything before first {
-    .replace(/[^}]*$/s, ""); // trim anything after last }
+    .replace(/^[^{]*/s, "")
+    .replace(/[^}]*$/s, "");
 
   try {
     return JSON.parse(candidate);
@@ -131,19 +131,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     /* =====================================================
-       Build structured analysis prompt
+       Guided CarVerity Analysis Prompt (Restored)
     ====================================================== */
 
     const prompt = `
-Analyse this Australian used-car listing and reply ONLY as JSON.
+Analyse this Australian used-car listing and respond ONLY as JSON.
 
-Required JSON structure:
+Your role is an independent buyer-side assistant.
+Write in clear everyday language — practical, calm, supportive.
+
+Return this structure exactly:
+
 {
-  "vehicle": { "make": "", "model": "", "year": "", "kilometres": "" },
+  "vehicle": {
+    "make": "",
+    "model": "",
+    "year": "",
+    "kilometres": ""
+  },
+
   "confidenceCode": "LOW | MODERATE | HIGH",
-  "previewSummary": "",
-  "fullSummary": ""
+
+  "previewSummary": "1–2 short sentences tailored to THIS car, not generic.",
+
+  "fullSummary": "A clear narrative overview of the car and situation.",
+
+  "sections": [
+    { "title": "Confidence assessment", "body": "" },
+    { "title": "What this means for you", "body": "" },
+    { "title": "Key risk signals", "body": "" },
+    { "title": "Buyer considerations", "body": "" },
+    { "title": "Negotiation insights", "body": "" },
+    { "title": "General ownership notes", "body": "" }
+  ],
+
+  "signals": [
+    { "type": "risk" | "value" | "unknown", "text": "" }
+  ]
 }
+
+Content rules:
+
+- Base conclusions ONLY on the listing text.
+- Prefer guidance phrasing over technical description.
+- Mention price context, service history confidence, risk uncertainty where relevant.
+- Do not invent facts — say "not mentioned" where details are missing.
+- Keep each section useful and vehicle-specific.
+- Avoid repeating the same sentence across multiple sections.
 
 Listing text:
 ${listingText}
