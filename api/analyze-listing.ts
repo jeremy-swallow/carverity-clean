@@ -38,10 +38,8 @@ function extractReadableText(html: string): string {
 }
 
 /* =========================================================
-   Types
+   Model Response — Safe JSON Extractor
 ========================================================= */
-
-type Section = { title: string; body: string };
 
 type ModelResult = {
   vehicle: {
@@ -53,90 +51,44 @@ type ModelResult = {
   confidenceCode: "LOW" | "MODERATE" | "HIGH" | string;
   previewSummary: string;
   fullSummary: string;
-  sections?: Section[];
 };
 
-/* =========================================================
-   Section Fallback Builder
-========================================================= */
-
-function synthesiseSections(text: string): Section[] {
-  const sentences = text
-    .split(/(?<=[.!?])\s+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 25);
-
-  if (!sentences.length) {
-    return [
-      { title: "Overview", body: text },
-      {
-        title: "Key risk signals",
-        body:
-          "No major risks identified from listing text alone — confirm during in-person inspection.",
-      },
-    ];
-  }
-
-  const mk = (title: string, lines: string[]) => ({
-    title,
-    body: lines.join(" "),
-  });
-
-  if (sentences.length <= 3) {
-    return [
-      mk("Overview", sentences.slice(0, 1)),
-      mk("Key risk signals", sentences.slice(1)),
-    ];
-  }
-
-  const third = Math.ceil(sentences.length / 3);
-
-  return [
-    mk("Overview", sentences.slice(0, third)),
-    mk("Key risk signals", sentences.slice(third, third * 2)),
-    mk("Buyer considerations", sentences.slice(third * 2)),
-  ];
-}
-
-/* =========================================================
-   Fallback & Safe Parsing
-========================================================= */
-
 function buildFallbackResult(raw: string): ModelResult {
-  const safe = raw?.trim() || "No structured response returned.";
+  const trimmed = (raw || "").trim();
+  const safeText = trimmed || "No structured response was returned.";
+
   return {
     vehicle: { make: "", model: "", year: "", kilometres: "" },
     confidenceCode: "MODERATE",
-    previewSummary: safe.slice(0, 240),
-    fullSummary: safe,
-    sections: synthesiseSections(safe),
+    previewSummary: safeText.slice(0, 280),
+    fullSummary: safeText,
   };
 }
 
 function safeParseModelJson(raw: string): ModelResult {
-  if (!raw?.trim()) throw new Error("empty-model-response");
+  if (!raw || !raw.trim()) {
+    throw new Error("empty-model-response");
+  }
 
   const fenced =
     raw.match(/```json([\s\S]*?)```/i)?.[1] ??
     raw.match(/```([\s\S]*?)```/i)?.[1] ??
     raw;
 
-  const first = fenced.indexOf("{");
-  const last = fenced.lastIndexOf("}");
+  const firstBrace = fenced.indexOf("{");
+  const lastBrace = fenced.lastIndexOf("}");
 
-  if (first === -1 || last === -1 || last < first) {
-    console.warn("⚠️ No JSON braces found — using fallback");
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+    console.error(
+      "⚠️ Gemini response had no JSON braces — falling back to text summary."
+    );
     return buildFallbackResult(raw);
   }
 
+  const candidate = fenced.slice(firstBrace, lastBrace + 1);
+
   try {
-    const parsed = JSON.parse(fenced.slice(first, last + 1));
-
-    const fullSummary = (parsed?.fullSummary ?? "").trim();
-    const previewSummary =
-      (parsed?.previewSummary ?? "").trim() ||
-      fullSummary.split(".").slice(0, 2).join(". ") + ".";
-
+    const parsed = JSON.parse(candidate);
     return {
       vehicle: {
         make: parsed?.vehicle?.make ?? "",
@@ -145,15 +97,14 @@ function safeParseModelJson(raw: string): ModelResult {
         kilometres: parsed?.vehicle?.kilometres ?? "",
       },
       confidenceCode: parsed?.confidenceCode ?? "MODERATE",
-      previewSummary,
-      fullSummary,
-      sections:
-        Array.isArray(parsed?.sections) && parsed.sections.length > 0
-          ? parsed.sections
-          : synthesiseSections(fullSummary || raw),
+      previewSummary: parsed?.previewSummary ?? "",
+      fullSummary: parsed?.fullSummary ?? "",
     };
   } catch (err) {
-    console.error("⚠️ JSON parse failure — fallback in use", err);
+    console.error(
+      "⚠️ Gemini JSON parse failed — falling back to text summary.",
+      err
+    );
     return buildFallbackResult(raw);
   }
 }
@@ -162,36 +113,7 @@ function safeParseModelJson(raw: string): ModelResult {
    Gemini Call
 ========================================================= */
 
-async function callModel(listingText: string): Promise<ModelResult> {
-  const prompt = `
-You are CarVerity — a cautious Australian used-car analysis assistant.
-
-Analyse the listing and return ONLY JSON in this exact structure:
-
-{
-  "vehicle": { "make": "", "model": "", "year": "", "kilometres": "" },
-  "confidenceCode": "LOW" | "MODERATE" | "HIGH",
-  "previewSummary": "",
-  "fullSummary": "",
-  "sections": [
-    { "title": "Overview", "body": "" },
-    { "title": "Key risk signals", "body": "" },
-    { "title": "Buyer considerations", "body": "" },
-    { "title": "General ownership notes", "body": "" },
-    { "title": "Negotiation insights", "body": "" }
-  ]
-}
-
-Rules:
-- Use Australian context and kilometres.
-- Call out service-history gaps, future-dated entries, price disclaimers.
-- Never invent facts — only infer from the listing.
-- If unsure, say "not stated" instead of guessing.
-
-Listing text:
-${listingText}
-`;
-
+async function callModel(prompt: string): Promise<ModelResult> {
   const res = await fetch(
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
       GEMINI_API_KEY,
@@ -199,13 +121,17 @@ ${listingText}
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" },
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+        },
       }),
     }
   );
 
-  if (!res.ok) throw new Error("model-call-failed");
+  if (!res.ok) {
+    throw new Error("model-call-failed");
+  }
 
   const data = await res.json();
   const text: string =
@@ -220,17 +146,20 @@ ${listingText}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const { listingUrl, pastedText } = (req.body ?? {}) as {
+    const body = (req.body ?? {}) as {
       listingUrl?: string;
       pastedText?: string;
     };
 
+    const { listingUrl, pastedText } = body;
     const assistMode = Boolean(pastedText);
+
     let listingText = pastedText ?? "";
 
     if (!assistMode) {
-      if (!listingUrl)
+      if (!listingUrl) {
         return res.status(400).json({ ok: false, error: "missing-url" });
+      }
 
       try {
         const html = await fetchHtml(listingUrl);
@@ -255,7 +184,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const result = await callModel(listingText);
+    /* =====================================================
+       Structured analysis prompt
+    ====================================================== */
+
+    const prompt = `
+You are CarVerity — a cautious, factual Australian used-car buying assistant.
+
+Analyse the following Australian used-car listing and respond ONLY with JSON.
+
+Return exactly this structure:
+
+{
+  "vehicle": { "make": "", "model": "", "year": "", "kilometres": "" },
+  "confidenceCode": "LOW | MODERATE | HIGH",
+  "previewSummary": "",
+  "fullSummary": ""
+}
+
+Rules for reasoning (very important):
+
+1) Do not speculate or invent risks. Only describe concerns that are *clearly supported* by the listing text itself.
+
+2) Service-history rule:
+   • If the listing shows a photographed logbook entry, dealer stamp, receipt, or service-book page, treat this as **evidence of a completed service**.
+   • Do NOT treat unusual or future-looking dates as a red flag by themselves — these are often formatting or clerical entries.
+   • Only classify a service entry as a *risk* if the listing text explicitly indicates tampering, falsification, odometer inconsistency, or missing records.
+   • If something looks unusual but there is no contradiction, describe it as **"worth confirming with the seller"** — not a fault.
+
+3) Use Australian terminology and kilometres.
+
+4) The previewSummary should contain a short, neutral summary.
+   The fullSummary may include risk context, but must remain factual and grounded.
+
+Listing text:
+${listingText}
+`;
+
+    const result = await callModel(prompt);
 
     return res.status(200).json({
       ok: true,
