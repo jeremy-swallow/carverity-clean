@@ -582,20 +582,9 @@ function ConfidenceGauge({ code }: { code?: string }) {
   );
 }
 
-function CompactSection({ section }: { section: ReportSection }) {
-  const theme = getSectionTheme(section.title);
-
-  return (
-    <div className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 text-sm text-slate-200 flex gap-2 items-start">
-      <span>{theme.icon}</span>
-      <div>
-        <div className="font-semibold">{section.title}</div>
-        <div className="text-slate-300 whitespace-pre-wrap">{section.body}</div>
-      </div>
-    </div>
-  );
-}
-
+/**
+ * Always-on premium section layout
+ */
 function FullReportSection({
   section,
   index,
@@ -605,10 +594,6 @@ function FullReportSection({
 }) {
   const theme = getSectionTheme(section.title);
   const delayMs = 80 * index;
-
-  if (section.body.length < 120) {
-    return <CompactSection section={section} />;
-  }
 
   return (
     <div
