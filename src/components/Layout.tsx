@@ -1,6 +1,7 @@
-import { Outlet, NavLink, useLocation } from "react-router-dom";
+import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { loadCredits } from "../utils/scanCredits";
+import { loadProgress } from "../utils/scanProgress";
 
 export default function Layout() {
   const [credits, setCredits] = useState<number>(0);
@@ -8,7 +9,10 @@ export default function Layout() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
+  const [progress, setProgress] = useState<any>(null);
+
   const location = useLocation();
+  const navigate = useNavigate();
 
   // 🔹 Placeholder user profile (future-auth ready)
   const userName = "Jeremy Swallow";
@@ -28,20 +32,31 @@ export default function Layout() {
     return "bg-red-900/40 border-red-500/40 text-red-300";
   }
 
-  // Load + subscribe to storage changes
+  // Load credits + scan progress + subscribe
   useEffect(() => {
     setCredits(loadCredits());
+    setProgress(loadProgress());
 
     const handler = (e: StorageEvent) => {
       if (e.key === "carverity_scan_credits" && e.newValue) {
         const parsed = parseInt(e.newValue, 10);
         setCredits(Number.isFinite(parsed) ? parsed : 0);
       }
+
+      if (e.key === "carverity_scan_progress") {
+        setProgress(loadProgress());
+      }
     };
 
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
   }, []);
+
+  function resumeScan() {
+    if (!progress?.step) return;
+    closeAllOverlays();
+    navigate(progress.step);
+  }
 
   function closeAllOverlays() {
     setMenuOpen(false);
@@ -97,6 +112,17 @@ export default function Layout() {
 
             {/* DESKTOP ACTIONS */}
             <div className="hidden md:flex items-center gap-3">
+
+              {/* RESUME PILL — only shows when scan in progress */}
+              {progress?.step && (
+                <button
+                  onClick={resumeScan}
+                  className="px-3 py-1 rounded-full bg-amber-900/40 border border-amber-400/40 text-amber-200 text-xs hover:bg-amber-800/50"
+                >
+                  Resume last scan
+                </button>
+              )}
+
               <span
                 className={`px-3 py-1 rounded-full border text-xs ${creditBadgeClass()}`}
               >
@@ -199,10 +225,20 @@ export default function Layout() {
         {/* MOBILE MENU PANEL — animated */}
         <div
           className={`md:hidden overflow-hidden transition-all duration-300 ${
-            menuOpen ? "max-h-[420px] opacity-100" : "max-h-0 opacity-0"
+            menuOpen ? "max-h-[460px] opacity-100" : "max-h-0 opacity-0"
           } bg-slate-900/95 backdrop-blur border-b border-white/10`}
         >
           <div className="max-w-6xl mx-auto px-6 py-4 flex flex-col gap-3">
+
+            {/* Resume pill on mobile */}
+            {progress?.step && (
+              <button
+                onClick={resumeScan}
+                className="w-full px-3 py-2 rounded-xl bg-amber-900/40 border border-amber-400/40 text-amber-200 text-sm font-semibold"
+              >
+                Resume last scan
+              </button>
+            )}
 
             <div className="flex items-center justify-between">
               <span
