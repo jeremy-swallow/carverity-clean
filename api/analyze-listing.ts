@@ -38,8 +38,10 @@ function extractReadableText(html: string): string {
 }
 
 /* =========================================================
-   Model Response — Safe JSON Extractor
+   Types
 ========================================================= */
+
+type Section = { title: string; body: string };
 
 type ModelResult = {
   vehicle: {
@@ -51,54 +53,91 @@ type ModelResult = {
   confidenceCode: "LOW" | "MODERATE" | "HIGH" | string;
   previewSummary: string;
   fullSummary: string;
+  sections?: Section[];
 };
 
-function buildFallbackResult(raw: string): ModelResult {
-  const trimmed = (raw || "").trim();
-  const safeText = trimmed || "No structured response was returned.";
+/* =========================================================
+   Section Fallback Builder
+========================================================= */
 
+function synthesiseSections(text: string): Section[] {
+  const sentences = text
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 25);
+
+  if (!sentences.length) {
+    return [
+      { title: "Overview", body: text },
+      {
+        title: "Key risk signals",
+        body:
+          "No major risks identified from listing text alone — confirm during in-person inspection.",
+      },
+    ];
+  }
+
+  const mk = (title: string, lines: string[]) => ({
+    title,
+    body: lines.join(" "),
+  });
+
+  if (sentences.length <= 3) {
+    return [
+      mk("Overview", sentences.slice(0, 1)),
+      mk("Key risk signals", sentences.slice(1)),
+    ];
+  }
+
+  const third = Math.ceil(sentences.length / 3);
+
+  return [
+    mk("Overview", sentences.slice(0, third)),
+    mk("Key risk signals", sentences.slice(third, third * 2)),
+    mk("Buyer considerations", sentences.slice(third * 2)),
+  ];
+}
+
+/* =========================================================
+   Fallback & Safe Parsing
+========================================================= */
+
+function buildFallbackResult(raw: string): ModelResult {
+  const safe = raw?.trim() || "No structured response returned.";
   return {
-    vehicle: {
-      make: "",
-      model: "",
-      year: "",
-      kilometres: "",
-    },
+    vehicle: { make: "", model: "", year: "", kilometres: "" },
     confidenceCode: "MODERATE",
-    previewSummary: safeText.slice(0, 280),
-    fullSummary: safeText,
+    previewSummary: safe.slice(0, 240),
+    fullSummary: safe,
+    sections: synthesiseSections(safe),
   };
 }
 
 function safeParseModelJson(raw: string): ModelResult {
-  if (!raw || !raw.trim()) {
-    throw new Error("empty-model-response");
-  }
+  if (!raw?.trim()) throw new Error("empty-model-response");
 
-  // Try to extract the JSON body, even if the model wrapped it in prose or fences.
   const fenced =
     raw.match(/```json([\s\S]*?)```/i)?.[1] ??
     raw.match(/```([\s\S]*?)```/i)?.[1] ??
     raw;
 
-  const firstBrace = fenced.indexOf("{");
-  const lastBrace = fenced.lastIndexOf("}");
+  const first = fenced.indexOf("{");
+  const last = fenced.lastIndexOf("}");
 
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
-    // Can't even find a JSON-looking region → fall back to safe text.
-    console.error(
-      "⚠️ Gemini response had no JSON braces — falling back to text summary."
-    );
+  if (first === -1 || last === -1 || last < first) {
+    console.warn("⚠️ No JSON braces found — using fallback");
     return buildFallbackResult(raw);
   }
 
-  const candidate = fenced.slice(firstBrace, lastBrace + 1);
-
   try {
-    const parsed = JSON.parse(candidate);
+    const parsed = JSON.parse(fenced.slice(first, last + 1));
 
-    // Best-effort normalisation into our expected shape
-    const result: ModelResult = {
+    const fullSummary = (parsed?.fullSummary ?? "").trim();
+    const previewSummary =
+      (parsed?.previewSummary ?? "").trim() ||
+      fullSummary.split(".").slice(0, 2).join(". ") + ".";
+
+    return {
       vehicle: {
         make: parsed?.vehicle?.make ?? "",
         model: parsed?.vehicle?.model ?? "",
@@ -106,16 +145,15 @@ function safeParseModelJson(raw: string): ModelResult {
         kilometres: parsed?.vehicle?.kilometres ?? "",
       },
       confidenceCode: parsed?.confidenceCode ?? "MODERATE",
-      previewSummary: parsed?.previewSummary ?? "",
-      fullSummary: parsed?.fullSummary ?? "",
+      previewSummary,
+      fullSummary,
+      sections:
+        Array.isArray(parsed?.sections) && parsed.sections.length > 0
+          ? parsed.sections
+          : synthesiseSections(fullSummary || raw),
     };
-
-    return result;
   } catch (err) {
-    console.error(
-      "⚠️ Gemini JSON parse failed — falling back to text summary.",
-      err
-    );
+    console.error("⚠️ JSON parse failure — fallback in use", err);
     return buildFallbackResult(raw);
   }
 }
@@ -124,7 +162,36 @@ function safeParseModelJson(raw: string): ModelResult {
    Gemini Call
 ========================================================= */
 
-async function callModel(prompt: string): Promise<ModelResult> {
+async function callModel(listingText: string): Promise<ModelResult> {
+  const prompt = `
+You are CarVerity — a cautious Australian used-car analysis assistant.
+
+Analyse the listing and return ONLY JSON in this exact structure:
+
+{
+  "vehicle": { "make": "", "model": "", "year": "", "kilometres": "" },
+  "confidenceCode": "LOW" | "MODERATE" | "HIGH",
+  "previewSummary": "",
+  "fullSummary": "",
+  "sections": [
+    { "title": "Overview", "body": "" },
+    { "title": "Key risk signals", "body": "" },
+    { "title": "Buyer considerations", "body": "" },
+    { "title": "General ownership notes", "body": "" },
+    { "title": "Negotiation insights", "body": "" }
+  ]
+}
+
+Rules:
+- Use Australian context and kilometres.
+- Call out service-history gaps, future-dated entries, price disclaimers.
+- Never invent facts — only infer from the listing.
+- If unsure, say "not stated" instead of guessing.
+
+Listing text:
+${listingText}
+`;
+
   const res = await fetch(
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
       GEMINI_API_KEY,
@@ -132,18 +199,13 @@ async function callModel(prompt: string): Promise<ModelResult> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          // Ask Gemini to return strict JSON to minimise parsing issues.
-          responseMimeType: "application/json",
-        },
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" },
       }),
     }
   );
 
-  if (!res.ok) {
-    throw new Error("model-call-failed");
-  }
+  if (!res.ok) throw new Error("model-call-failed");
 
   const data = await res.json();
   const text: string =
@@ -158,21 +220,17 @@ async function callModel(prompt: string): Promise<ModelResult> {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const body = (req.body ?? {}) as {
+    const { listingUrl, pastedText } = (req.body ?? {}) as {
       listingUrl?: string;
       pastedText?: string;
     };
 
-    const { listingUrl, pastedText } = body;
     const assistMode = Boolean(pastedText);
-
     let listingText = pastedText ?? "";
 
-    // Normal mode — fetch from URL
     if (!assistMode) {
-      if (!listingUrl) {
+      if (!listingUrl)
         return res.status(400).json({ ok: false, error: "missing-url" });
-      }
 
       try {
         const html = await fetchHtml(listingUrl);
@@ -188,7 +246,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // If text is still too small → ask user to paste
     if (!listingText || listingText.length < 400) {
       return res.status(200).json({
         ok: false,
@@ -198,35 +255,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    /* =====================================================
-       Build structured analysis prompt
-    ====================================================== */
-
-    const prompt = `
-You are CarVerity, a cautious Australian used-car buying assistant.
-
-Analyse the following Australian used-car listing and respond ONLY with JSON.
-
-JSON shape (no extra fields):
-
-{
-  "vehicle": { "make": "", "model": "", "year": "", "kilometres": "" },
-  "confidenceCode": "LOW | MODERATE | HIGH",
-  "previewSummary": "",
-  "fullSummary": ""
-}
-
-Rules:
-- Be concise but specific to THIS listing.
-- Mention any service-history gaps, future-dated entries, or red flags in the fullSummary.
-- If prices are marked "non-negotiable", still assess risk but do not promise that the price can be negotiated.
-- Use kilometres and Australian context.
-
-Listing text:
-${listingText}
-`;
-
-    const result = await callModel(prompt);
+    const result = await callModel(listingText);
 
     return res.status(200).json({
       ok: true,
