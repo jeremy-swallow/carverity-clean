@@ -517,7 +517,10 @@ function enrichVehicleForDisplay(
   const firstLine = summary.split(/\r?\n/)[0] || summary;
   const text = firstLine || summary;
 
-  const brandRegex = new RegExp(`\\b(${KNOWN_BRANDS.join("|")})\\b`, "i");
+  const brandRegex = new RegExp(
+    `\\b(${KNOWN_BRANDS.join("|")})\\b`,
+    "i"
+  );
 
   if (!updated.make) {
     const brandMatch = text.match(brandRegex);
