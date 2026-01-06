@@ -517,10 +517,7 @@ function enrichVehicleForDisplay(
   const firstLine = summary.split(/\r?\n/)[0] || summary;
   const text = firstLine || summary;
 
-  const brandRegex = new RegExp(
-    `\\b(${KNOWN_BRANDS.join("|")})\\b`,
-    "i"
-  );
+  const brandRegex = new RegExp(`\\b(${KNOWN_BRANDS.join("|")})\\b`, "i");
 
   if (!updated.make) {
     const brandMatch = text.match(brandRegex);
@@ -976,6 +973,46 @@ export default function OnlineResults() {
         </section>
       )}
 
+      {/* NEXT STEPS GUIDANCE */}
+      <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span>🧭</span>
+            <h2 className="text-sm md:text-base font-semibold text-slate-100">
+              Next steps before you proceed
+            </h2>
+          </div>
+          <span className="hidden md:inline text-[11px] text-slate-400">
+            CarVerity is guidance only — not a mechanical inspection.
+          </span>
+        </div>
+
+        <p className="text-xs md:text-sm text-slate-300">
+          These suggestions are based only on what&apos;s written in the
+          listing. Anything that looks unusual is treated as worth confirming
+          with the seller, not as a fault by itself.
+        </p>
+
+        <ul className="mt-2 text-sm text-slate-200 space-y-2 list-disc list-inside">
+          <li>
+            Confirm key details with the seller — especially service records,
+            PPSR report, receipts and roadworthy status.
+          </li>
+          <li>
+            Ask for close-up photos or videos of anything that&apos;s unclear or
+            has been mentioned as &quot;worth confirming&quot; in this report.
+          </li>
+          <li>
+            If the car still seems suitable, continue to an in-person inspection
+            to verify condition and check for new issues.
+          </li>
+          <li>
+            For extra reassurance, consider a pre-purchase inspection from a
+            qualified mechanic before committing to buy.
+          </li>
+        </ul>
+      </section>
+
       {/* VEHICLE DETAILS */}
       <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5">
         <h2 className="text-sm font-semibold flex items-center gap-2 text-slate-200">
@@ -1016,7 +1053,7 @@ export default function OnlineResults() {
           onClick={goInPersonFlow}
           className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow flex items-center justify-between"
         >
-          <span>Continue — in-person inspection</span>
+          <span>Continue — in-person inspection checklist</span>
           <span className="text-[11px] font-medium opacity-80">
             Step 3 of 3
           </span>
@@ -1045,7 +1082,7 @@ export default function OnlineResults() {
               onClick={goInPersonFlow}
               className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow flex items-center justify-between"
             >
-              <span>Continue — in-person inspection</span>
+              <span>Continue — in-person inspection checklist</span>
               <span className="text-[10px] opacity-80">Step 3 of 3</span>
             </button>
 
