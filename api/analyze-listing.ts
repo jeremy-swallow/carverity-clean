@@ -1,3 +1,4 @@
+// src/pages/api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
@@ -19,7 +20,10 @@ async function fetchHtml(url: string): Promise<string> {
     },
   });
 
-  if (!res.ok) throw new Error(`fetch-failed:${res.status}`);
+  if (!res.ok) {
+    throw new Error(`fetch-failed:${res.status}`);
+  }
+
   return await res.text();
 }
 
@@ -45,10 +49,14 @@ function safeParseModelJson(raw: string): any {
     raw.match(/```([\s\S]*?)```/i)?.[1];
 
   const candidate = (fenced ?? raw)
-    .replace(/^[^{]*/s, "")
+    .replace(/^[^\{]*/s, "")
     .replace(/[^}]*$/s, "");
 
-  return JSON.parse(candidate);
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    throw new Error("model-json-parse-failed");
+  }
 }
 
 /* =========================================================
@@ -64,7 +72,6 @@ async function callModel(prompt: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.4 },
       }),
     }
   );
@@ -94,9 +101,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let listingText = pastedText ?? "";
 
+    // Normal fetch mode
     if (!assistMode) {
-      if (!listingUrl)
+      if (!listingUrl) {
         return res.status(400).json({ ok: false, error: "missing-url" });
+      }
 
       try {
         const html = await fetchHtml(listingUrl);
@@ -121,54 +130,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     /* =====================================================
-       UPGRADED — Structured Guidance Prompt
+       🚗 Structured Guidance Model Prompt (CarVerity Mode)
     ====================================================== */
 
     const prompt = `
-Analyse this Australian used-car listing and reply ONLY as JSON.
+You are CarVerity — an independent car-buying assistant for Australia.
 
-Your role: A cautious, consumer-advocate buyer assistant.
-Focus on risk awareness, realistic expectations, and actionable next steps.
+Analyse the listing text below and produce PRACTICAL, ACTION-ORIENTED buyer guidance.
+Do NOT exaggerate risk. Do NOT infer faults unless the text clearly states them.
 
-Required JSON structure (do not remove fields):
+Return ONLY valid JSON in this structure:
 
 {
   "vehicle": { "make": "", "model": "", "year": "", "kilometres": "" },
 
   "confidenceCode": "LOW | MODERATE | HIGH",
 
-  "previewSummary": "",
-  "fullSummary": "",
+  "previewSummary": "1–2 short sentences suitable for teaser mode",
 
   "sections": [
+    { "title": "Overview", "body": "" },
     { "title": "Key risk signals", "body": "" },
     { "title": "Buyer considerations", "body": "" },
-    { "title": "Negotiation insights", "body": "" },
-    { "title": "Ownership outlook", "body": "" }
+    { "title": "General ownership notes", "body": "" }
   ],
 
-  "repairEstimates": [
-    {
-      "issue": "",
-      "estimatedCostMin": 0,
-      "estimatedCostMax": 0,
-      "notes": ""
-    }
-  ],
+  "negotiation": {
+    "startingPoint": "",
+    "justification": ""
+  },
 
-  "suggestedNegotiationStart": {
-    "reasoning": "",
-    "recommendedOffer": 0,
-    "confidence": "LOW | MEDIUM | HIGH"
-  }
+  "repairExposure": {
+    "estimatedRange": "",
+    "notes": ""
+  },
+
+  "fullSummary": "A readable full-report narrative version of all key insights"
 }
 
-Guidance rules:
-• Extract real clues from the listing (not assumptions).
-• If there are no known mechanical risks, say so safely.
-• Repair estimates must be realistic Australian workshop pricing.
-• Negotiation advice must be ethical, conservative, and evidence-based.
-• Prefer caution over optimism.
+RULES:
+- If service history dates appear unusual, treat as POSSIBLE DATA ENTRY ISSUE — do NOT assume risk.
+- Do not duplicate the same sentence across multiple sections.
+- Write in calm, factual, supportive language.
+- Focus on guidance the buyer can act on.
+- Keep sections concise but meaningful (3–7 sentences).
+- Prefer clarity over drama.
 
 Listing text:
 ${listingText}
