@@ -447,6 +447,44 @@ function getSectionTheme(title: string): SectionTheme {
   };
 }
 
+function getSectionSubtitle(title: string): string {
+  const t = title.toLowerCase();
+
+  if (t.includes("overview")) {
+    return "High-level summary of what this listing is offering.";
+  }
+
+  if (t.includes("confidence")) {
+    return "How comfortable you should feel based on the information so far.";
+  }
+
+  if (t.includes("risk")) {
+    return "Potential issues and red flags to check before you proceed.";
+  }
+
+  if (t.includes("buyer considerations")) {
+    return "Practical pros and cons to weigh up as a buyer.";
+  }
+
+  if (t.includes("negotiation")) {
+    return "Guidance to help you frame offers and counter-offers.";
+  }
+
+  if (t.includes("ownership")) {
+    return "What day-to-day life with this car might look like.";
+  }
+
+  if (t.includes("what this means")) {
+    return "Plain-English takeaway so you know where you stand.";
+  }
+
+  if (t.includes("analysis")) {
+    return "How the different pieces of information fit together.";
+  }
+
+  return "Guidance based on the details we found in this listing.";
+}
+
 /* =========================================================
    Vehicle display enrichment (expanded brand list)
 ========================================================= */
@@ -582,9 +620,20 @@ function ConfidenceGauge({ code }: { code?: string }) {
   );
 }
 
-/**
- * Always-on premium section layout
- */
+function CompactSection({ section }: { section: ReportSection }) {
+  const theme = getSectionTheme(section.title);
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 text-sm text-slate-200 flex gap-2 items-start">
+      <span>{theme.icon}</span>
+      <div>
+        <div className="font-semibold">{section.title}</div>
+        <div className="text-slate-300 whitespace-pre-wrap">{section.body}</div>
+      </div>
+    </div>
+  );
+}
+
 function FullReportSection({
   section,
   index,
@@ -594,6 +643,10 @@ function FullReportSection({
 }) {
   const theme = getSectionTheme(section.title);
   const delayMs = 80 * index;
+
+  if (section.body.length < 120) {
+    return <CompactSection section={section} />;
+  }
 
   return (
     <div
@@ -612,11 +665,16 @@ function FullReportSection({
           flex items-center justify-between
         `}
       >
-        <div className="flex items-center gap-2 text-slate-50">
-          <span className="text-base">{theme.icon}</span>
-          <h3 className="text-sm font-semibold tracking-wide uppercase">
-            {section.title}
-          </h3>
+        <div className="flex flex-col gap-0.5 text-slate-50">
+          <div className="flex items-center gap-2">
+            <span className="text-base">{theme.icon}</span>
+            <h3 className="text-sm font-semibold tracking-wide uppercase">
+              {section.title}
+            </h3>
+          </div>
+          <p className="text-[11px] text-slate-100/80">
+            {getSectionSubtitle(section.title)}
+          </p>
         </div>
 
         <span className="text-[10px] uppercase tracking-wide text-slate-100/80">
