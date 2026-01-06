@@ -25,7 +25,6 @@ export default function InPersonPhotos() {
     const stored = loadOnlineResults();
     if (stored) setOnlineResult(stored);
 
-    // Persist that the user is mid in-person scan
     saveProgress({
       type: "in-person",
       step: "/scan/in-person/photos",
@@ -35,7 +34,7 @@ export default function InPersonPhotos() {
   }, []);
 
   /* =========================================================
-     Priority issues detected from online scan
+     Priority areas from online scan
   ========================================================== */
 
   const priorityAreas = useMemo(() => {
@@ -55,7 +54,7 @@ export default function InPersonPhotos() {
         "hail",
         "rust",
       ],
-      Tyres: ["tyre", "tire", "tread", "worn tyres"],
+      Tyres: ["tyre", "tire", "tread", "worn tyre", "uneven wear"],
       Wheels: ["kerb rash", "curb rash", "wheel damage"],
       Windscreen: ["chip", "windscreen", "crack"],
       Interior: ["seat wear", "trim wear", "interior wear"],
@@ -66,9 +65,7 @@ export default function InPersonPhotos() {
     const detected: string[] = [];
 
     for (const [area, keywords] of Object.entries(map)) {
-      if (keywords.some((k) => text.includes(k))) {
-        detected.push(area);
-      }
+      if (keywords.some((k) => text.includes(k))) detected.push(area);
     }
 
     return detected;
@@ -83,43 +80,43 @@ export default function InPersonPhotos() {
       id: "exterior-front",
       title: "Front & front-left angle",
       guidance:
-        "Stand back a little so the whole front and left side are visible. Try to keep the car centred in the frame.",
+        "Stand back so the whole front and left side are visible. Keep the car centred in the frame.",
     },
     {
       id: "exterior-side",
       title: "Full side profile",
       guidance:
-        "Move back far enough that the entire side fits clearly in the photo, including wheels and door lines.",
+        "Fit the entire side in the photo, including wheels, door lines and reflections.",
     },
     {
       id: "exterior-rear",
       title: "Rear & rear-right angle",
       guidance:
-        "Capture the rear of the car plus the right-side angle to show reflections and paint consistency.",
+        "Capture the rear plus right-side angle to show paint consistency and body lines.",
     },
     {
       id: "tyres",
       title: "Tyres & wheel condition",
       guidance:
-        "Take close-ups of each wheel and tyre tread. If any wear or marks stand out, capture them clearly.",
+        "Take close-ups of each wheel and tyre tread. Look for uneven wear, cracks or exposed wire.",
     },
     {
       id: "interior",
       title: "Interior & dashboard area",
       guidance:
-        "Photograph the driver seat, steering wheel, dashboard and centre console. Turn ignition to ACC if safe.",
+        "Photograph seats, steering wheel, dashboard and centre console. Switch ignition to ACC if safe.",
     },
     {
       id: "logbook",
       title: "Logbook / service records (if available)",
       guidance:
-        "Photograph stamped pages or receipts. If anything looks unclear, take an extra close-up photo.",
+        "Photograph stamped pages or receipts. Take close-ups where mileage, dates or workshop names appear.",
     },
     {
       id: "vin",
       title: "VIN, build plate & compliance labels",
       guidance:
-        "Photograph the VIN in the windscreen (if present) and the compliance / build plates in the engine bay or door jamb.",
+        "Photograph the VIN plate and any compliance or build labels in the engine bay or door jamb.",
     },
   ];
 
@@ -134,30 +131,30 @@ export default function InPersonPhotos() {
     "Minor paint scuff": "$120–$300 typical repair",
     "Dent — no paint damage": "$150–$400 paintless repair",
     "Kerb-rashed wheel": "$120–$250 per wheel",
-    "Interior wear / tear": "Varies — often cosmetic, ask seller to confirm",
+    "Interior wear / tear": "Varies — usually cosmetic, ask seller to confirm",
     "Windscreen chip": "$90–$160 repair (replacement if cracked)",
     "Unknown / worth confirming": "Ask seller for clarification or receipts",
   };
 
-  const [newIssueArea, setNewIssueArea] = useState("");
   const [newIssueType, setNewIssueType] = useState("");
   const [newIssueNote, setNewIssueNote] = useState("");
 
   function addImperfection() {
     if (!newIssueType) return;
 
-    const costBand = COST_BANDS[newIssueType] ?? "Cost unknown — worth confirming";
+    const costBand =
+      COST_BANDS[newIssueType] ??
+      "Cost not clear — worth confirming with the seller";
 
     const record: Imperfection = {
       id: crypto.randomUUID(),
-      area: newIssueArea || step.title,
+      area: step.title,
       type: newIssueType,
       note: newIssueNote.trim() || undefined,
       costBand,
     };
 
     setImperfections((p) => [...p, record]);
-    setNewIssueArea("");
     setNewIssueType("");
     setNewIssueNote("");
   }
@@ -165,17 +162,18 @@ export default function InPersonPhotos() {
   function nextStep() {
     if (stepIndex < steps.length - 1) {
       setStepIndex((i) => i + 1);
-    } else {
-      // Move to inspection checks phase
-      saveProgress({
-        type: "in-person",
-        step: "/scan/in-person/checks",
-        imperfections,
-        fromOnlineScan: Boolean(onlineResult),
-      });
-
-      navigate("/scan/in-person/checks");
+      return;
     }
+
+    // Move to inspection checks phase
+    saveProgress({
+      type: "in-person",
+      step: "/scan/in-person/checks",
+      imperfections,
+      fromOnlineScan: Boolean(onlineResult),
+    });
+
+    navigate("/scan/in-person/checks");
   }
 
   /* =========================================================
@@ -184,7 +182,6 @@ export default function InPersonPhotos() {
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
-      {/* Header */}
       <span className="text-[11px] tracking-wide uppercase text-slate-400">
         In-person scan — Guided photo inspection
       </span>
@@ -193,7 +190,7 @@ export default function InPersonPhotos() {
         Capture photos for this inspection
       </h1>
 
-      {/* Priority hints from online scan */}
+      {/* Priority hints */}
       {priorityAreas.length > 0 && (
         <section className="rounded-2xl border border-indigo-400/25 bg-indigo-600/10 px-4 py-3 space-y-1">
           <p className="text-sm text-slate-200 font-semibold">
@@ -205,7 +202,8 @@ export default function InPersonPhotos() {
             ))}
           </ul>
           <p className="text-[11px] text-slate-400">
-            These aren’t faults — they’re simply areas **worth confirming in person**.
+            These aren’t faults — they’re simply areas worth confirming in
+            person.
           </p>
         </section>
       )}
@@ -225,7 +223,8 @@ export default function InPersonPhotos() {
         <p className="text-sm text-slate-300">{step.guidance}</p>
 
         <div className="rounded-xl border border-white/10 bg-slate-800/40 px-4 py-2 text-sm text-slate-400">
-          Use your normal camera — this step helps you remember **what to capture**.
+          Use your phone’s normal camera — this step simply helps you remember
+          what to capture.
         </div>
       </section>
 
@@ -240,19 +239,19 @@ export default function InPersonPhotos() {
           onChange={(e) => setNewIssueType(e.target.value)}
           className="w-full rounded-lg bg-slate-800 border border-white/15 px-3 py-2 text-sm text-slate-200"
         >
-          <option value="">Select an issue…</option>
+          <option value="">Select an observation…</option>
           {Object.keys(COST_BANDS).map((k) => (
             <option key={k} value={k}>
               {k}
             </option>
           ))}
           <option value="Unknown / worth confirming">
-            Something looked unusual — not sure
+            Something looked unusual — not sure yet
           </option>
         </select>
 
         <input
-          placeholder="Optional note (e.g. rear door, small mark near handle)…"
+          placeholder="Optional note (e.g. rear door, light mark near handle)…"
           value={newIssueNote}
           onChange={(e) => setNewIssueNote(e.target.value)}
           className="w-full rounded-lg bg-slate-800 border border-white/15 px-3 py-2 text-sm text-slate-200"
@@ -266,7 +265,7 @@ export default function InPersonPhotos() {
         </button>
       </section>
 
-      {/* Imperfection list */}
+      {/* Observation list */}
       {!!imperfections.length && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4 space-y-2">
           <h3 className="text-sm font-semibold text-slate-100">
@@ -277,14 +276,13 @@ export default function InPersonPhotos() {
             {imperfections.map((i) => (
               <li key={i.id}>
                 • {i.area}: {i.type}
-                {i.note ? ` — ${i.note}` : ""}
+                {i.note ? ` — ${i.note}` : ""} ({i.costBand})
               </li>
             ))}
           </ul>
         </section>
       )}
 
-      {/* Continue */}
       <button
         onClick={nextStep}
         className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 shadow"
@@ -293,8 +291,9 @@ export default function InPersonPhotos() {
       </button>
 
       <p className="text-[11px] text-slate-400 text-center">
-        CarVerity does not diagnose mechanical faults — it helps you document
-        observations and understand what may be worth confirming with the seller.
+        CarVerity doesn’t diagnose mechanical faults — it helps you document
+        observations and understand what may be worth confirming with the
+        seller.
       </p>
     </div>
   );

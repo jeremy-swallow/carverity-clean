@@ -64,7 +64,8 @@ export default function InPersonChecks() {
       if (text.includes(keyword)) {
         results.push({
           id: crypto.randomUUID(),
-          label: keyword === "interior" ? "Interior detail" : `Verify ${keyword}`,
+          label:
+            keyword === "interior" ? "Interior detail" : `Verify ${keyword}`,
           reason,
           completed: false,
         });
@@ -84,27 +85,63 @@ export default function InPersonChecks() {
   }
 
   /* =========================================================
-     Simple condition-awareness checks
+     Guided condition-awareness checks
   ========================================================== */
 
   const checks = [
     {
-      id: "test-drive-sounds",
-      title: "Any unusual sounds when driving?",
+      id: "tyre-tread",
+      title: "Tyre tread & wear pattern",
       guidance:
-        "Clicks, knocks or grinding noises may not be faults — they’re simply things worth asking the seller about.",
+        "Look for even wear across the tyre. Very low tread or heavy edging wear may simply mean tyres are due soon — ask the seller when they were last replaced.",
+    },
+    {
+      id: "brakes-visible",
+      title: "Brake discs visible through wheels",
+      guidance:
+        "Light surface rust after rain is normal. Deep scoring or grooves may be worth asking the seller about.",
     },
     {
       id: "warning-lights",
       title: "Any warning lights showing on the dash?",
       guidance:
-        "If lights are present, photograph the dashboard and ask when it was last inspected.",
+        "If lights are showing, photograph the dashboard and ask when it was last inspected or serviced.",
+    },
+    {
+      id: "aircon",
+      title: "Air-conditioning blowing cold?",
+      guidance:
+        "Weak or warm airflow doesn’t always mean a major issue — ask when it was last serviced or re-gassed.",
     },
     {
       id: "odour-interior",
-      title: "Strong interior smells or moisture?",
+      title: "Moisture, damp smell, or mould?",
       guidance:
-        "Moisture may indicate leaks or past water entry — ask for explanation or receipts if unsure.",
+        "Could be from recent cleaning — or may indicate past water entry. Ask for clarification if unsure.",
+    },
+    {
+      id: "seatbelts-trim",
+      title: "Seatbelts and airbag trim intact?",
+      guidance:
+        "Frayed belts or loose airbag trim are worth confirming with the seller — especially if the car has been previously repaired.",
+    },
+    {
+      id: "engine-bay-visual",
+      title: "Quick visual check under bonnet (do not touch)",
+      guidance:
+        "Look only — don’t open caps. Check for obvious leaks, loose wiring or unusual smells. If unsure, ask the seller or a mechanic to review.",
+    },
+    {
+      id: "adas-features",
+      title: "Safety / driver-assist features present?",
+      guidance:
+        "If the car lists features like reversing camera, parking sensors or lane-assist, check that they appear to be fitted and active where possible.",
+    },
+    {
+      id: "test-drive",
+      title: "Short test-drive impressions (if allowed)",
+      guidance:
+        "Listen for knocks, steering pulling, vibration or hesitation. These aren’t faults by themselves — they’re simply things worth confirming.",
     },
   ];
 
@@ -154,7 +191,8 @@ export default function InPersonChecks() {
           </h2>
 
           <p className="text-xs md:text-sm text-slate-300">
-            These aren’t faults — they’re simply areas **worth confirming in person**.
+            These aren’t faults — they’re simply areas worth confirming in
+            person.
           </p>
 
           <ul className="space-y-2 mt-2">
@@ -220,7 +258,6 @@ export default function InPersonChecks() {
         ))}
       </section>
 
-      {/* Continue */}
       <button
         onClick={continueToSummary}
         className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 shadow"

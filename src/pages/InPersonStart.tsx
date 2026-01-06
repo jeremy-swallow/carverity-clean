@@ -12,7 +12,6 @@ export default function InPersonStart() {
   const [onlineResult, setOnlineResult] = useState<SavedResult | null>(null);
 
   useEffect(() => {
-    // If the user previously completed an online scan, load it
     const stored = loadOnlineResults();
     if (stored) setOnlineResult(stored);
   }, []);
@@ -20,10 +19,7 @@ export default function InPersonStart() {
   const imperfectionHints = useMemo(() => {
     if (!onlineResult?.fullSummary && !onlineResult?.summary) return [];
 
-    const text =
-      onlineResult.fullSummary ||
-      onlineResult.summary ||
-      "";
+    const text = onlineResult.fullSummary || onlineResult.summary || "";
 
     const keywords = [
       "dent",
@@ -51,12 +47,13 @@ export default function InPersonStart() {
     const lowered = text.toLowerCase();
     const matches = keywords.filter((k) => lowered.includes(k));
 
-    // Deduplicate + tidy language
-    return Array.from(new Set(matches)).map((m) => m.replace(/^\w/, (c) => c.toUpperCase()));
+    return Array.from(new Set(matches)).map((m) =>
+      m.replace(/^\w/, (c) => c.toUpperCase())
+    );
   }, [onlineResult]);
 
   function startScan() {
-    navigate("/scan/in-person/start");
+    navigate("/scan/in-person/photos");
   }
 
   function viewOnlineResults() {
@@ -85,9 +82,9 @@ export default function InPersonStart() {
           </div>
 
           <p className="text-sm text-slate-300">
-            This in-person scan helps you **verify details in real-life** based
-            on the listing you already scanned. We’ll guide you to capture
-            photos and observations so you can feel confident before deciding.
+            This in-person scan helps you verify details in real life based on
+            the listing you already scanned. We’ll guide you to capture photos
+            and observations so you can feel confident before deciding.
           </p>
 
           {imperfectionHints.length > 0 ? (
@@ -99,22 +96,22 @@ export default function InPersonStart() {
               <ul className="text-sm text-slate-300 list-disc list-inside space-y-1">
                 {imperfectionHints.map((m, i) => (
                   <li key={i}>
-                    Capture clear photos of **possible {m.toLowerCase()} areas**
-                    so you can review them later or discuss with the seller.
+                    Capture clear photos of possible {m.toLowerCase()} areas so
+                    you can review them later or discuss with the seller.
                   </li>
                 ))}
               </ul>
 
               <p className="text-[11px] text-slate-400 mt-2">
-                These aren’t faults — they’re simply things **worth confirming
-                in person**.
+                These aren’t faults — they’re simply things worth confirming in
+                person.
               </p>
             </div>
           ) : (
             <div className="rounded-xl border border-white/12 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">
-              No concerns were highlighted in the online scan — this in-person
-              stage focuses on **verifying condition, photos, and real-world
-              impressions**.
+              No concerns were highlighted in the online scan — this stage
+              focuses on verifying condition, taking clear photos, and capturing
+              real-world impressions.
             </div>
           )}
 
@@ -136,21 +133,29 @@ export default function InPersonStart() {
 
           <p className="text-sm text-slate-300">
             Even without an online listing scan, CarVerity will guide you to
-            capture photos, note imperfections, and understand **what’s worth
-            confirming or budgeting for**.
+            capture photos, note imperfections, and understand what’s worth
+            confirming or budgeting for.
           </p>
 
           <div className="rounded-xl border border-white/12 bg-slate-950/60 px-4 py-3 text-sm text-slate-200">
             You’ll be prompted to photograph:
             <ul className="list-disc list-inside mt-1 space-y-1">
-              <li>Body panels and paint condition</li>
+              <li>Body panels and paint consistency</li>
               <li>Interior wear and dashboard condition</li>
-              <li>Tyres, wheels and brake visibility</li>
+              <li>Tyres and tread wear across all four wheels</li>
               <li>Any dents, scratches or marks you notice</li>
             </ul>
           </div>
         </section>
       )}
+
+      {/* Upcoming guidance hint */}
+      <section className="rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-xs md:text-sm text-slate-300">
+        After photos, we’ll guide you through practical checks — including tyre
+        condition, warning lights, interior controls, and (if fitted) key ADAS /
+        driver-assist features. A separate screen will also cover things to pay
+        attention to on a short test drive.
+      </section>
 
       {/* CTA */}
       <div className="pt-2">

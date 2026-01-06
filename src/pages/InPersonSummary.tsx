@@ -16,59 +16,75 @@ export default function InPersonSummary() {
   const hasInPersonScan = true;
   const dualJourneyComplete = hasOnlineScan && hasInPersonScan;
 
-  // Extract logged observations from earlier in-person steps
+  // Extract logged data from earlier steps
   const imperfections = progress?.imperfections ?? [];
   const followUps = progress?.followUpPhotos ?? [];
   const checks = progress?.checks ?? {};
 
   /* =========================================================
-     Derived guidance groupings
+     Helpers — friendlier labels for internal keys
+  ========================================================== */
+  const labelMap: Record<string, string> = {
+    "test-drive-sounds": "Driving / mechanical noises",
+    "warning-lights": "Dashboard warnings",
+    "odour-interior": "Interior odours or moisture",
+  };
+
+  const mapLabel = (k: string) => labelMap[k] ?? k;
+
+  /* =========================================================
+     Derived groupings
   ========================================================== */
 
+  // Things worth confirming with the seller
   const sellerQuestions = useMemo(() => {
     const list: string[] = [];
 
     imperfections.forEach((i: any) => {
-      if (i?.label) list.push(`Confirm details about: ${i.label}`);
+      if (i?.type) list.push(`${i.type}${i?.note ? ` — ${i.note}` : ""}`);
     });
 
     followUps
       .filter((f: any) => !f.completed)
-      .forEach((f: any) => list.push(`Ask to clarify: ${f.label}`));
+      .forEach((f: any) => list.push(`Clarify: ${f.label}`));
 
     Object.entries(checks).forEach(([k, v]) => {
       if (typeof v === "string" && v.includes("worth confirming")) {
-        list.push(`Discuss inspection finding: ${k}`);
+        list.push(mapLabel(k));
       }
     });
 
     return list;
   }, [imperfections, followUps, checks]);
 
+  // Areas that could influence cost or negotiation
   const possibleCostAreas = useMemo(() => {
     const list: string[] = [];
 
     imperfections.forEach((i: any) => {
-      const l = (i?.label ?? "").toLowerCase();
+      const text = `${i?.type ?? ""} ${i?.note ?? ""}`.toLowerCase();
 
-      if (l.includes("tyre")) list.push("Tyres may require replacement soon.");
-      if (l.includes("scratch") || l.includes("paint"))
-        list.push("Cosmetic paintwork may need touch-ups.");
-      if (l.includes("dent"))
-        list.push("Panel dents may require repair depending on severity.");
-      if (l.includes("interior"))
-        list.push("Interior wear may affect resale value.");
+      if (text.includes("tyre")) list.push("Tyres may require replacement soon.");
+      if (text.includes("scratch") || text.includes("paint"))
+        list.push("Paintwork / cosmetic touch-ups may be required.");
+      if (text.includes("dent"))
+        list.push("Panel dent repair may be needed depending on severity.");
+      if (text.includes("wheel"))
+        list.push("Wheel refurbishment may be required.");
+      if (text.includes("windscreen") || text.includes("chip"))
+        list.push("Windscreen chip or crack may require repair.");
     });
 
-    return list;
+    return Array.from(new Set(list));
   }, [imperfections]);
 
+  // Normal / positive findings
   const generalImpressions = useMemo(() => {
     const list: string[] = [];
 
     Object.entries(checks).forEach(([k, v]) => {
       if (typeof v === "string" && v.includes("everything seemed normal")) {
-        list.push(`No issues noticed for: ${k}`);
+        list.push(mapLabel(k));
       }
     });
 
@@ -76,12 +92,42 @@ export default function InPersonSummary() {
   }, [checks]);
 
   /* =========================================================
+     Observation list for user ownership value
+  ========================================================== */
+  const observationList = useMemo(() => {
+    const out: string[] = [];
+
+    imperfections.forEach((i: any) => {
+      out.push(
+        `${i?.type ?? "Observation"}${
+          i?.note ? ` — ${i.note}` : ""
+        } (${i?.costBand ?? "Cost unknown"})`
+      );
+    });
+
+    followUps
+      .filter((f: any) => f.completed)
+      .forEach((f: any) => out.push(`Photo taken — ${f.label}`));
+
+    return out;
+  }, [imperfections, followUps]);
+
+  /* =========================================================
+     At-a-glance indicators
+  ========================================================== */
+
+  const glance = {
+    normal: generalImpressions.length,
+    confirm: sellerQuestions.length,
+    cost: possibleCostAreas.length,
+  };
+
+  /* =========================================================
      Save + persist scan
   ========================================================== */
 
   useEffect(() => {
-    // Scan is complete — clear progress so Resume won't appear
-    clearProgress();
+    clearProgress(); // scan completed — disable Resume
   }, []);
 
   async function handleSaveAndFinish() {
@@ -97,10 +143,8 @@ export default function InPersonSummary() {
       completed: true,
     };
 
-    // Local save
     saveScan(scan);
 
-    // Cloud sync (safe if logged out)
     await syncScanToCloud(scan, {
       plan: "free",
       report: {
@@ -112,7 +156,6 @@ export default function InPersonSummary() {
     });
 
     localStorage.setItem("carverity_inperson_completed", "1");
-
     navigate("/my-scans");
   }
 
@@ -139,7 +182,6 @@ export default function InPersonSummary() {
         gap: 28,
       }}
     >
-      {/* Step context */}
       <span
         style={{
           fontSize: 13,
@@ -151,7 +193,6 @@ export default function InPersonSummary() {
         In-person scan · Step 4 of 4 — Completed
       </span>
 
-      {/* Dual-journey badge */}
       {dualJourneyComplete && (
         <div
           style={{
@@ -172,6 +213,31 @@ export default function InPersonSummary() {
         </div>
       )}
 
+      {/* At-a-glance summary */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px,1fr))",
+          gap: 10,
+        }}
+      >
+        <GlancePill
+          label="Appeared normal"
+          value={glance.normal}
+          tone="positive"
+        />
+        <GlancePill
+          label="Worth confirming"
+          value={glance.confirm}
+          tone="neutral"
+        />
+        <GlancePill
+          label="May affect cost"
+          value={glance.cost}
+          tone="caution"
+        />
+      </div>
+
       <h1 style={{ fontSize: 26, fontWeight: 800 }}>
         Your in-person inspection summary
       </h1>
@@ -183,7 +249,15 @@ export default function InPersonSummary() {
         decision.
       </p>
 
-      {/* Seller confirmation list */}
+      {/* Observation list */}
+      {!!observationList.length && (
+        <SummaryBlock
+          title="Observations you recorded"
+          tone="neutral"
+          items={observationList}
+        />
+      )}
+
       {!!sellerQuestions.length && (
         <SummaryBlock
           title="Things worth confirming with the seller"
@@ -192,17 +266,15 @@ export default function InPersonSummary() {
         />
       )}
 
-      {/* Cost-context guidance */}
       {!!possibleCostAreas.length && (
         <SummaryBlock
           title="Areas that may affect cost or negotiation"
           tone="caution"
           items={possibleCostAreas}
-          footnote="These aren’t automatically problems — they’re simply items that may involve repair or maintenance costs depending on condition."
+          footnote="These aren’t automatically problems — costs depend on condition and context."
         />
       )}
 
-      {/* Positive / normal findings */}
       {!!generalImpressions.length && (
         <SummaryBlock
           title="General condition impressions"
@@ -211,20 +283,24 @@ export default function InPersonSummary() {
         />
       )}
 
-      {/* No-data fallback */}
       {!sellerQuestions.length &&
         !possibleCostAreas.length &&
-        !generalImpressions.length && (
+        !generalImpressions.length &&
+        !observationList.length && (
           <SummaryCard
             title="Inspection completed"
-            body="No specific issues or concerns were recorded during this guided check. If you’d like extra peace of mind, you can still discuss the vehicle with the seller or arrange a mechanical inspection."
+            body="No specific concerns or observations were recorded during this guided check."
           />
         )}
 
-      {/* Test-drive & ADAS guidance */}
+      {/* Adaptive recommended actions */}
+      <NextStepsCard
+        hasCostItems={possibleCostAreas.length > 0}
+        hasUncertainItems={sellerQuestions.length > 0}
+      />
+
       <TestDriveCard />
 
-      {/* Optional encouragement — ONLY when online scan not done */}
       {!hasOnlineScan && (
         <EncouragementCard
           onClick={goOnlineScan}
@@ -234,18 +310,53 @@ export default function InPersonSummary() {
         />
       )}
 
-      {/* Save notice */}
       <NoticeCard text="This is not a mechanical inspection or formal defect report — it’s a guided record to support your decision-making." />
 
-      {/* Actions */}
       <Actions onSave={handleSaveAndFinish} onNew={startNewScan} />
     </div>
   );
 }
 
 /* =========================================================
-   Small UI helpers
+   UI Helpers
 ========================================================= */
+
+function GlancePill({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "positive" | "neutral" | "caution";
+}) {
+  const bg =
+    tone === "positive"
+      ? "rgba(120,240,200,0.18)"
+      : tone === "caution"
+      ? "rgba(255,200,120,0.18)"
+      : "rgba(255,255,255,0.08)";
+  const border =
+    tone === "positive"
+      ? "rgba(120,240,200,0.35)"
+      : tone === "caution"
+      ? "rgba(255,200,120,0.35)"
+      : "rgba(255,255,255,0.18)";
+
+  return (
+    <div
+      style={{
+        borderRadius: 14,
+        padding: 12,
+        background: bg,
+        border: `1px solid ${border}`,
+      }}
+    >
+      <strong style={{ fontSize: 18 }}>{value}</strong>
+      <div style={{ fontSize: 12, color: "#dfe6ff" }}>{label}</div>
+    </div>
+  );
+}
 
 function SummaryBlock({
   title,
@@ -264,7 +375,6 @@ function SummaryBlock({
       : tone === "positive"
       ? "rgba(100,220,180,0.12)"
       : "rgba(255,255,255,0.05)";
-
   const border =
     tone === "caution"
       ? "rgba(255,200,120,0.35)"
@@ -282,7 +392,6 @@ function SummaryBlock({
       }}
     >
       <strong style={{ fontSize: 15 }}>{title}</strong>
-
       <ul style={{ marginTop: 8, color: "#dfe6ff", fontSize: 14 }}>
         {items.map((i, idx) => (
           <li key={idx} style={{ marginTop: 6 }}>
@@ -290,7 +399,6 @@ function SummaryBlock({
           </li>
         ))}
       </ul>
-
       {footnote && (
         <p style={{ color: "#b9c3ff", fontSize: 12, marginTop: 10 }}>
           {footnote}
@@ -319,6 +427,50 @@ function SummaryCard({ title, body }: { title: string; body: string }) {
   );
 }
 
+function NextStepsCard({
+  hasCostItems,
+  hasUncertainItems,
+}: {
+  hasCostItems: boolean;
+  hasUncertainItems: boolean;
+}) {
+  const items: string[] = [];
+
+  if (hasCostItems)
+    items.push(
+      "Ask the seller for receipts, quotes or service records relating to observed items."
+    );
+
+  if (hasUncertainItems)
+    items.push(
+      "Discuss unclear areas with the seller and confirm details before committing."
+    );
+
+  items.push(
+    "If the vehicle still feels like a good option, consider a mechanical inspection for added peace of mind."
+  );
+
+  return (
+    <div
+      style={{
+        borderRadius: 16,
+        padding: 18,
+        background: "rgba(255,255,255,0.06)",
+        border: "1px solid rgba(255,255,255,0.18)",
+      }}
+    >
+      <strong style={{ fontSize: 15 }}>Recommended next steps</strong>
+      <ul style={{ marginTop: 8, color: "#dfe6ff", fontSize: 14 }}>
+        {items.map((i, idx) => (
+          <li key={idx} style={{ marginTop: 6 }}>
+            {i}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function TestDriveCard() {
   return (
     <div
@@ -332,40 +484,29 @@ function TestDriveCard() {
       <strong style={{ fontSize: 15 }}>Before your test drive</strong>
       <ul style={{ marginTop: 8, color: "#dfe6ff", fontSize: 14 }}>
         <li style={{ marginTop: 6 }}>
-          Listen for knocks, rattles or whining noises when driving over bumps,
-          turning, braking and accelerating.
+          Listen for knocks, rattles or whining noises when braking, turning or
+          accelerating.
         </li>
         <li style={{ marginTop: 6 }}>
-          Check that the steering feels stable and the car tracks straight
-          without you constantly correcting it on a flat road.
+          Check that the steering feels stable and the car tracks straight on a
+          flat road.
         </li>
         <li style={{ marginTop: 6 }}>
-          Watch the dashboard for any warning lights that stay on or appear
-          during the drive.
+          Watch the dashboard for warning lights that stay on or appear during
+          the drive.
         </li>
         <li style={{ marginTop: 6 }}>
           If the car has{" "}
-          <strong>advanced safety or driver-assist features (ADAS)</strong> —
-          such as lane-keep assist, adaptive cruise control, automatic
-          emergency braking, blind-spot monitoring, or parking sensors/camera —
-          test that:
-          <ul style={{ marginTop: 4, marginLeft: 18, listStyle: "disc" }}>
-            <li>they switch on as expected</li>
-            <li>no warning messages appear</li>
-            <li>
-              they behave in a way that feels predictable and safe on a suitable
-              road
-            </li>
-          </ul>
+          <strong>advanced safety or driver-assist features (ADAS)</strong>,
+          test that they activate normally and show no warnings.
         </li>
         <li style={{ marginTop: 6 }}>
-          After the drive, check for fluid smells, smoke, or fresh drips under
-          the car once it’s been parked for a few minutes.
+          After driving, check for smells, smoke or fresh drips under the car.
         </li>
       </ul>
       <p style={{ color: "#b9c3ff", fontSize: 12, marginTop: 10 }}>
-        Only use driver-assist systems where it’s safe and legal to do so, and
-        don’t rely on them in place of your own attention.
+        Only use driver-assist systems where safe and legal, and never rely on
+        them in place of your own attention.
       </p>
     </div>
   );
@@ -393,7 +534,6 @@ function EncouragementCard({
     >
       <strong style={{ fontSize: 14, color: "#dfe6ff" }}>{label}</strong>
       <p style={{ color: "#c8d2ff", fontSize: 13, marginTop: 6 }}>{body}</p>
-
       <button
         onClick={onClick}
         style={{
