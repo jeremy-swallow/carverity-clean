@@ -1,3 +1,4 @@
+// src/pages/api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
@@ -37,32 +38,85 @@ function extractReadableText(html: string): string {
 }
 
 /* =========================================================
-   Model Response — Safe JSON Extractor (hardened)
+   Model Response — Safe JSON Extractor
 ========================================================= */
 
-function safeParseModelJson(raw: string): any {
-  if (!raw) throw new Error("empty-model-response");
+type ModelResult = {
+  vehicle: {
+    make: string;
+    model: string;
+    year: string;
+    kilometres: string;
+  };
+  confidenceCode: "LOW" | "MODERATE" | "HIGH" | string;
+  previewSummary: string;
+  fullSummary: string;
+};
 
-  // Prefer fenced JSON if present
+function buildFallbackResult(raw: string): ModelResult {
+  const trimmed = (raw || "").trim();
+  const safeText = trimmed || "No structured response was returned.";
+
+  return {
+    vehicle: {
+      make: "",
+      model: "",
+      year: "",
+      kilometres: "",
+    },
+    confidenceCode: "MODERATE",
+    previewSummary: safeText.slice(0, 280),
+    fullSummary: safeText,
+  };
+}
+
+function safeParseModelJson(raw: string): ModelResult {
+  if (!raw || !raw.trim()) {
+    throw new Error("empty-model-response");
+  }
+
+  // Try to extract the JSON body, even if the model wrapped it in prose or fences.
   const fenced =
     raw.match(/```json([\s\S]*?)```/i)?.[1] ??
-    raw.match(/```([\s\S]*?)```/i)?.[1];
+    raw.match(/```([\s\S]*?)```/i)?.[1] ??
+    raw;
 
-  const candidate = (fenced ?? raw)
-    // remove anything before first {
-    .replace(/^[\s\S]*?(\{)/, "$1")
-    // remove anything after last }
-    .replace(/(\})[\s\S]*$/, "$1")
-    // normalise curly quotes
-    .replace(/[“”]/g, `"`)
-    .replace(/[‘’]/g, "'")
-    .trim();
+  const firstBrace = fenced.indexOf("{");
+  const lastBrace = fenced.lastIndexOf("}");
+
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+    // Can't even find a JSON-looking region → fall back to safe text.
+    console.error(
+      "⚠️ Gemini response had no JSON braces — falling back to text summary."
+    );
+    return buildFallbackResult(raw);
+  }
+
+  const candidate = fenced.slice(firstBrace, lastBrace + 1);
 
   try {
-    return JSON.parse(candidate);
-  } catch {
-    console.error("❌ JSON parse failed — candidate was:\n", candidate);
-    throw new Error("model-json-parse-failed");
+    const parsed = JSON.parse(candidate);
+
+    // Best-effort normalisation into our expected shape
+    const result: ModelResult = {
+      vehicle: {
+        make: parsed?.vehicle?.make ?? "",
+        model: parsed?.vehicle?.model ?? "",
+        year: parsed?.vehicle?.year ?? "",
+        kilometres: parsed?.vehicle?.kilometres ?? "",
+      },
+      confidenceCode: parsed?.confidenceCode ?? "MODERATE",
+      previewSummary: parsed?.previewSummary ?? "",
+      fullSummary: parsed?.fullSummary ?? "",
+    };
+
+    return result;
+  } catch (err) {
+    console.error(
+      "⚠️ Gemini JSON parse failed — falling back to text summary.",
+      err
+    );
+    return buildFallbackResult(raw);
   }
 }
 
@@ -70,7 +124,7 @@ function safeParseModelJson(raw: string): any {
    Gemini Call
 ========================================================= */
 
-async function callModel(prompt: string) {
+async function callModel(prompt: string): Promise<ModelResult> {
   const res = await fetch(
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
       GEMINI_API_KEY,
@@ -79,18 +133,21 @@ async function callModel(prompt: string) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          // Ask Gemini to return strict JSON to minimise parsing issues.
+          responseMimeType: "application/json",
+        },
       }),
     }
   );
 
-  if (!res.ok) throw new Error("model-call-failed");
+  if (!res.ok) {
+    throw new Error("model-call-failed");
+  }
 
   const data = await res.json();
-  const text =
+  const text: string =
     data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim?.() ?? "";
-
-  // 🔍 TEMP DIAGNOSTIC LOGGING
-  console.log("🧾 RAW MODEL OUTPUT:\n", text);
 
   return safeParseModelJson(text);
 }
@@ -120,7 +177,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const html = await fetchHtml(listingUrl);
         listingText = extractReadableText(html);
-      } catch {
+      } catch (err) {
+        console.error("❌ Listing fetch failed:", err);
         return res.status(200).json({
           ok: false,
           mode: "assist-required",
@@ -145,15 +203,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ====================================================== */
 
     const prompt = `
-Analyse this Australian used-car listing and reply ONLY as JSON.
+You are CarVerity, a cautious Australian used-car buying assistant.
 
-Required JSON structure:
+Analyse the following Australian used-car listing and respond ONLY with JSON.
+
+JSON shape (no extra fields):
+
 {
   "vehicle": { "make": "", "model": "", "year": "", "kilometres": "" },
   "confidenceCode": "LOW | MODERATE | HIGH",
   "previewSummary": "",
   "fullSummary": ""
 }
+
+Rules:
+- Be concise but specific to THIS listing.
+- Mention any service-history gaps, future-dated entries, or red flags in the fullSummary.
+- If prices are marked "non-negotiable", still assess risk but do not promise that the price can be negotiated.
+- Use kilometres and Australian context.
 
 Listing text:
 ${listingText}
