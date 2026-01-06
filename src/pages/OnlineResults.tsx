@@ -670,6 +670,12 @@ export default function OnlineResults() {
   const [result, setResult] = useState<SavedResult | null>(null);
   const [showFloatingBar, setShowFloatingBar] = useState(false);
 
+  // journey flags
+  const hasInPersonScan =
+    localStorage.getItem("carverity_inperson_completed") === "1";
+  const hasOnlineScan = true;
+  const dualJourneyComplete = hasInPersonScan && hasOnlineScan;
+
   useEffect(() => {
     function handleScroll() {
       setShowFloatingBar(window.scrollY > 520);
@@ -680,7 +686,10 @@ export default function OnlineResults() {
 
   useEffect(() => {
     const stored = loadOnlineResults();
-    if (stored) setResult(stored);
+    if (stored) {
+      setResult(stored);
+      localStorage.setItem("carverity_online_completed", "1");
+    }
   }, []);
 
   function unlockForTesting() {
@@ -856,9 +865,20 @@ export default function OnlineResults() {
         <span className="font-semibold text-slate-200">
           Results &amp; guidance
         </span>
-        <span className="opacity-40">›</span>
-        <span className="opacity-80">In-person inspection</span>
       </div>
+
+      {/* Dual-journey badge */}
+      {dualJourneyComplete && (
+        <section className="rounded-2xl border border-emerald-400/35 bg-emerald-500/10 px-5 py-4 shadow">
+          <h3 className="text-sm font-semibold text-emerald-200">
+            ✅ Dual-scan complete — strongest confidence
+          </h3>
+          <p className="text-xs text-emerald-200/90 mt-1">
+            You’ve completed both the online listing analysis and the in-person
+            inspection. That gives you the most balanced view of this car.
+          </p>
+        </section>
+      )}
 
       {/* Scan overview strip */}
       <section className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
@@ -872,7 +892,7 @@ export default function OnlineResults() {
 
           <div className="flex items-center gap-2">
             <span className="rounded-full border border-white/20 bg-slate-800/70 px-2 py-0.5 text-[10px] tracking-wide text-slate-200">
-              STEP 2 OF 3 — Results &amp; guidance
+              STEP 2 — Results &amp; guidance
             </span>
             <span className="opacity-80">{createdLabel}</span>
           </div>
@@ -973,67 +993,27 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* NEXT STEPS GUIDANCE */}
-      <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span>🧭</span>
-            <h2 className="text-sm md:text-base font-semibold text-slate-100">
-              Next steps before you proceed
-            </h2>
-          </div>
-          <span className="hidden md:inline text-[11px] text-slate-400">
-            CarVerity is guidance only — not a mechanical inspection.
-          </span>
-        </div>
+      {/* Optional encouragement — ONLY when in-person scan not done */}
+      {!hasInPersonScan && (
+        <section className="rounded-2xl border border-blue-400/30 bg-blue-500/10 px-5 py-5 space-y-3">
+          <h3 className="text-sm font-semibold text-slate-100">
+            🧭 Optional next step — in-person inspection
+          </h3>
+          <p className="text-xs md:text-sm text-slate-300">
+            If this car still looks promising, you can continue with a guided
+            in-person inspection to capture photos and check condition clues.
+            This step is optional, but many buyers complete both stages to feel
+            more confident before deciding.
+          </p>
 
-        <p className="text-xs md:text-sm text-slate-300">
-          These suggestions are based only on what&apos;s written in the
-          listing. Anything that looks unusual is treated as worth confirming
-          with the seller, not as a fault by itself.
-        </p>
-
-        <ul className="mt-2 text-sm text-slate-200 space-y-2 list-disc list-inside">
-          <li>
-            Confirm key details with the seller — especially service records,
-            PPSR report, receipts and roadworthy status.
-          </li>
-          <li>
-            Ask for close-up photos or videos of anything that&apos;s unclear or
-            has been mentioned as &quot;worth confirming&quot; in this report.
-          </li>
-          <li>
-            If the car still seems suitable, continue to an in-person inspection
-            to verify condition and check for new issues.
-          </li>
-          <li>
-            For extra reassurance, consider a pre-purchase inspection from a
-            qualified mechanic before committing to buy.
-          </li>
-        </ul>
-      </section>
-
-      {/* JOURNEY CONFIDENCE / DUAL-PATH ENCOURAGEMENT */}
-      <section className="rounded-2xl border border-indigo-400/25 bg-indigo-600/10 px-5 py-5 space-y-3 shadow-[0_18px_40px_rgba(0,0,0,0.55)]">
-        <div className="flex items-center gap-2">
-          <span>🔒</span>
-          <h2 className="text-sm md:text-base font-semibold text-slate-100">
-            Build stronger confidence with Stage 2 — in-person verification
-          </h2>
-        </div>
-
-        <p className="text-xs md:text-sm text-slate-300">
-          This online scan gives you guidance based on the listing. The next
-          stage of the CarVerity journey helps you **verify what the car looks
-          like in real life** using guided photos and checks. Many buyers
-          complete both stages to feel more confident before deciding.
-        </p>
-
-        <div className="rounded-xl border border-white/15 bg-slate-950/60 px-4 py-3 text-sm text-slate-200">
-          Online scan = screening &amp; insight • In-person scan = real-world
-          verification
-        </div>
-      </section>
+          <button
+            onClick={goInPersonFlow}
+            className="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow"
+          >
+            Continue — in-person inspection checklist
+          </button>
+        </section>
+      )}
 
       {/* VEHICLE DETAILS */}
       <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5">
@@ -1071,15 +1051,17 @@ export default function OnlineResults() {
 
       {/* DESKTOP ACTIONS */}
       <section className="hidden md:block rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-5 space-y-3">
-        <button
-          onClick={goInPersonFlow}
-          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow flex items-center justify-between"
-        >
-          <span>Continue — in-person inspection checklist</span>
-          <span className="text-[11px] font-medium opacity-80">
-            Step 3 of 3
-          </span>
-        </button>
+        {!hasInPersonScan && (
+          <button
+            onClick={goInPersonFlow}
+            className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow flex items-center justify-between"
+          >
+            <span>Continue — in-person inspection checklist</span>
+            <span className="text-[11px] font-medium opacity-80">
+              Optional step
+            </span>
+          </button>
+        )}
 
         <button
           onClick={goStartNewScan}
@@ -1100,13 +1082,14 @@ export default function OnlineResults() {
       {showFloatingBar && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40">
           <div className="mx-3 mb-3 rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur shadow-[0_20px_60px_rgba(0,0,0,0.7)] px-4 py-3 space-y-2">
-            <button
-              onClick={goInPersonFlow}
-              className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow flex items-center justify-between"
-            >
-              <span>Continue — in-person inspection checklist</span>
-              <span className="text-[10px] opacity-80">Step 3 of 3</span>
-            </button>
+            {!hasInPersonScan && (
+              <button
+                onClick={goInPersonFlow}
+                className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-3 py-2 text-sm"
+              >
+                Continue — in-person inspection
+              </button>
+            )}
 
             <div className="flex gap-2">
               <button
