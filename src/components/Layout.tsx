@@ -1,5 +1,11 @@
 // src/components/Layout.tsx
-import { Outlet, NavLink } from "react-router-dom";
+
+import {
+  Outlet,
+  NavLink,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { useEffect, useState } from "react";
 import { loadCredits } from "../utils/scanCredits";
 import { loadProgress } from "../utils/scanProgress";
@@ -7,14 +13,21 @@ import { loadProgress } from "../utils/scanProgress";
 export default function Layout() {
   const [credits, setCredits] = useState<number>(0);
   const [menuOpen, setMenuOpen] = useState(false);
-  const progress = loadProgress();
+  const [hasActiveScan, setHasActiveScan] = useState(false);
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  /* -------------------------------------------------------
+   * Credits — live from localStorage
+   * ----------------------------------------------------- */
   useEffect(() => {
     setCredits(loadCredits());
 
     const handler = (e: StorageEvent) => {
-      if (e.key === "carverity_scan_credits" && e.newValue) {
-        const parsed = parseInt(e.newValue, 10);
+      if (e.key === "carverity_scan_credits") {
+        const raw = e.newValue ?? "0";
+        const parsed = parseInt(raw, 10);
         setCredits(Number.isFinite(parsed) ? parsed : 0);
       }
     };
@@ -23,89 +36,161 @@ export default function Layout() {
     return () => window.removeEventListener("storage", handler);
   }, []);
 
+  /* -------------------------------------------------------
+   * Resume pill — check if there is progress
+   * ----------------------------------------------------- */
+  useEffect(() => {
+    const progress = loadProgress();
+    setHasActiveScan(Boolean(progress?.step));
+  }, [location.pathname]);
+
+  function handleResume() {
+    const progress = loadProgress();
+    if (!progress?.step) return;
+
+    navigate(progress.step);
+    setMenuOpen(false);
+  }
+
+  /* -------------------------------------------------------
+   * Nav config
+   * ----------------------------------------------------- */
+  const navItems = [
+    { to: "/start-scan", label: "Start scan" },
+    { to: "/my-scans", label: "My scans" },
+    { to: "/pricing", label: "Pricing" },
+    { to: "/faq", label: "FAQ" },
+    { to: "/credits-history", label: "Credits history" },
+  ];
+
+  const desktopLinkClass = ({ isActive }: { isActive: boolean }) =>
+    [
+      "text-sm transition-colors",
+      isActive
+        ? "text-white font-semibold"
+        : "text-slate-300 hover:text-white",
+    ].join(" ");
+
+  const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
+    [
+      "block w-full text-left px-2 py-1.5 rounded-lg text-sm",
+      isActive
+        ? "bg-slate-800 text-white font-semibold"
+        : "text-slate-200 hover:bg-slate-800/70",
+    ].join(" ");
+
+  /* -------------------------------------------------------
+   * Render
+   * ----------------------------------------------------- */
+
   return (
     <div className="bg-slate-950 text-white min-h-screen flex flex-col">
-      <header className="fixed top-0 left-0 w-full z-40">
-        <div className="bg-slate-900/80 backdrop-blur border-b border-white/10">
-          <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-
+      <header className="fixed inset-x-0 top-0 z-40">
+        <div className="bg-slate-950/85 backdrop-blur border-b border-slate-800">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
             {/* LOGO */}
-            <NavLink to="/" className="font-semibold text-lg tracking-tight">
-              CarVerity
+            <NavLink
+              to="/"
+              className="flex items-center gap-2"
+            >
+              <span className="text-base font-semibold tracking-tight">
+                CarVerity
+              </span>
             </NavLink>
 
             {/* DESKTOP NAV */}
-            <nav className="hidden md:flex items-center gap-5 text-sm">
-              <NavLink to="/start-scan">Start scan</NavLink>
-              <NavLink to="/my-scans">My scans</NavLink>
-              <NavLink to="/pricing">Pricing</NavLink>
-              <NavLink to="/faq">FAQ</NavLink>
-              <NavLink to="/credits-history">Credits history</NavLink>
+            <nav className="hidden md:flex items-center gap-6">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={desktopLinkClass}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
             </nav>
 
-            {/* RIGHT ACTIONS */}
+            {/* DESKTOP ACTIONS */}
             <div className="hidden md:flex items-center gap-3">
               <span className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs">
                 Scan credits: {credits}
               </span>
 
-              {progress?.step && (
-                <NavLink
-                  to={progress.step}
-                  className="px-3 py-1 rounded-full bg-amber-400 text-black text-xs font-semibold"
+              {hasActiveScan && (
+                <button
+                  onClick={handleResume}
+                  className="px-3 py-1 rounded-full bg-amber-400 text-slate-900 text-xs font-semibold shadow hover:bg-amber-300"
                 >
                   Resume scan
-                </NavLink>
+                </button>
               )}
             </div>
 
-            {/* MOBILE HAMBURGER */}
-            <button
-              className="md:hidden px-3 py-2 rounded-lg border border-white/20"
-              onClick={() => setMenuOpen((v) => !v)}
-            >
-              ☰
-            </button>
-          </div>
-        </div>
+            {/* MOBILE ACTIONS + HAMBURGER */}
+            <div className="flex md:hidden items-center gap-2">
+              {hasActiveScan && (
+                <button
+                  onClick={handleResume}
+                  className="px-3 py-1 rounded-full bg-amber-400 text-slate-900 text-xs font-semibold shadow"
+                >
+                  Resume
+                </button>
+              )}
 
-        {/* MOBILE MENU PANEL */}
-        {menuOpen && (
-          <div className="md:hidden bg-slate-900 border-b border-white/10 px-6 py-3 space-y-2">
-            <NavLink to="/start-scan" onClick={() => setMenuOpen(false)}>
-              Start scan
-            </NavLink><br/>
-            <NavLink to="/my-scans" onClick={() => setMenuOpen(false)}>
-              My scans
-            </NavLink><br/>
-            <NavLink to="/pricing" onClick={() => setMenuOpen(false)}>
-              Pricing
-            </NavLink><br/>
-            <NavLink to="/faq" onClick={() => setMenuOpen(false)}>
-              FAQ
-            </NavLink><br/>
-            <NavLink to="/credits-history" onClick={() => setMenuOpen(false)}>
-              Credits history
-            </NavLink>
-
-            <div className="mt-2 text-xs text-slate-300">
-              Scan credits: {credits}
-            </div>
-
-            {progress?.step && (
-              <NavLink
-                to={progress.step}
-                onClick={() => setMenuOpen(false)}
-                className="block mt-2 px-3 py-1 rounded-full bg-amber-400 text-black text-xs font-semibold w-fit"
+              <button
+                type="button"
+                aria-label="Toggle navigation"
+                onClick={() => setMenuOpen((open) => !open)}
+                className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-white/15 bg-slate-900/80"
               >
-                Resume scan
-              </NavLink>
-            )}
+                <span className="sr-only">Open main menu</span>
+                <span className="flex flex-col gap-[3px]">
+                  <span className="w-4 h-[2px] bg-white rounded" />
+                  <span className="w-4 h-[2px] bg-white rounded" />
+                  <span className="w-4 h-[2px] bg-white rounded" />
+                </span>
+              </button>
+            </div>
           </div>
-        )}
+
+          {/* MOBILE MENU */}
+          {menuOpen && (
+            <div className="md:hidden border-t border-slate-800 bg-slate-950/95">
+              <div className="max-w-6xl mx-auto px-4 py-3 space-y-2">
+                {navItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setMenuOpen(false)}
+                    className={mobileLinkClass}
+                  >
+                    {item.label}
+                  </NavLink>
+                ))}
+
+                <div className="pt-3 mt-2 border-t border-slate-800 flex items-center justify-between">
+                  <span className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs">
+                    Scan credits: {credits}
+                  </span>
+
+                  <NavLink
+                    to="/pricing"
+                    onClick={() => setMenuOpen(false)}
+                    className="text-xs text-indigo-300 underline"
+                  >
+                    Buy more credits
+                  </NavLink>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </header>
 
+      {/* Spacer so content clears the fixed header */}
       <div className="h-14" />
+
       <main className="flex-1">
         <Outlet />
       </main>
