@@ -38,7 +38,7 @@ function extractReadableText(html: string): string {
 }
 
 /* =========================================================
-   Model Response — Safe JSON Extractor
+   Model Result Helpers
 ========================================================= */
 
 type ModelResult = {
@@ -56,7 +56,6 @@ type ModelResult = {
 function buildFallbackResult(raw: string): ModelResult {
   const trimmed = (raw || "").trim();
   const safeText = trimmed || "No structured response was returned.";
-
   return {
     vehicle: { make: "", model: "", year: "", kilometres: "" },
     confidenceCode: "MODERATE",
@@ -66,9 +65,7 @@ function buildFallbackResult(raw: string): ModelResult {
 }
 
 function safeParseModelJson(raw: string): ModelResult {
-  if (!raw || !raw.trim()) {
-    throw new Error("empty-model-response");
-  }
+  if (!raw || !raw.trim()) throw new Error("empty-model-response");
 
   const fenced =
     raw.match(/```json([\s\S]*?)```/i)?.[1] ??
@@ -77,18 +74,13 @@ function safeParseModelJson(raw: string): ModelResult {
 
   const firstBrace = fenced.indexOf("{");
   const lastBrace = fenced.lastIndexOf("}");
-
   if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
-    console.error(
-      "⚠️ Gemini response had no JSON braces — falling back to text summary."
-    );
+    console.error("⚠️ Gemini response had no JSON braces — fallback.");
     return buildFallbackResult(raw);
   }
 
-  const candidate = fenced.slice(firstBrace, lastBrace + 1);
-
   try {
-    const parsed = JSON.parse(candidate);
+    const parsed = JSON.parse(fenced.slice(firstBrace, lastBrace + 1));
     return {
       vehicle: {
         make: parsed?.vehicle?.make ?? "",
@@ -101,10 +93,7 @@ function safeParseModelJson(raw: string): ModelResult {
       fullSummary: parsed?.fullSummary ?? "",
     };
   } catch (err) {
-    console.error(
-      "⚠️ Gemini JSON parse failed — falling back to text summary.",
-      err
-    );
+    console.error("⚠️ Gemini JSON parse failed — fallback.", err);
     return buildFallbackResult(raw);
   }
 }
@@ -122,16 +111,12 @@ async function callModel(prompt: string): Promise<ModelResult> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-        },
+        generationConfig: { responseMimeType: "application/json" },
       }),
     }
   );
 
-  if (!res.ok) {
-    throw new Error("model-call-failed");
-  }
+  if (!res.ok) throw new Error("model-call-failed");
 
   const data = await res.json();
   const text: string =
@@ -157,9 +142,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let listingText = pastedText ?? "";
 
     if (!assistMode) {
-      if (!listingUrl) {
+      if (!listingUrl)
         return res.status(400).json({ ok: false, error: "missing-url" });
-      }
 
       try {
         const html = await fetchHtml(listingUrl);
@@ -185,14 +169,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     /* =====================================================
-       Structured analysis prompt — SERVICE HISTORY RULES FIXED
+       ANALYSIS PROMPT — SERVICE HISTORY RULES (FIXED)
     ====================================================== */
 
     const prompt = `
-You are CarVerity — a cautious, factual Australian used-car buying assistant.
-Analyse the following listing and respond ONLY with JSON.
-
-Return exactly:
+You are CarVerity — a careful, factual Australian used-car buying assistant.
+Analyse the listing below and respond ONLY with JSON in this shape:
 
 {
   "vehicle": { "make": "", "model": "", "year": "", "kilometres": "" },
@@ -201,36 +183,43 @@ Return exactly:
   "fullSummary": ""
 }
 
-Core principles (strict):
+Rules (strict and conservative):
 
-1) Do not speculate or invent problems. Only mention issues that are
-   clearly supported by the listing.
+1) Do not speculate or invent problems. Only mention issues that are clearly
+   supported by the listing wording.
 
-2) Service-history interpretation (critical and non-negotiable):
+2) SERVICE-HISTORY INTERPRETATION
 
-   Treat photographed logbook pages, workshop stamps, handwritten entries,
-   receipts, or stamped service-book pages as **evidence of a completed service**.
+   Distinguish between:
+   • completed / evidenced services, and
+   • scheduled / future service intervals.
 
-   A stamped or validated entry is **NOT a future booking** and **NOT a red flag**,
-   even if:
-     • kilometres exceed the printed interval, or
-     • other future service boxes on the page are blank.
+   Treat the following as **normal and NOT a risk**:
+     • future-dated service intervals printed in books
+     • “Maintenance & Lubrication Service at 120,000 km / 78 months”
+     • tables that list upcoming milestones
+     • pages where only some boxes are stamped
 
-   This is normal and reflects real-world servicing (“whichever comes first”).
+   These represent **manufacturer schedule placeholders**, not missing history.
 
-   Only treat service history as a risk if the listing explicitly indicates:
-     • odometer rollback or decreasing mileage
-     • duplicated entries with the same km/date
-     • missing / inconsistent records acknowledged by the seller
+   Treat entries as **completed service evidence** when there is:
+     • a workshop stamp, signature, handwritten entry, or receipt
+     • a clearly marked “carried out on” date or odometer value
+
+   Only treat service history as a risk if the listing explicitly shows:
+     • decreasing / impossible odometer values
+     • duplicated entries claiming the same km/date
+     • seller-acknowledged missing history
      • signs of tampering or falsification
 
-   If something simply looks unusual but does not contradict anything,
-   present it neutrally as **"worth confirming with the seller"** — never as a fault.
+   If an item simply looks unusual but not contradictory,
+   present it neutrally as “worth confirming with the seller” — do not frame
+   it as a fault or warning.
 
 3) Use Australian tone and kilometres.
 
-4) previewSummary = short, neutral overview.
-   fullSummary = factual guidance with grounded context only.
+4) previewSummary = short neutral overview.
+   fullSummary = calm, factual guidance — avoid alarmist language.
 
 Listing text:
 ${listingText}

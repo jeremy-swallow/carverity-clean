@@ -5,77 +5,92 @@ export interface ListingPhotoSet {
   thumbnails: string[];
 }
 
-/**
- * Normalises image URLs and removes duplicates, lazy-load attributes, etc.
- */
 function normaliseUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
 
   let url = raw.trim();
+  if (!url) return null;
 
-  // Handle lazy-loaded attributes
   if (url.startsWith("data:image")) return null;
   if (url.startsWith("//")) url = "https:" + url;
 
-  // Strip tracking junk
-  url = url.replace(/(\?|#).*$/, "");
+  // take first srcset candidate if present
+  if (url.includes(" ")) url = url.split(" ")[0];
 
+  url = url.replace(/(\?|#).*$/, "");
   return url || null;
 }
 
+function extractFromCssBackground(html: string): string[] {
+  const results: string[] = [];
+  const regex =
+    /style=["'][^"']*background-image:\s*url\(([^)]+)\)[^"']*["']/gi;
+  let m;
+  while ((m = regex.exec(html))) {
+    const url = normaliseUrl(m[1].replace(/['"]/g, ""));
+    if (url && !results.includes(url)) results.push(url);
+  }
+  return results;
+}
+
 /**
- * Extracts images from scraped HTML content.
- * Supports:
- * - standard <img src="">
- * - lazy images (data-src / data-original)
- * - srcset fallbacks
+ * Extracts images from real-world listing galleries.
  */
 export function extractListingPhotosFromHtml(html: string): ListingPhotoSet {
-  const thumbnails: string[] = [];
-
   if (!html) return { hero: undefined, thumbnails: [] };
 
+  const found: string[] = [];
+
+  // <img> + lazy attributes + srcset
   const imgRegex =
     /<img[^>]+?(srcset|data-src|data-original|src)\s*=\s*["']([^"']+)["'][^>]*>/gi;
-
   let match: RegExpExecArray | null;
-
   while ((match = imgRegex.exec(html))) {
     const url = normaliseUrl(match[2]);
-    if (url && !thumbnails.includes(url)) thumbnails.push(url);
+    if (url && !found.includes(url)) found.push(url);
   }
 
-  // OpenGraph fallback (works on Carsales, Marketplace, etc.)
-  if (!thumbnails.length) {
+  // <source srcset> inside <picture>
+  const sourceRegex =
+    /<source[^>]+srcset\s*=\s*["']([^"']+)["'][^>]*>/gi;
+  while ((match = sourceRegex.exec(html))) {
+    const url = normaliseUrl(match[1]);
+    if (url && !found.includes(url)) found.push(url);
+  }
+
+  // CSS background-image thumbnails
+  extractFromCssBackground(html).forEach((u) => {
+    if (!found.includes(u)) found.push(u);
+  });
+
+  // OpenGraph fallback
+  if (!found.length) {
     const ogMatch = html.match(
       /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
     );
     const fallback = normaliseUrl(ogMatch?.[1]);
-    if (fallback) thumbnails.push(fallback);
+    if (fallback) found.push(fallback);
   }
 
-  // Filter out tiny icons / sprites
-  const filtered = thumbnails.filter(
+  // Filter UI assets
+  const filtered = found.filter(
     (u) =>
       !u.includes("icon") &&
       !u.includes("logo") &&
       !u.includes("placeholder") &&
-      !u.endsWith(".svg")
+      !u.endsWith(".svg") &&
+      !u.includes("sprite")
   );
 
   return {
     hero: filtered[0],
-    thumbnails: filtered.slice(0, 8),
+    thumbnails: filtered.slice(0, 12),
   };
 }
 
-/**
- * Safe accessor for stored photo sets in SavedResult
- */
 export function getPhotoSetFromResult(result: any): ListingPhotoSet {
-  if (!result || !("photos" in result)) {
+  if (!result || !("photos" in result))
     return { hero: undefined, thumbnails: [] };
-  }
 
   const hero = normaliseUrl(result.photos?.hero);
   const thumbs =
