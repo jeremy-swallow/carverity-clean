@@ -21,75 +21,118 @@ function normaliseUrl(raw: string | null | undefined): string | null {
   return url || null;
 }
 
+function extractFromCssBackground(html: string): string[] {
+  const results: string[] = [];
+  const regex =
+    /style=["'][^"']*background-image:\s*url\(([^)]+)\)[^"']*["']/gi;
+
+  let m;
+  while ((m = regex.exec(html))) {
+    const url = normaliseUrl(m[1].replace(/['"]/g, ""));
+    if (url && !results.includes(url)) results.push(url);
+  }
+  return results;
+}
+
 export function extractListingPhotosFromHtml(html: string): ListingPhotoSet {
   if (!html) return { hero: undefined, thumbnails: [] };
 
   const found: string[] = [];
 
-  const add = (v?: string | null) => {
-    const u = normaliseUrl(v);
-    if (u && !found.includes(u)) found.push(u);
-  };
-
-  // <img> sources
+  // <img> + lazy attributes + srcset
   const imgRegex =
     /<img[^>]+?(srcset|data-src|data-original|src)\s*=\s*["']([^"']+)["'][^>]*>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = imgRegex.exec(html))) add(m[2]);
 
-  // <source srcset>
+  let match: RegExpExecArray | null;
+  while ((match = imgRegex.exec(html))) {
+    const url = normaliseUrl(match[2]);
+    if (url && !found.includes(url)) found.push(url);
+  }
+
+  // <source srcset> inside <picture>
   const sourceRegex =
     /<source[^>]+srcset\s*=\s*["']([^"']+)["'][^>]*>/gi;
-  while ((m = sourceRegex.exec(html))) add(m[1]);
+
+  while ((match = sourceRegex.exec(html))) {
+    const url = normaliseUrl(match[1]);
+    if (url && !found.includes(url)) found.push(url);
+  }
+
+  // CSS backgrounds
+  extractFromCssBackground(html).forEach((u) => {
+    if (!found.includes(u)) found.push(u);
+  });
+
+  // JSON gallery blocks
+  const jsonBlocks = html.match(
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  );
+
+  if (jsonBlocks) {
+    for (const block of jsonBlocks) {
+      try {
+        const json = JSON.parse(block.replace(/<[^>]+>/g, "").trim());
+        const images =
+          json?.image ||
+          json?.photos ||
+          json?.offers?.itemOffered?.image ||
+          [];
+
+        const arr = Array.isArray(images) ? images : [images];
+
+        arr
+          .map(normaliseUrl)
+          .filter(Boolean)
+          .forEach((u: any) => {
+            if (!found.includes(u)) found.push(u as string);
+          });
+      } catch {
+        // ignore invalid fragments
+      }
+    }
+  }
 
   // OpenGraph fallback
   if (!found.length) {
-    const og = html.match(
+    const ogMatch = html.match(
       /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
     );
-    add(og?.[1]);
+    const fallback = normaliseUrl(ogMatch?.[1]);
+    if (fallback) found.push(fallback);
   }
 
+  // FINAL CLEAN FILTER
   const filtered = found.filter(
     (u) =>
+      !!u &&
       !u.includes("icon") &&
       !u.includes("logo") &&
       !u.includes("placeholder") &&
-      !u.endsWith(".svg")
+      !u.endsWith(".svg") &&
+      !u.includes("sprite")
   );
 
-  const hero = filtered[0];
-  const thumbs = filtered.slice(0, 12);
+  // ✅ ALWAYS pick a valid hero first
+  const hero = filtered[0] ?? undefined;
 
-  return {
-    hero,
-    thumbnails: thumbs,
-  };
+  // ✅ Thumbnails = remaining images
+  const thumbnails = filtered.slice(1, 9);
+
+  return { hero, thumbnails };
 }
 
-/**
- * Safe accessor from stored scan data.
- * Ensures:
- *  - hero falls back to first thumbnail when missing/broken
- *  - duplicates are removed
- */
 export function getPhotoSetFromResult(result: any): ListingPhotoSet {
   if (!result || !("photos" in result))
     return { hero: undefined, thumbnails: [] };
 
+  const hero = normaliseUrl(result.photos?.hero);
   const thumbs =
-    (result.photos?.thumbnails || result.photos?.listing || [])
+    (result.photos?.thumbnails || [])
       .map(normaliseUrl)
       .filter(Boolean) as string[];
 
-  const unique = Array.from(new Set(thumbs));
-  const hero = normaliseUrl(result.photos?.hero) || unique[0];
-
-  // remove hero if duplicated
-  const finalThumbs = unique.filter((u) => u !== hero);
-
   return {
-    hero,
-    thumbnails: finalThumbs,
+    hero: hero || thumbs[0],
+    thumbnails: hero ? thumbs : thumbs.slice(1),
   };
 }
