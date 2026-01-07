@@ -987,8 +987,8 @@ function RiskHeatMap({
 
       {truncated && (
         <p className="text-[11px] text-slate-400 mt-2">
-          The full CarVerity report includes additional risk and confidence
-          points tailored to this listing.
+          The full CarVerity report includes additional risk, confidence and
+          cost-impact guidance tailored to this listing.
         </p>
       )}
     </section>
