@@ -1,20 +1,62 @@
 // src/pages/InPersonSummary.tsx
 
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { loadProgress, clearProgress } from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
 
 export default function InPersonSummary() {
   const navigate = useNavigate();
-  const progress = loadProgress();
+  const { scanId: routeScanId } = useParams<{ scanId?: string }>();
 
-  const imperfections = (progress as any)?.imperfections ?? [];
-  const followUps = (progress as any)?.followUpPhotos ?? [];
-  const checks = (progress as any)?.checks ?? {};
-  const fromOnlineScan = Boolean((progress as any)?.fromOnlineScan);
+  // 🛡 Load any active journey state
+  const progress: any = loadProgress();
+
+  const activeScanId: string | null =
+    progress?.scanId || routeScanId || null;
+
+  const imperfections = progress?.imperfections ?? [];
+  const followUps = progress?.followUpPhotos ?? [];
+  const checks = progress?.checks ?? {};
+  const fromOnlineScan = Boolean(progress?.fromOnlineScan);
 
   const [savedId, setSavedId] = useState<string | null>(null);
+
+  /* =========================================================
+     Recovery mode — if progress is missing, don't eject user
+  ========================================================== */
+
+  const journeyMissing =
+    !progress || (!imperfections.length && !Object.keys(checks).length);
+
+  if (journeyMissing && !savedId) {
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-10 space-y-4">
+        <h1 className="text-xl md:text-2xl font-semibold text-white">
+          Inspection summary unavailable
+        </h1>
+
+        <p className="text-sm text-slate-300">
+          The in-person inspection data for this session could not be found.
+          This may happen if the session expired or was cleared.
+        </p>
+
+        <button
+          onClick={() => navigate("/scan/in-person/photos")}
+          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 shadow"
+        >
+          Restart in-person inspection
+        </button>
+
+        <button
+          onClick={() => navigate("/start-scan")}
+          className="w-full mt-2 rounded-xl border border-white/25 text-slate-200 px-4 py-2"
+        >
+          Return to start
+        </button>
+      </div>
+    );
+  }
 
   /* =========================================================
      Build readable insight summary
@@ -53,13 +95,12 @@ export default function InPersonSummary() {
   }, [imperfections, checks]);
 
   /* =========================================================
-     Save scan → My Scans
+     Save scan → My Scans (safe + deterministic)
   ========================================================== */
 
   function saveToLibrary() {
-    const id = generateScanId();
+    const id = activeScanId ?? generateScanId();
 
-    // No explicit SavedScan type here so we can safely include extra metadata
     const scan = {
       id,
       type: "in-person" as const,
@@ -69,7 +110,6 @@ export default function InPersonSummary() {
       createdAt: new Date().toISOString(),
       summary:
         "Buyer-led in-person inspection capturing observations, follow-up checks and photo priorities.",
-      // Extra metadata for future detail screens
       context: fromOnlineScan ? "linked-online" : "standalone",
       data: {
         imperfections,
@@ -81,7 +121,7 @@ export default function InPersonSummary() {
     saveScan(scan as any);
     localStorage.setItem("carverity_inperson_completed", "1");
 
-    // Clear active journey state
+    // Clear active journey state after saving
     clearProgress();
     setSavedId(id);
   }
@@ -96,7 +136,7 @@ export default function InPersonSummary() {
   }
 
   /* =========================================================
-     Render
+     UI
   ========================================================== */
 
   return (
@@ -109,7 +149,6 @@ export default function InPersonSummary() {
         Your in-person inspection summary
       </h1>
 
-      {/* High-level takeaway */}
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-4 space-y-2">
         <h2 className="text-sm font-semibold text-slate-100">
           What this inspection captured
@@ -127,7 +166,6 @@ export default function InPersonSummary() {
         </p>
       </section>
 
-      {/* Imperfections */}
       <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4">
         <h2 className="text-sm font-semibold text-amber-200">
           Observations you recorded
@@ -149,7 +187,6 @@ export default function InPersonSummary() {
         )}
       </section>
 
-      {/* Follow-up areas */}
       {followUps.length > 0 && (
         <section className="rounded-2xl border border-indigo-400/30 bg-indigo-600/10 px-5 py-4 space-y-2">
           <h2 className="text-sm font-semibold text-indigo-200">
@@ -164,7 +201,6 @@ export default function InPersonSummary() {
         </section>
       )}
 
-      {/* Condition check recap */}
       <section className="rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-4 space-y-2">
         <h2 className="text-sm font-semibold text-slate-100">
           Condition-awareness checks
@@ -183,7 +219,6 @@ export default function InPersonSummary() {
         )}
       </section>
 
-      {/* Actions */}
       {!savedId ? (
         <>
           <button
