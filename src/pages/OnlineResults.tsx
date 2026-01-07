@@ -557,10 +557,7 @@ function enrichVehicleForDisplay(
    Risk & Confidence Heat-Map helpers
 ========================================================= */
 
-function pushRisk(
-  buckets: RiskBuckets,
-  item: RiskItem
-): void {
+function pushRisk(buckets: RiskBuckets, item: RiskItem): void {
   const target = buckets[item.severity];
   if (!target.some((r) => r.label === item.label)) {
     target.push(item);
@@ -706,7 +703,10 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
     });
   }
 
-  if (text.includes("priced above market") || text.includes("strong asking price")) {
+  if (
+    text.includes("priced above market") ||
+    text.includes("strong asking price")
+  ) {
     pushRisk(buckets, {
       severity: "moderate",
       label: "Price positioned at upper end of market",
@@ -799,9 +799,12 @@ function ConfidenceGauge({ code }: { code?: string }) {
       <div className="text-xs text-slate-200">
         <div className="font-semibold">Confidence</div>
         <div className="text-slate-300">
-          {code === "LOW" && "Comfortable so far"}
-          {code === "MODERATE" && "Mostly positive"}
-          {code === "HIGH" && "Proceed carefully"}
+          {code === "LOW" &&
+            "Proceed carefully — there are important details to understand."}
+          {code === "MODERATE" &&
+            "Mixed picture — mostly positive but worth weighing up."}
+          {code === "HIGH" &&
+            "Comfortable so far overall, based on what we can see."}
           {!code && "Not available"}
         </div>
       </div>
