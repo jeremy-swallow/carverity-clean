@@ -1,3 +1,4 @@
+// src/pages/OnlineAnalyzing.tsx
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -59,27 +60,23 @@ function enrichVehicleFromSummary(
   const updated: VehicleInfo = { ...vehicle };
   const text = summary;
 
-  // Brand
   const brandRegex = new RegExp(`\\b(${KNOWN_BRANDS.join("|")})\\b`, "i");
   const brandMatch = text.match(brandRegex);
   if (!updated.make && brandMatch) {
     updated.make = brandMatch[1];
   }
 
-  // Model — first token after make
   if (!updated.model && updated.make) {
     const regex = new RegExp(`${updated.make}\\s+([A-Za-z0-9-]+)`, "i");
     const m = text.match(regex);
     if (m?.[1]) updated.model = m[1];
   }
 
-  // Year
   if (!updated.year) {
     const yearMatch = text.match(/\b(20[0-4]\d|19[8-9]\d)\b/);
     if (yearMatch) updated.year = yearMatch[1];
   }
 
-  // Kilometres
   if (!updated.kilometres) {
     const kmMatch = text.match(/([\d,\.]+)\s*(km|kms|kilometres)/i);
     if (kmMatch) updated.kilometres = kmMatch[1].replace(/[,\.]/g, "");
@@ -141,7 +138,13 @@ export default function OnlineAnalyzing() {
       notes: "",
     };
 
+    // Ensure assist mode also writes to v2 key
     saveOnlineResults(fallback);
+    localStorage.setItem(
+      "carverity_online_results_v2",
+      JSON.stringify(fallback)
+    );
+
     setTimeout(() => navigate("/scan/online/assist", { replace: true }), 0);
   }
 
@@ -213,7 +216,14 @@ export default function OnlineAnalyzing() {
         notes: "",
       };
 
+      // 👉 Ensure result is written to BOTH keys
       saveOnlineResults(saved);
+      localStorage.setItem(
+        "carverity_online_results_v2",
+        JSON.stringify(saved)
+      );
+
+      console.log("💾 Online scan saved to storage", saved);
 
       const scan: SavedScan = {
         id: generateScanId(),
