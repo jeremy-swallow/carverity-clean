@@ -1203,7 +1203,7 @@ export default function OnlineResults() {
   const riskBuckets = buildRiskBuckets(rawReport);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 توسعه space-y-8">
+    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
       {/* Sticky vehicle bar */}
       <div className="sticky top-0 -mx-4 px-4 py-2 bg-slate-950/80 backdrop-blur border-b border-white/5 z-30">
         <div className="flex items-center justify-between text-xs md:text-sm text-slate-300">
