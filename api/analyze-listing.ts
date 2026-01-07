@@ -1,6 +1,5 @@
 // api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { extractListingPhotosFromHtml } from "../src/utils/listingPhotos.js";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
 if (!GEMINI_API_KEY) {
@@ -8,7 +7,122 @@ if (!GEMINI_API_KEY) {
 }
 
 /* =========================================================
-   HTTP Fetch Helpers
+   PHOTO EXTRACTION — INLINE (no external imports)
+========================================================= */
+
+type ListingPhotoSet = {
+  hero?: string;
+  thumbnails: string[];
+};
+
+function normaliseUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+
+  let url = raw.trim();
+  if (!url) return null;
+
+  if (url.startsWith("data:image")) return null;
+  if (url.startsWith("//")) url = "https:" + url;
+
+  if (url.includes(" ")) url = url.split(" ")[0];
+
+  url = url.replace(/(\?|#).*$/, "");
+  return url || null;
+}
+
+function extractFromCssBackground(html: string): string[] {
+  const results: string[] = [];
+  const regex =
+    /style=["'][^"']*background-image:\s*url\(([^)]+)\)[^"']*["']/gi;
+  let m;
+  while ((m = regex.exec(html))) {
+    const url = normaliseUrl(m[1].replace(/['"]/g, ""));
+    if (url && !results.includes(url)) results.push(url);
+  }
+  return results;
+}
+
+function extractListingPhotosFromHtml(html: string): ListingPhotoSet {
+  if (!html) return { hero: undefined, thumbnails: [] };
+
+  const found: string[] = [];
+
+  // <img> and lazy variants
+  const imgRegex =
+    /<img[^>]+?(srcset|data-src|data-original|src)\s*=\s*["']([^"']+)["'][^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = imgRegex.exec(html))) {
+    const url = normaliseUrl(m[2]);
+    if (url && !found.includes(url)) found.push(url);
+  }
+
+  // <source srcset> inside <picture>
+  const sourceRegex = /<source[^>]+srcset\s*=\s*["']([^"']+)["'][^>]*>/gi;
+  while ((m = sourceRegex.exec(html))) {
+    const url = normaliseUrl(m[1]);
+    if (url && !found.includes(url)) found.push(url);
+  }
+
+  // CSS background-image thumbnails
+  extractFromCssBackground(html).forEach((u) => {
+    if (!found.includes(u)) found.push(u);
+  });
+
+  // JSON gallery blocks (Carsales / Cars24 / FB etc)
+  const jsonBlocks = html.match(
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  );
+
+  if (jsonBlocks) {
+    for (const block of jsonBlocks) {
+      try {
+        const json = JSON.parse(block.replace(/<[^>]+>/g, "").trim());
+        const images =
+          json?.image ||
+          json?.photos ||
+          json?.offers?.itemOffered?.image ||
+          [];
+        const arr = Array.isArray(images) ? images : [images];
+
+        arr
+          .map(normaliseUrl)
+          .filter(Boolean)
+          .forEach((u: any) => {
+            if (!found.includes(u)) found.push(u as string);
+          });
+      } catch {
+        // ignore invalid fragments
+      }
+    }
+  }
+
+  // OpenGraph fallback
+  if (!found.length) {
+    const ogMatch = html.match(
+      /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
+    );
+    const fallback = normaliseUrl(ogMatch?.[1]);
+    if (fallback) found.push(fallback);
+  }
+
+  // Filter UI noise
+  const filtered = found.filter(
+    (u) =>
+      !u.includes("icon") &&
+      !u.includes("logo") &&
+      !u.includes("placeholder") &&
+      !u.endsWith(".svg") &&
+      !u.includes("sprite")
+  );
+
+  return {
+    hero: filtered[0],
+    thumbnails: filtered.slice(0, 12),
+  };
+}
+
+/* =========================================================
+   LISTING FETCH + TEXT EXTRACTION
 ========================================================= */
 
 async function fetchHtml(url: string): Promise<string> {
@@ -21,10 +135,7 @@ async function fetchHtml(url: string): Promise<string> {
     },
   });
 
-  if (!res.ok) {
-    throw new Error(`fetch-failed:${res.status}`);
-  }
-
+  if (!res.ok) throw new Error(`fetch-failed:${res.status}`);
   return await res.text();
 }
 
@@ -39,49 +150,41 @@ function extractReadableText(html: string): string {
 }
 
 /* =========================================================
-   Model Result Helpers
+   MODEL RESPONSE HELPERS
 ========================================================= */
 
 type ModelResult = {
-  vehicle: {
-    make: string;
-    model: string;
-    year: string;
-    kilometres: string;
-  };
-  confidenceCode: "LOW" | "MODERATE" | "HIGH" | string;
+  vehicle: { make: string; model: string; year: string; kilometres: string };
+  confidenceCode: string;
   previewSummary: string;
   fullSummary: string;
 };
 
 function buildFallbackResult(raw: string): ModelResult {
-  const trimmed = (raw || "").trim();
-  const safeText = trimmed || "No structured response was returned.";
+  const safe = (raw || "").trim() || "No structured response was returned.";
   return {
     vehicle: { make: "", model: "", year: "", kilometres: "" },
     confidenceCode: "MODERATE",
-    previewSummary: safeText.slice(0, 280),
-    fullSummary: safeText,
+    previewSummary: safe.slice(0, 280),
+    fullSummary: safe,
   };
 }
 
 function safeParseModelJson(raw: string): ModelResult {
-  if (!raw || !raw.trim()) throw new Error("empty-model-response");
+  if (!raw?.trim()) throw new Error("empty-model-response");
 
   const fenced =
     raw.match(/```json([\s\S]*?)```/i)?.[1] ??
     raw.match(/```([\s\S]*?)```/i)?.[1] ??
     raw;
 
-  const firstBrace = fenced.indexOf("{");
-  const lastBrace = fenced.lastIndexOf("}");
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
-    console.error("⚠️ Gemini response had no JSON braces — fallback.");
+  const first = fenced.indexOf("{");
+  const last = fenced.lastIndexOf("}");
+  if (first === -1 || last === -1 || last < first)
     return buildFallbackResult(raw);
-  }
 
   try {
-    const parsed = JSON.parse(fenced.slice(firstBrace, lastBrace + 1));
+    const parsed = JSON.parse(fenced.slice(first, last + 1));
     return {
       vehicle: {
         make: parsed?.vehicle?.make ?? "",
@@ -93,14 +196,13 @@ function safeParseModelJson(raw: string): ModelResult {
       previewSummary: parsed?.previewSummary ?? "",
       fullSummary: parsed?.fullSummary ?? "",
     };
-  } catch (err) {
-    console.error("⚠️ Gemini JSON parse failed — fallback.", err);
+  } catch {
     return buildFallbackResult(raw);
   }
 }
 
 /* =========================================================
-   Gemini Call
+   GEMINI CALL
 ========================================================= */
 
 async function callModel(prompt: string): Promise<ModelResult> {
@@ -120,52 +222,33 @@ async function callModel(prompt: string): Promise<ModelResult> {
   if (!res.ok) throw new Error("model-call-failed");
 
   const data = await res.json();
-  const text: string =
+  const text =
     data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim?.() ?? "";
-
   return safeParseModelJson(text);
 }
 
 /* =========================================================
-   API Handler
+   API HANDLER
 ========================================================= */
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const body = (req.body ?? {}) as {
-      listingUrl?: string;
-      pastedText?: string;
-    };
+    const { listingUrl, pastedText } =
+      (req.body ?? {}) as { listingUrl?: string; pastedText?: string };
 
-    const { listingUrl, pastedText } = body;
     const assistMode = Boolean(pastedText);
 
     let listingText = pastedText ?? "";
-    let photos: { hero?: string; thumbnails: string[] } = {
-      hero: undefined,
-      thumbnails: [],
-    };
+    let photos: ListingPhotoSet = { hero: undefined, thumbnails: [] };
 
     if (!assistMode) {
       if (!listingUrl)
         return res.status(400).json({ ok: false, error: "missing-url" });
 
-      try {
-        const html = await fetchHtml(listingUrl);
+      const html = await fetchHtml(listingUrl);
 
-        // Extract photos before stripping markup
-        photos = extractListingPhotosFromHtml(html);
-
-        listingText = extractReadableText(html);
-      } catch (err) {
-        console.error("❌ Listing fetch failed:", err);
-        return res.status(200).json({
-          ok: false,
-          mode: "assist-required",
-          reason: "fetch-failed",
-          listingUrl,
-        });
-      }
+      photos = extractListingPhotosFromHtml(html); // <-- extract BEFORE stripping
+      listingText = extractReadableText(html);
     }
 
     if (!listingText || listingText.length < 400) {
@@ -178,12 +261,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     /* =====================================================
-       ANALYSIS PROMPT — SERVICE HISTORY RULES (FIXED)
+       SERVICE-HISTORY INTERPRETATION RULES
     ====================================================== */
 
     const prompt = `
 You are CarVerity — a careful, factual Australian used-car buying assistant.
-Analyse the listing below and respond ONLY with JSON in this shape:
+Analyse the listing text and respond ONLY in this JSON shape:
 
 {
   "vehicle": { "make": "", "model": "", "year": "", "kilometres": "" },
@@ -192,43 +275,34 @@ Analyse the listing below and respond ONLY with JSON in this shape:
   "fullSummary": ""
 }
 
-Rules (strict and conservative):
+Rules:
 
-1) Do not speculate or invent problems. Only mention issues that are clearly
-   supported by the listing wording.
+1) Do not speculate — mention issues only when the listing wording supports it.
 
-2) SERVICE-HISTORY INTERPRETATION
+2) SERVICE HISTORY RULES
 
-   Distinguish between:
-   • completed / evidenced services, and
-   • scheduled / future service intervals.
+Treat these as NORMAL / NOT A RISK:
+• future-dated logbook intervals or maintenance schedules
+• pages showing upcoming milestones
+• unstamped future boxes
+• printed “service due at X km / Y months”
 
-   Treat the following as **normal and NOT a risk**:
-     • future-dated service intervals printed in books
-     • “Maintenance & Lubrication Service at 120,000 km / 78 months”
-     • tables that list upcoming milestones
-     • pages where only some boxes are stamped
+These are manufacturer placeholders — NOT missing history.
 
-   These represent **manufacturer schedule placeholders**, not missing history.
+Treat items as COMPLETED SERVICES only when there is:
+• stamp / signature / handwritten entry / receipt
+• clear “carried out on” date or odometer
 
-   Treat entries as **completed service evidence** when there is:
-     • a workshop stamp, signature, handwritten entry, or receipt
-     • a clearly marked “carried out on” date or odometer value
+Only flag service history as a risk when:
+• odometer readings are impossible or decreasing
+• duplicate entries claim the same km/date
+• seller admits missing or unknown history
+• signs of tampering or falsification
 
-   Only treat service history as a risk if the listing explicitly shows:
-     • decreasing / impossible odometer values
-     • duplicated entries claiming the same km/date
-     • seller-acknowledged missing history
-     • signs of tampering or falsification
+If something is unusual but not contradictory:
+describe it neutrally as “worth confirming with the seller”.
 
-   If an item simply looks unusual but not contradictory,
-   present it neutrally as “worth confirming with the seller” — do not frame
-   it as a fault or warning.
-
-3) Use Australian tone and kilometres.
-
-4) previewSummary = short neutral overview.
-   fullSummary = calm, factual guidance — avoid alarmist language.
+Use Australian tone and kilometres.
 
 Listing text:
 ${listingText}
@@ -240,7 +314,7 @@ ${listingText}
       ok: true,
       mode: "analysis-complete",
       source: "gemini-2.5-flash",
-      photos,
+      photos, // <-- returned to frontend
       ...result,
     });
   } catch (err: any) {
