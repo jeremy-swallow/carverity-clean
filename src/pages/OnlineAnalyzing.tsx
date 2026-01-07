@@ -213,7 +213,7 @@ export default function OnlineAnalyzing() {
         ? buildPreviewFromConfidence(rawSummary)
         : null;
 
-      // ✅ NEW — extract and save real listing photos
+      // ✅ extract and save real listing photos
       const listingPhotos = extractListingPhotos(data);
 
       const saved: SavedResult = {
