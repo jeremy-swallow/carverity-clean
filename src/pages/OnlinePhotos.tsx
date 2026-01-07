@@ -1,46 +1,53 @@
-import { useEffect } from "react";
+// src/pages/OnlinePhotos.tsx
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   loadOnlineResults,
   saveOnlineResults,
+  type SavedResult,
 } from "../utils/onlineResults";
-import type { SavedResult } from "../utils/onlineResults";
 
 export default function OnlinePhotos() {
   const navigate = useNavigate();
-  const stored = loadOnlineResults(); // SavedResult | null
+  const [result, setResult] = useState<SavedResult | null>(null);
 
-  // Redirect if there is no stored scan
+  // Load stored scan once on mount
   useEffect(() => {
+    const stored = loadOnlineResults();
+
     if (!stored) {
       console.warn("⚠️ No scan state in photos step — returning to start");
       navigate("/start-scan", { replace: true });
+      return;
     }
-  }, [navigate, stored]);
 
-  // TS + runtime guard
-  if (!stored) return null;
+    setResult(stored);
+  }, [navigate]);
+
+  // Until we know what to show, render nothing
+  if (!result) return null;
 
   async function handleContinue() {
-    console.log("📸 Photos step complete — continuing to results…");
-
-    if (!stored) {
+    // Extra runtime + TS guard
+    if (!result) {
       navigate("/start-scan", { replace: true });
       return;
     }
 
     const updated: SavedResult = {
-      ...stored,
-      type: "online",        // ensure literal type stays correct
-      step: "/online/results",
-      photos: stored.photos ?? {
+      ...result,
+      type: "online",
+      step: "results",
+      photos: result.photos ?? {
         listing: [],
         meta: [],
       },
     };
 
     saveOnlineResults(updated);
-    navigate("/online/results", { replace: true });
+
+    // Correct route for the online results screen
+    navigate("/scan/online/results", { replace: true });
   }
 
   return (
@@ -50,12 +57,12 @@ export default function OnlinePhotos() {
       <p className="text-muted-foreground mb-4">
         From listing:{" "}
         <a
-          href={stored.listingUrl ?? "#"}
+          href={result.listingUrl ?? "#"}
           target="_blank"
           rel="noreferrer"
           className="underline"
         >
-          {stored.listingUrl}
+          {result.listingUrl || "No URL available"}
         </a>
       </p>
 

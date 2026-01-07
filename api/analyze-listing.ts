@@ -1,6 +1,6 @@
 // api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { extractListingPhotosFromHtml } from "../src/utils/listingPhotos";
+import { extractListingPhotosFromHtml } from "../src/utils/listingPhotos.js";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
 if (!GEMINI_API_KEY) {
@@ -153,7 +153,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const html = await fetchHtml(listingUrl);
 
-        // NEW — extract photos from HTML before stripping tags
+        // Extract photos before stripping markup
         photos = extractListingPhotosFromHtml(html);
 
         listingText = extractReadableText(html);
@@ -240,7 +240,7 @@ ${listingText}
       ok: true,
       mode: "analysis-complete",
       source: "gemini-2.5-flash",
-      photos, // <-- NEW: photos now returned with the result
+      photos,
       ...result,
     });
   } catch (err: any) {

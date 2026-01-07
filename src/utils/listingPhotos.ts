@@ -60,7 +60,7 @@ export function extractListingPhotosFromHtml(html: string): ListingPhotoSet {
     if (!found.includes(u)) found.push(u);
   });
 
-  // JSON gallery extraction (CARS24, Carsales, FB Marketplace)
+  // JSON gallery extraction
   const jsonBlocks = html.match(
     /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
   );

@@ -1,11 +1,13 @@
-/* src/utils/photoTransparency.ts */
+// src/utils/photoTransparency.ts
 
 export interface PhotoTransparencyResult {
   score: number;
   summary: string;
 }
 
-export function calculatePhotoTransparency(photos: string[]): PhotoTransparencyResult {
+export function calculatePhotoTransparency(
+  photos: string[]
+): PhotoTransparencyResult {
   const count = Array.isArray(photos) ? photos.length : 0;
 
   if (count === 0) {
@@ -36,7 +38,6 @@ export function calculatePhotoTransparency(photos: string[]): PhotoTransparencyR
     };
   }
 
-  // 7–8 photos (maximum supported)
   return {
     score: 9,
     summary: "Strong photo coverage with good transparency.",
