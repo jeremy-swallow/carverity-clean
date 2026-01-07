@@ -1,5 +1,5 @@
 // src/pages/OnlineResults.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   loadOnlineResults,
@@ -1179,7 +1179,7 @@ export default function OnlineResults() {
     ? new Date(createdAt).toLocaleString()
     : "Saved locally";
 
-  const riskBuckets = useMemo(() => buildRiskBuckets(rawReport), [rawReport]);
+  const riskBuckets = buildRiskBuckets(rawReport);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
