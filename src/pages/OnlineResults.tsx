@@ -27,6 +27,7 @@ type RiskItem = {
   severity: RiskSeverity;
   description: string;
   action: string;
+  costImpact?: string;
 };
 
 type RiskBuckets = {
@@ -589,6 +590,7 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "The listing hints at an import or compliance status that isn’t clearly explained.",
       action:
         "Ask the seller to confirm whether the vehicle is a local delivery or grey import, and provide registration / compliance paperwork.",
+      costImpact: "Registration / insurance risk — worst case you may not be able to register or insure the car.",
     });
   }
 
@@ -604,6 +606,7 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "There are signs the vehicle’s maintenance history may be incomplete or not clearly documented.",
       action:
         "Request photos of the logbook and recent invoices before proceeding, or factor uncertainty into your budget.",
+      costImpact: "Roughly $400–$2,000 in potential catch-up servicing and unknown wear.",
     });
   }
 
@@ -620,6 +623,8 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "The way kilometres are presented raises questions about accuracy or disclosure.",
       action:
         "Confirm the current odometer reading, check against service records and any available history reports.",
+      costImpact:
+        "If verified as inaccurate, this can wipe thousands off market value or make the car one to walk away from.",
     });
   }
 
@@ -636,6 +641,8 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "There are signs the vehicle may have had significant accident or structural repairs.",
       action:
         "Ask for written details of any accident history and consider an independent inspection before committing.",
+      costImpact:
+        "Structural repairs can affect safety and resale; value impact can be in the thousands of dollars.",
     });
   }
 
@@ -651,6 +658,8 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "Key details appear to be missing or downplayed in the listing.",
       action:
         "Prepare a short list of direct questions for the seller and be cautious if answers stay vague or change.",
+      costImpact:
+        "Lack of transparency is often a signal to walk away — or negotiate very conservatively.",
     });
   }
 
@@ -668,6 +677,7 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "Future spend on tyres or brakes is likely based on current wording.",
       action:
         "Ask when tyres and brakes were last replaced and factor a replacement set into your budget if needed.",
+      costImpact: "Approx. $600–$2,000 depending on tyre size and brake components.",
     });
   }
 
@@ -685,6 +695,8 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "The listing suggests paintwork, cosmetic repairs or visible imperfections.",
       action:
         "Capture clear photos in good light and get a basic quote if you care about presentation or resale value.",
+      costImpact:
+        "Typically $300–$1,500 depending on panels affected and whether you accept minor imperfections.",
     });
   }
 
@@ -700,6 +712,8 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "There are questions about how long the car has been with the current owner or how many owners there have been.",
       action:
         "Ask how long they’ve owned the car and why they’re selling; check that details line up with paperwork.",
+      costImpact:
+        "Mainly a value & confidence factor — can justify negotiating a stronger discount.",
     });
   }
 
@@ -714,6 +728,7 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "The asking price appears to sit towards the stronger / higher side for similar vehicles.",
       action:
         "Use any wear, missing history or upcoming costs as negotiation leverage if you decide the car is otherwise suitable.",
+      costImpact: "Often $500–$2,000 of potential negotiation room if the car isn’t perfect.",
     });
   }
 
@@ -730,6 +745,8 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "Any wear mentioned appears consistent with the vehicle’s age and kilometres.",
       action:
         "Focus inspection on confirming that wear is cosmetic only and not affecting safety or reliability.",
+      costImpact:
+        "Usually low immediate cost — mostly presentation and personal preference.",
     });
   }
 
@@ -745,6 +762,7 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "The listing suggests that maintenance has been kept up-to-date and reasonably well documented.",
       action:
         "Ask for photos of the logbook so you can confirm dates, kilometre readings and servicing locations.",
+      costImpact: "Positive signal — can support paying towards the fair end of market value.",
     });
   }
 
@@ -760,6 +778,8 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "Based on the analysis, the asking price seems broadly in line with what the car is offering.",
       action:
         "Still compare a few similar listings so you’re comfortable the price feels right for you.",
+      costImpact:
+        "Little obvious negotiation pressure here — focus more on condition and history.",
     });
   }
 
@@ -935,6 +955,13 @@ function RiskHeatMap({
               <div className="text-xs text-slate-100/90 mt-0.5">
                 {item.description}
               </div>
+
+              {item.costImpact && (
+                <div className="text-[11px] text-amber-300 mt-1">
+                  💰 Potential cost window: {item.costImpact}
+                </div>
+              )}
+
               <div className="text-[11px] text-slate-200 mt-1">
                 <span className="font-semibold">What to do:</span>{" "}
                 {item.action}
@@ -987,8 +1014,8 @@ function RiskHeatMap({
 
       {truncated && (
         <p className="text-[11px] text-slate-400 mt-2">
-          The full CarVerity report includes additional risk, confidence and
-          cost-impact guidance tailored to this listing.
+          The full CarVerity report includes additional risk and confidence
+          points tailored to this listing.
         </p>
       )}
     </section>
