@@ -265,6 +265,79 @@ function buildSyntheticSections(cleaned: string): ReportSection[] {
 }
 
 /* =========================================================
+   Risk section post-processing
+   (strip neutral service-history explanations from "Key risk signals")
+========================================================= */
+
+function scrubNeutralServiceHistoryInRiskSection(body: string): string {
+  if (!body) return "";
+
+  const sentences = body
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const filtered = sentences.filter((s) => {
+    const lower = s.toLowerCase();
+
+    const mentionsServiceHistory = lower.includes("service history");
+    const clearlyNeutral =
+      lower.includes("future-dated entries") ||
+      lower.includes("scheduled service intervals") ||
+      lower.includes("manufacturer-scheduled") ||
+      lower.includes("not indicative of missing past services") ||
+      lower.includes("not indicative of missing services") ||
+      lower.includes("typical for") ||
+      lower.includes("provides peace of mind") ||
+      lower.includes("rwc") ||
+      lower.includes("roadworthy certificate") ||
+      lower.includes("ppsr report");
+
+    if (mentionsServiceHistory && clearlyNeutral) {
+      // Drop neutral/positive service-history sentences from the risk section
+      return false;
+    }
+
+    return true;
+  });
+
+  return filtered.join(" ").trim();
+}
+
+function refineSections(
+  sections: ReportSection[],
+  cleanedFallback: string
+): ReportSection[] {
+  if (!sections.length) return sections;
+
+  const refined: ReportSection[] = [];
+
+  for (const section of sections) {
+    const isRiskSection = section.title.toLowerCase().includes("key risk");
+    if (isRiskSection) {
+      const scrubbedBody = scrubNeutralServiceHistoryInRiskSection(
+        section.body
+      );
+      if (!scrubbedBody || !isMeaningfulContent(scrubbedBody)) {
+        // If nothing risky remains, drop the risk section entirely
+        continue;
+      }
+      refined.push({ ...section, body: scrubbedBody });
+    } else {
+      refined.push(section);
+    }
+  }
+
+  // If we gutted things too hard and now don't really have structure,
+  // fall back to synthetic sections from the cleaned text.
+  if (refined.length <= 1) {
+    return buildSyntheticSections(cleanedFallback);
+  }
+
+  return refined;
+}
+
+/* =========================================================
    Section builder
 ========================================================= */
 
@@ -313,11 +386,11 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
     }
   }
 
-  if (sections.length <= 1) {
+  if (!sections.length) {
     return buildSyntheticSections(cleaned);
   }
 
-  return sections;
+  return refineSections(sections, cleaned);
 }
 
 /* =========================================================

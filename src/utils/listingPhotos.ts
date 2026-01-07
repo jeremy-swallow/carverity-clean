@@ -33,9 +33,6 @@ function extractFromCssBackground(html: string): string[] {
   return results;
 }
 
-/**
- * Extracts images from real-world listing galleries.
- */
 export function extractListingPhotosFromHtml(html: string): ListingPhotoSet {
   if (!html) return { hero: undefined, thumbnails: [] };
 
@@ -62,6 +59,35 @@ export function extractListingPhotosFromHtml(html: string): ListingPhotoSet {
   extractFromCssBackground(html).forEach((u) => {
     if (!found.includes(u)) found.push(u);
   });
+
+  // JSON gallery extraction (CARS24, Carsales, FB Marketplace)
+  const jsonBlocks = html.match(
+    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  );
+
+  if (jsonBlocks) {
+    for (const block of jsonBlocks) {
+      try {
+        const json = JSON.parse(block.replace(/<[^>]+>/g, "").trim());
+        const images =
+          json?.image ||
+          json?.photos ||
+          json?.offers?.itemOffered?.image ||
+          [];
+
+        const arr = Array.isArray(images) ? images : [images];
+
+        arr
+          .map(normaliseUrl)
+          .filter(Boolean)
+          .forEach((u: any) => {
+            if (!found.includes(u)) found.push(u as string);
+          });
+      } catch {
+        // ignore invalid fragments
+      }
+    }
+  }
 
   // OpenGraph fallback
   if (!found.length) {
