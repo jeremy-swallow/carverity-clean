@@ -7,6 +7,7 @@ import {
   type SavedResult,
 } from "../utils/onlineResults";
 import { saveProgress, loadProgress } from "../utils/scanProgress";
+import { generateScanId } from "../utils/scanStorage";
 
 type FollowUpPhoto = {
   id: string;
@@ -17,7 +18,22 @@ type FollowUpPhoto = {
 
 export default function InPersonChecks() {
   const navigate = useNavigate();
-  const progress = loadProgress();
+  const progress: any = loadProgress();
+
+  // 🔐 Guarantee session continuity
+  const [scanId] = useState<string>(() => {
+    if (progress?.scanId) return progress.scanId;
+    const id = generateScanId();
+    saveProgress({
+      ...(progress ?? {}),
+      type: "in-person",
+      scanId: id,
+      step: "/scan/in-person/checks",
+      startedAt: new Date().toISOString(),
+    });
+    return id;
+  });
+
   const [onlineResult, setOnlineResult] = useState<SavedResult | null>(null);
 
   const imperfectionsFromPhotos =
@@ -27,14 +43,15 @@ export default function InPersonChecks() {
     const stored = loadOnlineResults();
     if (stored) setOnlineResult(stored);
 
-    // Persist “mid-journey”
+    // Persist arrival to this step
     saveProgress({
       ...(progress ?? {}),
       type: "in-person",
+      scanId,
       step: "/scan/in-person/checks",
       startedAt: progress?.startedAt ?? new Date().toISOString(),
     });
-  }, []);
+  }, [scanId]);
 
   /* =========================================================
      Build follow-up photo suggestions from online scan
@@ -78,7 +95,6 @@ export default function InPersonChecks() {
   const [followUpList, setFollowUpList] =
     useState<FollowUpPhoto[]>(followUps);
 
-  // 🟡 Improvement — keep list in sync when data loads later
   useEffect(() => {
     setFollowUpList(followUps);
   }, [followUps]);
@@ -88,10 +104,6 @@ export default function InPersonChecks() {
       p.map((f) => (f.id === id ? { ...f, completed: true } : f))
     );
   }
-
-  /* =========================================================
-     Guided condition awareness checks
-  ========================================================== */
 
   const checks = [
     {
@@ -157,13 +169,14 @@ export default function InPersonChecks() {
   }
 
   /* =========================================================
-     Continue → summary
+     Continue → summary (ID-safe)
   ========================================================== */
 
   function continueToSummary() {
     saveProgress({
       ...(progress ?? {}),
       type: "in-person",
+      scanId,
       step: "/scan/in-person/summary",
       imperfections: imperfectionsFromPhotos,
       followUpPhotos: followUpList,
@@ -171,7 +184,8 @@ export default function InPersonChecks() {
       fromOnlineScan: Boolean(onlineResult),
     });
 
-    navigate("/scan/in-person/summary");
+    // ✅ Always include scanId — prevents redirect-to-home
+    navigate(`/scan/in-person/summary/${scanId}`);
   }
 
   /* =========================================================
@@ -188,7 +202,6 @@ export default function InPersonChecks() {
         Final checks before finishing your inspection
       </h1>
 
-      {/* Follow-up photos */}
       {followUpList.length > 0 && (
         <section className="rounded-2xl border border-indigo-400/25 bg-indigo-600/10 px-5 py-4 space-y-2">
           <h2 className="text-sm font-semibold text-indigo-200">
@@ -229,7 +242,6 @@ export default function InPersonChecks() {
         </section>
       )}
 
-      {/* Condition checks */}
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-4 space-y-3">
         <h2 className="text-sm font-semibold text-slate-100">
           Quick real-world condition checks

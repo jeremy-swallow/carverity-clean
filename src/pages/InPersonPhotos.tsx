@@ -6,7 +6,8 @@ import {
   loadOnlineResults,
   type SavedResult,
 } from "../utils/onlineResults";
-import { saveProgress } from "../utils/scanProgress";
+import { saveProgress, loadProgress } from "../utils/scanProgress";
+import { generateScanId } from "../utils/scanStorage";
 
 type Imperfection = {
   id: string;
@@ -18,6 +19,22 @@ type Imperfection = {
 
 export default function InPersonPhotos() {
   const navigate = useNavigate();
+  const existingProgress: any = loadProgress();
+
+  // 🔐 Ensure every in-person journey has a persistent scanId
+  const [scanId] = useState<string>(() => {
+    if (existingProgress?.scanId) return existingProgress.scanId;
+    const id = generateScanId();
+    saveProgress({
+      ...(existingProgress ?? {}),
+      type: "in-person",
+      scanId: id,
+      step: "/scan/in-person/photos",
+      startedAt: new Date().toISOString(),
+    });
+    return id;
+  });
+
   const [onlineResult, setOnlineResult] = useState<SavedResult | null>(null);
   const [imperfections, setImperfections] = useState<Imperfection[]>([]);
 
@@ -25,13 +42,16 @@ export default function InPersonPhotos() {
     const stored = loadOnlineResults();
     if (stored) setOnlineResult(stored);
 
+    // Persist entry to this step (id-safe)
     saveProgress({
+      ...(existingProgress ?? {}),
       type: "in-person",
+      scanId,
       step: "/scan/in-person/photos",
-      startedAt: new Date().toISOString(),
+      startedAt: existingProgress?.startedAt ?? new Date().toISOString(),
       fromOnlineScan: Boolean(stored),
     });
-  }, []);
+  }, [scanId]);
 
   /* =========================================================
      Priority areas detected from online scan
@@ -70,7 +90,7 @@ export default function InPersonPhotos() {
   }, [onlineResult]);
 
   /* =========================================================
-     Guided photo shot list — now includes guide images
+     Guided photo shot list
   ========================================================== */
 
   const steps = [
@@ -174,15 +194,17 @@ export default function InPersonPhotos() {
       return;
     }
 
-    // Move to next stage
+    // ✅ Persist with scanId + move to checks step
     saveProgress({
+      ...(existingProgress ?? {}),
       type: "in-person",
+      scanId,
       step: "/scan/in-person/checks",
       imperfections,
       fromOnlineScan: Boolean(onlineResult),
     });
 
-    navigate("/scan/in-person/checks");
+    navigate(`/scan/in-person/checks/${scanId}`);
   }
 
   /* =========================================================
@@ -191,7 +213,6 @@ export default function InPersonPhotos() {
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
-      {/* Header */}
       <span className="text-[11px] tracking-wide uppercase text-slate-400">
         In-person scan — Guided photo inspection
       </span>
@@ -200,7 +221,6 @@ export default function InPersonPhotos() {
         Capture photos for this inspection
       </h1>
 
-      {/* Priority hints */}
       {priorityAreas.length > 0 && (
         <section className="rounded-2xl border border-indigo-400/25 bg-indigo-600/10 px-4 py-3 space-y-1">
           <p className="text-sm text-slate-200 font-semibold">
@@ -217,19 +237,16 @@ export default function InPersonPhotos() {
         </section>
       )}
 
-      {/* Current step */}
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm md:text-base font-semibold text-slate-100">
             {step.title}
           </h2>
-
           <span className="text-[11px] text-slate-400">
             Step {stepIndex + 1} of {steps.length}
           </span>
         </div>
 
-        {/* Guide image */}
         {step.image && (
           <div className="rounded-xl border border-white/10 bg-slate-800/40 p-3">
             <img
@@ -246,7 +263,6 @@ export default function InPersonPhotos() {
         <p className="text-sm text-slate-300">{step.guidance}</p>
       </section>
 
-      {/* Imperfection capture */}
       <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-2">
         <h3 className="text-sm font-semibold text-amber-200">
           Did you notice anything unusual here?
@@ -283,7 +299,6 @@ export default function InPersonPhotos() {
         </button>
       </section>
 
-      {/* Logged issues */}
       {!!imperfections.length && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4 space-y-2">
           <h3 className="text-sm font-semibold text-slate-100">
@@ -301,7 +316,6 @@ export default function InPersonPhotos() {
         </section>
       )}
 
-      {/* Continue */}
       <button
         onClick={nextStep}
         className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 shadow"
