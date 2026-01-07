@@ -89,10 +89,13 @@ function enrichVehicleFromSummary(
 function extractListingPhotos(data: any): string[] {
   const list: string[] = [];
 
+  // Prefer API thumbnails if present
+  if (Array.isArray(data?.photos?.thumbnails)) {
+    list.push(...data.photos.thumbnails);
+  }
+
   if (Array.isArray(data?.photos?.listing)) {
     list.push(...data.photos.listing);
-  } else if (Array.isArray(data?.photos?.thumbnails)) {
-    list.push(...data.photos.thumbnails);
   } else if (Array.isArray(data?.photos)) {
     list.push(...data.photos);
   } else if (Array.isArray(data?.images)) {
@@ -107,7 +110,7 @@ function extractListingPhotos(data: any): string[] {
         .filter((u) => typeof u === "string" && u.trim().length > 0)
         .map((u) => u.trim())
     )
-  ).slice(0, 8); // cap to 8
+  ).slice(0, 12);
 }
 
 /* =========================================================
@@ -213,8 +216,20 @@ export default function OnlineAnalyzing() {
         ? buildPreviewFromConfidence(rawSummary)
         : null;
 
-      // ✅ extract and save real listing photos
+      // 🔥 Extract list of real listing photos
       const listingPhotos = extractListingPhotos(data);
+
+      // 🔥 Build a unified photo payload
+      const photosPayload: any = {
+        listing: listingPhotos,        // legacy array
+        meta: data?.photos ?? [],      // raw source
+        hero: data?.photos?.hero ?? listingPhotos[0] ?? undefined,
+        thumbnails:
+          Array.isArray(data?.photos?.thumbnails) &&
+          data.photos.thumbnails.length > 0
+            ? data.photos.thumbnails
+            : listingPhotos,
+      };
 
       const saved: SavedResult = {
         type: "online",
@@ -228,10 +243,7 @@ export default function OnlineAnalyzing() {
         summary: rawSummary,
         sections: [],
         signals: [],
-        photos: {
-          listing: listingPhotos,
-          meta: data?.photos ?? [],
-        },
+        photos: photosPayload,
         isUnlocked: false,
         source: data.source ?? "gemini-2.5-flash",
         analysisSource: "online-listing-v1",
