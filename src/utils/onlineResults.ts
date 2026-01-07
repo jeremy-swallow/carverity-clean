@@ -62,7 +62,6 @@ export interface SavedResult {
 
   previewSummary?: string | null;
   fullSummary?: string | null;
-
   summary?: string | null;
 
   sections: ResultSection[];
@@ -90,6 +89,8 @@ export interface SavedResult {
 ================================ */
 
 const RESULTS_STORAGE_KEY = "carverity_online_results_v3";
+const LEGACY_RESULTS_KEY_V2 = "carverity_online_results_v2";
+
 export const LISTING_URL_KEY = "carverity_online_listing_url";
 
 /* ===============================
@@ -97,9 +98,7 @@ export const LISTING_URL_KEY = "carverity_online_listing_url";
 ================================ */
 
 export function normaliseVehicle(raw: any): VehicleInfo {
-  if (!raw || typeof raw !== "object") {
-    return {};
-  }
+  if (!raw || typeof raw !== "object") return {};
 
   const { make, model, year, kilometres, kms, odo, ...rest } = raw as any;
   const kmValue = kilometres ?? kms ?? odo ?? "";
@@ -146,13 +145,35 @@ export function saveOnlineResults(data: SavedResult) {
   }
 }
 
+/**
+ * Loads v3 results.
+ * If none exist, attempts migration from legacy v2 key.
+ */
 export function loadOnlineResults(): SavedResult | null {
   try {
     const raw = localStorage.getItem(RESULTS_STORAGE_KEY);
-    if (!raw) return null;
 
-    const parsed = JSON.parse(raw) as SavedResult;
-    return normaliseResult(parsed);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return normaliseResult(parsed);
+    }
+
+    // ---- Backwards compatibility path ----
+    const legacy = localStorage.getItem(LEGACY_RESULTS_KEY_V2);
+    if (legacy) {
+      console.warn("⚠️ Migrating legacy v2 results → v3 storage");
+      const parsed = JSON.parse(legacy);
+
+      const migrated = normaliseResult(parsed);
+      localStorage.setItem(
+        RESULTS_STORAGE_KEY,
+        JSON.stringify(migrated)
+      );
+
+      return migrated;
+    }
+
+    return null;
   } catch (err) {
     console.error("Failed to load online results", err);
     return null;
@@ -257,5 +278,7 @@ export function clearAllScans() {
 }
 
 export function generateScanId() {
-  return `scan_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  return `scan_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }
