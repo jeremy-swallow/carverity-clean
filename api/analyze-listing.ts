@@ -1,4 +1,4 @@
-// api/analyze-listing.ts
+// src/pages/api/analyze-listing.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
@@ -7,122 +7,7 @@ if (!GEMINI_API_KEY) {
 }
 
 /* =========================================================
-   PHOTO EXTRACTION — INLINE
-========================================================= */
-
-type ListingPhotoSet = {
-  hero?: string;
-  thumbnails: string[];
-};
-
-function normaliseUrl(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-
-  let url = raw.trim();
-  if (!url) return null;
-
-  if (url.startsWith("data:image")) return null;
-  if (url.startsWith("//")) url = "https:" + url;
-
-  if (url.includes(" ")) url = url.split(" ")[0];
-
-  url = url.replace(/(\?|#).*$/, "");
-  return url || null;
-}
-
-function extractFromCssBackground(html: string): string[] {
-  const results: string[] = [];
-  const regex =
-    /style=["'][^"']*background-image:\s*url\(([^)]+)\)[^"']*["']/gi;
-  let m;
-  while ((m = regex.exec(html))) {
-    const url = normaliseUrl(m[1].replace(/['"]/g, ""));
-    if (url && !results.includes(url)) results.push(url);
-  }
-  return results;
-}
-
-function extractListingPhotosFromHtml(html: string): ListingPhotoSet {
-  if (!html) return { hero: undefined, thumbnails: [] };
-
-  const found: string[] = [];
-
-  // <img> + lazy variants
-  const imgRegex =
-    /<img[^>]+?(srcset|data-src|data-original|src)\s*=\s*["']([^"']+)["'][^>]*>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = imgRegex.exec(html))) {
-    const url = normaliseUrl(m[2]);
-    if (url && !found.includes(url)) found.push(url);
-  }
-
-  // <source> inside <picture>
-  const sourceRegex = /<source[^>]+srcset\s*=\s*["']([^"']+)["'][^>]*>/gi;
-  while ((m = sourceRegex.exec(html))) {
-    const url = normaliseUrl(m[1]);
-    if (url && !found.includes(url)) found.push(url);
-  }
-
-  // CSS backgrounds
-  extractFromCssBackground(html).forEach((u) => {
-    if (!found.includes(u)) found.push(u);
-  });
-
-  // JSON gallery blocks
-  const jsonBlocks = html.match(
-    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
-  );
-
-  if (jsonBlocks) {
-    for (const block of jsonBlocks) {
-      try {
-        const json = JSON.parse(block.replace(/<[^>]+>/g, "").trim());
-        const images =
-          json?.image ||
-          json?.photos ||
-          json?.offers?.itemOffered?.image ||
-          [];
-        const arr = Array.isArray(images) ? images : [images];
-
-        arr
-          .map(normaliseUrl)
-          .filter(Boolean)
-          .forEach((u: any) => {
-            if (!found.includes(u)) found.push(u as string);
-          });
-      } catch {
-        // ignore invalid fragments
-      }
-    }
-  }
-
-  // OpenGraph fallback
-  if (!found.length) {
-    const ogMatch = html.match(
-      /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
-    );
-    const fallback = normaliseUrl(ogMatch?.[1]);
-    if (fallback) found.push(fallback);
-  }
-
-  // remove UI / icons / SVG / placeholders
-  const filtered = found.filter(
-    (u) =>
-      !u.includes("icon") &&
-      !u.includes("logo") &&
-      !u.includes("placeholder") &&
-      !u.endsWith(".svg") &&
-      !u.includes("sprite")
-  );
-
-  return {
-    hero: filtered[0],
-    thumbnails: filtered.slice(0, 12),
-  };
-}
-
-/* =========================================================
-   LISTING FETCH + TEXT EXTRACTION
+   HTTP Helpers
 ========================================================= */
 
 async function fetchHtml(url: string): Promise<string> {
@@ -139,162 +24,197 @@ async function fetchHtml(url: string): Promise<string> {
   return await res.text();
 }
 
-function extractReadableText(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 /* =========================================================
-   MODEL HELPERS
+   Photo Extraction — Normalised Output Shape
+   - hero = best / primary image
+   - listing[] = supporting images
 ========================================================= */
 
-type ModelResult = {
-  vehicle: { make: string; model: string; year: string; kilometres: string };
-  confidenceCode: string;
-  previewSummary: string;
-  fullSummary: string;
-};
+function cleanUrl(u: any): string | null {
+  if (!u || typeof u !== "string") return null;
+  const t = u.trim();
+  if (!t) return null;
+  if (t.startsWith("data:")) return null;
+  if (t.includes("placeholder")) return null;
+  return t;
+}
 
-function buildFallbackResult(raw: string): ModelResult {
-  const safe = (raw || "").trim() || "No structured response was returned.";
+function rankImage(url: string): number {
+  const lower = url.toLowerCase();
+
+  // Prefer full-size images
+  if (lower.includes("1024") || lower.includes("full") || lower.includes("large"))
+    return 1;
+
+  // Mid-size is acceptable
+  if (lower.includes("640") || lower.includes("medium")) return 2;
+
+  // Thumbnails last
+  if (lower.includes("thumb") || lower.includes("small")) return 3;
+
+  // Unknown — middle bucket
+  return 2;
+}
+
+function selectHeroAndThumbnails(list: string[]) {
+  const unique = Array.from(new Set(list.map((u) => u.trim())));
+
+  const sorted = unique
+    .filter(Boolean)
+    .map((u) => ({ url: u, score: rankImage(u) }))
+    .sort((a, b) => a.score - b.score);
+
+  const hero = sorted.length ? sorted[0].url : null;
+
+  const thumbnails = sorted
+    .slice(1)
+    .map((p) => p.url)
+    .slice(0, 6); // cap thumbnails
+
+  return { hero, thumbnails };
+}
+
+function extractListingPhotosFromPage(html: string) {
+  const urls: string[] = [];
+
+  // Common marketplaces embed JSON blobs containing images
+  const jsonMatches = html.match(/<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
+  if (jsonMatches) {
+    for (const m of jsonMatches) {
+      try {
+        const body = m.replace(/<script[^>]*>/, "").replace(/<\/script>/, "");
+        const obj = JSON.parse(body);
+
+        if (Array.isArray(obj?.image)) {
+          urls.push(...obj.image);
+        }
+
+        if (Array.isArray(obj?.photos)) {
+          urls.push(...obj.photos);
+        }
+      } catch {}
+    }
+  }
+
+  // Fallback <img> scraping as backup
+  const imgMatches = html.match(/<img[^>]+src=["']([^"']+)["']/gi);
+  if (imgMatches) {
+    for (const tag of imgMatches) {
+      const m = tag.match(/src=["']([^"']+)["']/i);
+      if (m?.[1]) urls.push(m[1]);
+    }
+  }
+
+  const cleaned = urls
+    .map(cleanUrl)
+    .filter((u): u is string => Boolean(u));
+
+  const { hero, thumbnails } = selectHeroAndThumbnails(cleaned);
+
   return {
-    vehicle: { make: "", model: "", year: "", kilometres: "" },
-    confidenceCode: "MODERATE",
-    previewSummary: safe.slice(0, 280),
-    fullSummary: safe,
+    hero,
+    listing: [hero, ...thumbnails].filter(Boolean),
+    thumbnails,
+    raw: cleaned,
   };
 }
 
-function safeParseModelJson(raw: string): ModelResult {
-  if (!raw?.trim()) throw new Error("empty-model-response");
+/* =========================================================
+   Gemini Listing Analysis
+========================================================= */
 
-  const fenced =
-    raw.match(/```json([\s\S]*?)```/i)?.[1] ??
-    raw.match(/```([\s\S]*?)```/i)?.[1] ??
-    raw;
+async function callGeminiAnalysis(listingHtml: string, listingUrl: string) {
+  const prompt = `
+You are analysing a used-car marketplace listing.
 
-  const first = fenced.indexOf("{");
-  const last = fenced.lastIndexOf("}");
-  if (first === -1 || last === -1 || last < first)
-    return buildFallbackResult(raw);
+Focus on:
+- condition signals
+- risks or uncertainty
+- ownership & suitability guidance
+- service history clarity
+- negotiation angles
+- confidence level
 
-  try {
-    const parsed = JSON.parse(fenced.slice(first, last + 1));
-    return {
-      vehicle: {
-        make: parsed?.vehicle?.make ?? "",
-        model: parsed?.vehicle?.model ?? "",
-        year: parsed?.vehicle?.year ?? "",
-        kilometres: parsed?.vehicle?.kilometres ?? "",
-      },
-      confidenceCode: parsed?.confidenceCode ?? "MODERATE",
-      previewSummary: parsed?.previewSummary ?? "",
-      fullSummary: parsed?.fullSummary ?? "",
-    };
-  } catch {
-    return buildFallbackResult(raw);
-  }
+Respond in **structured plain English paragraphs**.
+Avoid hallucinating. If something is unclear, say it is unclear.
+
+Return fields in JSON:
+{
+  "vehicle": { "make": string | null, "model": string | null, "year": string | null, "kilometres": string | null },
+  "summary": string,
+  "confidenceCode": "LOW" | "MODERATE" | "HIGH" | null
 }
+`;
 
-async function callModel(prompt: string): Promise<ModelResult> {
   const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
       GEMINI_API_KEY,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" },
+        contents: [
+          { role: "user", parts: [{ text: prompt }] },
+          { role: "user", parts: [{ text: listingHtml.slice(0, 180_000) }] },
+        ],
       }),
     }
   );
 
-  if (!res.ok) throw new Error("model-call-failed");
+  const json = await res.json();
 
-  const data = await res.json();
   const text =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim?.() ?? "";
-  return safeParseModelJson(text);
+    json?.candidates?.[0]?.content?.parts?.[0]?.text ??
+    json?.candidates?.[0]?.content?.parts?.[0]?.data ??
+    "";
+
+  let parsed: any = {};
+  try {
+    parsed = JSON.parse(text.trim());
+  } catch {
+    parsed = { summary: text };
+  }
+
+  return {
+    vehicle: parsed.vehicle ?? {},
+    summary: parsed.summary ?? "",
+    confidenceCode: parsed.confidenceCode ?? null,
+    source: "gemini-2.5-flash",
+  };
 }
 
 /* =========================================================
-   API HANDLER
+   Handler
 ========================================================= */
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const { listingUrl, pastedText } =
-      (req.body ?? {}) as { listingUrl?: string; pastedText?: string };
-
-    const assistMode = Boolean(pastedText);
-
-    let listingText = pastedText ?? "";
-    let photos: ListingPhotoSet = { hero: undefined, thumbnails: [] };
-
-    if (!assistMode) {
-      if (!listingUrl)
-        return res.status(400).json({ ok: false, error: "missing-url" });
-
-      const html = await fetchHtml(listingUrl);
-
-      // extract BEFORE stripping text
-      photos = extractListingPhotosFromHtml(html);
-      listingText = extractReadableText(html);
+    const listingUrl = (req.body?.listingUrl ?? req.body?.url)?.trim();
+    if (!listingUrl) {
+      return res.status(400).json({ ok: false, error: "missing-url" });
     }
 
-    if (!listingText || listingText.length < 400) {
-      return res.status(200).json({
-        ok: false,
-        mode: assistMode ? "assist-manual" : "assist-required",
-        reason: "insufficient-text",
-        listingUrl,
-      });
-    }
+    const html = await fetchHtml(listingUrl);
 
-    const prompt = `
-… (prompt unchanged — service history rules, etc)
-${listingText}
-`;
+    const photos = extractListingPhotosFromPage(html);
 
-    const result = await callModel(prompt);
-
-    /* =====================================================
-       🔹 FINAL PHOTO NORMALISATION (IMPORTANT FIX)
-    ====================================================== */
-
-    const hero =
-      photos.hero ??
-      photos.thumbnails[0] ??
-      null;
-
-    const thumbnails = photos.thumbnails.filter(
-      (u) => u && u !== hero
-    );
+    const analysis = await callGeminiAnalysis(html, listingUrl);
 
     return res.status(200).json({
       ok: true,
-      mode: "analysis-complete",
-      source: "gemini-2.5-flash",
-
+      ...analysis,
+      listingUrl,
       photos: {
-        hero,
-        thumbnails,
+        hero: photos.hero,
+        listing: photos.listing,
+        thumbnails: photos.thumbnails,
       },
-
-      ...result,
+      imageUrls: photos.raw,
     });
   } catch (err: any) {
-    console.error("❌ analyze-listing error:", err?.message || err);
-    return res.status(200).json({
-      ok: false,
-      mode: "error",
-      reason: err?.message ?? "unknown-error",
-    });
+    console.error("analyze-listing error", err);
+    return res
+      .status(500)
+      .json({ ok: false, error: err?.message ?? "internal-error" });
   }
 }
