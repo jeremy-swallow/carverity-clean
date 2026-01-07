@@ -27,7 +27,6 @@ type RiskItem = {
   severity: RiskSeverity;
   description: string;
   action: string;
-  costImpact?: string;
 };
 
 type RiskBuckets = {
@@ -590,7 +589,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "The listing hints at an import or compliance status that isn’t clearly explained.",
       action:
         "Ask the seller to confirm whether the vehicle is a local delivery or grey import, and provide registration / compliance paperwork.",
-      costImpact: "Registration / insurance risk — worst case you may not be able to register or insure the car.",
     });
   }
 
@@ -606,7 +604,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "There are signs the vehicle’s maintenance history may be incomplete or not clearly documented.",
       action:
         "Request photos of the logbook and recent invoices before proceeding, or factor uncertainty into your budget.",
-      costImpact: "Roughly $400–$2,000 in potential catch-up servicing and unknown wear.",
     });
   }
 
@@ -623,8 +620,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "The way kilometres are presented raises questions about accuracy or disclosure.",
       action:
         "Confirm the current odometer reading, check against service records and any available history reports.",
-      costImpact:
-        "If verified as inaccurate, this can wipe thousands off market value or make the car one to walk away from.",
     });
   }
 
@@ -641,8 +636,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "There are signs the vehicle may have had significant accident or structural repairs.",
       action:
         "Ask for written details of any accident history and consider an independent inspection before committing.",
-      costImpact:
-        "Structural repairs can affect safety and resale; value impact can be in the thousands of dollars.",
     });
   }
 
@@ -658,8 +651,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "Key details appear to be missing or downplayed in the listing.",
       action:
         "Prepare a short list of direct questions for the seller and be cautious if answers stay vague or change.",
-      costImpact:
-        "Lack of transparency is often a signal to walk away — or negotiate very conservatively.",
     });
   }
 
@@ -677,7 +668,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "Future spend on tyres or brakes is likely based on current wording.",
       action:
         "Ask when tyres and brakes were last replaced and factor a replacement set into your budget if needed.",
-      costImpact: "Approx. $600–$2,000 depending on tyre size and brake components.",
     });
   }
 
@@ -695,8 +685,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "The listing suggests paintwork, cosmetic repairs or visible imperfections.",
       action:
         "Capture clear photos in good light and get a basic quote if you care about presentation or resale value.",
-      costImpact:
-        "Typically $300–$1,500 depending on panels affected and whether you accept minor imperfections.",
     });
   }
 
@@ -712,8 +700,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "There are questions about how long the car has been with the current owner or how many owners there have been.",
       action:
         "Ask how long they’ve owned the car and why they’re selling; check that details line up with paperwork.",
-      costImpact:
-        "Mainly a value & confidence factor — can justify negotiating a stronger discount.",
     });
   }
 
@@ -728,7 +714,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "The asking price appears to sit towards the stronger / higher side for similar vehicles.",
       action:
         "Use any wear, missing history or upcoming costs as negotiation leverage if you decide the car is otherwise suitable.",
-      costImpact: "Often $500–$2,000 of potential negotiation room if the car isn’t perfect.",
     });
   }
 
@@ -745,8 +730,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "Any wear mentioned appears consistent with the vehicle’s age and kilometres.",
       action:
         "Focus inspection on confirming that wear is cosmetic only and not affecting safety or reliability.",
-      costImpact:
-        "Usually low immediate cost — mostly presentation and personal preference.",
     });
   }
 
@@ -762,7 +745,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "The listing suggests that maintenance has been kept up-to-date and reasonably well documented.",
       action:
         "Ask for photos of the logbook so you can confirm dates, kilometre readings and servicing locations.",
-      costImpact: "Positive signal — can support paying towards the fair end of market value.",
     });
   }
 
@@ -778,8 +760,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
         "Based on the analysis, the asking price seems broadly in line with what the car is offering.",
       action:
         "Still compare a few similar listings so you’re comfortable the price feels right for you.",
-      costImpact:
-        "Little obvious negotiation pressure here — focus more on condition and history.",
     });
   }
 
@@ -955,13 +935,6 @@ function RiskHeatMap({
               <div className="text-xs text-slate-100/90 mt-0.5">
                 {item.description}
               </div>
-
-              {item.costImpact && (
-                <div className="text-[11px] text-amber-300 mt-1">
-                  💰 Potential cost window: {item.costImpact}
-                </div>
-              )}
-
               <div className="text-[11px] text-slate-200 mt-1">
                 <span className="font-semibold">What to do:</span>{" "}
                 {item.action}
@@ -1018,6 +991,70 @@ function RiskHeatMap({
           points tailored to this listing.
         </p>
       )}
+    </section>
+  );
+}
+
+/* =========================================================
+   Listing photos strip
+========================================================= */
+
+function ListingPhotoStrip({ photos }: { photos: string[] }) {
+  if (!photos || photos.length === 0) return null;
+
+  const hero = photos[0];
+  const thumbnails = photos.slice(1, 5);
+
+  return (
+    <section className="rounded-2xl border border-white/10 bg-slate-950/80 shadow-[0_22px_60px_rgba(0,0,0,0.7)] overflow-hidden">
+      <div className="grid md:grid-cols-[2fr,1fr] gap-0">
+        {/* Hero image */}
+        <div className="relative">
+          <div className="aspect-video md:aspect-[16/9] w-full overflow-hidden bg-slate-900">
+            <img
+              src={hero}
+              alt="Listing hero"
+              className="h-full w-full object-cover"
+            />
+          </div>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
+          <div className="absolute left-3 bottom-3 flex items-center gap-2 text-xs">
+            <span className="rounded-full bg-black/70 border border-white/20 px-2 py-0.5 text-slate-50">
+              Listing photos
+            </span>
+            <span className="hidden sm:inline text-slate-200/90">
+              Preview based on the seller&apos;s images.
+            </span>
+          </div>
+        </div>
+
+        {/* Thumbnails */}
+        <div className="hidden md:flex flex-col border-l border-white/10 bg-slate-950/90">
+          {thumbnails.length === 0 && (
+            <div className="flex-1 flex items-center justify-center text-xs text-slate-400 px-3 text-center">
+              Additional listing photos will appear here when available.
+            </div>
+          )}
+
+          {thumbnails.length > 0 && (
+            <div className="grid grid-rows-3 gap-1.5 p-1.5">
+              {thumbnails.map((src, idx) => (
+                <div
+                  key={`${src}-${idx}`}
+                  className="relative rounded-xl overflow-hidden border border-white/10 bg-slate-900"
+                >
+                  <img
+                    src={src}
+                    alt={`Listing photo ${idx + 2}`}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-transparent" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
@@ -1207,6 +1244,7 @@ export default function OnlineResults() {
     : "Saved locally";
 
   const riskBuckets = buildRiskBuckets(rawReport);
+  const listingPhotos = result.photos?.listing ?? [];
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
@@ -1265,6 +1303,9 @@ export default function OnlineResults() {
           </div>
         </div>
       </section>
+
+      {/* Listing photos strip */}
+      <ListingPhotoStrip photos={listingPhotos} />
 
       {/* Premium header */}
       <section className="rounded-2xl bg-gradient-to-r from-violet-700/85 to-indigo-600/85 border border-white/12 shadow-[0_24px_60px_rgba(0,0,0,0.7)] px-6 py-5 md:py-6 space-y-4">
