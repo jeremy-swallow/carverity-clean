@@ -129,6 +129,27 @@ function sanitiseReportText(text: string): string {
     if (lower === "null" || lower === "undefined") return false;
     if (lower.startsWith("service history date anomaly")) return false;
     if (lower.startsWith("appears in the future")) return false;
+
+    // Extra guards against over-aggressive service-history interpretation
+    if (
+      lower.includes("service history report") &&
+      lower.includes("cannot be records of past completed services")
+    ) {
+      return false;
+    }
+    if (
+      lower.includes("significant inconsistency") &&
+      lower.includes("service")
+    ) {
+      return false;
+    }
+    if (
+      lower.includes("crucial to clarify this discrepancy") &&
+      lower.includes("service")
+    ) {
+      return false;
+    }
+
     return true;
   });
 
@@ -996,70 +1017,6 @@ function RiskHeatMap({
 }
 
 /* =========================================================
-   Listing photos strip
-========================================================= */
-
-function ListingPhotoStrip({ photos }: { photos: string[] }) {
-  if (!photos || photos.length === 0) return null;
-
-  const hero = photos[0];
-  const thumbnails = photos.slice(1, 5);
-
-  return (
-    <section className="rounded-2xl border border-white/10 bg-slate-950/80 shadow-[0_22px_60px_rgba(0,0,0,0.7)] overflow-hidden">
-      <div className="grid md:grid-cols-[2fr,1fr] gap-0">
-        {/* Hero image */}
-        <div className="relative">
-          <div className="aspect-video md:aspect-[16/9] w-full overflow-hidden bg-slate-900">
-            <img
-              src={hero}
-              alt="Listing hero"
-              className="h-full w-full object-cover"
-            />
-          </div>
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
-          <div className="absolute left-3 bottom-3 flex items-center gap-2 text-xs">
-            <span className="rounded-full bg-black/70 border border-white/20 px-2 py-0.5 text-slate-50">
-              Listing photos
-            </span>
-            <span className="hidden sm:inline text-slate-200/90">
-              Preview based on the seller&apos;s images.
-            </span>
-          </div>
-        </div>
-
-        {/* Thumbnails */}
-        <div className="hidden md:flex flex-col border-l border-white/10 bg-slate-950/90">
-          {thumbnails.length === 0 && (
-            <div className="flex-1 flex items-center justify-center text-xs text-slate-400 px-3 text-center">
-              Additional listing photos will appear here when available.
-            </div>
-          )}
-
-          {thumbnails.length > 0 && (
-            <div className="grid grid-rows-3 gap-1.5 p-1.5">
-              {thumbnails.map((src, idx) => (
-                <div
-                  key={`${src}-${idx}`}
-                  className="relative rounded-xl overflow-hidden border border-white/10 bg-slate-900"
-                >
-                  <img
-                    src={src}
-                    alt={`Listing photo ${idx + 2}`}
-                    className="h-full w-full object-cover"
-                  />
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-transparent" />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* =========================================================
    Main component
 ========================================================= */
 
@@ -1244,10 +1201,9 @@ export default function OnlineResults() {
     : "Saved locally";
 
   const riskBuckets = buildRiskBuckets(rawReport);
-  const listingPhotos = result.photos?.listing ?? [];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+    <div className="max-w-4xl mx-auto px-4 py-8 توسعه space-y-8">
       {/* Sticky vehicle bar */}
       <div className="sticky top-0 -mx-4 px-4 py-2 bg-slate-950/80 backdrop-blur border-b border-white/5 z-30">
         <div className="flex items-center justify-between text-xs md:text-sm text-slate-300">
@@ -1303,9 +1259,6 @@ export default function OnlineResults() {
           </div>
         </div>
       </section>
-
-      {/* Listing photos strip */}
-      <ListingPhotoStrip photos={listingPhotos} />
 
       {/* Premium header */}
       <section className="rounded-2xl bg-gradient-to-r from-violet-700/85 to-indigo-600/85 border border-white/12 shadow-[0_24px_60px_rgba(0,0,0,0.7)] px-6 py-5 md:py-6 space-y-4">

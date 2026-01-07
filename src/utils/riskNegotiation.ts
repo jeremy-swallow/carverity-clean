@@ -12,8 +12,45 @@ export interface NegotiationGuidanceBlock {
 }
 
 /**
- * Maps risk-section text into practical negotiation leverage & guidance.
- * Falls back safely if the AI output did not include structured tags.
+ * Detects whether language implies a service entry was
+ * CLAIMED AS COMPLETED vs simply scheduled.
+ */
+function looksLikeCompletedServiceClaim(text: string): boolean {
+  const t = text.toLowerCase();
+
+  return (
+    t.includes("serviced on") ||
+    t.includes("service completed") ||
+    t.includes("recently serviced") ||
+    t.includes("full service history verified") ||
+    t.includes("maintenance completed") ||
+    t.includes("last service was") ||
+    t.includes("has been serviced")
+  );
+}
+
+/**
+ * Detects typical “scheduled service / logbook interval” phrasing.
+ * These should NOT be treated as risks.
+ */
+function looksLikeScheduledServiceEntry(text: string): boolean {
+  const t = text.toLowerCase();
+
+  return (
+    t.includes("next service due") ||
+    t.includes("scheduled service") ||
+    t.includes("service interval") ||
+    t.includes("logbook schedule") ||
+    t.includes("maintenance schedule") ||
+    t.includes("service at") || // e.g. “Service at 120,000km or Aug 2025”
+    t.includes("due at") ||
+    t.includes("upcoming service")
+  );
+}
+
+/**
+ * Negotiation guidance engine — now calibrated so that
+ * service-history “future dates” are treated correctly.
  */
 export function buildNegotiationGuidanceFromText(
   body: string
@@ -22,92 +59,58 @@ export function buildNegotiationGuidanceFromText(
 
   const lower = body.toLowerCase();
 
-  // Major odometer / compliance / inconsistency risks
-  if (
-    lower.includes("inconsistency") ||
-    lower.includes("odometer") ||
-    lower.includes("service entry") ||
-    lower.includes("mileage mismatch")
-  ) {
+  /**
+   * 🚫 Prevent false-positive risk classification
+   * If the text looks like a scheduled / future service entry,
+   * we return a neutral / reassurance block instead of a risk.
+   */
+  if (looksLikeScheduledServiceEntry(lower)) {
     return {
-      title: "Negotiation leverage — documentation inconsistency",
+      title: "Service schedule information",
       talkingPoints: [
-        "Ask the seller to provide the full service log or dealer history",
-        "Request written clarification for the inconsistent entry",
-        "Confirm whether the odometer reading has ever been corrected or repaired",
-      ],
-      costImpact: {
-        level: "high",
-        rangeHint: "$400 – $2,000+ if issues are confirmed",
-        notes:
-          "Potential resale value impact and possible inspection or rectification costs.",
-      },
-      buyerAction:
-        "Proceed only after clarification — or negotiate a price reduction to account for uncertainty.",
-    };
-  }
-
-  // Wear-and-tear / maintenance advisories
-  if (
-    lower.includes("wear") ||
-    lower.includes("age related") ||
-    lower.includes("tyres") ||
-    lower.includes("brakes") ||
-    lower.includes("upcoming service")
-  ) {
-    return {
-      title: "Negotiation leverage — upcoming maintenance",
-      talkingPoints: [
-        "Confirm whether maintenance has been booked or already completed",
-        "Ask for invoices or written confirmation if recently serviced",
-        "Highlight that the vehicle may require spend shortly after purchase",
-      ],
-      costImpact: {
-        level: "moderate",
-        rangeHint: "$300 – $1,200 expected depending on findings",
-      },
-      buyerAction:
-        "Use this to justify a price reduction or agreement to complete the work before sale.",
-    };
-  }
-
-  // Minor advisories / reassurance notes
-  if (
-    lower.includes("generally positive") ||
-    lower.includes("no major risk") ||
-    lower.includes("low concern")
-  ) {
-    return {
-      title: "Ownership outlook",
-      talkingPoints: [
-        "This listing does not present strong negotiation risk points",
-        "You may still compare against similar listings to validate price",
+        "These entries appear to describe upcoming or scheduled services rather than past maintenance",
+        "Confirm whether the logbook also includes records of previous completed services",
       ],
       costImpact: {
         level: "low",
-        rangeHint: "No immediate cost risk identified from this section",
+        rangeHint: "No immediate concern — this is normal logbook behaviour",
       },
       buyerAction:
-        "Use this section as reassurance rather than a price-pressure item.",
+        "Use scheduled entries as context only — focus discussion on the most recent completed service.",
     };
   }
 
-  // Default fallback — only show if the text hints at risk
+  /**
+   * 🟡 Only treat service history as a risk if BOTH:
+   * 1) The wording implies a completed/verified service, AND
+   * 2) The kilometre or date context appears contradictory
+   */
   if (
-    lower.includes("risk") ||
-    lower.includes("concern") ||
-    lower.includes("issue")
+    looksLikeCompletedServiceClaim(lower) &&
+    (lower.includes("inconsistent") ||
+      lower.includes("does not match") ||
+      lower.includes("cannot be verified") ||
+      lower.includes("discrepancy") ||
+      lower.includes("questionable"))
   ) {
     return {
-      title: "Negotiation leverage — clarify before committing",
+      title: "Negotiation leverage — clarify service documentation",
       talkingPoints: [
-        "Request clarification or supporting evidence from the seller",
-        "Ask for inspection or documentation that resolves the concern",
+        "Ask the seller to provide photos of the full service logbook pages",
+        "Request invoices or dealer receipts for the most recent completed service",
+        "Confirm whether any entries were pre-stamped or future-dated by a dealer",
       ],
+      costImpact: {
+        level: "moderate",
+        rangeHint: "$300 – $1,200 if missing work needs to be completed",
+      },
       buyerAction:
-        "Seek more certainty — or negotiate to reflect potential downside.",
+        "Proceed only once records are confirmed — or negotiate to reflect uncertainty in the history.",
     };
   }
 
+  /**
+   * Default neutral fallback — avoids over-flagging
+   */
   return null;
 }
