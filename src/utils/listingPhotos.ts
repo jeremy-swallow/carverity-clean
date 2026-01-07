@@ -1,4 +1,20 @@
-// src/utils/listingPhotos.ts
+/* =========================================================
+   Listing Photo Normalisation & Extraction Helpers
+   ---------------------------------------------------------
+   Ensures all photo formats are converted into:
+
+     {
+       hero?: string;
+       thumbnails: string[];
+     }
+
+   Supports:
+   • photos.listing[]        ← current format
+   • photos.hero + thumbnails[]
+   • legacy flat arrays
+   • gracefully ignores invalid URLs
+
+========================================================= */
 
 export interface ListingPhotoSet {
   hero?: string;
@@ -11,121 +27,62 @@ function normaliseUrl(raw: string | null | undefined): string | null {
   let url = raw.trim();
   if (!url) return null;
 
+  // ignore inline blobs
   if (url.startsWith("data:image")) return null;
+
+  // protocol-relative -> https
   if (url.startsWith("//")) url = "https:" + url;
 
-  // take first srcset candidate if present
+  // srcset — take first candidate
   if (url.includes(" ")) url = url.split(" ")[0];
 
+  // strip params / anchors
   url = url.replace(/(\?|#).*$/, "");
+
   return url || null;
 }
 
-function extractFromCssBackground(html: string): string[] {
-  const results: string[] = [];
-  const regex =
-    /style=["'][^"']*background-image:\s*url\(([^)]+)\)[^"']*["']/gi;
-  let m;
-  while ((m = regex.exec(html))) {
-    const url = normaliseUrl(m[1].replace(/['"]/g, ""));
-    if (url && !results.includes(url)) results.push(url);
-  }
-  return results;
-}
-
-export function extractListingPhotosFromHtml(html: string): ListingPhotoSet {
-  if (!html) return { hero: undefined, thumbnails: [] };
-
-  const found: string[] = [];
-
-  // <img> + lazy attributes + srcset
-  const imgRegex =
-    /<img[^>]+?(srcset|data-src|data-original|src)\s*=\s*["']([^"']+)["'][^>]*>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = imgRegex.exec(html))) {
-    const url = normaliseUrl(match[2]);
-    if (url && !found.includes(url)) found.push(url);
-  }
-
-  // <source srcset> inside <picture>
-  const sourceRegex =
-    /<source[^>]+srcset\s*=\s*["']([^"']+)["'][^>]*>/gi;
-  while ((match = sourceRegex.exec(html))) {
-    const url = normaliseUrl(match[1]);
-    if (url && !found.includes(url)) found.push(url);
-  }
-
-  // CSS background-image thumbnails
-  extractFromCssBackground(html).forEach((u) => {
-    if (!found.includes(u)) found.push(u);
-  });
-
-  // JSON gallery extraction
-  const jsonBlocks = html.match(
-    /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
-  );
-
-  if (jsonBlocks) {
-    for (const block of jsonBlocks) {
-      try {
-        const json = JSON.parse(block.replace(/<[^>]+>/g, "").trim());
-        const images =
-          json?.image ||
-          json?.photos ||
-          json?.offers?.itemOffered?.image ||
-          [];
-
-        const arr = Array.isArray(images) ? images : [images];
-
-        arr
-          .map(normaliseUrl)
-          .filter(Boolean)
-          .forEach((u: any) => {
-            if (!found.includes(u)) found.push(u as string);
-          });
-      } catch {
-        // ignore invalid fragments
-      }
-    }
-  }
-
-  // OpenGraph fallback
-  if (!found.length) {
-    const ogMatch = html.match(
-      /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
-    );
-    const fallback = normaliseUrl(ogMatch?.[1]);
-    if (fallback) found.push(fallback);
-  }
-
-  // Filter UI assets
-  const filtered = found.filter(
-    (u) =>
-      !u.includes("icon") &&
-      !u.includes("logo") &&
-      !u.includes("placeholder") &&
-      !u.endsWith(".svg") &&
-      !u.includes("sprite")
-  );
-
-  return {
-    hero: filtered[0],
-    thumbnails: filtered.slice(0, 12),
-  };
-}
-
+/**
+ * Normalises any stored photo structure into:
+ *   { hero, thumbnails[] }
+ *
+ * Handles:
+ *  - photos.listing[]        (preferred)
+ *  - photos.hero + thumbnails[]
+ *  - legacy: photos[] array
+ */
 export function getPhotoSetFromResult(result: any): ListingPhotoSet {
-  if (!result || !("photos" in result))
+  if (!result || typeof result !== "object")
     return { hero: undefined, thumbnails: [] };
 
-  const hero = normaliseUrl(result.photos?.hero);
-  const thumbs =
-    (result.photos?.thumbnails || [])
-      .map(normaliseUrl)
-      .filter(Boolean) as string[];
+  const photos = result.photos ?? {};
+
+  const listingArray: string[] = Array.isArray(photos.listing)
+    ? photos.listing
+    : [];
+
+  const legacyThumbs: string[] = Array.isArray(photos.thumbnails)
+    ? photos.thumbnails
+    : [];
+
+  const legacyHero = photos.hero ?? null;
+
+  // fallback — scans that stored an array directly
+  const rawArray: string[] = Array.isArray(photos)
+    ? (photos as string[])
+    : [];
+
+  // merge → clean → dedupe
+  const all = Array.from(
+    new Set(
+      [...listingArray, ...legacyThumbs, ...rawArray]
+        .map(normaliseUrl)
+        .filter(Boolean) as string[]
+    )
+  );
 
   return {
-    hero: hero || thumbs[0],
-    thumbnails: thumbs,
+    hero: normaliseUrl(legacyHero) || all[0],
+    thumbnails: all.slice(0, 12),
   };
 }
