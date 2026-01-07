@@ -86,6 +86,40 @@ function enrichVehicleFromSummary(
 }
 
 /* =========================================================
+   Photo extraction helper
+========================================================= */
+function extractListingPhotos(data: any): string[] {
+  // normalised safe list
+  const list: string[] = [];
+
+  // 1) preferred structured format
+  if (Array.isArray(data?.photos?.listing)) {
+    list.push(...data.photos.listing);
+  }
+
+  // 2) generic data.photos array
+  else if (Array.isArray(data?.photos)) {
+    list.push(...data.photos);
+  }
+
+  // 3) fallback shapes from some scrapers
+  else if (Array.isArray(data?.images)) {
+    list.push(...data.images);
+  } else if (Array.isArray(data?.imageUrls)) {
+    list.push(...data.imageUrls);
+  }
+
+  // clean + dedupe
+  return Array.from(
+    new Set(
+      list
+        .filter((u) => typeof u === "string" && u.trim().length > 0)
+        .map((u) => u.trim())
+    )
+  );
+}
+
+/* =========================================================
    Component
 ========================================================= */
 export default function OnlineAnalyzing() {
@@ -138,7 +172,6 @@ export default function OnlineAnalyzing() {
       notes: "",
     };
 
-    // Ensure assist mode also writes to v2 key
     saveOnlineResults(fallback);
     localStorage.setItem(
       "carverity_online_results_v2",
@@ -194,6 +227,9 @@ export default function OnlineAnalyzing() {
         ? buildPreviewFromConfidence(rawSummary)
         : null;
 
+      // 🔹 NEW — capture listing photos from API response
+      const listingPhotos = extractListingPhotos(data);
+
       const saved: SavedResult = {
         type: "online",
         step: "analysis-complete",
@@ -206,7 +242,10 @@ export default function OnlineAnalyzing() {
         summary: rawSummary,
         sections: [],
         signals: [],
-        photos: { listing: [], meta: [] },
+        photos: {
+          listing: listingPhotos,
+          meta: [],
+        },
         isUnlocked: false,
         source: data.source ?? "gemini-2.5-flash",
         analysisSource: "online-listing-v1",
@@ -216,7 +255,7 @@ export default function OnlineAnalyzing() {
         notes: "",
       };
 
-      // 👉 Ensure result is written to BOTH keys
+      // write to both storage keys
       saveOnlineResults(saved);
       localStorage.setItem(
         "carverity_online_results_v2",
