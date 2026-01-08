@@ -1,5 +1,3 @@
-// src/pages/InPersonPhotos.tsx
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -29,7 +27,6 @@ export default function InPersonPhotos() {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // 🔐 Ensure every in-person journey has a persistent scanId
   const [scanId] = useState<string>(() => {
     if (existingProgress?.scanId) return existingProgress.scanId;
     const id = generateScanId();
@@ -48,7 +45,6 @@ export default function InPersonPhotos() {
     existingProgress?.imperfections ?? []
   );
 
-  // 📸 photos are stored per-step
   const [photos, setPhotos] = useState<StepPhoto[]>(
     existingProgress?.photos ?? []
   );
@@ -172,28 +168,21 @@ export default function InPersonPhotos() {
   ========================================================== */
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    containerRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [stepIndex]);
 
   /* =========================================================
-     Photo capture / upload
+     PHOTO CAPTURE — camera + gallery buttons
   ========================================================== */
 
-  function handleAddPhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  function savePhotoFromFile(file: File) {
     const reader = new FileReader();
     reader.onload = () => {
-      const dataUrl = reader.result as string;
-
       const record: StepPhoto = {
         id: crypto.randomUUID(),
-        dataUrl,
+        dataUrl: reader.result as string,
         stepId: step.id,
       };
-
       const updated = [...photos, record];
       setPhotos(updated);
 
@@ -206,9 +195,27 @@ export default function InPersonPhotos() {
         step: "/scan/in-person/photos",
       });
     };
-
     reader.readAsDataURL(file);
-    e.target.value = ""; // reset input for next capture
+  }
+
+  function handleUploadFromGallery(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0];
+    if (file) savePhotoFromFile(file);
+    e.target.value = "";
+  }
+
+  function handleTakePhoto() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    (input as any).capture = "environment";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (file) savePhotoFromFile(file);
+    };
+    input.click();
   }
 
   const stepPhotos = photos.filter((p) => p.stepId === step.id);
@@ -276,7 +283,7 @@ export default function InPersonPhotos() {
   }
 
   /* =========================================================
-     Navigation — Back + Continue (with tap-lock)
+     Navigation — Back + Continue (tap-lock)
   ========================================================== */
 
   function prevStep() {
@@ -377,19 +384,32 @@ export default function InPersonPhotos() {
         <p className="text-sm text-slate-300">{step.guidance}</p>
       </section>
 
-      {/* 📸 Photo capture */}
+      {/* CAMERA + GALLERY BUTTONS */}
       <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-3">
         <h3 className="text-sm font-semibold text-emerald-200">
-          Take or upload a photo for this angle
+          Add a photo for this angle
         </h3>
 
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleAddPhoto}
-          className="w-full rounded-lg bg-slate-800 border border-white/20 px-3 py-2 text-sm text-slate-200"
-        />
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            onClick={handleTakePhoto}
+            className="w-full rounded-lg bg-emerald-400 text-black font-semibold px-3 py-2"
+          >
+            📷 Take photo with camera
+          </button>
+
+          <label className="w-full">
+            <span className="block rounded-lg bg-slate-800 border border-white/20 px-3 py-2 text-sm text-slate-200 text-center cursor-pointer">
+              📁 Upload from gallery / files
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleUploadFromGallery}
+            />
+          </label>
+        </div>
 
         {stepPhotos.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
@@ -411,7 +431,7 @@ export default function InPersonPhotos() {
         )}
       </section>
 
-      {/* Imperfection logging */}
+      {/* Imperfection logging (unchanged) */}
       <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-2">
         <h3 className="text-sm font-semibold text-amber-200">
           Did you notice anything unusual here?
@@ -487,7 +507,6 @@ export default function InPersonPhotos() {
         mechanical faults.
       </p>
 
-      {/* Exit confirm */}
       {showExitConfirm && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-6">
           <div className="rounded-2xl border border-white/20 bg-slate-900 px-6 py-5 space-y-3 max-w-md w-full">
