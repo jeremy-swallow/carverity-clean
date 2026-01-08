@@ -1,6 +1,6 @@
 /* =========================================================
    Scan Storage Utility
-   Local-only persistence (v1)
+   Local-only persistence (v2)
 ========================================================= */
 
 export type ScanType = "online" | "in-person";
@@ -10,7 +10,7 @@ export interface ScanHistoryEvent {
   event: string;
 }
 
-export type SavedScan = {
+export interface SavedScan {
   id: string;
   type: ScanType;
   title: string;
@@ -19,7 +19,7 @@ export type SavedScan = {
   listingUrl?: string;
   summary?: string;
 
-  // Vehicle identity (used for pairing & display)
+  // Vehicle identity (used for pairing + pricing logic)
   vehicle?: {
     make?: string;
     model?: string;
@@ -27,19 +27,19 @@ export type SavedScan = {
     variant?: string;
   };
 
-  // In-person + cross-scan metadata
-  fromOnlineScan?: boolean;
-  completed?: boolean;
-
-  // Activity timeline
+  // Timeline of user actions (rename, export, follow-ups)
   history?: ScanHistoryEvent[];
-};
+
+  // Completion hint (future use)
+  completed?: boolean;
+}
 
 const STORAGE_KEY = "carverity_saved_scans";
 
-/**
- * Normalises scans — ensures new optional fields exist
- */
+/* =========================================================
+   Normalisation — keeps old scans valid
+========================================================= */
+
 function normalizeScans(scans: any[]): SavedScan[] {
   return scans.map((scan) => ({
     completed: false,
@@ -47,6 +47,10 @@ function normalizeScans(scans: any[]): SavedScan[] {
     ...scan,
   })) as SavedScan[];
 }
+
+/* =========================================================
+   Public API
+========================================================= */
 
 export function loadScans(): SavedScan[] {
   try {
@@ -81,6 +85,7 @@ export function updateScanTitle(scanId: string, title: string) {
   const updated = loadScans().map((scan) =>
     scan.id === scanId ? { ...scan, title } : scan
   );
+
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
 
