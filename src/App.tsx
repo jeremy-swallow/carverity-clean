@@ -6,6 +6,9 @@ import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import StartScan from "./pages/StartScan";
 
+/* =======================
+   Online scan flow
+======================= */
 import OnlineStart from "./pages/OnlineStart";
 import OnlineAnalyzing from "./pages/OnlineAnalyzing";
 import OnlineAssist from "./pages/OnlineAssist";
@@ -14,19 +17,26 @@ import OnlinePhotos from "./pages/OnlinePhotos";
 import OnlineNextActions from "./pages/OnlineNextActions";
 import OnlineResults from "./pages/OnlineResults";
 
+/* =======================
+   In-person scan flow
+======================= */
 import InPersonStart from "./pages/InPersonStart";
+import InPersonVehicleDetails from "./pages/InPersonVehicleDetails";
 import InPersonPhotos from "./pages/InPersonPhotos";
 import InPersonChecks from "./pages/InPersonChecks";
 import InPersonSummary from "./pages/InPersonSummary";
 import InPersonReportPrint from "./pages/InPersonReportPrint";
 
+/* =======================
+   Other pages
+======================= */
 import MyScans from "./pages/MyScans";
 import Pricing from "./pages/Pricing";
 
 export default function App() {
   return (
     <Routes>
-      {/* 🌐 App Shell — header, credits, hamburger, resume pill */}
+      {/* 🌐 App Shell — header, credits, resume pill */}
       <Route element={<Layout />}>
         {/* Home */}
         <Route path="/" element={<Home />} />
@@ -34,7 +44,9 @@ export default function App() {
         {/* Start Scan Hub */}
         <Route path="/start-scan" element={<StartScan />} />
 
-        {/* Online Scan Flow */}
+        {/* -----------------------
+            ONLINE SCAN
+        ----------------------- */}
         <Route path="/scan/online" element={<OnlineStart />} />
         <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
         <Route path="/scan/online/assist" element={<OnlineAssist />} />
@@ -43,11 +55,20 @@ export default function App() {
           element={<OnlineVehicleDetails />}
         />
         <Route path="/scan/online/photos" element={<OnlinePhotos />} />
-        <Route path="/scan/online/next-actions" element={<OnlineNextActions />} />
+        <Route
+          path="/scan/online/next-actions"
+          element={<OnlineNextActions />}
+        />
         <Route path="/scan/online/results" element={<OnlineResults />} />
 
-        {/* In-Person Scan Flow */}
+        {/* -----------------------
+            IN-PERSON SCAN
+        ----------------------- */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
+        <Route
+          path="/scan/in-person/vehicle-details"
+          element={<InPersonVehicleDetails />}
+        />
         <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
         <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
         <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
@@ -63,7 +84,7 @@ export default function App() {
         <Route path="/pricing" element={<Pricing />} />
       </Route>
 
-      {/* Fallback */}
+      {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
