@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { loadProgress, clearProgress } from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
@@ -32,45 +32,6 @@ export default function InPersonSummary() {
   const journeyMissing =
     !progress || (!imperfections.length && !Object.keys(checks).length);
 
-  /* =========================================================
-     Pricing guidance logic (rule-based, conservative)
-  ========================================================== */
-
-  const pricingInsight = useMemo(() => {
-    if (!askingPrice) return null;
-
-    const issueCount = imperfections.length;
-
-    let stance: string;
-    let guidance: string;
-    let adjustment: string;
-
-    if (issueCount === 0) {
-      stance = "Appears fairly priced";
-      guidance =
-        "No notable issues were recorded during the inspection. Based on visible condition alone, the asking price appears reasonable.";
-      adjustment = "Little to no adjustment expected based on condition.";
-    } else if (issueCount <= 2) {
-      stance = "Slightly negotiable";
-      guidance =
-        "A small number of minor issues were observed. These provide reasonable grounds for a modest price discussion.";
-      adjustment =
-        "A reduction in the range of $500–$1,500 may be reasonable, depending on severity.";
-    } else {
-      stance = "Price likely high for condition";
-      guidance =
-        "Multiple issues were identified during inspection. Together, these materially affect condition and strengthen your negotiation position.";
-      adjustment =
-        "A more meaningful adjustment (often $2,000–$4,000+) may be justified, depending on repair costs.";
-    }
-
-    return { stance, guidance, adjustment };
-  }, [askingPrice, imperfections]);
-
-  /* =========================================================
-     Missing journey guard
-  ========================================================== */
-
   if (journeyMissing && !savedId) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-10 space-y-4">
@@ -100,6 +61,58 @@ export default function InPersonSummary() {
   }
 
   /* =========================================================
+     Pricing & negotiation insight (heuristic, defensible)
+  ========================================================== */
+
+  function buildPriceInsight() {
+    if (!askingPrice) {
+      return {
+        label: "Price insight unavailable",
+        body:
+          "You didn’t enter an asking price, so we can’t assess pricing. " +
+          "If you learn the price later, keep it in mind when negotiating.",
+        advice:
+          "Focus negotiations on condition, service history, or inclusions.",
+      };
+    }
+
+    const issueCount = imperfections.length;
+
+    if (issueCount === 0) {
+      return {
+        label: "Price appears reasonable",
+        body:
+          "No notable condition issues were recorded. For a vehicle of this age and mileage, " +
+          "the asking price appears defensible.",
+        advice:
+          "Price movement may be limited. If negotiating, focus on extras, servicing, or warranty.",
+      };
+    }
+
+    if (issueCount <= 2) {
+      return {
+        label: "Likely fair — imperfections may be priced in",
+        body:
+          "A small number of issues were observed, which dealers often factor into their pricing. " +
+          "The asking price may already reflect these imperfections.",
+        advice:
+          "You can reference specific items, but expect modest negotiation room rather than a large discount.",
+      };
+    }
+
+    return {
+      label: "Slightly high given condition",
+      body:
+        "Several condition issues were recorded that are not always fully reflected in asking prices. " +
+        "This creates reasonable negotiation leverage.",
+      advice:
+        "Use the recorded imperfections to justify a lower offer or request rectification before purchase.",
+    };
+  }
+
+  const priceInsight = buildPriceInsight();
+
+  /* =========================================================
      Actions
   ========================================================== */
 
@@ -115,11 +128,11 @@ export default function InPersonSummary() {
       createdAt: new Date().toISOString(),
       data: {
         vehicle,
+        askingPrice,
         imperfections,
         followUps,
         checks,
         photos,
-        askingPrice,
       },
     } as any);
 
@@ -135,10 +148,6 @@ export default function InPersonSummary() {
     clearProgress();
     navigate("/start-scan");
   }
-
-  /* =========================================================
-     UI
-  ========================================================== */
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
@@ -156,36 +165,17 @@ export default function InPersonSummary() {
           {vehicle.year} {vehicle.make} {vehicle.model}
           {vehicle.variant ? ` — ${vehicle.variant}` : ""}
         </p>
+
         <p className="text-sm text-slate-400">
           Odometer: {vehicle.kms || "—"} km
         </p>
+
+        {askingPrice && (
+          <p className="text-sm text-slate-400">
+            Asking price: ${askingPrice.toLocaleString()}
+          </p>
+        )}
       </section>
-
-      {/* PRICE GUIDANCE */}
-      {pricingInsight && (
-        <section className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-5 py-4 space-y-2">
-          <h2 className="text-sm font-semibold text-emerald-200">
-            Price & negotiation guidance
-          </h2>
-
-          <p className="text-sm text-slate-200 font-semibold">
-            {pricingInsight.stance}
-          </p>
-
-          <p className="text-sm text-slate-300">
-            {pricingInsight.guidance}
-          </p>
-
-          <p className="text-sm text-slate-300">
-            <strong>Negotiation insight:</strong> {pricingInsight.adjustment}
-          </p>
-
-          <p className="text-[11px] text-slate-400">
-            This guidance is based on visible condition only and does not replace
-            a mechanical inspection or market valuation.
-          </p>
-        </section>
-      )}
 
       {/* OBSERVATIONS */}
       <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-2">
@@ -209,23 +199,23 @@ export default function InPersonSummary() {
         )}
       </section>
 
-      {/* CHECKS */}
-      <section className="rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-4 space-y-2">
-        <h2 className="text-sm font-semibold text-slate-100">
-          Condition-awareness checks
+      {/* PRICE INSIGHT */}
+      <section className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-5 py-4 space-y-2">
+        <h2 className="text-sm font-semibold text-emerald-200">
+          Price & negotiation insight
         </h2>
 
-        {Object.keys(checks).length === 0 ? (
-          <p className="text-sm text-slate-300">
-            No condition-awareness responses were recorded.
-          </p>
-        ) : (
-          <ul className="text-sm text-slate-300 space-y-1">
-            {Object.entries(checks).map(([id, value]) => (
-              <li key={id}>• {value as string}</li>
-            ))}
-          </ul>
-        )}
+        <p className="text-sm font-semibold text-slate-100">
+          {priceInsight.label}
+        </p>
+
+        <p className="text-sm text-slate-300">
+          {priceInsight.body}
+        </p>
+
+        <p className="text-sm text-slate-300">
+          <strong>Negotiation advice:</strong> {priceInsight.advice}
+        </p>
       </section>
 
       {/* SAVE ACTIONS */}
