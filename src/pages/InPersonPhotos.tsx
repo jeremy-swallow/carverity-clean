@@ -24,7 +24,6 @@ export default function InPersonPhotos() {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // 🔐 persistent scan id for this journey
   const [scanId] = useState<string>(() => {
     if (existingProgress?.scanId) return existingProgress.scanId;
     const id = generateScanId();
@@ -113,9 +112,9 @@ export default function InPersonPhotos() {
     },
     {
       id: "exterior-side-left",
-      title: "Full side profile — left side",
+      title: "Left side profile",
       guidance:
-        "Move back far enough to capture the entire side, including wheels and door lines. Keep the camera level if possible.",
+        "Capture the full side profile, including wheels and door lines. Keep the camera level if possible.",
       image: "/photo-guides/side-left.png",
     },
     {
@@ -127,32 +126,32 @@ export default function InPersonPhotos() {
     },
     {
       id: "exterior-side-right",
-      title: "Full side profile — right side",
+      title: "Right side profile",
       guidance:
         "Repeat on the opposite side so you have a matching pair of comparison photos.",
       image: "/photo-guides/side-right.png",
     },
     {
       id: "tyres",
-      title: "Tyres & wheel condition",
+      title: "Tyres & wheels",
       guidance:
-        "Take close-ups of each tyre tread and wheel face. If wear or marks stand out, capture an extra close photo.",
+        "Capture close-ups of tyre tread and wheel faces. If wear or marks stand out, include an extra close photo.",
     },
     {
       id: "interior",
-      title: "Interior & dashboard area",
+      title: "Interior",
       guidance:
         "Photograph the driver seat, steering wheel, dashboard, and centre console. Switch ignition to ACC only if safe.",
     },
     {
       id: "logbook",
-      title: "Logbook / service records (if available)",
+      title: "Service records (if available)",
       guidance:
-        "Photograph stamped pages or receipts. If dates or handwriting aren’t clear, take an additional close-up.",
+        "Photograph stamped logbook pages or receipts. If dates or handwriting aren’t clear, take an additional close-up.",
     },
     {
       id: "vin",
-      title: "VIN, build plate & compliance labels",
+      title: "VIN & compliance",
       guidance:
         "Capture the VIN plate and compliance sticker clearly. If hard to read, take one zoomed-in shot as well.",
     },
@@ -160,10 +159,6 @@ export default function InPersonPhotos() {
 
   const [stepIndex, setStepIndex] = useState(0);
   const step = steps[stepIndex];
-
-  /* =========================================================
-     Scroll to top when step changes
-  ========================================================== */
 
   useEffect(() => {
     containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -245,7 +240,6 @@ export default function InPersonPhotos() {
     "Unknown / worth confirming": "Ask seller for clarification or receipts",
   };
 
-  const [newIssueArea, setNewIssueArea] = useState("");
   const [newIssueType, setNewIssueType] = useState("");
   const [newIssueNote, setNewIssueNote] = useState("");
 
@@ -256,7 +250,7 @@ export default function InPersonPhotos() {
 
     const record: Imperfection = {
       id: crypto.randomUUID(),
-      area: newIssueArea || step.title,
+      area: step.title,
       type: newIssueType,
       note: newIssueNote.trim() || undefined,
       costBand,
@@ -265,7 +259,6 @@ export default function InPersonPhotos() {
     const updated = [...imperfections, record];
     setImperfections(updated);
 
-    setNewIssueArea("");
     setNewIssueType("");
     setNewIssueNote("");
 
@@ -280,7 +273,7 @@ export default function InPersonPhotos() {
   }
 
   /* =========================================================
-     Navigation (Back + Continue)
+     Navigation
   ========================================================== */
 
   function prevStep() {
@@ -304,7 +297,6 @@ export default function InPersonPhotos() {
       return;
     }
 
-    // ✅ move to checks (no scanId in URL)
     saveProgress({
       ...(existingProgress ?? {}),
       type: "in-person",
@@ -370,9 +362,9 @@ export default function InPersonPhotos() {
 
         {step.image && (
           <div className="rounded-xl border border-white/10 bg-slate-800/40 p-3">
-            <img src={step.image} alt="Example angle" className="w-full rounded-lg" />
+            <img src={step.image} alt="Example framing" className="w-full rounded-lg" />
             <p className="text-[11px] text-slate-400 mt-1">
-              Example angle — match this framing as closely as you can
+              Example framing — use this as a reference
             </p>
           </div>
         )}
@@ -383,7 +375,7 @@ export default function InPersonPhotos() {
       {/* CAMERA + GALLERY */}
       <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-3">
         <h3 className="text-sm font-semibold text-emerald-200">
-          Add a photo for this angle
+          {stepPhotos.length > 0 ? "Photos for this angle" : "Add a photo for this angle"}
         </h3>
 
         <div className="flex flex-col sm:flex-row gap-2">
@@ -433,20 +425,39 @@ export default function InPersonPhotos() {
           Did you notice anything unusual here?
         </h3>
 
+        <p className="text-[11px] text-slate-400">
+          Choose the closest match — you can add a note if needed.
+        </p>
+
         <select
           value={newIssueType}
           onChange={(e) => setNewIssueType(e.target.value)}
           className="w-full rounded-lg bg-slate-800 border border-white/15 px-3 py-2 text-sm text-slate-200"
         >
           <option value="">Select an observation…</option>
-          {Object.keys(COST_BANDS).map((k) => (
-            <option key={k} value={k}>
-              {k}
+
+          <optgroup label="Paint & panels">
+            <option value="Minor paint scuff">Minor paint scuff</option>
+            <option value="Dent — no paint damage">Dent — no paint damage</option>
+          </optgroup>
+
+          <optgroup label="Wheels & tyres">
+            <option value="Kerb-rashed wheel">Kerb-rashed wheel</option>
+          </optgroup>
+
+          <optgroup label="Glass & trim">
+            <option value="Windscreen chip">Windscreen chip</option>
+          </optgroup>
+
+          <optgroup label="Interior">
+            <option value="Interior wear / tear">Interior wear / tear</option>
+          </optgroup>
+
+          <optgroup label="Other">
+            <option value="Unknown / worth confirming">
+              Something looked unusual — not sure
             </option>
-          ))}
-          <option value="Unknown / worth confirming">
-            Something looked unusual — not sure
-          </option>
+          </optgroup>
         </select>
 
         <input
@@ -460,7 +471,7 @@ export default function InPersonPhotos() {
           onClick={addImperfection}
           className="w-full rounded-lg bg-amber-400 text-black font-semibold px-3 py-2 text-sm"
         >
-          Add to inspection notes
+          Add observation
         </button>
       </section>
 
@@ -480,7 +491,6 @@ export default function InPersonPhotos() {
         </section>
       )}
 
-      {/* Back + Continue */}
       <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
         <button
           onClick={prevStep}
@@ -502,12 +512,11 @@ export default function InPersonPhotos() {
         CarVerity helps you document observations — it does not diagnose mechanical faults.
       </p>
 
-      {/* Exit confirm modal */}
       {showExitConfirm && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-6">
           <div className="rounded-2xl border border-white/20 bg-slate-900 px-6 py-5 space-y-3 max-w-md w-full">
             <h3 className="text-sm font-semibold text-white">
-              Leave the guided photo inspection?
+              Leave the photo inspection?
             </h3>
 
             <p className="text-sm text-slate-300">
