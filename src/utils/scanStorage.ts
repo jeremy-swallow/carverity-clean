@@ -5,28 +5,46 @@
 
 export type ScanType = "online" | "in-person";
 
+export interface ScanHistoryEvent {
+  at: string;
+  event: string;
+}
+
 export type SavedScan = {
   id: string;
   type: ScanType;
   title: string;
   createdAt: string;
+
   listingUrl?: string;
   summary?: string;
 
-  // 👇 Added field (optional so old scans still load)
+  // Vehicle identity (used for pairing & display)
+  vehicle?: {
+    make?: string;
+    model?: string;
+    year?: string;
+    variant?: string;
+  };
+
+  // In-person + cross-scan metadata
+  fromOnlineScan?: boolean;
   completed?: boolean;
+
+  // Activity timeline
+  history?: ScanHistoryEvent[];
 };
 
 const STORAGE_KEY = "carverity_saved_scans";
 
 /**
- * Normalises scans — ensures new fields exist
+ * Normalises scans — ensures new optional fields exist
  */
 function normalizeScans(scans: any[]): SavedScan[] {
   return scans.map((scan) => ({
+    completed: false,
+    history: [],
     ...scan,
-    // 👇 If missing, default to false
-    completed: scan.completed ?? false,
   })) as SavedScan[];
 }
 
@@ -45,10 +63,14 @@ export function loadScans(): SavedScan[] {
 }
 
 export function saveScan(scan: SavedScan) {
-  const existing = loadScans();
+  const existing = loadScans().filter((s) => s.id !== scan.id);
+
   const updated = [
-    // ensure saved scans always include field
-    { completed: false, ...scan },
+    {
+      completed: false,
+      history: [],
+      ...scan,
+    },
     ...existing,
   ];
 

@@ -1,32 +1,7 @@
-// src/pages/MyScans.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { loadScans, saveScan } from "../utils/scanStorage";
+import { loadScans, saveScan, type SavedScan } from "../utils/scanStorage";
 import { saveProgress, loadProgress } from "../utils/scanProgress";
-
-interface ScanHistoryEvent {
-  at: string;
-  event: string;
-}
-
-interface SavedScan {
-  id: string;
-  type: "online" | "in-person";
-  title: string;
-  createdAt: string;
-  isUnlocked?: boolean;
-  listingUrl?: string;
-  fromOnlineScan?: boolean;
-
-  vehicle?: {
-    make?: string;
-    model?: string;
-    year?: string;
-    variant?: string;
-  };
-
-  history?: ScanHistoryEvent[];
-}
 
 /* =========================================================
    Pairing helpers — link scans that belong to the same car
@@ -87,15 +62,13 @@ export default function MyScans() {
   const [newTitle, setNewTitle] = useState("");
 
   useEffect(() => {
-    const stored = loadScans();
-    setScans(stored ?? []);
+    setScans(loadScans());
   }, []);
 
   const progress = loadProgress();
 
   function refresh() {
-    const stored = loadScans();
-    setScans(stored ?? []);
+    setScans(loadScans());
   }
 
   function resumeScan() {
@@ -129,29 +102,22 @@ export default function MyScans() {
   }
 
   function addHistory(scan: SavedScan, event: string) {
-    const updated: SavedScan = {
+    saveScan({
       ...scan,
-      history: [
-        ...(scan.history ?? []),
-        { at: new Date().toISOString(), event },
-      ],
-    };
-
-    saveScan(updated);
+      history: [...(scan.history ?? []), { at: new Date().toISOString(), event }],
+    });
     refresh();
   }
 
   function renameScan(scan: SavedScan) {
-    const updated: SavedScan = {
+    saveScan({
       ...scan,
       title: newTitle.trim(),
       history: [
         ...(scan.history ?? []),
         { at: new Date().toISOString(), event: "Renamed scan" },
       ],
-    };
-
-    saveScan(updated);
+    });
     setRenameId(null);
     setNewTitle("");
     refresh();
@@ -182,10 +148,10 @@ export default function MyScans() {
       .join(" ")
       .toLowerCase();
 
-    const matchesQuery = text.includes(query.toLowerCase());
-    const matchesType = filterType === "all" || s.type === filterType;
-
-    return matchesQuery && matchesType;
+    return (
+      text.includes(query.toLowerCase()) &&
+      (filterType === "all" || s.type === filterType)
+    );
   });
 
   const pairs = useMemo(() => buildPairs(filtered), [filtered]);
@@ -193,31 +159,30 @@ export default function MyScans() {
   function VehicleLabel(scan?: SavedScan) {
     if (!scan) return "Vehicle";
     const v = scan.vehicle ?? {};
-    const label = [v.year, v.make, v.model].filter(Boolean).join(" ");
-    return label || scan.title;
+    return [v.year, v.make, v.model].filter(Boolean).join(" ") || scan.title;
   }
-
-  /* =========================================================
-     Card for paired (or single) entry
-  ========================================================== */
 
   function PairedCard({ entry }: { entry: PairedEntry }) {
     const { online, inPerson } = entry;
-
-    const dualComplete = Boolean(online && inPerson);
     const primary = online ?? inPerson!;
-
+    const dualComplete = Boolean(online && inPerson);
     const isRenaming = renameId === primary.id;
 
     return (
-      <div className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4">
-        <div className="flex flex-col gap-2">
+      <div className="rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-4 space-y-3">
+        {dualComplete && (
+          <div className="rounded-lg bg-emerald-500/15 border border-emerald-400/30 px-3 py-1 text-sm text-emerald-200 font-semibold">
+            Dual-scan complete — highest confidence
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
           {isRenaming ? (
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full">
               <input
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                className="px-2 py-1 rounded bg-slate-800 border border-white/20"
+                className="flex-1 px-2 py-1 rounded bg-slate-800 border border-white/20"
               />
               <button
                 onClick={() => renameScan(primary)}
@@ -233,8 +198,8 @@ export default function MyScans() {
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">
+            <>
+              <h3 className="text-lg font-semibold text-white">
                 {VehicleLabel(primary)}
               </h3>
               <button
@@ -242,115 +207,92 @@ export default function MyScans() {
                   setRenameId(primary.id);
                   setNewTitle(primary.title);
                 }}
-                className="text-sm text-slate-300 underline"
+                className="text-sm text-slate-400 underline"
               >
                 Rename
               </button>
-            </div>
-          )}
-
-          <span className="text-sm text-slate-400">
-            {new Date(primary.createdAt).toLocaleString()}
-          </span>
-
-          {primary.listingUrl && (
-            <a
-              href={primary.listingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 text-sm underline"
-            >
-              View listing
-            </a>
-          )}
-
-          <div className="mt-1 flex flex-wrap gap-2">
-            {online && (
-              <span className="px-2 py-1 rounded-lg text-xs bg-slate-700/70">
-                Online scan
-              </span>
-            )}
-            {inPerson && (
-              <span className="px-2 py-1 rounded-lg text-xs bg-slate-700/70">
-                In-person inspection
-              </span>
-            )}
-
-            {dualComplete && (
-              <span className="px-2 py-1 rounded-lg text-xs bg-emerald-400/90 text-black font-semibold">
-                Dual-scan complete — strongest confidence
-              </span>
-            )}
-
-            {!dualComplete && online && (
-              <span className="px-2 py-1 rounded-lg text-xs bg-indigo-400/80 text-black">
-                Online scan completed — add in-person check
-              </span>
-            )}
-
-            {!dualComplete && inPerson && (
-              <span className="px-2 py-1 rounded-lg text-xs bg-teal-300/80 text-black">
-                In-person inspection completed — add online scan (optional)
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-2 mt-3">
-            {online && !inPerson && (
-              <button
-                onClick={() => {
-                  addHistory(online, "Started in-person inspection");
-                  startInPerson(online);
-                }}
-                className="px-3 py-2 rounded-xl bg-emerald-400 text-black font-semibold"
-              >
-                Continue — in-person inspection
-              </button>
-            )}
-
-            {inPerson && !online && (
-              <button
-                onClick={() => {
-                  addHistory(inPerson, "Started online scan");
-                  startOnlineFromInPerson(inPerson);
-                }}
-                className="px-3 py-2 rounded-xl bg-indigo-400 text-black font-semibold"
-              >
-                Run online listing scan (optional)
-              </button>
-            )}
-
-            <button
-              onClick={() => exportAsPDF(primary)}
-              className="px-3 py-2 rounded-xl bg-slate-300 text-black font-semibold"
-            >
-              Export / Share PDF
-            </button>
-          </div>
-
-          {!!primary.history?.length && (
-            <details className="mt-3">
-              <summary className="text-sm text-slate-300 cursor-pointer">
-                View scan activity timeline
-              </summary>
-
-              <ul className="mt-2 text-sm text-slate-400">
-                {primary.history.map((h, i) => (
-                  <li key={i}>
-                    {new Date(h.at).toLocaleString()} — {h.event}
-                  </li>
-                ))}
-              </ul>
-            </details>
+            </>
           )}
         </div>
+
+        <p className="text-sm text-slate-400">
+          {new Date(primary.createdAt).toLocaleDateString()}
+        </p>
+
+        {primary.listingUrl && (
+          <a
+            href={primary.listingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 text-sm underline"
+          >
+            View original listing
+          </a>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          {online && (
+            <span className="px-2 py-1 rounded-lg text-xs bg-slate-700/70">
+              Online scan
+            </span>
+          )}
+          {inPerson && (
+            <span className="px-2 py-1 rounded-lg text-xs bg-slate-700/70">
+              In-person inspection
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2 pt-2">
+          {online && !inPerson && (
+            <button
+              onClick={() => {
+                addHistory(online, "Started in-person inspection");
+                startInPerson(online);
+              }}
+              className="px-4 py-2 rounded-xl bg-emerald-400 text-black font-semibold"
+            >
+              Add in-person inspection
+            </button>
+          )}
+
+          {inPerson && !online && (
+            <button
+              onClick={() => {
+                addHistory(inPerson, "Started online scan");
+                startOnlineFromInPerson(inPerson);
+              }}
+              className="px-4 py-2 rounded-xl bg-indigo-400 text-black font-semibold"
+            >
+              Run online scan (optional)
+            </button>
+          )}
+
+          <button
+            onClick={() => exportAsPDF(primary)}
+            className="px-4 py-2 rounded-xl bg-slate-300 text-black font-semibold"
+          >
+            Export / Share PDF
+          </button>
+        </div>
+
+        {!!primary.history?.length && (
+          <details className="pt-2">
+            <summary className="text-sm text-slate-300 cursor-pointer">
+              View activity timeline
+            </summary>
+            <ul className="mt-2 text-sm text-slate-400">
+              {primary.history.map((h, i) => (
+                <li key={i}>
+                  {new Date(h.at).toLocaleString()} — {h.event}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </div>
     );
   }
-
-  /* =========================================================
-     Empty state
-  ========================================================== */
 
   if (!pairs.length) {
     return (
@@ -370,14 +312,10 @@ export default function MyScans() {
     );
   }
 
-  /* =========================================================
-     Main render
-  ========================================================== */
-
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">My scans</h1>
+    <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-white">My scans</h1>
 
         {progress?.step && (
           <button
@@ -389,7 +327,7 @@ export default function MyScans() {
         )}
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         <input
           placeholder="Search make, model, or title…"
           value={query}
