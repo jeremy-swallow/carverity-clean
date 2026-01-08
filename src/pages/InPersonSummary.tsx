@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { loadProgress, clearProgress } from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
@@ -17,6 +17,7 @@ export default function InPersonSummary() {
   const checks = progress?.checks ?? {};
   const photos = progress?.photos ?? [];
   const fromOnlineScan = Boolean(progress?.fromOnlineScan);
+  const askingPrice: number | undefined = progress?.askingPrice;
 
   const vehicle = {
     year: progress?.vehicleYear ?? "",
@@ -30,6 +31,45 @@ export default function InPersonSummary() {
 
   const journeyMissing =
     !progress || (!imperfections.length && !Object.keys(checks).length);
+
+  /* =========================================================
+     Pricing guidance logic (rule-based, conservative)
+  ========================================================== */
+
+  const pricingInsight = useMemo(() => {
+    if (!askingPrice) return null;
+
+    const issueCount = imperfections.length;
+
+    let stance: string;
+    let guidance: string;
+    let adjustment: string;
+
+    if (issueCount === 0) {
+      stance = "Appears fairly priced";
+      guidance =
+        "No notable issues were recorded during the inspection. Based on visible condition alone, the asking price appears reasonable.";
+      adjustment = "Little to no adjustment expected based on condition.";
+    } else if (issueCount <= 2) {
+      stance = "Slightly negotiable";
+      guidance =
+        "A small number of minor issues were observed. These provide reasonable grounds for a modest price discussion.";
+      adjustment =
+        "A reduction in the range of $500–$1,500 may be reasonable, depending on severity.";
+    } else {
+      stance = "Price likely high for condition";
+      guidance =
+        "Multiple issues were identified during inspection. Together, these materially affect condition and strengthen your negotiation position.";
+      adjustment =
+        "A more meaningful adjustment (often $2,000–$4,000+) may be justified, depending on repair costs.";
+    }
+
+    return { stance, guidance, adjustment };
+  }, [askingPrice, imperfections]);
+
+  /* =========================================================
+     Missing journey guard
+  ========================================================== */
 
   if (journeyMissing && !savedId) {
     return (
@@ -59,6 +99,10 @@ export default function InPersonSummary() {
     );
   }
 
+  /* =========================================================
+     Actions
+  ========================================================== */
+
   function saveToLibrary() {
     const id = activeScanId ?? generateScanId();
 
@@ -75,6 +119,7 @@ export default function InPersonSummary() {
         followUps,
         checks,
         photos,
+        askingPrice,
       },
     } as any);
 
@@ -91,6 +136,10 @@ export default function InPersonSummary() {
     navigate("/start-scan");
   }
 
+  /* =========================================================
+     UI
+  ========================================================== */
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
       <span className="text-[11px] tracking-wide uppercase text-slate-400">
@@ -101,17 +150,42 @@ export default function InPersonSummary() {
         Inspection summary
       </h1>
 
-      {/* VEHICLE IDENTITY */}
+      {/* VEHICLE */}
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-4 space-y-1">
         <p className="text-base font-semibold text-slate-100">
           {vehicle.year} {vehicle.make} {vehicle.model}
           {vehicle.variant ? ` — ${vehicle.variant}` : ""}
         </p>
-
         <p className="text-sm text-slate-400">
           Odometer: {vehicle.kms || "—"} km
         </p>
       </section>
+
+      {/* PRICE GUIDANCE */}
+      {pricingInsight && (
+        <section className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-5 py-4 space-y-2">
+          <h2 className="text-sm font-semibold text-emerald-200">
+            Price & negotiation guidance
+          </h2>
+
+          <p className="text-sm text-slate-200 font-semibold">
+            {pricingInsight.stance}
+          </p>
+
+          <p className="text-sm text-slate-300">
+            {pricingInsight.guidance}
+          </p>
+
+          <p className="text-sm text-slate-300">
+            <strong>Negotiation insight:</strong> {pricingInsight.adjustment}
+          </p>
+
+          <p className="text-[11px] text-slate-400">
+            This guidance is based on visible condition only and does not replace
+            a mechanical inspection or market valuation.
+          </p>
+        </section>
+      )}
 
       {/* OBSERVATIONS */}
       <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-2">
@@ -134,21 +208,6 @@ export default function InPersonSummary() {
           </ul>
         )}
       </section>
-
-      {/* FOLLOW UPS */}
-      {followUps.length > 0 && (
-        <section className="rounded-2xl border border-indigo-400/30 bg-indigo-600/10 px-5 py-4 space-y-2">
-          <h2 className="text-sm font-semibold text-indigo-200">
-            Areas reviewed in person
-          </h2>
-
-          <ul className="text-sm text-slate-300 space-y-1">
-            {followUps.map((f: any) => (
-              <li key={f.id}>• {f.label}</li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       {/* CHECKS */}
       <section className="rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-4 space-y-2">
