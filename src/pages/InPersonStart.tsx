@@ -1,7 +1,10 @@
-/*  In-person start screen — user must choose:
-    • Start a new stand-alone inspection
-    • OR link to a previous online scan
-*/
+/* =========================================================
+   In-person start — user must choose:
+   • Start a new stand-alone inspection
+   • OR link this inspection to a previous online scan
+
+   No journey auto-resumes.
+========================================================= */
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -19,11 +22,14 @@ export default function InPersonStart() {
   const [onlineScans, setOnlineScans] = useState<any[]>([]);
 
   useEffect(() => {
-    clearProgress(); // 🔒 always start a fresh journey
+    // Reset any previous in-person journey
+    clearProgress();
 
+    // Load last viewed online result (optional)
     const stored = loadOnlineResults();
     if (stored) setOnlineResult(stored);
 
+    // Load saved online scans for optional linking
     const scans = loadScans().filter((s: any) => s.type === "online");
     setOnlineScans(scans);
   }, []);
@@ -31,7 +37,8 @@ export default function InPersonStart() {
   const imperfectionHints = useMemo(() => {
     if (!onlineResult?.fullSummary && !onlineResult?.summary) return [];
 
-    const text = (onlineResult.fullSummary || onlineResult.summary || "").toLowerCase();
+    const text = (onlineResult.fullSummary || onlineResult.summary || "")
+      .toLowerCase();
 
     const keywords = [
       "dent","scrape","scratch","chip","stone chip","paint fade","oxidation",
@@ -44,8 +51,13 @@ export default function InPersonStart() {
     ).map(w => w.replace(/^\w/, c => c.toUpperCase()));
   }, [onlineResult]);
 
+  /* =========================================================
+     Actions
+  ========================================================== */
+
   function startStandalone() {
-    navigate("/scan/in-person/vehicle");   // ⬅️ NEW FIRST STEP
+    // Always begin new journeys at Vehicle Details
+    navigate("/scan/in-person/vehicle-details");
   }
 
   function selectLinkedScan() {
@@ -55,6 +67,10 @@ export default function InPersonStart() {
   function viewOnlineResults() {
     navigate("/online-results");
   }
+
+  /* =========================================================
+     UI
+  ========================================================== */
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
@@ -75,12 +91,15 @@ export default function InPersonStart() {
           {imperfectionHints.length > 0 ? (
             <ul className="text-sm text-slate-300 list-disc list-inside space-y-1">
               {imperfectionHints.map((m, i) => (
-                <li key={i}>Consider photographing potential {m.toLowerCase()} areas.</li>
+                <li key={i}>
+                  Consider photographing potential {m.toLowerCase()} areas.
+                </li>
               ))}
             </ul>
           ) : (
             <p className="text-sm text-slate-300">
-              No issues were highlighted — this stage focuses on confirming real-world condition.
+              No issues were highlighted — this stage focuses on confirming
+              real-world condition.
             </p>
           )}
 
