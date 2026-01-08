@@ -1,7 +1,41 @@
+// src/pages/MyScans.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { loadScans, saveScan, type SavedScan } from "../utils/scanStorage";
+import { loadScans, saveScan } from "../utils/scanStorage";
 import { saveProgress, loadProgress } from "../utils/scanProgress";
+
+interface ScanHistoryEvent {
+  at: string;
+  event: string;
+}
+
+interface PricingInsight {
+  label: string;
+  advice: string;
+}
+
+interface SavedScan {
+  id: string;
+  type: "online" | "in-person";
+  title: string;
+  createdAt: string;
+  isUnlocked?: boolean;
+  listingUrl?: string;
+  fromOnlineScan?: boolean;
+
+  vehicle?: {
+    make?: string;
+    model?: string;
+    year?: string;
+    variant?: string;
+  };
+
+  data?: {
+    pricingInsight?: PricingInsight;
+  };
+
+  history?: ScanHistoryEvent[];
+}
 
 /* =========================================================
    Pairing helpers — link scans that belong to the same car
@@ -62,13 +96,13 @@ export default function MyScans() {
   const [newTitle, setNewTitle] = useState("");
 
   useEffect(() => {
-    setScans(loadScans());
+    setScans(loadScans() ?? []);
   }, []);
 
   const progress = loadProgress();
 
   function refresh() {
-    setScans(loadScans());
+    setScans(loadScans() ?? []);
   }
 
   function resumeScan() {
@@ -104,7 +138,10 @@ export default function MyScans() {
   function addHistory(scan: SavedScan, event: string) {
     saveScan({
       ...scan,
-      history: [...(scan.history ?? []), { at: new Date().toISOString(), event }],
+      history: [
+        ...(scan.history ?? []),
+        { at: new Date().toISOString(), event },
+      ],
     });
     refresh();
   }
@@ -162,9 +199,14 @@ export default function MyScans() {
     return [v.year, v.make, v.model].filter(Boolean).join(" ") || scan.title;
   }
 
+  /* =========================================================
+     Card
+  ========================================================== */
+
   function PairedCard({ entry }: { entry: PairedEntry }) {
     const { online, inPerson } = entry;
     const primary = online ?? inPerson!;
+    const pricing = primary.data?.pricingInsight;
     const dualComplete = Boolean(online && inPerson);
     const isRenaming = renameId === primary.id;
 
@@ -215,33 +257,20 @@ export default function MyScans() {
           )}
         </div>
 
+        {pricing && (
+          <div className="rounded-lg bg-emerald-400/10 border border-emerald-400/25 px-3 py-2">
+            <p className="text-sm font-semibold text-emerald-200">
+              {pricing.label}
+            </p>
+            <p className="text-xs text-slate-300">
+              {pricing.advice}
+            </p>
+          </div>
+        )}
+
         <p className="text-sm text-slate-400">
           {new Date(primary.createdAt).toLocaleDateString()}
         </p>
-
-        {primary.listingUrl && (
-          <a
-            href={primary.listingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-400 text-sm underline"
-          >
-            View original listing
-          </a>
-        )}
-
-        <div className="flex flex-wrap gap-2">
-          {online && (
-            <span className="px-2 py-1 rounded-lg text-xs bg-slate-700/70">
-              Online scan
-            </span>
-          )}
-          {inPerson && (
-            <span className="px-2 py-1 rounded-lg text-xs bg-slate-700/70">
-              In-person inspection
-            </span>
-          )}
-        </div>
 
         <div className="flex flex-wrap gap-2 pt-2">
           {online && !inPerson && (
@@ -275,21 +304,6 @@ export default function MyScans() {
             Export / Share PDF
           </button>
         </div>
-
-        {!!primary.history?.length && (
-          <details className="pt-2">
-            <summary className="text-sm text-slate-300 cursor-pointer">
-              View activity timeline
-            </summary>
-            <ul className="mt-2 text-sm text-slate-400">
-              {primary.history.map((h, i) => (
-                <li key={i}>
-                  {new Date(h.at).toLocaleString()} — {h.event}
-                </li>
-              ))}
-            </ul>
-          </details>
-        )}
       </div>
     );
   }
