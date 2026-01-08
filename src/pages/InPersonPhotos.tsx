@@ -5,8 +5,9 @@ import {
   useMemo,
   useState,
   useRef,
+  type ChangeEvent,
+  type ClipboardEvent,
 } from "react";
-import type { ChangeEvent, ClipboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   loadOnlineResults,
@@ -14,7 +15,6 @@ import {
 } from "../utils/onlineResults";
 import { saveProgress, loadProgress } from "../utils/scanProgress";
 import { generateScanId } from "../utils/scanStorage";
-import PhotoLightbox from "../components/PhotoLightbox";
 
 type Imperfection = {
   id: string;
@@ -28,7 +28,7 @@ export default function InPersonPhotos() {
   const navigate = useNavigate();
   const existingProgress: any = loadProgress();
 
-  // 🔐 Ensure every in-person journey has a persistent scanId
+  // 🔐 Persistent scan identity for this in-person journey
   const [scanId] = useState<string>(() => {
     if (existingProgress?.scanId) return existingProgress.scanId;
     const id = generateScanId();
@@ -43,31 +43,32 @@ export default function InPersonPhotos() {
   });
 
   const [onlineResult, setOnlineResult] = useState<SavedResult | null>(null);
-  const [imperfections, setImperfections] = useState<Imperfection[]>([]);
+  const [imperfections, setImperfections] = useState<Imperfection[]>(
+    existingProgress?.imperfections ?? []
+  );
   const [photos, setPhotos] = useState<string[]>(
     existingProgress?.photos ?? []
   );
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const stored = loadOnlineResults();
     if (stored) setOnlineResult(stored);
 
-    // Persist entry to this step (id + photos safe)
+    // Persist safe entry into this step
     saveProgress({
       ...(existingProgress ?? {}),
       type: "in-person",
       scanId,
+      photos,
+      imperfections,
       step: "/scan/in-person/photos",
       startedAt: existingProgress?.startedAt ?? new Date().toISOString(),
       fromOnlineScan: Boolean(stored),
-      photos,
     });
-    // we intentionally exclude existingProgress from deps to avoid loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scanId, photos]);
+  }, [scanId, photos, imperfections]);
 
   /* =========================================================
      Priority areas detected from online scan
@@ -106,7 +107,7 @@ export default function InPersonPhotos() {
   }, [onlineResult]);
 
   /* =========================================================
-     Guided photo shot list
+     Guided photo steps
   ========================================================== */
 
   const steps = [
@@ -114,58 +115,139 @@ export default function InPersonPhotos() {
       id: "exterior-front",
       title: "Front & front-left angle",
       guidance:
-        "Stand back so the whole front and left side are visible. Keep the car centred and avoid cutting off the bumper or roof.",
+        "Stand back so the whole front and left side are visible. Avoid cutting off the bumper or roof.",
       image: "/photo-guides/front.png",
     },
     {
       id: "exterior-side-left",
       title: "Full side profile — left side",
       guidance:
-        "Move back far enough to capture the entire side, including wheels and door lines. Keep the camera level if possible.",
+        "Capture the entire side including wheels and door lines. Keep the camera level if possible.",
       image: "/photo-guides/side-left.png",
     },
     {
       id: "exterior-rear",
       title: "Rear & rear-right angle",
       guidance:
-        "Photograph the rear plus right-side angle. Reflections help reveal dents or waviness in the paint.",
+        "Photograph the rear plus right-side angle. Reflections help reveal dents or waviness.",
       image: "/photo-guides/rear.png",
     },
     {
       id: "exterior-side-right",
       title: "Full side profile — right side",
       guidance:
-        "Repeat on the opposite side so you have a matching pair of comparison photos.",
+        "Repeat on the opposite side so you have a matching comparison photo.",
       image: "/photo-guides/side-right.png",
     },
     {
       id: "tyres",
       title: "Tyres & wheel condition",
       guidance:
-        "Take close-ups of each tyre tread and wheel face. If wear or marks stand out, capture an extra close photo.",
+        "Take close-ups of each tyre tread and wheel face. Photograph any wear or marks clearly.",
     },
     {
       id: "interior",
       title: "Interior & dashboard area",
       guidance:
-        "Photograph the driver seat, steering wheel, dashboard, and centre console. Switch ignition to ACC only if safe.",
+        "Capture the driver seat, steering wheel and console. Switch ignition to ACC only if safe.",
     },
     {
       id: "logbook",
       title: "Logbook / service records (if available)",
       guidance:
-        "Photograph stamped pages or receipts. If dates or handwriting aren’t clear, take an additional close-up.",
+        "Photograph stamped pages or receipts. Take close-ups if handwriting is unclear.",
     },
     {
       id: "vin",
       title: "VIN, build plate & compliance labels",
       guidance:
-        "Capture the VIN plate and compliance sticker clearly. If hard to read, take one zoomed-in shot as well.",
+        "Ensure the VIN is readable. If faded or reflective, take a close-up also.",
     },
   ];
 
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(
+    existingProgress?.photoStepIndex ?? 0
+  );
   const step = steps[stepIndex];
+
+  /* =========================================================
+     Photo helpers — camera, upload, paste
+  ========================================================== */
+
+  function persistPhotos(next: string[]) {
+    setPhotos(next);
+    const current = loadProgress() ?? {};
+    saveProgress({
+      ...current,
+      photos: next,
+      photoStepIndex: stepIndex,
+      step: "/scan/in-person/photos",
+    });
+  }
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+
+    const dataUrls: string[] = [];
+
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) continue;
+
+      const reader = new FileReader();
+      const url: string = await new Promise((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+
+      dataUrls.push(url);
+    }
+
+    if (dataUrls.length) {
+      persistPhotos([...photos, ...dataUrls]);
+    }
+  }
+
+  function onFileChange(e: ChangeEvent<HTMLInputElement>) {
+    void handleFiles(e.target.files);
+    // Allow re-selecting the same file again later
+    e.target.value = "";
+  }
+
+  function triggerFilePicker() {
+    fileInputRef.current?.click();
+  }
+
+  function onPaste(e: ClipboardEvent<HTMLDivElement>) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const files: File[] = [];
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith("image/")) {
+        const f = item.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+
+    if (files.length) {
+      // Build a fake FileList-like object for handleFiles
+      const fileList = {
+        length: files.length,
+        item: (index: number) => files[index],
+        ...files.reduce((acc, file, index) => {
+          (acc as any)[index] = file;
+          return acc;
+        }, {} as Record<number, File>),
+      } as unknown as FileList;
+
+      void handleFiles(fileList);
+    }
+  }
+
+  function removePhoto(index: number) {
+    const next = photos.filter((_, i) => i !== index);
+    persistPhotos(next);
+  }
 
   /* =========================================================
      Imperfection logging
@@ -175,151 +257,59 @@ export default function InPersonPhotos() {
     "Minor paint scuff": "$120–$300 typical repair",
     "Dent — no paint damage": "$150–$400 paintless repair",
     "Kerb-rashed wheel": "$120–$250 per wheel",
-    "Interior wear / tear": "Varies — may be cosmetic, ask the seller",
-    "Windscreen chip": "$90–$160 repair (replacement if cracked)",
-    "Unknown / worth confirming": "Ask seller for clarification or receipts",
+    "Interior wear / tear": "Varies — may be cosmetic",
+    "Windscreen chip": "$90–$160 repair",
+    "Unknown / worth confirming": "Ask seller for clarification",
   };
 
-  const [newIssueArea, setNewIssueArea] = useState("");
   const [newIssueType, setNewIssueType] = useState("");
   const [newIssueNote, setNewIssueNote] = useState("");
 
   function addImperfection() {
     if (!newIssueType) return;
 
-    const costBand =
-      COST_BANDS[newIssueType] ?? "Cost unknown — worth confirming";
-
     const record: Imperfection = {
       id: crypto.randomUUID(),
-      area: newIssueArea || step.title,
+      area: step.title,
       type: newIssueType,
       note: newIssueNote.trim() || undefined,
-      costBand,
+      costBand: COST_BANDS[newIssueType] ?? "Cost unknown — worth confirming",
     };
 
-    setImperfections((p) => [...p, record]);
-    setNewIssueArea("");
+    const next = [...imperfections, record];
+    setImperfections(next);
+
+    const current = loadProgress() ?? {};
+    saveProgress({
+      ...current,
+      imperfections: next,
+    });
+
     setNewIssueType("");
     setNewIssueNote("");
   }
 
   /* =========================================================
-     Photo capture: camera, upload, paste
-  ========================================================== */
-
-  function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
-
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith("image/")) return;
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result;
-        if (typeof result === "string") {
-          setPhotos((prev) => {
-            const next = [...prev, result];
-            // persist immediately with updated photos
-            saveProgress({
-              ...(existingProgress ?? {}),
-              type: "in-person",
-              scanId,
-              step: "/scan/in-person/photos",
-              startedAt:
-                existingProgress?.startedAt ?? new Date().toISOString(),
-              fromOnlineScan,
-              photos: next,
-            });
-            return next;
-          });
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  const fromOnlineScan = Boolean(onlineResult);
-
-  function onFileChange(e: ChangeEvent<HTMLInputElement>) {
-    handleFiles(e.target.files);
-    // allow re-uploading the same file later
-    e.target.value = "";
-  }
-
-  function triggerFilePicker() {
-    fileInputRef.current?.click();
-  }
-
-  function onPaste(e: ClipboardEvent<HTMLDivElement>) {
-    if (e.clipboardData?.files?.length) {
-      handleFiles(e.clipboardData.files);
-    }
-  }
-
-  function openLightbox(index: number) {
-    setLightboxIndex(index);
-  }
-
-  function closeLightbox() {
-    setLightboxIndex(null);
-  }
-
-  function showPrevPhoto() {
-    setLightboxIndex((idx) => {
-      if (idx === null) return null;
-      return idx === 0 ? photos.length - 1 : idx - 1;
-    });
-  }
-
-  function showNextPhoto() {
-    setLightboxIndex((idx) => {
-      if (idx === null) return null;
-      return idx === photos.length - 1 ? 0 : idx + 1;
-    });
-  }
-
-  function removePhoto(index: number) {
-    setPhotos((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      saveProgress({
-        ...(existingProgress ?? {}),
-        type: "in-person",
-        scanId,
-        step: "/scan/in-person/photos",
-        startedAt:
-          existingProgress?.startedAt ?? new Date().toISOString(),
-        fromOnlineScan,
-        photos: next,
-      });
-      return next;
-    });
-    if (lightboxIndex !== null && lightboxIndex >= photos.length - 1) {
-      setLightboxIndex((prev) =>
-        prev !== null && prev > 0 ? prev - 1 : null
-      );
-    }
-  }
-
-  /* =========================================================
-     Continue → checks
+     Navigation
   ========================================================== */
 
   function nextStep() {
     if (stepIndex < steps.length - 1) {
-      setStepIndex((i) => i + 1);
+      const nextIndex = stepIndex + 1;
+      setStepIndex(nextIndex);
+      const current = loadProgress() ?? {};
+      saveProgress({
+        ...current,
+        photoStepIndex: nextIndex,
+      });
       return;
     }
 
-    // ✅ Persist with scanId + photos + imperfections, then move to checks
+    // Completed photo steps → move to checks
+    const current = loadProgress() ?? {};
     saveProgress({
-      ...(existingProgress ?? {}),
-      type: "in-person",
-      scanId,
+      ...current,
       step: "/scan/in-person/checks",
-      imperfections,
-      fromOnlineScan,
-      photos,
     });
 
     navigate("/scan/in-person/checks");
@@ -353,11 +343,12 @@ export default function InPersonPhotos() {
             ))}
           </ul>
           <p className="text-[11px] text-slate-400">
-            These aren’t faults — they’re areas <strong>worth confirming in person</strong>.
+            These aren’t faults — they’re areas worth confirming in person.
           </p>
         </section>
       )}
 
+      {/* Current step guidance */}
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm md:text-base font-semibold text-slate-100">
@@ -376,7 +367,7 @@ export default function InPersonPhotos() {
               className="w-full rounded-lg"
             />
             <p className="text-[11px] text-slate-400 mt-1">
-              Example angle — match this framing as closely as you can
+              Example angle — match this framing as closely as you can.
             </p>
           </div>
         )}
@@ -384,26 +375,11 @@ export default function InPersonPhotos() {
         <p className="text-sm text-slate-300">{step.guidance}</p>
       </section>
 
-      {/* Camera / upload controls */}
-      <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-3">
-        <h3 className="text-sm font-semibold text-emerald-200">
-          Take or upload photos
+      {/* Photo capture controls */}
+      <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-4 space-y-3">
+        <h3 className="text-sm font-semibold text-slate-100">
+          Add photos for this inspection
         </h3>
-
-        <p className="text-xs md:text-sm text-slate-200">
-          On mobile, you can open your camera directly. On desktop, you can
-          upload from your files or paste screenshots.
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-2">
-          <button
-            type="button"
-            onClick={triggerFilePicker}
-            className="flex-1 rounded-lg bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
-          >
-            Open camera / upload
-          </button>
-        </div>
 
         <input
           ref={fileInputRef}
@@ -415,52 +391,63 @@ export default function InPersonPhotos() {
           onChange={onFileChange}
         />
 
-        <p className="text-[11px] text-slate-400">
-          You can also paste images directly into this screen from your
-          clipboard.
-        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            type="button"
+            onClick={triggerFilePicker}
+            className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
+          >
+            Take photo / upload
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              // hint only; actual paste handled by onPaste
+              // this keeps the UI self-explanatory
+              alert(
+                "You can paste images directly into this screen using Ctrl/Cmd + V after copying a screenshot or photo."
+              );
+            }}
+            className="flex-1 rounded-xl border border-white/25 text-slate-200 px-4 py-2 text-sm"
+          >
+            How to paste an image
+          </button>
+        </div>
+
+        {photos.length > 0 && (
+          <>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-3">
+              {photos.map((src, index) => (
+                <div
+                  key={`${index}-${src.slice(0, 16)}`}
+                  className="relative group rounded-lg overflow-hidden border border-white/10"
+                >
+                  <img
+                    src={src}
+                    alt={`Inspection photo ${index + 1}`}
+                    className="w-full h-24 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(index)}
+                    className="absolute top-1 right-1 bg-black/70 text-white text-[10px] rounded px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[11px] text-slate-400">
+              Photos stay on this device unless you choose to share or export
+              them.
+            </p>
+          </>
+        )}
       </section>
 
-      {/* Captured photos */}
-      {photos.length > 0 && (
-        <section className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-100">
-            Photos captured for this inspection
-          </h3>
-
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-            {photos.map((src, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => openLightbox(idx)}
-                className="relative group rounded-lg overflow-hidden border border-white/10"
-              >
-                <img
-                  src={src}
-                  alt={`Inspection photo ${idx + 1}`}
-                  className="w-full h-24 object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removePhoto(idx);
-                  }}
-                  className="absolute top-1 right-1 bg-black/70 rounded-full px-1.5 py-0.5 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  ×
-                </button>
-              </button>
-            ))}
-          </div>
-
-          <p className="text-[11px] text-slate-400">
-            These photos stay on this device unless you choose to share them.
-          </p>
-        </section>
-      )}
-
+      {/* Imperfection logging */}
       <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-2">
         <h3 className="text-sm font-semibold text-amber-200">
           Did you notice anything unusual here?
@@ -477,19 +464,17 @@ export default function InPersonPhotos() {
               {k}
             </option>
           ))}
-          <option value="Unknown / worth confirming">
-            Something looked unusual — not sure
-          </option>
         </select>
 
         <input
-          placeholder="Optional note (e.g. rear door — small mark near handle)…"
+          placeholder="Optional note (e.g. small mark near left rear door)…"
           value={newIssueNote}
           onChange={(e) => setNewIssueNote(e.target.value)}
           className="w-full rounded-lg bg-slate-800 border border-white/15 px-3 py-2 text-sm text-slate-200"
         />
 
         <button
+          type="button"
           onClick={addImperfection}
           className="w-full rounded-lg bg-amber-400 text-black font-semibold px-3 py-2 text-sm"
         >
@@ -497,24 +482,8 @@ export default function InPersonPhotos() {
         </button>
       </section>
 
-      {!!imperfections.length && (
-        <section className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4 space-y-2">
-          <h3 className="text-sm font-semibold text-slate-100">
-            Noted observations for this visit
-          </h3>
-
-          <ul className="text-sm text-slate-300 space-y-1">
-            {imperfections.map((i) => (
-              <li key={i.id}>
-                • {i.area}: {i.type}
-                {i.note ? ` — ${i.note}` : ""}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       <button
+        type="button"
         onClick={nextStep}
         className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 shadow"
       >
@@ -525,16 +494,6 @@ export default function InPersonPhotos() {
         CarVerity helps you document observations — it does not diagnose
         mechanical faults.
       </p>
-
-      {lightboxIndex !== null && (
-        <PhotoLightbox
-          photos={photos}
-          index={lightboxIndex}
-          onClose={closeLightbox}
-          onPrev={showPrevPhoto}
-          onNext={showNextPhoto}
-        />
-      )}
     </div>
   );
 }

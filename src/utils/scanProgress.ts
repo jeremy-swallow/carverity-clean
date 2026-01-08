@@ -1,83 +1,78 @@
-/* =========================================================
-   Scan Progress Persistence (upgrade-safe, tolerant fields)
-   ========================================================= */
+// src/utils/scanProgress.ts
 
-export type ScanProgress = {
-  type: "online" | "in-person";
-  step: string;
+export type ScanJourneyType = "online" | "in-person";
 
+export interface ScanProgress {
+  type?: ScanJourneyType;
+  step?: string;
   startedAt?: string;
 
-  // Online scan fields
-  listingUrl?: string;
+  // In-person journey identity
+  scanId?: string;
+  linkedOnlineScanId?: string | null;
+  fromOnlineScan?: boolean;
 
-  // Optional vehicle details
-  vehicle?: {
-    make?: string;
-    model?: string;
-    year?: string;
-    variant?: string;
+  // In-person data
+  imperfections?: any[];
+  followUpPhotos?: any[];
+  checks?: Record<string, string>;
+  photos?: string[];
+  photoStepIndex?: number;
 
-    /**
-     * Human-readable import status used in the UI
-     * e.g. "Sold new in Australia (default)"
-     */
-    importStatus?: string;
+  // Future / online journey fields can also live here
+  [key: string]: unknown;
+}
 
-    /**
-     * Legacy flag for older flows – kept for safety.
-     */
-    isImport?: boolean;
-  };
+const STORAGE_KEY = "carverity_scan_progress_v1";
 
-  // Optional photos
-  photos?: {
-    /**
-     * Photos taken from the online listing (screenshots, copied images, uploads)
-     * Stored as data URLs for now.
-     */
-    listing?: string[];
-
-    /**
-     * Reserved for hash / metadata from authenticity checks
-     * Mirrors SavedResult.photos.meta for consistency.
-     */
-    meta?: any[];
-
-    /**
-     * Photos taken during the in-person inspection (future use)
-     */
-    inPerson?: string[];
-  };
-
-  // Free-form condition + notes for AI
-  conditionSummary?: string;
-  notes?: string;
-
-  // AI analysis (future)
-  analysis?: any;
-
-  // Allow unknown fields for forward-compat safety
-  [key: string]: any;
-};
-
-const STORAGE_KEY = "carverity_scan_progress";
-
+/**
+ * Safely load the current scan progress from localStorage.
+ */
 export function loadProgress(): ScanProgress | null {
+  if (typeof window === "undefined") return null;
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as ScanProgress) : null;
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+
+    return parsed as ScanProgress;
   } catch {
     return null;
   }
 }
 
-export function saveProgress(update: Partial<ScanProgress>) {
-  const existing = loadProgress() ?? {};
-  const merged = { ...existing, ...update };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+/**
+ * Merge the provided partial progress into the existing stored state.
+ * This keeps fields from previous steps intact.
+ */
+export function saveProgress(update: Partial<ScanProgress>): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    const existing = loadProgress() ?? {};
+    const merged: ScanProgress = {
+      ...existing,
+      ...update,
+    };
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+  } catch {
+    // Ignore storage errors (e.g. quota exceeded)
+  }
 }
 
-export function clearProgress() {
-  localStorage.removeItem(STORAGE_KEY);
+/**
+ * Clear any active scan journey.
+ */
+export function clearProgress(): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore errors
+  }
 }
