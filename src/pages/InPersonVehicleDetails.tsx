@@ -6,40 +6,32 @@ import { saveProgress, loadProgress } from "../utils/scanProgress";
 import { generateScanId } from "../utils/scanStorage";
 
 /* =========================================================
-   Optional suggestion data (non-blocking)
+   Constants
 ========================================================= */
 
-const COMMON_MAKES = [
-  "Toyota",
-  "Mazda",
-  "Hyundai",
-  "Ford",
-  "Holden",
-  "Kia",
-  "Nissan",
-  "BMW",
-  "Mercedes-Benz",
-  "Volkswagen",
-  "Subaru",
-  "Mitsubishi",
-  "Audi",
-  "Honda",
-  "Isuzu",
-  "Land Rover",
-  "Lexus",
-];
-
 const CURRENT_YEAR = new Date().getFullYear();
+
+const YEAR_OPTIONS = Array.from(
+  { length: CURRENT_YEAR - 1949 + 2 },
+  (_, i) => String(CURRENT_YEAR + 1 - i)
+);
+
+const KM_RANGES = [
+  { label: "Under 10,000 km", min: 0, max: 10000 },
+  { label: "10,000 – 25,000 km", min: 10000, max: 25000 },
+  { label: "25,000 – 50,000 km", min: 25000, max: 50000 },
+  { label: "50,000 – 75,000 km", min: 50000, max: 75000 },
+  { label: "75,000 – 100,000 km", min: 75000, max: 100000 },
+  { label: "100,000 – 150,000 km", min: 100000, max: 150000 },
+  { label: "150,000 – 200,000 km", min: 150000, max: 200000 },
+  { label: "200,000 – 300,000 km", min: 200000, max: 300000 },
+  { label: "300,000 – 500,000 km", min: 300000, max: 500000 },
+  { label: "Over 500,000 km", min: 500000, max: 999999 },
+];
 
 /* =========================================================
    Helpers
 ========================================================= */
-
-function clampYear(value: number) {
-  if (value < 1950) return 1950;
-  if (value > CURRENT_YEAR + 1) return CURRENT_YEAR + 1;
-  return value;
-}
 
 function clampKm(value: number) {
   if (value < 0) return 0;
@@ -75,19 +67,24 @@ export default function InPersonVehicleDetails() {
   const [model, setModel] = useState<string>(
     (existing as any)?.vehicleModel ?? ""
   );
-
   const [kilometres, setKilometres] = useState<number>(
-    clampKm((existing as any)?.kilometres ?? 85000)
+    clampKm((existing as any)?.kilometres ?? 0)
   );
 
-  const parsedYear = useMemo(() => {
-    const n = parseInt(year, 10);
-    if (Number.isNaN(n)) return null;
-    return clampYear(n);
+  const filteredYears = useMemo(() => {
+    if (!year) return YEAR_OPTIONS.slice(0, 12);
+    return YEAR_OPTIONS.filter((y) => y.startsWith(year)).slice(0, 12);
   }, [year]);
 
+  const kmSuggestions = useMemo(() => {
+    if (!kilometres) return KM_RANGES;
+    return KM_RANGES.filter(
+      (r) => kilometres >= r.min - 20000 && kilometres <= r.max + 20000
+    );
+  }, [kilometres]);
+
   const isComplete =
-    Boolean(parsedYear) &&
+    year.trim().length === 4 &&
     make.trim().length > 1 &&
     model.trim().length > 0;
 
@@ -100,12 +97,12 @@ export default function InPersonVehicleDetails() {
       type: "in-person",
       scanId,
       step: "/scan/in-person/vehicle-details",
-      vehicleYear: parsedYear,
+      vehicleYear: year,
       vehicleMake: make.trim(),
       vehicleModel: model.trim(),
       kilometres,
     });
-  }, [scanId, parsedYear, make, model, kilometres]);
+  }, [scanId, year, make, model, kilometres]);
 
   /* =========================================================
      Continue
@@ -113,11 +110,6 @@ export default function InPersonVehicleDetails() {
 
   function continueToPhotos() {
     if (!isComplete) return;
-
-    saveProgress({
-      step: "/scan/in-person/photos",
-    });
-
     navigate("/scan/in-person/photos");
   }
 
@@ -138,33 +130,30 @@ export default function InPersonVehicleDetails() {
       {/* YEAR */}
       <section className="space-y-2">
         <label className="text-sm font-semibold text-slate-200">
-          Year of manufacture
+          Year
         </label>
 
         <input
-          type="number"
           inputMode="numeric"
-          placeholder="e.g. 2017"
+          placeholder="Start typing (e.g. 2018)"
           value={year}
-          onChange={(e) => setYear(e.target.value)}
+          onChange={(e) => setYear(e.target.value.replace(/\D/g, ""))}
           className="w-full rounded-xl bg-slate-900 border border-white/20 px-4 py-3 text-slate-200"
         />
 
-        <div className="flex gap-2 flex-wrap">
-          {[2023, 2020, 2015, 2010, 2005].map((y) => (
-            <button
-              key={y}
-              onClick={() => setYear(String(y))}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 border border-white/15 text-xs text-slate-300 hover:border-white/30"
-            >
-              {y}
-            </button>
-          ))}
-        </div>
-
-        <p className="text-[11px] text-slate-400">
-          Approximate year is fine — this is for context, not verification.
-        </p>
+        {filteredYears.length > 0 && (
+          <div className="rounded-xl border border-white/10 bg-slate-900/80 divide-y divide-white/10">
+            {filteredYears.map((y) => (
+              <button
+                key={y}
+                onClick={() => setYear(y)}
+                className="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
+              >
+                {y}
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* MAKE */}
@@ -174,18 +163,17 @@ export default function InPersonVehicleDetails() {
         </label>
 
         <input
-          list="makes"
-          placeholder="e.g. Toyota"
+          placeholder="Start typing (e.g. Mazda)"
           value={make}
           onChange={(e) => setMake(e.target.value)}
           className="w-full rounded-xl bg-slate-900 border border-white/20 px-4 py-3 text-slate-200"
         />
 
-        <datalist id="makes">
-          {COMMON_MAKES.map((m) => (
-            <option key={m} value={m} />
-          ))}
-        </datalist>
+        {make.length > 0 && (
+          <div className="text-[11px] text-slate-400">
+            Suggestions adapt as you type — all makes are supported.
+          </div>
+        )}
       </section>
 
       {/* MODEL */}
@@ -195,7 +183,7 @@ export default function InPersonVehicleDetails() {
         </label>
 
         <input
-          placeholder="e.g. Corolla Ascent Sport"
+          placeholder="Start typing (e.g. CX-5 Touring)"
           value={model}
           onChange={(e) => setModel(e.target.value)}
           className="w-full rounded-xl bg-slate-900 border border-white/20 px-4 py-3 text-slate-200"
@@ -205,40 +193,34 @@ export default function InPersonVehicleDetails() {
       {/* KILOMETRES */}
       <section className="space-y-3">
         <label className="text-sm font-semibold text-slate-200">
-          Kilometres (approx.)
+          Kilometres
         </label>
 
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min={0}
-            max={600000}
-            step={5000}
-            value={kilometres}
-            onChange={(e) =>
-              setKilometres(clampKm(Number(e.target.value)))
-            }
-            className="flex-1"
-          />
+        <input
+          inputMode="numeric"
+          placeholder="e.g. 84500"
+          value={kilometres || ""}
+          onChange={(e) =>
+            setKilometres(clampKm(Number(e.target.value.replace(/\D/g, ""))))
+          }
+          className="w-full rounded-xl bg-slate-900 border border-white/20 px-4 py-3 text-slate-200"
+        />
 
-          <input
-            type="number"
-            inputMode="numeric"
-            value={kilometres}
-            onChange={(e) =>
-              setKilometres(clampKm(Number(e.target.value)))
-            }
-            className="w-28 rounded-lg bg-slate-900 border border-white/20 px-3 py-2 text-slate-200 text-sm"
-          />
+        <div className="rounded-xl border border-white/10 bg-slate-900/80 divide-y divide-white/10">
+          {kmSuggestions.map((r) => (
+            <button
+              key={r.label}
+              onClick={() =>
+                setKilometres(Math.round((r.min + r.max) / 2))
+              }
+              className="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-slate-800"
+            >
+              {r.label}
+            </button>
+          ))}
         </div>
-
-        <p className="text-[11px] text-slate-400">
-          High kilometres don’t automatically mean problems — they simply help
-          frame wear and value.
-        </p>
       </section>
 
-      {/* CTA */}
       <button
         onClick={continueToPhotos}
         disabled={!isComplete}
