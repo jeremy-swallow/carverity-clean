@@ -1,162 +1,39 @@
-// src/pages/InPersonVehicleDetails.tsx
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { saveProgress, loadProgress } from "../utils/scanProgress";
 import { generateScanId } from "../utils/scanStorage";
 
 /* =========================================================
-   Smart suggestion data (large, offline, no API required)
-   - Make list is intentionally broad (global + AU common)
-   - Model list is “good enough” + learns from what users type
+   AU-first smart suggestion data
 ========================================================= */
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_YEAR = 1950;
 
 const MAKE_SUGGESTIONS: string[] = [
-  "Abarth",
-  "Acura",
-  "Aion",
-  "Alfa Romeo",
-  "Alpina",
-  "Aston Martin",
-  "Audi",
-  "Austin",
-  "BAIC",
-  "Bentley",
-  "Bestune",
-  "BMW",
-  "Borgward",
-  "Brilliance",
-  "Bugatti",
-  "Buick",
-  "BYD",
-  "Cadillac",
-  "Changan",
-  "Chery",
-  "Chevrolet",
-  "Chrysler",
-  "Citroën",
-  "Cupra",
-  "Dacia",
-  "Daewoo",
-  "Daihatsu",
-  "Datsun",
-  "Denza",
-  "Dodge",
-  "Dongfeng",
-  "DS Automobiles",
-  "Ferrari",
-  "Fiat",
-  "Ford",
-  "Foton",
-  "GAC",
-  "Geely",
-  "Genesis",
-  "GMC",
-  "Great Wall",
-  "Haval",
-  "Holden",
-  "Honda",
-  "Hummer",
-  "Hyundai",
-  "Infiniti",
-  "Isuzu",
-  "Iveco",
-  "Jaguar",
-  "Jeep",
-  "JMC",
-  "Kia",
-  "Koenigsegg",
-  "Lada",
-  "Lamborghini",
-  "Lancia",
-  "Land Rover",
-  "Leapmotor",
-  "LDV",
-  "Lexus",
-  "Lincoln",
-  "Lotus",
-  "Lucid",
-  "Mahindra",
-  "Maserati",
-  "Maybach",
-  "Mazda",
-  "McLaren",
-  "Mercedes-Benz",
-  "Mercury",
-  "MG",
-  "Mini",
-  "Mitsubishi",
-  "Morgan",
-  "Neta",
-  "NIO",
-  "Nissan",
-  "Opel",
-  "Peugeot",
-  "Polestar",
-  "Pontiac",
-  "Porsche",
-  "Proton",
-  "RAM",
-  "Renault",
-  "Rivian",
-  "Rolls-Royce",
-  "Rover",
-  "Saab",
-  "Saturn",
-  "Scion",
-  "SEAT",
-  "Škoda",
-  "Smart",
-  "SsangYong",
-  "Subaru",
-  "Suzuki",
-  "Tesla",
-  "Toyota",
-  "Vauxhall",
-  "Volkswagen",
-  "Volvo",
-  "Wey",
-  "XPeng",
-  "Zeekr",
-  "Zotye",
+  "Abarth","Acura","Alfa Romeo","Aston Martin","Audi","Bentley","BMW","BYD",
+  "Cadillac","Chery","Chevrolet","Chrysler","Citroën","Cupra","Daewoo",
+  "Daihatsu","Dodge","Ferrari","Fiat","Ford","Genesis","Great Wall","Haval",
+  "Holden","Honda","Hyundai","Infiniti","Isuzu","Jaguar","Jeep","Kia","Lamborghini",
+  "Land Rover","LDV","Lexus","Lotus","Maserati","Mazda","McLaren",
+  "Mercedes-Benz","MG","Mini","Mitsubishi","Nissan","Peugeot","Polestar",
+  "Porsche","RAM","Renault","Rolls-Royce","Skoda","SsangYong","Subaru","Suzuki",
+  "Tesla","Toyota","Volkswagen","Volvo"
 ];
 
-// A “starter” model map for perceived intelligence.
-// Not exhaustive by design; we also learn from user inputs per make.
 const MODEL_SUGGESTIONS_BY_MAKE: Record<string, string[]> = {
-  Toyota: [
-    "Corolla",
-    "Camry",
-    "RAV4",
-    "Kluger",
-    "Hilux",
-    "LandCruiser",
-    "LandCruiser Prado",
-    "Yaris",
-    "C-HR",
-    "86",
-    "Supra",
-    "HiAce",
-  ],
-  Mazda: ["Mazda2", "Mazda3", "Mazda6", "CX-3", "CX-30", "CX-5", "CX-8", "CX-9", "BT-50", "MX-5"],
-  Hyundai: ["i20", "i30", "Elantra", "Sonata", "Kona", "Tucson", "Santa Fe", "Palisade", "Staria", "Ioniq", "Ioniq 5", "Ioniq 6"],
-  Kia: ["Rio", "Cerato", "Stinger", "Seltos", "Sportage", "Sorento", "Carnival", "Picanto", "EV6", "EV9"],
-  Ford: ["Fiesta", "Focus", "Mondeo", "Mustang", "Everest", "Ranger", "Puma", "Escape", "Territory"],
-  Nissan: ["Micra", "Pulsar", "X-Trail", "Qashqai", "Navara", "Patrol", "Leaf", "Juke"],
-  Subaru: ["Impreza", "WRX", "Levorg", "Forester", "Outback", "Crosstrek", "BRZ", "Liberty"],
-  Mitsubishi: ["Mirage", "Lancer", "ASX", "Outlander", "Eclipse Cross", "Pajero Sport", "Triton"],
-  Volkswagen: ["Golf", "Passat", "Tiguan", "Touareg", "Polo", "T-Roc", "Amarok", "Arteon"],
-  BMW: ["1 Series", "2 Series", "3 Series", "4 Series", "5 Series", "X1", "X3", "X5", "X7", "M3", "M4"],
-  "Mercedes-Benz": ["A-Class", "C-Class", "E-Class", "S-Class", "GLA", "GLC", "GLE", "G-Class"],
-  Audi: ["A1", "A3", "A4", "A6", "Q2", "Q3", "Q5", "Q7", "S3", "RS3"],
-  Honda: ["Jazz", "Civic", "Accord", "HR-V", "CR-V", "Odyssey", "NSX"],
-  Tesla: ["Model 3", "Model Y", "Model S", "Model X"],
-  Isuzu: ["D-MAX", "MU-X"],
-  LDV: ["T60", "G10", "Deliver 9"],
-  "Land Rover": ["Discovery", "Discovery Sport", "Range Rover", "Range Rover Sport", "Range Rover Evoque", "Defender"],
+  Toyota: ["Corolla","Camry","RAV4","Kluger","Hilux","LandCruiser","Prado","Yaris","C-HR","HiAce"],
+  Mazda: ["Mazda2","Mazda3","Mazda6","CX-3","CX-30","CX-5","CX-8","CX-9","BT-50","MX-5"],
+  Hyundai: ["i30","i20","Elantra","Sonata","Kona","Tucson","Santa Fe","Palisade","Ioniq 5","Ioniq 6"],
+  Kia: ["Cerato","Rio","Seltos","Sportage","Sorento","Carnival","Stinger","EV6"],
+  Ford: ["Ranger","Everest","Focus","Fiesta","Mustang","Territory"],
+  Nissan: ["X-Trail","Qashqai","Navara","Patrol","Pulsar","Leaf"],
+  Subaru: ["Impreza","WRX","Forester","Outback","Crosstrek","BRZ"],
+  Mitsubishi: ["ASX","Outlander","Eclipse Cross","Pajero Sport","Triton"],
+  Volkswagen: ["Golf","Polo","Passat","Tiguan","Touareg","Amarok"],
+  BMW: ["1 Series","3 Series","5 Series","X1","X3","X5"],
+  "Mercedes-Benz": ["A-Class","C-Class","E-Class","GLA","GLC","GLE"],
+  Tesla: ["Model 3","Model Y","Model S","Model X"],
 };
 
 const RECENT_MODELS_KEY = "carverity_recent_models_by_make_v1";
@@ -165,94 +42,34 @@ const RECENT_MODELS_KEY = "carverity_recent_models_by_make_v1";
    Helpers
 ========================================================= */
 
-function clampYear(value: number) {
-  if (value < MIN_YEAR) return MIN_YEAR;
-  if (value > CURRENT_YEAR + 1) return CURRENT_YEAR + 1;
-  return value;
-}
+const clampYear = (y: number) =>
+  Math.min(Math.max(y, MIN_YEAR), CURRENT_YEAR + 1);
 
-function clampKm(value: number) {
-  if (value < 0) return 0;
-  if (value > 999999) return 999999;
-  return value;
-}
+const clampKm = (n: number) =>
+  Math.min(Math.max(n, 0), 999999);
 
-function normaliseSpaces(s: string) {
-  return s.replace(/\s+/g, " ").trim();
-}
+const normalise = (s: string) => s.replace(/\s+/g, " ").trim();
 
-function ciStartsWith(haystack: string, needle: string) {
-  return haystack.toLowerCase().startsWith(needle.toLowerCase());
-}
+const ciStartsWith = (a: string, b: string) =>
+  a.toLowerCase().startsWith(b.toLowerCase());
 
-function ciIncludes(haystack: string, needle: string) {
-  return haystack.toLowerCase().includes(needle.toLowerCase());
-}
+const ciIncludes = (a: string, b: string) =>
+  a.toLowerCase().includes(b.toLowerCase());
 
-function safeParseJson<T>(raw: string | null): T | null {
-  if (!raw) return null;
+function loadRecentModels(): Record<string, string[]> {
   try {
-    return JSON.parse(raw) as T;
+    return JSON.parse(localStorage.getItem(RECENT_MODELS_KEY) || "{}");
   } catch {
-    return null;
+    return {};
   }
-}
-
-type RecentModelsMap = Record<string, string[]>;
-
-function loadRecentModels(): RecentModelsMap {
-  if (typeof window === "undefined") return {};
-  const parsed = safeParseJson<RecentModelsMap>(
-    window.localStorage.getItem(RECENT_MODELS_KEY)
-  );
-  return parsed && typeof parsed === "object" ? parsed : {};
 }
 
 function saveRecentModel(make: string, model: string) {
-  if (typeof window === "undefined") return;
-  const m = normaliseSpaces(make);
-  const mo = normaliseSpaces(model);
-  if (m.length < 2 || mo.length < 1) return;
-
-  const current = loadRecentModels();
-  const list = current[m] ?? [];
-  const next = [mo, ...list.filter((x) => x.toLowerCase() !== mo.toLowerCase())].slice(0, 25);
-
-  const updated: RecentModelsMap = { ...current, [m]: next };
-  try {
-    window.localStorage.setItem(RECENT_MODELS_KEY, JSON.stringify(updated));
-  } catch {
-    // ignore storage issues
-  }
-}
-
-function buildYearOptions() {
-  const years: string[] = [];
-  for (let y = CURRENT_YEAR + 1; y >= MIN_YEAR; y--) years.push(String(y));
-  return years;
-}
-
-const YEAR_OPTIONS = buildYearOptions();
-
-type KmRange = { label: string; min: number; max: number };
-
-const KM_RANGES: KmRange[] = [
-  { label: "Under 10,000 km", min: 0, max: 10000 },
-  { label: "10,000 – 25,000 km", min: 10000, max: 25000 },
-  { label: "25,000 – 50,000 km", min: 25000, max: 50000 },
-  { label: "50,000 – 75,000 km", min: 50000, max: 75000 },
-  { label: "75,000 – 100,000 km", min: 75000, max: 100000 },
-  { label: "100,000 – 150,000 km", min: 100000, max: 150000 },
-  { label: "150,000 – 200,000 km", min: 150000, max: 200000 },
-  { label: "200,000 – 300,000 km", min: 200000, max: 300000 },
-  { label: "300,000 – 500,000 km", min: 300000, max: 500000 },
-  { label: "Over 500,000 km", min: 500000, max: 999999 },
-];
-
-function medianOfRange(r: KmRange) {
-  // Use a realistic “center” point so the number looks intentional.
-  if (r.max >= 999999) return 550000;
-  return Math.round((r.min + r.max) / 2);
+  if (!make || !model) return;
+  const map = loadRecentModels();
+  const list = map[make] ?? [];
+  map[make] = [model, ...list.filter(m => m !== model)].slice(0, 20);
+  localStorage.setItem(RECENT_MODELS_KEY, JSON.stringify(map));
 }
 
 /* =========================================================
@@ -263,389 +80,196 @@ export default function InPersonVehicleDetails() {
   const navigate = useNavigate();
   const existing = loadProgress();
 
-  const [scanId] = useState<string>(() => {
+  const [scanId] = useState(() => {
     if (existing?.scanId) return existing.scanId;
     const id = generateScanId();
     saveProgress({ scanId: id, type: "in-person" });
     return id;
   });
 
-  /* =========================================================
-     Controlled state
-  ========================================================== */
-
-  const [yearText, setYearText] = useState<string>(
-    String((existing as any)?.vehicleYear ?? "")
-  );
-
-  const [makeText, setMakeText] = useState<string>(
-    String((existing as any)?.vehicleMake ?? "")
-  );
-
-  const [modelText, setModelText] = useState<string>(
-    String((existing as any)?.vehicleModel ?? "")
-  );
-
+  const [yearText, setYearText] = useState(String((existing as any)?.vehicleYear ?? ""));
+  const [makeText, setMakeText] = useState(String((existing as any)?.vehicleMake ?? ""));
+  const [modelText, setModelText] = useState(String((existing as any)?.vehicleModel ?? ""));
   const [kilometres, setKilometres] = useState<number>(
     clampKm(Number((existing as any)?.kilometres ?? 0))
   );
 
-  // Dropdown visibility & focus control
-  const [showYearList, setShowYearList] = useState(false);
-  const [showMakeList, setShowMakeList] = useState(false);
-  const [showModelList, setShowModelList] = useState(false);
+  const yearRef = useRef<HTMLDivElement>(null);
+  const makeRef = useRef<HTMLDivElement>(null);
+  const modelRef = useRef<HTMLDivElement>(null);
 
-  const yearCloseTimer = useRef<number | null>(null);
-  const makeCloseTimer = useRef<number | null>(null);
-  const modelCloseTimer = useRef<number | null>(null);
+  const [open, setOpen] = useState<"year"|"make"|"model"|null>(null);
 
-  function scheduleClose(kind: "year" | "make" | "model") {
-    const setTimer = (ref: React.MutableRefObject<number | null>, fn: () => void) => {
-      if (ref.current) window.clearTimeout(ref.current);
-      ref.current = window.setTimeout(fn, 120);
-    };
+  /* ---------------- click outside handling ---------------- */
 
-    if (kind === "year") setTimer(yearCloseTimer, () => setShowYearList(false));
-    if (kind === "make") setTimer(makeCloseTimer, () => setShowMakeList(false));
-    if (kind === "model") setTimer(modelCloseTimer, () => setShowModelList(false));
-  }
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      const t = e.target as Node;
+      if (
+        yearRef.current?.contains(t) ||
+        makeRef.current?.contains(t) ||
+        modelRef.current?.contains(t)
+      ) return;
+      setOpen(null);
+    }
+    window.addEventListener("mousedown", onClick);
+    return () => window.removeEventListener("mousedown", onClick);
+  }, []);
 
-  function cancelClose(kind: "year" | "make" | "model") {
-    const ref =
-      kind === "year" ? yearCloseTimer : kind === "make" ? makeCloseTimer : modelCloseTimer;
-    if (ref.current) window.clearTimeout(ref.current);
-    ref.current = null;
-  }
-
-  /* =========================================================
-     Derived values
-  ========================================================== */
+  /* ---------------- derived ---------------- */
 
   const parsedYear = useMemo(() => {
-    const clean = yearText.replace(/\D/g, "");
-    if (clean.length !== 4) return null;
-    const n = parseInt(clean, 10);
-    if (Number.isNaN(n)) return null;
-    return clampYear(n);
+    if (yearText.length !== 4) return null;
+    const n = Number(yearText);
+    return Number.isNaN(n) ? null : clampYear(n);
   }, [yearText]);
 
-  const filteredYears = useMemo(() => {
-    const q = yearText.replace(/\D/g, "").slice(0, 4);
-    if (!q) return YEAR_OPTIONS.slice(0, 12);
-    return YEAR_OPTIONS.filter((y) => y.startsWith(q)).slice(0, 12);
-  }, [yearText]);
+  const yearOptions = useMemo(
+    () => Array.from({ length: CURRENT_YEAR + 2 - MIN_YEAR },
+      (_, i) => String(CURRENT_YEAR + 1 - i)
+    ),
+    []
+  );
 
   const filteredMakes = useMemo(() => {
-    const q = normaliseSpaces(makeText);
-    if (!q) return MAKE_SUGGESTIONS.slice(0, 18);
-
-    // Prefer prefix matches, then contains matches.
-    const prefix = MAKE_SUGGESTIONS.filter((m) => ciStartsWith(m, q));
-    const contains = MAKE_SUGGESTIONS.filter((m) => !ciStartsWith(m, q) && ciIncludes(m, q));
-    return [...prefix, ...contains].slice(0, 18);
+    if (!makeText) return MAKE_SUGGESTIONS;
+    const q = normalise(makeText);
+    return [
+      ...MAKE_SUGGESTIONS.filter(m => ciStartsWith(m, q)),
+      ...MAKE_SUGGESTIONS.filter(m => !ciStartsWith(m, q) && ciIncludes(m, q)),
+    ];
   }, [makeText]);
 
   const modelSuggestions = useMemo(() => {
-    const make = normaliseSpaces(makeText);
-    const typed = normaliseSpaces(modelText);
-
-    const recentMap = loadRecentModels();
-    const recent = recentMap[make] ?? [];
-
+    const make = normalise(makeText);
+    const typed = normalise(modelText);
+    const recent = loadRecentModels()[make] ?? [];
     const base = MODEL_SUGGESTIONS_BY_MAKE[make] ?? [];
-    const combined = Array.from(
-      new Set([...recent, ...base]) // keep order: recent first
-    );
-
-    if (!typed) return combined.slice(0, 18);
-
-    const prefix = combined.filter((m) => ciStartsWith(m, typed));
-    const contains = combined.filter((m) => !ciStartsWith(m, typed) && ciIncludes(m, typed));
-    return [...prefix, ...contains].slice(0, 18);
+    const all = Array.from(new Set([...recent, ...base]));
+    if (!typed) return all;
+    return [
+      ...all.filter(m => ciStartsWith(m, typed)),
+      ...all.filter(m => !ciStartsWith(m, typed) && ciIncludes(m, typed)),
+    ];
   }, [makeText, modelText]);
-
-  const kmSuggestions = useMemo(() => {
-    // Show all if empty; otherwise show ranges near value.
-    if (!kilometres) return KM_RANGES;
-    return KM_RANGES.filter(
-      (r) => kilometres >= r.min - 30000 && kilometres <= r.max + 30000
-    );
-  }, [kilometres]);
 
   const isComplete =
     Boolean(parsedYear) &&
-    normaliseSpaces(makeText).length > 1 &&
-    normaliseSpaces(modelText).length > 0;
+    normalise(makeText).length > 1 &&
+    normalise(modelText).length > 0;
 
-  /* =========================================================
-     Persist progress (defensive)
-  ========================================================== */
+  /* ---------------- persist ---------------- */
 
   useEffect(() => {
     saveProgress({
-      type: "in-person",
       scanId,
+      type: "in-person",
       step: "/scan/in-person/vehicle-details",
       vehicleYear: parsedYear ?? undefined,
-      vehicleMake: normaliseSpaces(makeText),
-      vehicleModel: normaliseSpaces(modelText),
-      kilometres: clampKm(kilometres),
+      vehicleMake: normalise(makeText),
+      vehicleModel: normalise(modelText),
+      kilometres,
     });
   }, [scanId, parsedYear, makeText, modelText, kilometres]);
 
-  /* =========================================================
-     Continue
-  ========================================================== */
+  /* ---------------- continue ---------------- */
 
-  function continueToPhotos() {
+  function continueNext() {
     if (!isComplete) return;
-
-    const cleanMake = normaliseSpaces(makeText);
-    const cleanModel = normaliseSpaces(modelText);
-
-    // Learn from what the user typed so future lists feel “smart”.
-    saveRecentModel(cleanMake, cleanModel);
-
-    // Ensure the next step is explicit in progress.
-    saveProgress({ step: "/scan/in-person/photos" });
-
+    saveRecentModel(normalise(makeText), normalise(modelText));
     navigate("/scan/in-person/photos");
   }
 
   /* =========================================================
-     UI parts
-  ========================================================== */
-
-  function FieldShell({
-    label,
-    hint,
-    children,
-  }: {
-    label: string;
-    hint?: string;
-    children: React.ReactNode;
-  }) {
-    return (
-      <section className="space-y-2">
-        <div className="flex items-end justify-between gap-3">
-          <label className="text-sm font-semibold text-slate-200">{label}</label>
-          {hint ? <span className="text-[11px] text-slate-500">{hint}</span> : null}
-        </div>
-        {children}
-      </section>
-    );
-  }
-
-  function Dropdown({
-    items,
-    onPick,
-    onPointerDown,
-    emptyText,
-  }: {
-    items: string[];
-    onPick: (value: string) => void;
-    onPointerDown: () => void;
-    emptyText?: string;
-  }) {
-    return (
-      <div
-        className="mt-2 rounded-2xl border border-white/10 bg-slate-950/80 backdrop-blur divide-y divide-white/10 overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
-        onPointerDown={onPointerDown}
-      >
-        {items.length > 0 ? (
-          items.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => onPick(item)}
-              className="w-full text-left px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-900/60 active:bg-slate-900/80"
-            >
-              {item}
-            </button>
-          ))
-        ) : (
-          <div className="px-4 py-3 text-sm text-slate-400">
-            {emptyText ?? "No matches — keep typing."}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  /* =========================================================
-     Render
+     UI
   ========================================================== */
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">
-      <span className="text-[11px] tracking-wide uppercase text-slate-400">
-        In-person scan — Vehicle details
-      </span>
-
-      <div className="space-y-1">
-        <h1 className="text-xl md:text-2xl font-semibold text-white">
-          Vehicle details
-        </h1>
-        <p className="text-sm text-slate-300">
-          These details help you compare multiple cars later in <span className="text-slate-200 font-semibold">My Scans</span>.
-        </p>
-      </div>
+      <h1 className="text-xl md:text-2xl font-semibold text-white">
+        Vehicle details
+      </h1>
 
       {/* YEAR */}
-      <FieldShell label="Year" hint="Type or pick from list">
-        <div className="relative">
-          <input
-            inputMode="numeric"
-            autoComplete="off"
-            placeholder="Start typing (e.g. 2018)"
-            value={yearText}
-            onChange={(e) => setYearText(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            onFocus={() => {
-              cancelClose("year");
-              setShowYearList(true);
-            }}
-            onBlur={() => scheduleClose("year")}
-            className="w-full rounded-2xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400/40"
-          />
-
-          {showYearList && (
-            <Dropdown
-              items={filteredYears}
-              onPointerDown={() => cancelClose("year")}
-              onPick={(y) => {
-                setYearText(y);
-                setShowYearList(false);
-              }}
-              emptyText="No matching years — try a different number."
-            />
-          )}
-        </div>
-
-        <p className="text-[11px] text-slate-500">
-          If you’re unsure, approximate is fine — this is for context.
-        </p>
-      </FieldShell>
-
-      {/* MAKE */}
-      <FieldShell label="Make" hint="Smart autocomplete">
-        <div className="relative">
-          <input
-            autoComplete="off"
-            placeholder="Start typing (e.g. Mazda)"
-            value={makeText}
-            onChange={(e) => {
-              setMakeText(e.target.value);
-              // When make changes, keep model but suggestions will shift.
-              // Do not clear model automatically (prevents frustration).
-            }}
-            onFocus={() => {
-              cancelClose("make");
-              setShowMakeList(true);
-            }}
-            onBlur={() => scheduleClose("make")}
-            className="w-full rounded-2xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400/40"
-          />
-
-          {showMakeList && (
-            <Dropdown
-              items={filteredMakes}
-              onPointerDown={() => cancelClose("make")}
-              onPick={(m) => {
-                setMakeText(m);
-                setShowMakeList(false);
-              }}
-              emptyText="No matches — keep typing (you can still enter any make)."
-            />
-          )}
-        </div>
-
-        <p className="text-[11px] text-slate-500">
-          Start typing — the list narrows instantly. If it’s not listed, you can still enter it.
-        </p>
-      </FieldShell>
-
-      {/* MODEL */}
-      <FieldShell label="Model" hint="Smart autocomplete">
-        <div className="relative">
-          <input
-            autoComplete="off"
-            placeholder="Start typing (e.g. CX-5 Touring)"
-            value={modelText}
-            onChange={(e) => setModelText(e.target.value)}
-            onFocus={() => {
-              cancelClose("model");
-              setShowModelList(true);
-            }}
-            onBlur={() => scheduleClose("model")}
-            className="w-full rounded-2xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400/40"
-          />
-
-          {showModelList && (
-            <Dropdown
-              items={modelSuggestions}
-              onPointerDown={() => cancelClose("model")}
-              onPick={(m) => {
-                setModelText(m);
-                setShowModelList(false);
-              }}
-              emptyText="No matches yet — keep typing (you can enter any model)."
-            />
-          )}
-        </div>
-
-        <p className="text-[11px] text-slate-500">
-          Suggestions are based on common models and what you’ve entered previously on this device.
-        </p>
-      </FieldShell>
-
-      {/* KILOMETRES */}
-      <FieldShell label="Kilometres" hint="Exact or tap a range">
-        <div className="space-y-3">
-          <input
-            inputMode="numeric"
-            autoComplete="off"
-            placeholder="Enter exact km (e.g. 84500)"
-            value={kilometres ? String(kilometres) : ""}
-            onChange={(e) => {
-              const clean = e.target.value.replace(/\D/g, "");
-              setKilometres(clampKm(clean ? Number(clean) : 0));
-            }}
-            className="w-full rounded-2xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400/40"
-          />
-
-          <div className="rounded-2xl border border-white/10 bg-slate-950/60 overflow-hidden divide-y divide-white/10">
-            {kmSuggestions.map((r) => (
-              <button
-                key={r.label}
-                type="button"
-                onClick={() => setKilometres(clampKm(medianOfRange(r)))}
-                className="w-full text-left px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-900/60 active:bg-slate-900/80"
-              >
-                {r.label}
+      <div ref={yearRef} className="relative">
+        <label className="text-sm font-semibold text-slate-200">Year</label>
+        <input
+          value={yearText}
+          onChange={(e) => setYearText(e.target.value.replace(/\D/g, "").slice(0,4))}
+          onFocus={() => setOpen("year")}
+          className="w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100"
+        />
+        {open === "year" && (
+          <div className="absolute z-20 mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-slate-950">
+            {yearOptions.slice(0,20).map(y => (
+              <button key={y} onClick={() => { setYearText(y); setOpen(null); }}
+                className="block w-full px-4 py-2 text-left text-slate-200 hover:bg-slate-900">
+                {y}
               </button>
             ))}
           </div>
+        )}
+      </div>
 
-          <p className="text-[11px] text-slate-500">
-            Kilometres help frame wear and value — high km doesn’t automatically mean problems.
-          </p>
-        </div>
-      </FieldShell>
+      {/* MAKE */}
+      <div ref={makeRef} className="relative">
+        <label className="text-sm font-semibold text-slate-200">Make</label>
+        <input
+          value={makeText}
+          onChange={(e) => setMakeText(e.target.value)}
+          onFocus={() => setOpen("make")}
+          className="w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100"
+        />
+        {open === "make" && (
+          <div className="absolute z-20 mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-slate-950">
+            {filteredMakes.map(m => (
+              <button key={m} onClick={() => { setMakeText(m); setOpen(null); }}
+                className="block w-full px-4 py-2 text-left text-slate-200 hover:bg-slate-900">
+                {m}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-      {/* CTA */}
+      {/* MODEL */}
+      <div ref={modelRef} className="relative">
+        <label className="text-sm font-semibold text-slate-200">Model</label>
+        <input
+          value={modelText}
+          onChange={(e) => setModelText(e.target.value)}
+          onFocus={() => setOpen("model")}
+          className="w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100"
+        />
+        {open === "model" && (
+          <div className="absolute z-20 mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-slate-950">
+            {modelSuggestions.map(m => (
+              <button key={m} onClick={() => { setModelText(m); setOpen(null); }}
+                className="block w-full px-4 py-2 text-left text-slate-200 hover:bg-slate-900">
+                {m}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* KM */}
+      <div>
+        <label className="text-sm font-semibold text-slate-200">Kilometres</label>
+        <input
+          value={kilometres || ""}
+          onChange={(e) => setKilometres(clampKm(Number(e.target.value.replace(/\D/g,""))))}
+          className="w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100"
+        />
+      </div>
+
       <button
-        onClick={continueToPhotos}
+        onClick={continueNext}
         disabled={!isComplete}
-        className="w-full rounded-2xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold px-4 py-3 shadow"
+        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-semibold px-4 py-3"
       >
         Continue to photo inspection
       </button>
-
-      {!isComplete && (
-        <p className="text-[11px] text-slate-500 text-center">
-          Enter Year, Make, and Model to continue.
-        </p>
-      )}
     </div>
   );
 }
