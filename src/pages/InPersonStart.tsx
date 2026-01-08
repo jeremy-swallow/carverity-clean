@@ -1,4 +1,11 @@
-// src/pages/InPersonStart.tsx
+/*
+  In-person start screen — updated so the user must choose:
+
+  • Start a new stand-alone in-person inspection
+  • OR link this inspection to a previous online scan
+
+  No previous journey is ever auto-resumed.
+*/
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -6,54 +13,46 @@ import {
   loadOnlineResults,
   type SavedResult,
 } from "../utils/onlineResults";
+import { loadScans } from "../utils/scanStorage";
 
 export default function InPersonStart() {
   const navigate = useNavigate();
+
   const [onlineResult, setOnlineResult] = useState<SavedResult | null>(null);
+  const [onlineScans, setOnlineScans] = useState<any[]>([]);
 
   useEffect(() => {
+    // Load last viewed online result (if present)
     const stored = loadOnlineResults();
     if (stored) setOnlineResult(stored);
+
+    // Load all saved online scans for optional linking
+    const scans = loadScans().filter((s: any) => s.type === "online");
+    setOnlineScans(scans);
   }, []);
 
   const imperfectionHints = useMemo(() => {
     if (!onlineResult?.fullSummary && !onlineResult?.summary) return [];
 
-    const text = onlineResult.fullSummary || onlineResult.summary || "";
+    const text = (onlineResult.fullSummary || onlineResult.summary || "").toLowerCase();
 
     const keywords = [
-      "dent",
-      "scrape",
-      "scratch",
-      "stone chip",
-      "chip",
-      "paint fade",
-      "oxidation",
-      "curb rash",
-      "kerb rash",
-      "wheel damage",
-      "wear",
-      "tear",
-      "crack",
-      "scuff",
-      "blemish",
-      "hail",
-      "rust",
-      "corrosion",
-      "panel gap",
-      "misaligned panel",
+      "dent","scrape","scratch","chip","stone chip","paint fade","oxidation",
+      "kerb rash","curb rash","wheel damage","wear","tear","crack","scuff",
+      "hail","rust","corrosion","panel gap","misaligned panel"
     ];
 
-    const lowered = text.toLowerCase();
-    const matches = keywords.filter((k) => lowered.includes(k));
-
-    return Array.from(new Set(matches)).map((m) =>
-      m.replace(/^\w/, (c) => c.toUpperCase())
-    );
+    return Array.from(
+      new Set(keywords.filter(k => text.includes(k))).values()
+    ).map(w => w.replace(/^\w/, c => c.toUpperCase()));
   }, [onlineResult]);
 
-  function startScan() {
-    navigate("/scan/in-person/photos");
+  function startStandalone() {
+    navigate("/scan/in-person/photos");   // fresh scan every time
+  }
+
+  function selectLinkedScan() {
+    navigate("/scan/in-person/link-source"); // user chooses which online scan to link
   }
 
   function viewOnlineResults() {
@@ -62,7 +61,6 @@ export default function InPersonStart() {
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
-      {/* Step context */}
       <span className="text-[11px] tracking-wide uppercase text-slate-400">
         In-person scan — Stage 2 of the CarVerity journey
       </span>
@@ -71,48 +69,23 @@ export default function InPersonStart() {
         Start your in-person inspection
       </h1>
 
-      {/* Dynamic guidance block */}
-      {onlineResult ? (
+      {/* If user came from an online scan, show helpful guidance */}
+      {onlineResult && (
         <section className="rounded-2xl border border-indigo-400/25 bg-indigo-600/10 px-5 py-4 space-y-3">
-          <div className="flex items-center gap-2 text-slate-100">
-            <span>🔗</span>
-            <h2 className="text-sm md:text-base font-semibold">
-              Linked to your online scan
-            </h2>
-          </div>
-
-          <p className="text-sm text-slate-300">
-            This in-person scan helps you verify details in real life based on
-            the listing you already scanned. We’ll guide you to capture photos
-            and observations so you can feel confident before deciding.
-          </p>
+          <h2 className="text-sm md:text-base font-semibold text-slate-100">
+            Linked insights from your online scan
+          </h2>
 
           {imperfectionHints.length > 0 ? (
-            <div className="rounded-xl border border-white/12 bg-slate-900/70 px-4 py-3">
-              <p className="text-sm text-slate-200 font-semibold mb-1">
-                Suggested priority photos to take first
-              </p>
-
-              <ul className="text-sm text-slate-300 list-disc list-inside space-y-1">
-                {imperfectionHints.map((m, i) => (
-                  <li key={i}>
-                    Capture clear photos of possible {m.toLowerCase()} areas so
-                    you can review them later or discuss with the seller.
-                  </li>
-                ))}
-              </ul>
-
-              <p className="text-[11px] text-slate-400 mt-2">
-                These aren’t faults — they’re simply things worth confirming in
-                person.
-              </p>
-            </div>
+            <ul className="text-sm text-slate-300 list-disc list-inside space-y-1">
+              {imperfectionHints.map((m, i) => (
+                <li key={i}>Consider photographing potential {m.toLowerCase()} areas.</li>
+              ))}
+            </ul>
           ) : (
-            <div className="rounded-xl border border-white/12 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">
-              No concerns were highlighted in the online scan — this stage
-              focuses on verifying condition, taking clear photos, and capturing
-              real-world impressions.
-            </div>
+            <p className="text-sm text-slate-300">
+              No issues were highlighted — this stage focuses on confirming real-world condition.
+            </p>
           )}
 
           <button
@@ -122,55 +95,30 @@ export default function InPersonStart() {
             View the online report again
           </button>
         </section>
-      ) : (
-        <section className="rounded-2xl border border-white/15 bg-slate-900/70 px-5 py-4 space-y-2">
-          <div className="flex items-center gap-2 text-slate-100">
-            <span>📸</span>
-            <h2 className="text-sm md:text-base font-semibold">
-              Stand-alone in-person inspection
-            </h2>
-          </div>
-
-          <p className="text-sm text-slate-300">
-            Even without an online listing scan, CarVerity will guide you to
-            capture photos, note imperfections, and understand what’s worth
-            confirming or budgeting for.
-          </p>
-
-          <div className="rounded-xl border border-white/12 bg-slate-950/60 px-4 py-3 text-sm text-slate-200">
-            You’ll be prompted to photograph:
-            <ul className="list-disc list-inside mt-1 space-y-1">
-              <li>Body panels and paint consistency</li>
-              <li>Interior wear and dashboard condition</li>
-              <li>Tyres and tread wear across all four wheels</li>
-              <li>Any dents, scratches or marks you notice</li>
-            </ul>
-          </div>
-        </section>
       )}
 
-      {/* Upcoming guidance hint */}
-      <section className="rounded-xl border border-white/10 bg-slate-900/60 px-4 py-3 text-xs md:text-sm text-slate-300">
-        After photos, we’ll guide you through practical checks — including tyre
-        condition, warning lights, interior controls, and (if fitted) key ADAS /
-        driver-assist features. A separate screen will also cover things to pay
-        attention to on a short test drive.
-      </section>
-
-      {/* CTA */}
-      <div className="pt-2">
+      {/* ACTIONS — user must choose */}
+      <section className="space-y-3">
         <button
-          onClick={startScan}
+          onClick={startStandalone}
           className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 shadow"
         >
-          Continue — begin guided photo inspection
+          Start a new stand-alone inspection
         </button>
 
-        <p className="mt-2 text-[11px] text-slate-400 text-center">
-          This isn’t a mechanical inspection — it’s guidance to support your
-          decision-making.
-        </p>
-      </div>
+        {onlineScans.length > 0 && (
+          <button
+            onClick={selectLinkedScan}
+            className="w-full rounded-xl border border-white/25 bg-slate-900/70 text-slate-100 font-semibold px-4 py-3"
+          >
+            Link this inspection to one of my online scans
+          </button>
+        )}
+      </section>
+
+      <p className="text-[11px] text-slate-400 text-center">
+        Your progress is saved locally on this device only.
+      </p>
     </div>
   );
 }
