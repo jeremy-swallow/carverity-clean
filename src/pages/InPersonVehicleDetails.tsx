@@ -6,27 +6,50 @@ import { saveProgress, loadProgress } from "../utils/scanProgress";
 import { generateScanId } from "../utils/scanStorage";
 
 /* =========================================================
-   Minimal local make → model map
-   (Expandable later or replace with API)
+   Optional suggestion data (non-blocking)
 ========================================================= */
-const MAKES: Record<string, string[]> = {
-  Toyota: ["Corolla", "Camry", "RAV4", "Hilux", "LandCruiser"],
-  Mazda: ["Mazda 2", "Mazda 3", "CX-5", "CX-30", "BT-50"],
-  Hyundai: ["i30", "Tucson", "Santa Fe", "Kona"],
-  Ford: ["Ranger", "Focus", "Everest", "Mustang"],
-  BMW: ["1 Series", "3 Series", "5 Series", "X3", "X5"],
-  Mercedes: ["A-Class", "C-Class", "E-Class", "GLC"],
-  Kia: ["Cerato", "Sportage", "Sorento"],
-  Nissan: ["X-Trail", "Navara", "Qashqai"],
-};
+
+const COMMON_MAKES = [
+  "Toyota",
+  "Mazda",
+  "Hyundai",
+  "Ford",
+  "Holden",
+  "Kia",
+  "Nissan",
+  "BMW",
+  "Mercedes-Benz",
+  "Volkswagen",
+  "Subaru",
+  "Mitsubishi",
+  "Audi",
+  "Honda",
+  "Isuzu",
+  "Land Rover",
+  "Lexus",
+];
+
+const CURRENT_YEAR = new Date().getFullYear();
 
 /* =========================================================
    Helpers
 ========================================================= */
-function buildYears(range = 20): number[] {
-  const now = new Date().getFullYear();
-  return Array.from({ length: range }, (_, i) => now - i);
+
+function clampYear(value: number) {
+  if (value < 1950) return 1950;
+  if (value > CURRENT_YEAR + 1) return CURRENT_YEAR + 1;
+  return value;
 }
+
+function clampKm(value: number) {
+  if (value < 0) return 0;
+  if (value > 999999) return 999999;
+  return value;
+}
+
+/* =========================================================
+   Component
+========================================================= */
 
 export default function InPersonVehicleDetails() {
   const navigate = useNavigate();
@@ -43,10 +66,8 @@ export default function InPersonVehicleDetails() {
      State
   ========================================================== */
 
-  const years = useMemo(() => buildYears(25), []);
-
-  const [year, setYear] = useState<number | null>(
-    (existing as any)?.vehicleYear ?? null
+  const [year, setYear] = useState<string>(
+    String((existing as any)?.vehicleYear ?? "")
   );
   const [make, setMake] = useState<string>(
     (existing as any)?.vehicleMake ?? ""
@@ -56,17 +77,22 @@ export default function InPersonVehicleDetails() {
   );
 
   const [kilometres, setKilometres] = useState<number>(
-    (existing as any)?.kilometres ?? 60000
+    clampKm((existing as any)?.kilometres ?? 85000)
   );
 
-  const modelsForMake = useMemo(() => {
-    return make ? MAKES[make] ?? [] : [];
-  }, [make]);
+  const parsedYear = useMemo(() => {
+    const n = parseInt(year, 10);
+    if (Number.isNaN(n)) return null;
+    return clampYear(n);
+  }, [year]);
 
-  const isComplete = Boolean(year && make && model);
+  const isComplete =
+    Boolean(parsedYear) &&
+    make.trim().length > 1 &&
+    model.trim().length > 0;
 
   /* =========================================================
-     Persist progress defensively
+     Persist progress
   ========================================================== */
 
   useEffect(() => {
@@ -74,12 +100,12 @@ export default function InPersonVehicleDetails() {
       type: "in-person",
       scanId,
       step: "/scan/in-person/vehicle-details",
-      vehicleYear: year,
-      vehicleMake: make,
-      vehicleModel: model,
+      vehicleYear: parsedYear,
+      vehicleMake: make.trim(),
+      vehicleModel: model.trim(),
       kilometres,
     });
-  }, [scanId, year, make, model, kilometres]);
+  }, [scanId, parsedYear, make, model, kilometres]);
 
   /* =========================================================
      Continue
@@ -90,10 +116,6 @@ export default function InPersonVehicleDetails() {
 
     saveProgress({
       step: "/scan/in-person/photos",
-      vehicleYear: year,
-      vehicleMake: make,
-      vehicleModel: model,
-      kilometres,
     });
 
     navigate("/scan/in-person/photos");
@@ -110,95 +132,109 @@ export default function InPersonVehicleDetails() {
       </span>
 
       <h1 className="text-xl md:text-2xl font-semibold text-white">
-        Tell me about the vehicle
+        Vehicle details
       </h1>
 
       {/* YEAR */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-200">Year</h2>
+        <label className="text-sm font-semibold text-slate-200">
+          Year of manufacture
+        </label>
 
-        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-          {years.map((y) => (
+        <input
+          type="number"
+          inputMode="numeric"
+          placeholder="e.g. 2017"
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
+          className="w-full rounded-xl bg-slate-900 border border-white/20 px-4 py-3 text-slate-200"
+        />
+
+        <div className="flex gap-2 flex-wrap">
+          {[2023, 2020, 2015, 2010, 2005].map((y) => (
             <button
               key={y}
-              onClick={() => setYear(y)}
-              className={`rounded-lg px-3 py-2 text-sm font-medium border transition ${
-                year === y
-                  ? "bg-emerald-500 text-black border-emerald-400"
-                  : "bg-slate-900/70 text-slate-300 border-white/15 hover:border-white/30"
-              }`}
+              onClick={() => setYear(String(y))}
+              className="px-3 py-1.5 rounded-lg bg-slate-800 border border-white/15 text-xs text-slate-300 hover:border-white/30"
             >
               {y}
             </button>
           ))}
         </div>
+
+        <p className="text-[11px] text-slate-400">
+          Approximate year is fine — this is for context, not verification.
+        </p>
       </section>
 
       {/* MAKE */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-200">Make</h2>
+        <label className="text-sm font-semibold text-slate-200">
+          Make
+        </label>
 
-        <select
+        <input
+          list="makes"
+          placeholder="e.g. Toyota"
           value={make}
-          onChange={(e) => {
-            setMake(e.target.value);
-            setModel("");
-          }}
+          onChange={(e) => setMake(e.target.value)}
           className="w-full rounded-xl bg-slate-900 border border-white/20 px-4 py-3 text-slate-200"
-        >
-          <option value="">Select make…</option>
-          {Object.keys(MAKES).map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
+        />
+
+        <datalist id="makes">
+          {COMMON_MAKES.map((m) => (
+            <option key={m} value={m} />
           ))}
-        </select>
+        </datalist>
       </section>
 
       {/* MODEL */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-200">Model</h2>
+        <label className="text-sm font-semibold text-slate-200">
+          Model
+        </label>
 
-        <select
+        <input
+          placeholder="e.g. Corolla Ascent Sport"
           value={model}
           onChange={(e) => setModel(e.target.value)}
-          disabled={!make}
-          className="w-full rounded-xl bg-slate-900 border border-white/20 px-4 py-3 text-slate-200 disabled:opacity-50"
-        >
-          <option value="">
-            {make ? "Select model…" : "Choose make first"}
-          </option>
-          {modelsForMake.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
+          className="w-full rounded-xl bg-slate-900 border border-white/20 px-4 py-3 text-slate-200"
+        />
       </section>
 
       {/* KILOMETRES */}
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-200">
-            Kilometres (approx.)
-          </h2>
-          <span className="text-sm text-slate-300">
-            {kilometres.toLocaleString()} km
-          </span>
+        <label className="text-sm font-semibold text-slate-200">
+          Kilometres (approx.)
+        </label>
+
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min={0}
+            max={600000}
+            step={5000}
+            value={kilometres}
+            onChange={(e) =>
+              setKilometres(clampKm(Number(e.target.value)))
+            }
+            className="flex-1"
+          />
+
+          <input
+            type="number"
+            inputMode="numeric"
+            value={kilometres}
+            onChange={(e) =>
+              setKilometres(clampKm(Number(e.target.value)))
+            }
+            className="w-28 rounded-lg bg-slate-900 border border-white/20 px-3 py-2 text-slate-200 text-sm"
+          />
         </div>
 
-        <input
-          type="range"
-          min={0}
-          max={300000}
-          step={5000}
-          value={kilometres}
-          onChange={(e) => setKilometres(Number(e.target.value))}
-          className="w-full"
-        />
-
         <p className="text-[11px] text-slate-400">
-          This doesn’t need to be exact — it helps contextualise wear and value.
+          High kilometres don’t automatically mean problems — they simply help
+          frame wear and value.
         </p>
       </section>
 
