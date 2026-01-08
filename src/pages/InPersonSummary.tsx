@@ -18,8 +18,12 @@ export default function InPersonSummary() {
   const checks = progress?.checks ?? {};
   const photos = progress?.photos ?? [];
   const fromOnlineScan = Boolean(progress?.fromOnlineScan);
+
   const askingPrice =
-    typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
+    typeof progress?.askingPrice === "number" &&
+    Number.isFinite(progress.askingPrice)
+      ? progress.askingPrice
+      : null;
 
   const vehicle = {
     year: progress?.vehicleYear ?? "",
@@ -42,15 +46,17 @@ export default function InPersonSummary() {
     }
 
     const total = imperfections.length;
+
     let verdict: PricingVerdict = "info";
-    if (total > 0) verdict = "room";
-    if (imperfections.some((i: any) =>
-      `${i.type} ${i.note}`.toLowerCase().match(
-        /rust|crack|leak|warning|accident|misaligned|corrosion/
-      )
-    )) {
-      verdict = "concern";
-    }
+
+    const hasHighSignal = imperfections.some((i: any) =>
+      `${i?.type ?? ""} ${i?.note ?? ""}`
+        .toLowerCase()
+        .match(/rust|crack|leak|warning|accident|misaligned|corrosion/)
+    );
+
+    if (hasHighSignal) verdict = "concern";
+    else if (total > 0) verdict = "room";
 
     const confidenceMap: Record<PricingVerdict, string> = {
       missing: "Price confidence unavailable",
@@ -153,17 +159,34 @@ export default function InPersonSummary() {
       </section>
 
       {/* PRICING CONFIDENCE */}
-      <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4">
+      <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-2">
         <h2 className="text-sm font-semibold text-emerald-200">
           Pricing confidence
         </h2>
-        <p className="text-sm font-semibold text-slate-100 mt-1">
-          {pricingInsight.confidence}
-        </p>
-        <p className="text-sm text-slate-300 mt-1">
+
+        <div className="flex items-center gap-2">
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-semibold
+              ${
+                pricingInsight.confidence.includes("reasonable")
+                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/40"
+                  : pricingInsight.confidence.includes("negotiation")
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-400/40"
+                  : pricingInsight.confidence.includes("Low")
+                  ? "bg-red-500/20 text-red-300 border border-red-400/40"
+                  : "bg-slate-500/20 text-slate-300 border border-slate-400/30"
+              }
+            `}
+          >
+            {pricingInsight.confidence}
+          </span>
+        </div>
+
+        <p className="text-sm text-slate-300">
           {pricingInsight.advice}
         </p>
-        <p className="text-[11px] text-slate-400 mt-2">
+
+        <p className="text-[11px] text-slate-400">
           Condition-aware guidance only — not a market valuation.
         </p>
       </section>
