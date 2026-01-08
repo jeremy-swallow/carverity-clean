@@ -27,6 +27,7 @@ export default function InPersonPhotos() {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  // 🔐 persistent scan id for this journey
   const [scanId] = useState<string>(() => {
     if (existingProgress?.scanId) return existingProgress.scanId;
     const id = generateScanId();
@@ -41,6 +42,7 @@ export default function InPersonPhotos() {
   });
 
   const [onlineResult, setOnlineResult] = useState<SavedResult | null>(null);
+
   const [imperfections, setImperfections] = useState<Imperfection[]>(
     existingProgress?.imperfections ?? []
   );
@@ -69,7 +71,7 @@ export default function InPersonPhotos() {
   }, [scanId, photos, imperfections]);
 
   /* =========================================================
-     Priority areas detected from online scan
+     Priority hints derived from online scan
   ========================================================== */
 
   const priorityAreas = useMemo(() => {
@@ -102,7 +104,7 @@ export default function InPersonPhotos() {
   }, [onlineResult]);
 
   /* =========================================================
-     Guided photo shot list
+     Guided photo step list
   ========================================================== */
 
   const steps = [
@@ -164,19 +166,16 @@ export default function InPersonPhotos() {
   const step = steps[stepIndex];
 
   /* =========================================================
-     Auto-scroll to top on step change (container + viewport)
+     Scroll to top when step changes
   ========================================================== */
 
   useEffect(() => {
-    // Scroll container
     containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-
-    // Force viewport scroll for mobile browsers
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [stepIndex]);
 
   /* =========================================================
-     PHOTO CAPTURE — camera + gallery
+     CAMERA + GALLERY
   ========================================================== */
 
   function savePhotoFromFile(file: File) {
@@ -187,6 +186,7 @@ export default function InPersonPhotos() {
         dataUrl: reader.result as string,
         stepId: step.id,
       };
+
       const updated = [...photos, record];
       setPhotos(updated);
 
@@ -287,7 +287,7 @@ export default function InPersonPhotos() {
   }
 
   /* =========================================================
-     Navigation — Back + Continue (tap-lock)
+     Navigation (Back + Continue)
   ========================================================== */
 
   function prevStep() {
@@ -311,6 +311,7 @@ export default function InPersonPhotos() {
       return;
     }
 
+    // ✅ move to checks (no scanId in URL)
     saveProgress({
       ...(existingProgress ?? {}),
       type: "in-person",
@@ -321,7 +322,7 @@ export default function InPersonPhotos() {
       fromOnlineScan: Boolean(onlineResult),
     });
 
-    navigate(`/scan/in-person/checks/${scanId}`);
+    navigate("/scan/in-person/checks");
   }
 
   function exitJourney() {
@@ -351,11 +352,13 @@ export default function InPersonPhotos() {
           <p className="text-sm text-slate-200 font-semibold">
             Based on your online scan, pay extra attention to:
           </p>
+
           <ul className="text-sm text-slate-300 list-disc list-inside">
             {priorityAreas.map((a, i) => (
               <li key={i}>{a}</li>
             ))}
           </ul>
+
           <p className="text-[11px] text-slate-400">
             These aren’t faults — they’re areas worth confirming in person.
           </p>
@@ -511,12 +514,14 @@ export default function InPersonPhotos() {
         mechanical faults.
       </p>
 
+      {/* Exit confirm modal */}
       {showExitConfirm && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-6">
           <div className="rounded-2xl border border-white/20 bg-slate-900 px-6 py-5 space-y-3 max-w-md w-full">
             <h3 className="text-sm font-semibold text-white">
               Leave the guided photo inspection?
             </h3>
+
             <p className="text-sm text-slate-300">
               You can return later — any saved notes will remain on this device.
             </p>
