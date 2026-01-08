@@ -1,4 +1,3 @@
-// src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Layout from "./components/Layout";
@@ -22,6 +21,7 @@ import OnlineResults from "./pages/OnlineResults";
 ======================= */
 import InPersonStart from "./pages/InPersonStart";
 import InPersonVehicleDetails from "./pages/InPersonVehicleDetails";
+import InPersonAskingPrice from "./pages/InPersonAskingPrice";
 import InPersonPhotos from "./pages/InPersonPhotos";
 import InPersonChecks from "./pages/InPersonChecks";
 import InPersonSummary from "./pages/InPersonSummary";
@@ -36,17 +36,11 @@ import Pricing from "./pages/Pricing";
 export default function App() {
   return (
     <Routes>
-      {/* 🌐 App Shell — header, credits, resume pill */}
       <Route element={<Layout />}>
-        {/* Home */}
         <Route path="/" element={<Home />} />
-
-        {/* Start Scan Hub */}
         <Route path="/start-scan" element={<StartScan />} />
 
-        {/* -----------------------
-            ONLINE SCAN
-        ----------------------- */}
+        {/* ONLINE SCAN */}
         <Route path="/scan/online" element={<OnlineStart />} />
         <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
         <Route path="/scan/online/assist" element={<OnlineAssist />} />
@@ -61,13 +55,15 @@ export default function App() {
         />
         <Route path="/scan/online/results" element={<OnlineResults />} />
 
-        {/* -----------------------
-            IN-PERSON SCAN
-        ----------------------- */}
+        {/* IN-PERSON SCAN */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
         <Route
           path="/scan/in-person/vehicle-details"
           element={<InPersonVehicleDetails />}
+        />
+        <Route
+          path="/scan/in-person/asking-price"
+          element={<InPersonAskingPrice />}
         />
         <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
         <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
@@ -77,14 +73,11 @@ export default function App() {
           element={<InPersonReportPrint />}
         />
 
-        {/* My Scans */}
+        {/* Other */}
         <Route path="/my-scans" element={<MyScans />} />
-
-        {/* Pricing */}
         <Route path="/pricing" element={<Pricing />} />
       </Route>
 
-      {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
