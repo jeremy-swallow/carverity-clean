@@ -9,7 +9,6 @@ export default function InPersonSummary() {
   const navigate = useNavigate();
   const { scanId: routeScanId } = useParams<{ scanId?: string }>();
 
-  // 🛡 Load any active journey state
   const progress: any = loadProgress();
 
   const activeScanId: string | null =
@@ -18,13 +17,10 @@ export default function InPersonSummary() {
   const imperfections = progress?.imperfections ?? [];
   const followUps = progress?.followUpPhotos ?? [];
   const checks = progress?.checks ?? {};
+  const photos = progress?.photos ?? [];
   const fromOnlineScan = Boolean(progress?.fromOnlineScan);
 
   const [savedId, setSavedId] = useState<string | null>(null);
-
-  /* =========================================================
-     Recovery mode — if progress is missing, don't eject user
-  ========================================================== */
 
   const journeyMissing =
     !progress || (!imperfections.length && !Object.keys(checks).length);
@@ -58,10 +54,6 @@ export default function InPersonSummary() {
     );
   }
 
-  /* =========================================================
-     Build readable insight summary
-  ========================================================== */
-
   const findings = useMemo(() => {
     const notes: string[] = [];
 
@@ -94,10 +86,6 @@ export default function InPersonSummary() {
     return notes;
   }, [imperfections, checks]);
 
-  /* =========================================================
-     Save scan → My Scans (safe + deterministic)
-  ========================================================== */
-
   function saveToLibrary() {
     const id = activeScanId ?? generateScanId();
 
@@ -115,13 +103,13 @@ export default function InPersonSummary() {
         imperfections,
         followUps,
         checks,
+        photos,
       },
     };
 
     saveScan(scan as any);
     localStorage.setItem("carverity_inperson_completed", "1");
 
-    // Clear active journey state after saving
     clearProgress();
     setSavedId(id);
   }
@@ -134,10 +122,6 @@ export default function InPersonSummary() {
   function viewMyScans() {
     navigate("/my-scans");
   }
-
-  /* =========================================================
-     UI
-  ========================================================== */
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">

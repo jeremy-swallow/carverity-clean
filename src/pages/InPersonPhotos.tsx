@@ -1,6 +1,12 @@
 // src/pages/InPersonPhotos.tsx
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from "react";
+import type { ChangeEvent, ClipboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   loadOnlineResults,
@@ -8,6 +14,7 @@ import {
 } from "../utils/onlineResults";
 import { saveProgress, loadProgress } from "../utils/scanProgress";
 import { generateScanId } from "../utils/scanStorage";
+import PhotoLightbox from "../components/PhotoLightbox";
 
 type Imperfection = {
   id: string;
@@ -37,12 +44,18 @@ export default function InPersonPhotos() {
 
   const [onlineResult, setOnlineResult] = useState<SavedResult | null>(null);
   const [imperfections, setImperfections] = useState<Imperfection[]>([]);
+  const [photos, setPhotos] = useState<string[]>(
+    existingProgress?.photos ?? []
+  );
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const stored = loadOnlineResults();
     if (stored) setOnlineResult(stored);
 
-    // Persist entry to this step (id-safe)
+    // Persist entry to this step (id + photos safe)
     saveProgress({
       ...(existingProgress ?? {}),
       type: "in-person",
@@ -50,8 +63,11 @@ export default function InPersonPhotos() {
       step: "/scan/in-person/photos",
       startedAt: existingProgress?.startedAt ?? new Date().toISOString(),
       fromOnlineScan: Boolean(stored),
+      photos,
     });
-  }, [scanId]);
+    // we intentionally exclude existingProgress from deps to avoid loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanId, photos]);
 
   /* =========================================================
      Priority areas detected from online scan
@@ -188,23 +204,125 @@ export default function InPersonPhotos() {
     setNewIssueNote("");
   }
 
+  /* =========================================================
+     Photo capture: camera, upload, paste
+  ========================================================== */
+
+  function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith("image/")) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        if (typeof result === "string") {
+          setPhotos((prev) => {
+            const next = [...prev, result];
+            // persist immediately with updated photos
+            saveProgress({
+              ...(existingProgress ?? {}),
+              type: "in-person",
+              scanId,
+              step: "/scan/in-person/photos",
+              startedAt:
+                existingProgress?.startedAt ?? new Date().toISOString(),
+              fromOnlineScan,
+              photos: next,
+            });
+            return next;
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const fromOnlineScan = Boolean(onlineResult);
+
+  function onFileChange(e: ChangeEvent<HTMLInputElement>) {
+    handleFiles(e.target.files);
+    // allow re-uploading the same file later
+    e.target.value = "";
+  }
+
+  function triggerFilePicker() {
+    fileInputRef.current?.click();
+  }
+
+  function onPaste(e: ClipboardEvent<HTMLDivElement>) {
+    if (e.clipboardData?.files?.length) {
+      handleFiles(e.clipboardData.files);
+    }
+  }
+
+  function openLightbox(index: number) {
+    setLightboxIndex(index);
+  }
+
+  function closeLightbox() {
+    setLightboxIndex(null);
+  }
+
+  function showPrevPhoto() {
+    setLightboxIndex((idx) => {
+      if (idx === null) return null;
+      return idx === 0 ? photos.length - 1 : idx - 1;
+    });
+  }
+
+  function showNextPhoto() {
+    setLightboxIndex((idx) => {
+      if (idx === null) return null;
+      return idx === photos.length - 1 ? 0 : idx + 1;
+    });
+  }
+
+  function removePhoto(index: number) {
+    setPhotos((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      saveProgress({
+        ...(existingProgress ?? {}),
+        type: "in-person",
+        scanId,
+        step: "/scan/in-person/photos",
+        startedAt:
+          existingProgress?.startedAt ?? new Date().toISOString(),
+        fromOnlineScan,
+        photos: next,
+      });
+      return next;
+    });
+    if (lightboxIndex !== null && lightboxIndex >= photos.length - 1) {
+      setLightboxIndex((prev) =>
+        prev !== null && prev > 0 ? prev - 1 : null
+      );
+    }
+  }
+
+  /* =========================================================
+     Continue → checks
+  ========================================================== */
+
   function nextStep() {
     if (stepIndex < steps.length - 1) {
       setStepIndex((i) => i + 1);
       return;
     }
 
-    // ✅ Persist with scanId + move to checks step
+    // ✅ Persist with scanId + photos + imperfections, then move to checks
     saveProgress({
       ...(existingProgress ?? {}),
       type: "in-person",
       scanId,
       step: "/scan/in-person/checks",
       imperfections,
-      fromOnlineScan: Boolean(onlineResult),
+      fromOnlineScan,
+      photos,
     });
 
-    navigate(`/scan/in-person/checks/${scanId}`);
+    navigate("/scan/in-person/checks");
   }
 
   /* =========================================================
@@ -212,7 +330,10 @@ export default function InPersonPhotos() {
   ========================================================== */
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
+    <div
+      className="max-w-3xl mx-auto px-6 py-10 space-y-6"
+      onPaste={onPaste}
+    >
       <span className="text-[11px] tracking-wide uppercase text-slate-400">
         In-person scan — Guided photo inspection
       </span>
@@ -232,7 +353,7 @@ export default function InPersonPhotos() {
             ))}
           </ul>
           <p className="text-[11px] text-slate-400">
-            These aren’t faults — they’re areas **worth confirming in person**.
+            These aren’t faults — they’re areas <strong>worth confirming in person</strong>.
           </p>
         </section>
       )}
@@ -262,6 +383,83 @@ export default function InPersonPhotos() {
 
         <p className="text-sm text-slate-300">{step.guidance}</p>
       </section>
+
+      {/* Camera / upload controls */}
+      <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-3">
+        <h3 className="text-sm font-semibold text-emerald-200">
+          Take or upload photos
+        </h3>
+
+        <p className="text-xs md:text-sm text-slate-200">
+          On mobile, you can open your camera directly. On desktop, you can
+          upload from your files or paste screenshots.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            type="button"
+            onClick={triggerFilePicker}
+            className="flex-1 rounded-lg bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
+          >
+            Open camera / upload
+          </button>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          multiple
+          className="hidden"
+          onChange={onFileChange}
+        />
+
+        <p className="text-[11px] text-slate-400">
+          You can also paste images directly into this screen from your
+          clipboard.
+        </p>
+      </section>
+
+      {/* Captured photos */}
+      {photos.length > 0 && (
+        <section className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4 space-y-3">
+          <h3 className="text-sm font-semibold text-slate-100">
+            Photos captured for this inspection
+          </h3>
+
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {photos.map((src, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => openLightbox(idx)}
+                className="relative group rounded-lg overflow-hidden border border-white/10"
+              >
+                <img
+                  src={src}
+                  alt={`Inspection photo ${idx + 1}`}
+                  className="w-full h-24 object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removePhoto(idx);
+                  }}
+                  className="absolute top-1 right-1 bg-black/70 rounded-full px-1.5 py-0.5 text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  ×
+                </button>
+              </button>
+            ))}
+          </div>
+
+          <p className="text-[11px] text-slate-400">
+            These photos stay on this device unless you choose to share them.
+          </p>
+        </section>
+      )}
 
       <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-2">
         <h3 className="text-sm font-semibold text-amber-200">
@@ -327,6 +525,16 @@ export default function InPersonPhotos() {
         CarVerity helps you document observations — it does not diagnose
         mechanical faults.
       </p>
+
+      {lightboxIndex !== null && (
+        <PhotoLightbox
+          photos={photos}
+          index={lightboxIndex}
+          onClose={closeLightbox}
+          onPrev={showPrevPhoto}
+          onNext={showNextPhoto}
+        />
+      )}
     </div>
   );
 }

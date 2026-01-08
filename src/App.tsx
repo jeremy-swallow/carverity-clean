@@ -17,6 +17,8 @@ import OnlineResults from "./pages/OnlineResults";
 import InPersonStart from "./pages/InPersonStart";
 import InPersonPhotos from "./pages/InPersonPhotos";
 import InPersonChecks from "./pages/InPersonChecks";
+import InPersonSummary from "./pages/InPersonSummary";
+import InPersonReportPrint from "./pages/InPersonReportPrint";
 
 import MyScans from "./pages/MyScans";
 import Pricing from "./pages/Pricing";
@@ -48,6 +50,11 @@ export default function App() {
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
         <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
         <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
+        <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
+        <Route
+          path="/scan/in-person/report-print"
+          element={<InPersonReportPrint />}
+        />
 
         {/* My Scans */}
         <Route path="/my-scans" element={<MyScans />} />

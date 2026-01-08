@@ -36,8 +36,7 @@ export default function InPersonChecks() {
 
   const [onlineResult, setOnlineResult] = useState<SavedResult | null>(null);
 
-  const imperfectionsFromPhotos =
-    (progress as any)?.imperfections ?? [];
+  const imperfectionsFromPhotos = progress?.imperfections ?? [];
 
   useEffect(() => {
     const stored = loadOnlineResults();
@@ -51,6 +50,7 @@ export default function InPersonChecks() {
       step: "/scan/in-person/checks",
       startedAt: progress?.startedAt ?? new Date().toISOString(),
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanId]);
 
   /* =========================================================
@@ -104,6 +104,10 @@ export default function InPersonChecks() {
       p.map((f) => (f.id === id ? { ...f, completed: true } : f))
     );
   }
+
+  /* =========================================================
+     Guided condition awareness checks
+  ========================================================== */
 
   const checks = [
     {
@@ -169,7 +173,7 @@ export default function InPersonChecks() {
   }
 
   /* =========================================================
-     Continue → summary (ID-safe)
+     Continue → summary (ID-safe via progress, URL stays simple)
   ========================================================== */
 
   function continueToSummary() {
@@ -184,8 +188,7 @@ export default function InPersonChecks() {
       fromOnlineScan: Boolean(onlineResult),
     });
 
-    // ✅ Always include scanId — prevents redirect-to-home
-    navigate(`/scan/in-person/summary/${scanId}`);
+    navigate("/scan/in-person/summary");
   }
 
   /* =========================================================
