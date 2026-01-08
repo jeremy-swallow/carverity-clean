@@ -87,9 +87,15 @@ export default function InPersonVehicleDetails() {
     return id;
   });
 
-  const [yearText, setYearText] = useState(String((existing as any)?.vehicleYear ?? ""));
-  const [makeText, setMakeText] = useState(String((existing as any)?.vehicleMake ?? ""));
-  const [modelText, setModelText] = useState(String((existing as any)?.vehicleModel ?? ""));
+  const [yearText, setYearText] = useState(
+    String((existing as any)?.vehicleYear ?? "")
+  );
+  const [makeText, setMakeText] = useState(
+    String((existing as any)?.vehicleMake ?? "")
+  );
+  const [modelText, setModelText] = useState(
+    String((existing as any)?.vehicleModel ?? "")
+  );
   const [kilometres, setKilometres] = useState<number>(
     clampKm(Number((existing as any)?.kilometres ?? 0))
   );
@@ -99,6 +105,8 @@ export default function InPersonVehicleDetails() {
   const modelRef = useRef<HTMLDivElement>(null);
 
   const [open, setOpen] = useState<"year" | "make" | "model" | null>(null);
+
+  /* ---------------- click outside handling ---------------- */
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -113,6 +121,8 @@ export default function InPersonVehicleDetails() {
     window.addEventListener("mousedown", onClick);
     return () => window.removeEventListener("mousedown", onClick);
   }, []);
+
+  /* ---------------- derived ---------------- */
 
   const parsedYear = useMemo(() => {
     if (yearText.length !== 4) return null;
@@ -134,7 +144,9 @@ export default function InPersonVehicleDetails() {
     const q = normalise(makeText);
     return [
       ...MAKE_SUGGESTIONS.filter(m => ciStartsWith(m, q)),
-      ...MAKE_SUGGESTIONS.filter(m => !ciStartsWith(m, q) && ciIncludes(m, q)),
+      ...MAKE_SUGGESTIONS.filter(
+        m => !ciStartsWith(m, q) && ciIncludes(m, q)
+      ),
     ];
   }, [makeText]);
 
@@ -147,7 +159,9 @@ export default function InPersonVehicleDetails() {
     if (!typed) return all;
     return [
       ...all.filter(m => ciStartsWith(m, typed)),
-      ...all.filter(m => !ciStartsWith(m, typed) && ciIncludes(m, typed)),
+      ...all.filter(
+        m => !ciStartsWith(m, typed) && ciIncludes(m, typed)
+      ),
     ];
   }, [makeText, modelText]);
 
@@ -156,11 +170,12 @@ export default function InPersonVehicleDetails() {
     normalise(makeText).length > 1 &&
     normalise(modelText).length > 0;
 
+  /* ---------------- persist (DATA ONLY) ---------------- */
+
   useEffect(() => {
     saveProgress({
       scanId,
       type: "in-person",
-      step: "/scan/in-person/vehicle-details",
       vehicleYear: parsedYear ?? undefined,
       vehicleMake: normalise(makeText),
       vehicleModel: normalise(modelText),
@@ -168,11 +183,17 @@ export default function InPersonVehicleDetails() {
     });
   }, [scanId, parsedYear, makeText, modelText, kilometres]);
 
+  /* ---------------- continue ---------------- */
+
   function continueNext() {
     if (!isComplete) return;
     saveRecentModel(normalise(makeText), normalise(modelText));
     navigate("/scan/in-person/asking-price");
   }
+
+  /* =========================================================
+     UI
+  ========================================================== */
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10 space-y-10">
@@ -186,6 +207,7 @@ export default function InPersonVehicleDetails() {
       </header>
 
       <section className="space-y-6">
+        {/* YEAR */}
         <div ref={yearRef} className="relative">
           <label className="text-sm font-semibold text-slate-200">Year</label>
           <input
@@ -215,6 +237,7 @@ export default function InPersonVehicleDetails() {
           )}
         </div>
 
+        {/* MAKE */}
         <div ref={makeRef} className="relative">
           <label className="text-sm font-semibold text-slate-200">Make</label>
           <input
@@ -242,6 +265,7 @@ export default function InPersonVehicleDetails() {
           )}
         </div>
 
+        {/* MODEL */}
         <div ref={modelRef} className="relative">
           <label className="text-sm font-semibold text-slate-200">Model</label>
           <input
@@ -270,6 +294,7 @@ export default function InPersonVehicleDetails() {
         </div>
       </section>
 
+      {/* KILOMETRES */}
       <section className="space-y-3">
         <label className="text-sm font-semibold text-slate-200">
           Kilometres
@@ -278,7 +303,9 @@ export default function InPersonVehicleDetails() {
           value={kilometres || ""}
           placeholder="Approximate is fine"
           onChange={(e) =>
-            setKilometres(clampKm(Number(e.target.value.replace(/\D/g, ""))))
+            setKilometres(
+              clampKm(Number(e.target.value.replace(/\D/g, "")))
+            )
           }
           className="w-full rounded-xl bg-slate-900/60 border border-white/10 px-4 py-3 text-slate-100"
         />
