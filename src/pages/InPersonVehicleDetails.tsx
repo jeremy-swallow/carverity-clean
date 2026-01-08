@@ -185,88 +185,112 @@ export default function InPersonVehicleDetails() {
   ========================================================== */
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10 space-y-8">
-      <h1 className="text-xl md:text-2xl font-semibold text-white">
-        Vehicle details
-      </h1>
+    <div className="max-w-3xl mx-auto px-6 py-10 space-y-10">
+      <header className="space-y-2">
+        <h1 className="text-xl md:text-2xl font-semibold text-white">
+          Vehicle details
+        </h1>
+        <p className="text-sm text-slate-400">
+          Enter the basic details — approximate is fine.
+        </p>
+      </header>
 
-      {/* YEAR */}
-      <div ref={yearRef} className="relative">
-        <label className="text-sm font-semibold text-slate-200">Year</label>
-        <input
-          value={yearText}
-          onChange={(e) => setYearText(e.target.value.replace(/\D/g, "").slice(0,4))}
-          onFocus={() => setOpen("year")}
-          className="w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100"
-        />
-        {open === "year" && (
-          <div className="absolute z-20 mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-slate-950">
-            {yearOptions.slice(0,20).map(y => (
-              <button key={y} onClick={() => { setYearText(y); setOpen(null); }}
-                className="block w-full px-4 py-2 text-left text-slate-200 hover:bg-slate-900">
-                {y}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* VEHICLE IDENTITY */}
+      <section className="space-y-6">
+        {/* YEAR */}
+        <div ref={yearRef} className="relative">
+          <label className="text-sm font-semibold text-slate-200">Year</label>
+          <input
+            value={yearText}
+            placeholder="e.g. 2018"
+            onChange={(e) => setYearText(e.target.value.replace(/\D/g, "").slice(0,4))}
+            onFocus={() => setOpen("year")}
+            className="mt-1 w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100 focus:outline-none focus:border-emerald-400/60"
+          />
+          <p className="mt-1 text-xs text-slate-400">
+            Any year — classics included.
+          </p>
+          {open === "year" && (
+            <div className="absolute z-20 mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-slate-950">
+              {yearOptions.slice(0,20).map(y => (
+                <button
+                  key={y}
+                  onClick={() => { setYearText(y); setOpen(null); }}
+                  className="block w-full px-4 py-2 text-left text-slate-200 hover:bg-slate-900"
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
-      {/* MAKE */}
-      <div ref={makeRef} className="relative">
-        <label className="text-sm font-semibold text-slate-200">Make</label>
-        <input
-          value={makeText}
-          onChange={(e) => setMakeText(e.target.value)}
-          onFocus={() => setOpen("make")}
-          className="w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100"
-        />
-        {open === "make" && (
-          <div className="absolute z-20 mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-slate-950">
-            {filteredMakes.map(m => (
-              <button key={m} onClick={() => { setMakeText(m); setOpen(null); }}
-                className="block w-full px-4 py-2 text-left text-slate-200 hover:bg-slate-900">
-                {m}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+        {/* MAKE */}
+        <div ref={makeRef} className="relative">
+          <label className="text-sm font-semibold text-slate-200">Make</label>
+          <input
+            value={makeText}
+            placeholder="e.g. Toyota"
+            onChange={(e) => setMakeText(e.target.value)}
+            onFocus={() => setOpen("make")}
+            className="mt-1 w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100 focus:outline-none focus:border-emerald-400/60"
+          />
+          {open === "make" && (
+            <div className="absolute z-20 mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-slate-950">
+              {filteredMakes.map(m => (
+                <button
+                  key={m}
+                  onClick={() => { setMakeText(m); setOpen(null); }}
+                  className="block w-full px-4 py-2 text-left text-slate-200 hover:bg-slate-900"
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
-      {/* MODEL */}
-      <div ref={modelRef} className="relative">
-        <label className="text-sm font-semibold text-slate-200">Model</label>
-        <input
-          value={modelText}
-          onChange={(e) => setModelText(e.target.value)}
-          onFocus={() => setOpen("model")}
-          className="w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100"
-        />
-        {open === "model" && (
-          <div className="absolute z-20 mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-slate-950">
-            {modelSuggestions.map(m => (
-              <button key={m} onClick={() => { setModelText(m); setOpen(null); }}
-                className="block w-full px-4 py-2 text-left text-slate-200 hover:bg-slate-900">
-                {m}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+        {/* MODEL */}
+        <div ref={modelRef} className="relative">
+          <label className="text-sm font-semibold text-slate-200">Model</label>
+          <input
+            value={modelText}
+            placeholder="e.g. Corolla"
+            onChange={(e) => setModelText(e.target.value)}
+            onFocus={() => setOpen("model")}
+            className="mt-1 w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100 focus:outline-none focus:border-emerald-400/60"
+          />
+          {open === "model" && (
+            <div className="absolute z-20 mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-slate-950">
+              {modelSuggestions.map(m => (
+                <button
+                  key={m}
+                  onClick={() => { setModelText(m); setOpen(null); }}
+                  className="block w-full px-4 py-2 text-left text-slate-200 hover:bg-slate-900"
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
-      {/* KM */}
-      <div>
+      {/* SECONDARY */}
+      <section className="space-y-3">
         <label className="text-sm font-semibold text-slate-200">Kilometres</label>
         <input
           value={kilometres || ""}
+          placeholder="Approximate is fine"
           onChange={(e) => setKilometres(clampKm(Number(e.target.value.replace(/\D/g,""))))}
-          className="w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100"
+          className="w-full rounded-xl bg-slate-900/60 border border-white/10 px-4 py-3 text-slate-100 focus:outline-none focus:border-white/30"
         />
-      </div>
+      </section>
 
       <button
         onClick={continueNext}
         disabled={!isComplete}
-        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-semibold px-4 py-3"
+        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:hover:bg-emerald-500 text-black font-semibold px-4 py-3 transition-colors"
       >
         Continue to photo inspection
       </button>
