@@ -98,7 +98,9 @@ export default function InPersonVehicleDetails() {
   const makeRef = useRef<HTMLDivElement>(null);
   const modelRef = useRef<HTMLDivElement>(null);
 
-  const [open, setOpen] = useState<"year" | "make" | "model" | null>(null);
+  const [open, setOpen] = useState<"year"|"make"|"model"|null>(null);
+
+  /* ---------------- click outside handling ---------------- */
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -114,6 +116,8 @@ export default function InPersonVehicleDetails() {
     return () => window.removeEventListener("mousedown", onClick);
   }, []);
 
+  /* ---------------- derived ---------------- */
+
   const parsedYear = useMemo(() => {
     if (yearText.length !== 4) return null;
     const n = Number(yearText);
@@ -121,11 +125,9 @@ export default function InPersonVehicleDetails() {
   }, [yearText]);
 
   const yearOptions = useMemo(
-    () =>
-      Array.from(
-        { length: CURRENT_YEAR + 2 - MIN_YEAR },
-        (_, i) => String(CURRENT_YEAR + 1 - i)
-      ),
+    () => Array.from({ length: CURRENT_YEAR + 2 - MIN_YEAR },
+      (_, i) => String(CURRENT_YEAR + 1 - i)
+    ),
     []
   );
 
@@ -156,6 +158,8 @@ export default function InPersonVehicleDetails() {
     normalise(makeText).length > 1 &&
     normalise(modelText).length > 0;
 
+  /* ---------------- persist ---------------- */
+
   useEffect(() => {
     saveProgress({
       scanId,
@@ -168,11 +172,17 @@ export default function InPersonVehicleDetails() {
     });
   }, [scanId, parsedYear, makeText, modelText, kilometres]);
 
+  /* ---------------- continue ---------------- */
+
   function continueNext() {
     if (!isComplete) return;
     saveRecentModel(normalise(makeText), normalise(modelText));
-    navigate("/scan/in-person/asking-price");
+    navigate("/scan/in-person/photos");
   }
+
+  /* =========================================================
+     UI
+  ========================================================== */
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10 space-y-10">
@@ -185,27 +195,27 @@ export default function InPersonVehicleDetails() {
         </p>
       </header>
 
+      {/* VEHICLE IDENTITY */}
       <section className="space-y-6">
+        {/* YEAR */}
         <div ref={yearRef} className="relative">
           <label className="text-sm font-semibold text-slate-200">Year</label>
           <input
             value={yearText}
             placeholder="e.g. 2018"
-            onChange={(e) =>
-              setYearText(e.target.value.replace(/\D/g, "").slice(0, 4))
-            }
+            onChange={(e) => setYearText(e.target.value.replace(/\D/g, "").slice(0,4))}
             onFocus={() => setOpen("year")}
-            className="mt-1 w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100"
+            className="mt-1 w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100 focus:outline-none focus:border-emerald-400/60"
           />
+          <p className="mt-1 text-xs text-slate-400">
+            Any year — classics included.
+          </p>
           {open === "year" && (
             <div className="absolute z-20 mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-slate-950">
-              {yearOptions.slice(0, 20).map((y) => (
+              {yearOptions.slice(0,20).map(y => (
                 <button
                   key={y}
-                  onClick={() => {
-                    setYearText(y);
-                    setOpen(null);
-                  }}
+                  onClick={() => { setYearText(y); setOpen(null); }}
                   className="block w-full px-4 py-2 text-left text-slate-200 hover:bg-slate-900"
                 >
                   {y}
@@ -215,6 +225,7 @@ export default function InPersonVehicleDetails() {
           )}
         </div>
 
+        {/* MAKE */}
         <div ref={makeRef} className="relative">
           <label className="text-sm font-semibold text-slate-200">Make</label>
           <input
@@ -222,17 +233,14 @@ export default function InPersonVehicleDetails() {
             placeholder="e.g. Toyota"
             onChange={(e) => setMakeText(e.target.value)}
             onFocus={() => setOpen("make")}
-            className="mt-1 w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100"
+            className="mt-1 w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100 focus:outline-none focus:border-emerald-400/60"
           />
           {open === "make" && (
             <div className="absolute z-20 mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-slate-950">
-              {filteredMakes.map((m) => (
+              {filteredMakes.map(m => (
                 <button
                   key={m}
-                  onClick={() => {
-                    setMakeText(m);
-                    setOpen(null);
-                  }}
+                  onClick={() => { setMakeText(m); setOpen(null); }}
                   className="block w-full px-4 py-2 text-left text-slate-200 hover:bg-slate-900"
                 >
                   {m}
@@ -242,6 +250,7 @@ export default function InPersonVehicleDetails() {
           )}
         </div>
 
+        {/* MODEL */}
         <div ref={modelRef} className="relative">
           <label className="text-sm font-semibold text-slate-200">Model</label>
           <input
@@ -249,17 +258,14 @@ export default function InPersonVehicleDetails() {
             placeholder="e.g. Corolla"
             onChange={(e) => setModelText(e.target.value)}
             onFocus={() => setOpen("model")}
-            className="mt-1 w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100"
+            className="mt-1 w-full rounded-xl bg-slate-900/70 border border-white/15 px-4 py-3 text-slate-100 focus:outline-none focus:border-emerald-400/60"
           />
           {open === "model" && (
             <div className="absolute z-20 mt-2 max-h-60 overflow-auto rounded-xl border border-white/10 bg-slate-950">
-              {modelSuggestions.map((m) => (
+              {modelSuggestions.map(m => (
                 <button
                   key={m}
-                  onClick={() => {
-                    setModelText(m);
-                    setOpen(null);
-                  }}
+                  onClick={() => { setModelText(m); setOpen(null); }}
                   className="block w-full px-4 py-2 text-left text-slate-200 hover:bg-slate-900"
                 >
                   {m}
@@ -270,26 +276,23 @@ export default function InPersonVehicleDetails() {
         </div>
       </section>
 
+      {/* SECONDARY */}
       <section className="space-y-3">
-        <label className="text-sm font-semibold text-slate-200">
-          Kilometres
-        </label>
+        <label className="text-sm font-semibold text-slate-200">Kilometres</label>
         <input
           value={kilometres || ""}
           placeholder="Approximate is fine"
-          onChange={(e) =>
-            setKilometres(clampKm(Number(e.target.value.replace(/\D/g, ""))))
-          }
-          className="w-full rounded-xl bg-slate-900/60 border border-white/10 px-4 py-3 text-slate-100"
+          onChange={(e) => setKilometres(clampKm(Number(e.target.value.replace(/\D/g,""))))}
+          className="w-full rounded-xl bg-slate-900/60 border border-white/10 px-4 py-3 text-slate-100 focus:outline-none focus:border-white/30"
         />
       </section>
 
       <button
         onClick={continueNext}
         disabled={!isComplete}
-        className="w-full rounded-xl bg-emerald-500 disabled:opacity-50 text-black font-semibold px-4 py-3"
+        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:hover:bg-emerald-500 text-black font-semibold px-4 py-3 transition-colors"
       >
-        Continue
+        Continue to photo inspection
       </button>
     </div>
   );
