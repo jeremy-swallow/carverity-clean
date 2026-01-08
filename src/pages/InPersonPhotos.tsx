@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  loadOnlineResults,
-  type SavedResult,
-} from "../utils/onlineResults";
+import { loadOnlineResults, type SavedResult } from "../utils/onlineResults";
 import { saveProgress, loadProgress } from "../utils/scanProgress";
 import { generateScanId } from "../utils/scanStorage";
 
@@ -76,8 +73,7 @@ export default function InPersonPhotos() {
 
   const priorityAreas = useMemo(() => {
     if (!onlineResult?.fullSummary && !onlineResult?.summary) return [];
-    const text =
-      (onlineResult.fullSummary || onlineResult.summary || "").toLowerCase();
+    const text = (onlineResult.fullSummary || onlineResult.summary || "").toLowerCase();
 
     const map: Record<string, string[]> = {
       "Body / paintwork": [
@@ -110,9 +106,9 @@ export default function InPersonPhotos() {
   const steps = [
     {
       id: "exterior-front",
-      title: "Front & front-left angle",
+      title: "Front view",
       guidance:
-        "Stand back so the whole front and left side are visible. Keep the car centred and avoid cutting off the bumper or roof.",
+        "Capture the full front of the vehicle. Keep it centred and ensure the bumper, bonnet, and roof are fully visible.",
       image: "/photo-guides/front.png",
     },
     {
@@ -124,9 +120,9 @@ export default function InPersonPhotos() {
     },
     {
       id: "exterior-rear",
-      title: "Rear & rear-right angle",
+      title: "Rear view",
       guidance:
-        "Photograph the rear plus right-side angle. Reflections help reveal dents or waviness in the paint.",
+        "Capture the full rear of the vehicle. Keep it centred and ensure the bumper, boot, and roofline are fully visible.",
       image: "/photo-guides/rear.png",
     },
     {
@@ -202,9 +198,7 @@ export default function InPersonPhotos() {
     reader.readAsDataURL(file);
   }
 
-  function handleUploadFromGallery(
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
+  function handleUploadFromGallery(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) savePhotoFromFile(file);
     e.target.value = "";
@@ -258,8 +252,7 @@ export default function InPersonPhotos() {
   function addImperfection() {
     if (!newIssueType) return;
 
-    const costBand =
-      COST_BANDS[newIssueType] ?? "Cost unknown — worth confirming";
+    const costBand = COST_BANDS[newIssueType] ?? "Cost unknown — worth confirming";
 
     const record: Imperfection = {
       id: crypto.randomUUID(),
@@ -377,11 +370,7 @@ export default function InPersonPhotos() {
 
         {step.image && (
           <div className="rounded-xl border border-white/10 bg-slate-800/40 p-3">
-            <img
-              src={step.image}
-              alt="Example angle"
-              className="w-full rounded-lg"
-            />
+            <img src={step.image} alt="Example angle" className="w-full rounded-lg" />
             <p className="text-[11px] text-slate-400 mt-1">
               Example angle — match this framing as closely as you can
             </p>
@@ -510,8 +499,7 @@ export default function InPersonPhotos() {
       </div>
 
       <p className="text-[11px] text-slate-400 text-center">
-        CarVerity helps you document observations — it does not diagnose
-        mechanical faults.
+        CarVerity helps you document observations — it does not diagnose mechanical faults.
       </p>
 
       {/* Exit confirm modal */}
