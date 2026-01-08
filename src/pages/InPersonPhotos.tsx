@@ -17,6 +17,12 @@ type Imperfection = {
   costBand: string;
 };
 
+type StepPhoto = {
+  id: string;
+  dataUrl: string;
+  stepId: string;
+};
+
 export default function InPersonPhotos() {
   const navigate = useNavigate();
   const existingProgress: any = loadProgress();
@@ -38,10 +44,17 @@ export default function InPersonPhotos() {
   });
 
   const [onlineResult, setOnlineResult] = useState<SavedResult | null>(null);
-  const [imperfections, setImperfections] = useState<Imperfection[]>([]);
+  const [imperfections, setImperfections] = useState<Imperfection[]>(
+    existingProgress?.imperfections ?? []
+  );
 
-  const [isAdvancing, setIsAdvancing] = useState(false); // 🛡 tap-lock
-  const [showExitConfirm, setShowExitConfirm] = useState(false); // back-from-step-1 safety
+  // 📸 photos are stored per-step
+  const [photos, setPhotos] = useState<StepPhoto[]>(
+    existingProgress?.photos ?? []
+  );
+
+  const [isAdvancing, setIsAdvancing] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   useEffect(() => {
     const stored = loadOnlineResults();
@@ -52,10 +65,12 @@ export default function InPersonPhotos() {
       type: "in-person",
       scanId,
       step: "/scan/in-person/photos",
+      photos,
+      imperfections,
       startedAt: existingProgress?.startedAt ?? new Date().toISOString(),
       fromOnlineScan: Boolean(stored),
     });
-  }, [scanId]);
+  }, [scanId, photos, imperfections]);
 
   /* =========================================================
      Priority areas detected from online scan
@@ -63,7 +78,6 @@ export default function InPersonPhotos() {
 
   const priorityAreas = useMemo(() => {
     if (!onlineResult?.fullSummary && !onlineResult?.summary) return [];
-
     const text =
       (onlineResult.fullSummary || onlineResult.summary || "").toLowerCase();
 
@@ -85,11 +99,9 @@ export default function InPersonPhotos() {
     };
 
     const detected: string[] = [];
-
     for (const [area, keywords] of Object.entries(map)) {
       if (keywords.some((k) => text.includes(k))) detected.push(area);
     }
-
     return detected;
   }, [onlineResult]);
 
@@ -165,6 +177,57 @@ export default function InPersonPhotos() {
   }, [stepIndex]);
 
   /* =========================================================
+     Photo capture / upload
+  ========================================================== */
+
+  function handleAddPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+
+      const record: StepPhoto = {
+        id: crypto.randomUUID(),
+        dataUrl,
+        stepId: step.id,
+      };
+
+      const updated = [...photos, record];
+      setPhotos(updated);
+
+      saveProgress({
+        ...(existingProgress ?? {}),
+        type: "in-person",
+        scanId,
+        photos: updated,
+        imperfections,
+        step: "/scan/in-person/photos",
+      });
+    };
+
+    reader.readAsDataURL(file);
+    e.target.value = ""; // reset input for next capture
+  }
+
+  const stepPhotos = photos.filter((p) => p.stepId === step.id);
+
+  function removePhoto(id: string) {
+    const updated = photos.filter((p) => p.id !== id);
+    setPhotos(updated);
+
+    saveProgress({
+      ...(existingProgress ?? {}),
+      type: "in-person",
+      scanId,
+      photos: updated,
+      imperfections,
+      step: "/scan/in-person/photos",
+    });
+  }
+
+  /* =========================================================
      Imperfection logging
   ========================================================== */
 
@@ -195,10 +258,21 @@ export default function InPersonPhotos() {
       costBand,
     };
 
-    setImperfections((p) => [...p, record]);
+    const updated = [...imperfections, record];
+    setImperfections(updated);
+
     setNewIssueArea("");
     setNewIssueType("");
     setNewIssueNote("");
+
+    saveProgress({
+      ...(existingProgress ?? {}),
+      type: "in-person",
+      scanId,
+      photos,
+      imperfections: updated,
+      step: "/scan/in-person/photos",
+    });
   }
 
   /* =========================================================
@@ -222,18 +296,16 @@ export default function InPersonPhotos() {
 
     if (stepIndex < steps.length - 1) {
       setStepIndex((i) => i + 1);
-
-      // small delay prevents accidental double-tap
       setTimeout(() => setIsAdvancing(false), 400);
       return;
     }
 
-    // Final step → persist + move to checks
     saveProgress({
       ...(existingProgress ?? {}),
       type: "in-person",
       scanId,
       step: "/scan/in-person/checks",
+      photos,
       imperfections,
       fromOnlineScan: Boolean(onlineResult),
     });
@@ -293,7 +365,7 @@ export default function InPersonPhotos() {
           <div className="rounded-xl border border-white/10 bg-slate-800/40 p-3">
             <img
               src={step.image}
-              alt="Example photo angle"
+              alt="Example angle"
               className="w-full rounded-lg"
             />
             <p className="text-[11px] text-slate-400 mt-1">
@@ -305,6 +377,41 @@ export default function InPersonPhotos() {
         <p className="text-sm text-slate-300">{step.guidance}</p>
       </section>
 
+      {/* 📸 Photo capture */}
+      <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-3">
+        <h3 className="text-sm font-semibold text-emerald-200">
+          Take or upload a photo for this angle
+        </h3>
+
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleAddPhoto}
+          className="w-full rounded-lg bg-slate-800 border border-white/20 px-3 py-2 text-sm text-slate-200"
+        />
+
+        {stepPhotos.length > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            {stepPhotos.map((p) => (
+              <div key={p.id} className="relative group">
+                <img
+                  src={p.dataUrl}
+                  className="rounded-lg border border-white/20 object-cover w-full h-24"
+                />
+                <button
+                  onClick={() => removePhoto(p.id)}
+                  className="absolute top-1 right-1 bg-black/70 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Imperfection logging */}
       <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-2">
         <h3 className="text-sm font-semibold text-amber-200">
           Did you notice anything unusual here?
@@ -346,7 +453,6 @@ export default function InPersonPhotos() {
           <h3 className="text-sm font-semibold text-slate-100">
             Noted observations for this visit
           </h3>
-
           <ul className="text-sm text-slate-300 space-y-1">
             {imperfections.map((i) => (
               <li key={i.id}>
@@ -358,7 +464,7 @@ export default function InPersonPhotos() {
         </section>
       )}
 
-      {/* Back + Continue Actions */}
+      {/* Back + Continue */}
       <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
         <button
           onClick={prevStep}
@@ -381,7 +487,7 @@ export default function InPersonPhotos() {
         mechanical faults.
       </p>
 
-      {/* Exit confirm modal */}
+      {/* Exit confirm */}
       {showExitConfirm && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-6">
           <div className="rounded-2xl border border-white/20 bg-slate-900 px-6 py-5 space-y-3 max-w-md w-full">
