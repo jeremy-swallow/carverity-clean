@@ -1,10 +1,6 @@
-/*
-  In-person start screen — updated so the user must choose:
-
-  • Start a new stand-alone in-person inspection
-  • OR link this inspection to a previous online scan
-
-  No previous journey is ever auto-resumed.
+/*  In-person start screen — user must choose:
+    • Start a new stand-alone inspection
+    • OR link to a previous online scan
 */
 
 import { useEffect, useMemo, useState } from "react";
@@ -14,6 +10,7 @@ import {
   type SavedResult,
 } from "../utils/onlineResults";
 import { loadScans } from "../utils/scanStorage";
+import { clearProgress } from "../utils/scanProgress";
 
 export default function InPersonStart() {
   const navigate = useNavigate();
@@ -22,11 +19,11 @@ export default function InPersonStart() {
   const [onlineScans, setOnlineScans] = useState<any[]>([]);
 
   useEffect(() => {
-    // Load last viewed online result (if present)
+    clearProgress(); // 🔒 always start a fresh journey
+
     const stored = loadOnlineResults();
     if (stored) setOnlineResult(stored);
 
-    // Load all saved online scans for optional linking
     const scans = loadScans().filter((s: any) => s.type === "online");
     setOnlineScans(scans);
   }, []);
@@ -48,11 +45,11 @@ export default function InPersonStart() {
   }, [onlineResult]);
 
   function startStandalone() {
-    navigate("/scan/in-person/photos");   // fresh scan every time
+    navigate("/scan/in-person/vehicle");   // ⬅️ NEW FIRST STEP
   }
 
   function selectLinkedScan() {
-    navigate("/scan/in-person/link-source"); // user chooses which online scan to link
+    navigate("/scan/in-person/link-source");
   }
 
   function viewOnlineResults() {
@@ -69,7 +66,6 @@ export default function InPersonStart() {
         Start your in-person inspection
       </h1>
 
-      {/* If user came from an online scan, show helpful guidance */}
       {onlineResult && (
         <section className="rounded-2xl border border-indigo-400/25 bg-indigo-600/10 px-5 py-4 space-y-3">
           <h2 className="text-sm md:text-base font-semibold text-slate-100">
@@ -97,7 +93,6 @@ export default function InPersonStart() {
         </section>
       )}
 
-      {/* ACTIONS — user must choose */}
       <section className="space-y-3">
         <button
           onClick={startStandalone}
