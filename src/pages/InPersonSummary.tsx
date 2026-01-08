@@ -98,35 +98,33 @@ export default function InPersonSummary() {
       </span>
 
       <h1 className="text-xl md:text-2xl font-semibold text-white">
-        Your in-person inspection summary
+        Inspection summary
       </h1>
 
-      {/* VEHICLE DETAILS */}
+      {/* VEHICLE IDENTITY */}
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-4 space-y-1">
-        <h2 className="text-sm font-semibold text-slate-100">
-          Vehicle details
-        </h2>
-
-        <p className="text-sm text-slate-300">
+        <p className="text-base font-semibold text-slate-100">
           {vehicle.year} {vehicle.make} {vehicle.model}
           {vehicle.variant ? ` — ${vehicle.variant}` : ""}
-          <br />
-          Odometer: {vehicle.kms} km
+        </p>
+
+        <p className="text-sm text-slate-400">
+          Odometer: {vehicle.kms || "—"} km
         </p>
       </section>
 
-      {/* IMPERFECTIONS */}
-      <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4">
+      {/* OBSERVATIONS */}
+      <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-2">
         <h2 className="text-sm font-semibold text-amber-200">
-          Observations you recorded
+          Inspection observations
         </h2>
 
         {imperfections.length === 0 ? (
-          <p className="text-sm text-slate-300 mt-1">
-            No observations were recorded during this visit.
+          <p className="text-sm text-slate-300">
+            No notable observations were recorded during this visit.
           </p>
         ) : (
-          <ul className="text-sm text-slate-300 space-y-1 mt-2">
+          <ul className="text-sm text-slate-300 space-y-1">
             {imperfections.map((i: any) => (
               <li key={i.id}>
                 • {i.area}: {i.type}
@@ -141,7 +139,7 @@ export default function InPersonSummary() {
       {followUps.length > 0 && (
         <section className="rounded-2xl border border-indigo-400/30 bg-indigo-600/10 px-5 py-4 space-y-2">
           <h2 className="text-sm font-semibold text-indigo-200">
-            Suggested areas you reviewed
+            Areas reviewed in person
           </h2>
 
           <ul className="text-sm text-slate-300 space-y-1">
@@ -182,7 +180,7 @@ export default function InPersonSummary() {
           </button>
 
           <p className="text-[11px] text-slate-400 text-center">
-            Once saved, you can revisit this inspection any time.
+            Once saved, you can revisit or compare this inspection at any time.
           </p>
         </>
       ) : (
