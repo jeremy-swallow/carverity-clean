@@ -164,15 +164,19 @@ export default function InPersonPhotos() {
   const step = steps[stepIndex];
 
   /* =========================================================
-     Auto-scroll to top on step change
+     Auto-scroll to top on step change (container + viewport)
   ========================================================== */
 
   useEffect(() => {
+    // Scroll container
     containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+
+    // Force viewport scroll for mobile browsers
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [stepIndex]);
 
   /* =========================================================
-     PHOTO CAPTURE — camera + gallery buttons
+     PHOTO CAPTURE — camera + gallery
   ========================================================== */
 
   function savePhotoFromFile(file: File) {
@@ -384,7 +388,7 @@ export default function InPersonPhotos() {
         <p className="text-sm text-slate-300">{step.guidance}</p>
       </section>
 
-      {/* CAMERA + GALLERY BUTTONS */}
+      {/* CAMERA + GALLERY */}
       <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-3">
         <h3 className="text-sm font-semibold text-emerald-200">
           Add a photo for this angle
@@ -431,7 +435,7 @@ export default function InPersonPhotos() {
         )}
       </section>
 
-      {/* Imperfection logging (unchanged) */}
+      {/* Imperfection logging */}
       <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-2">
         <h3 className="text-sm font-semibold text-amber-200">
           Did you notice anything unusual here?
