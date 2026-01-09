@@ -614,21 +614,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
   }
 
   if (
-    text.includes("no service history") ||
-    text.includes("service history not provided") ||
-    text.includes("service history missing")
-  ) {
-    pushRisk(buckets, {
-      severity: "critical",
-      label: "Service history not disclosed",
-      description:
-        "There are signs the vehicle’s maintenance history may be incomplete or not clearly documented.",
-      action:
-        "Request photos of the logbook and recent invoices before proceeding, or factor uncertainty into your budget.",
-    });
-  }
-
-  if (
     text.includes("odometer anomaly") ||
     text.includes("odometer concern") ||
     text.includes("odometer reading inconsistent") ||
@@ -676,6 +661,21 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
   }
 
   // --- Moderate signals ---
+  if (
+    text.includes("no service history") ||
+    text.includes("service history not provided") ||
+    text.includes("service history missing")
+  ) {
+    pushRisk(buckets, {
+      severity: "moderate",
+      label: "Service history not visible in listing",
+      description:
+        "The listing does not clearly show service records, which makes it harder to confirm past maintenance from the ad alone.",
+      action:
+        "Ask the seller for photos of the logbook and recent service invoices to verify maintenance history.",
+    });
+  }
+
   if (
     text.includes("tyres likely due soon") ||
     text.includes("tyres approaching replacement") ||
@@ -1117,10 +1117,6 @@ export default function OnlineResults() {
 
   const isAssistMode = step === "assist-required";
 
-  /* =====================================================
-     Assist-required state
-  ====================================================== */
-
   if (isAssistMode) {
     const createdLabel = createdAt
       ? new Date(createdAt).toLocaleString()
@@ -1182,10 +1178,6 @@ export default function OnlineResults() {
     );
   }
 
-  /* =====================================================
-     Normal full-report / preview state
-  ====================================================== */
-
   const rawReport = fullSummary || summary || "";
   const baseVehicle = normaliseVehicle(storedVehicle as VehicleInfo);
   const displayVehicle = enrichVehicleForDisplay(baseVehicle, rawReport);
@@ -1228,7 +1220,6 @@ export default function OnlineResults() {
         </span>
       </div>
 
-      {/* Dual-journey badge */}
       {dualJourneyComplete && (
         <section className="rounded-2xl border border-emerald-400/35 bg-emerald-500/10 px-5 py-4 shadow">
           <h3 className="text-sm font-semibold text-emerald-200">
@@ -1241,7 +1232,6 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* Scan overview strip */}
       <section className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs md:text-sm text-slate-200">
           <div className="flex items-center gap-2">
@@ -1260,7 +1250,6 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* Premium header */}
       <section className="rounded-2xl bg-gradient-to-r from-violet-700/85 to-indigo-600/85 border border-white/12 shadow-[0_24px_60px_rgba(0,0,0,0.7)] px-6 py-5 md:py-6 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
@@ -1276,10 +1265,8 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* Risk & Confidence Heat-Map */}
       <RiskHeatMap buckets={riskBuckets} showUnlocked={showUnlocked} />
 
-      {/* PREVIEW MODE */}
       {!showUnlocked && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_18px_40px_rgba(0,0,0,0.55)] px-5 py-5 space-y-3">
           <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
@@ -1334,7 +1321,6 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* FULL REPORT */}
       {showUnlocked && (
         <section className="rounded-2xl border border-white/12 bg-slate-950/85 shadow-[0_28px_70px_rgba(0,0,0,0.75)] px-5 py-5 space-y-5">
           <header className="flex items-center justify-between mb-1">
@@ -1358,7 +1344,6 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* Optional encouragement — ONLY when in-person scan not done */}
       {!hasInPersonScan && (
         <section className="rounded-2xl border border-blue-400/30 bg-blue-500/10 px-5 py-5 space-y-3">
           <h3 className="text-sm font-semibold text-slate-100">
@@ -1379,7 +1364,6 @@ export default function OnlineResults() {
         </section>
       )}
 
-      {/* VEHICLE DETAILS */}
       <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5">
         <h2 className="text-sm font-semibold flex items-center gap-2 text-slate-200">
           🚗 VEHICLE DETAILS
@@ -1416,7 +1400,6 @@ export default function OnlineResults() {
         </div>
       </section>
 
-      {/* DESKTOP ACTIONS */}
       <section className="hidden md:block rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-5 space-y-3">
         {!hasInPersonScan && (
           <button
@@ -1445,7 +1428,6 @@ export default function OnlineResults() {
         </button>
       </section>
 
-      {/* MOBILE FLOATING CTA */}
       {showFloatingBar && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-40">
           <div className="mx-3 mb-3 rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur shadow-[0_20px_60px_rgba(0,0,0,0.7)] px-4 py-3 space-y-2">
