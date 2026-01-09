@@ -21,11 +21,11 @@ export default function Home() {
           className="absolute inset-0 w-full h-full object-cover"
         />
 
-        {/* Desktop: slightly stronger gradient to de-emphasise image */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/75 to-black/90 md:from-black/80 md:via-black/85 md:to-black/95" />
+        {/* Restored original gradient */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/70 to-black/85" />
 
         <div className="relative max-w-5xl mx-auto px-6 py-24 md:py-20 flex flex-col gap-4">
-          {/* Constrain reading width on desktop */}
+          {/* Constrained reading width on desktop */}
           <div className="max-w-xl md:max-w-2xl flex flex-col gap-4">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
               Confidence before you commit to a used car
