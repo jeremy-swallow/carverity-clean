@@ -244,7 +244,7 @@ export default function InPersonPhotos() {
   }
 
   /* =========================================================
-     Imperfection logging
+     Imperfection logging (shown AFTER capture)
   ========================================================== */
 
   const COST_BANDS: Record<string, string> = {
@@ -463,61 +463,63 @@ export default function InPersonPhotos() {
         )}
       </section>
 
-      {/* Imperfection logging */}
-      <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-2">
-        <h3 className="text-sm font-semibold text-amber-200">
-          Did you notice anything unusual here?
-        </h3>
+      {/* Imperfection logging — shown only after capture */}
+      {stepPhotos.length > 0 && (
+        <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-2">
+          <h3 className="text-sm font-semibold text-amber-200">
+            Anything stand out here?
+          </h3>
 
-        <p className="text-[11px] text-slate-400">
-          Choose the closest match — you can add a note if needed.
-        </p>
+          <p className="text-[11px] text-slate-400">
+            After capturing this angle, note anything that caught your attention.
+          </p>
 
-        <select
-          value={newIssueType}
-          onChange={(e) => setNewIssueType(e.target.value)}
-          className="w-full rounded-lg bg-slate-800 border border-white/15 px-3 py-2 text-sm text-slate-200"
-        >
-          <option value="">Select an observation…</option>
+          <select
+            value={newIssueType}
+            onChange={(e) => setNewIssueType(e.target.value)}
+            className="w-full rounded-lg bg-slate-800 border border-white/15 px-3 py-2 text-sm text-slate-200"
+          >
+            <option value="">Select an observation…</option>
 
-          <optgroup label="Paint & panels">
-            <option value="Minor paint scuff">Minor paint scuff</option>
-            <option value="Dent — no paint damage">Dent — no paint damage</option>
-          </optgroup>
+            <optgroup label="Paint & panels">
+              <option value="Minor paint scuff">Minor paint scuff</option>
+              <option value="Dent — no paint damage">Dent — no paint damage</option>
+            </optgroup>
 
-          <optgroup label="Wheels & tyres">
-            <option value="Kerb-rashed wheel">Kerb-rashed wheel</option>
-          </optgroup>
+            <optgroup label="Wheels & tyres">
+              <option value="Kerb-rashed wheel">Kerb-rashed wheel</option>
+            </optgroup>
 
-          <optgroup label="Glass & trim">
-            <option value="Windscreen chip">Windscreen chip</option>
-          </optgroup>
+            <optgroup label="Glass & trim">
+              <option value="Windscreen chip">Windscreen chip</option>
+            </optgroup>
 
-          <optgroup label="Interior">
-            <option value="Interior wear / tear">Interior wear / tear</option>
-          </optgroup>
+            <optgroup label="Interior">
+              <option value="Interior wear / tear">Interior wear / tear</option>
+            </optgroup>
 
-          <optgroup label="Other">
-            <option value="Unknown / worth confirming">
-              Something looked unusual — not sure
-            </option>
-          </optgroup>
-        </select>
+            <optgroup label="Other">
+              <option value="Unknown / worth confirming">
+                Something looked unusual — not sure
+              </option>
+            </optgroup>
+          </select>
 
-        <input
-          placeholder="Optional note (e.g. rear door — small mark near handle)…"
-          value={newIssueNote}
-          onChange={(e) => setNewIssueNote(e.target.value)}
-          className="w-full rounded-lg bg-slate-800 border border-white/15 px-3 py-2 text-sm text-slate-200"
-        />
+          <input
+            placeholder="Optional note (e.g. rear door — small mark near handle)…"
+            value={newIssueNote}
+            onChange={(e) => setNewIssueNote(e.target.value)}
+            className="w-full rounded-lg bg-slate-800 border border-white/15 px-3 py-2 text-sm text-slate-200"
+          />
 
-        <button
-          onClick={addImperfection}
-          className="w-full rounded-lg bg-amber-400 text-black font-semibold px-3 py-2 text-sm"
-        >
-          Add observation
-        </button>
-      </section>
+          <button
+            onClick={addImperfection}
+            className="w-full rounded-lg bg-amber-400 text-black font-semibold px-3 py-2 text-sm"
+          >
+            Add observation
+          </button>
+        </section>
+      )}
 
       {!!imperfections.length && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4 space-y-2">
