@@ -26,88 +26,77 @@ export default function Home() {
         <div className="relative max-w-5xl mx-auto px-6 py-24 md:py-20 flex flex-col gap-4">
           <div className="max-w-xl md:max-w-2xl flex flex-col gap-4">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-              Confidence before you commit to a used car
+              Confidence when you’re standing next to the car
             </h1>
 
             <p className="text-slate-200">
-              Condition-aware inspection and pricing context to help you decide what’s worth
-              pursuing — without pressure.
+              CarVerity guides you through a calm, in-person inspection —
+              helping you notice, document, and talk through real condition
+              findings without guesswork or pressure.
             </p>
 
-            <div className="flex flex-wrap gap-3 mt-2">
-              <button
-                onClick={() => navigate("/scan/online")}
-                className="px-4 py-2 rounded-xl bg-blue-400 text-black font-semibold"
-              >
-                Start Online Scan
-              </button>
+            <p className="text-slate-300 text-sm">
+              No online assumptions. No diagnosis. Just what you actually see.
+            </p>
 
+            <div className="flex flex-wrap gap-3 mt-3">
               <button
                 onClick={() => navigate("/scan/in-person/start")}
-                className="px-4 py-2 rounded-xl bg-slate-300 text-black font-semibold"
+                className="px-5 py-2.5 rounded-xl bg-emerald-400 text-black font-semibold"
               >
-                Start In-Person Scan
+                Start in-person inspection
               </button>
 
               {progress?.step && (
                 <button
                   onClick={resumeScan}
-                  className="px-4 py-2 rounded-xl bg-amber-400 text-black font-semibold"
+                  className="px-5 py-2.5 rounded-xl bg-amber-400 text-black font-semibold"
                 >
-                  Resume Scan
+                  Resume inspection
                 </button>
               )}
             </div>
 
-            <p className="text-slate-300 text-sm">
-              CarVerity focuses on condition-based risk and pricing confidence — so you can
-              decide whether to proceed, negotiate, or move on.
-            </p>
+            <div className="flex flex-col gap-1 mt-2">
+              <Link
+                to="/what-to-expect"
+                className="text-slate-300 underline text-sm"
+              >
+                What to expect
+              </Link>
 
-            {/* Orientation link — repositioned for discoverability */}
-            <Link
-              to="/what-to-expect"
-              className="text-slate-300 underline text-sm"
-            >
-              What to expect
-            </Link>
-
-            {/* Utility link */}
-            <Link
-              to="/my-scans"
-              className="text-slate-300 underline text-sm mt-1"
-            >
-              View My Scans
-            </Link>
+              <Link
+                to="/my-scans"
+                className="text-slate-300 underline text-sm"
+              >
+                View my scans
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* INFORMATION CARDS */}
+      {/* SUPPORTING INFO */}
       <section className="max-w-5xl mx-auto px-6 py-12 md:py-10 grid gap-6 md:grid-cols-2">
         <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-5">
-          <h2 className="text-lg font-semibold mb-1">Online Listing Scan</h2>
-          <p className="text-slate-300 text-sm mb-3">
-            Paste a listing link and instantly analyse wording risks, missing details,
-            and seller-provided information.
+          <h2 className="text-lg font-semibold mb-1">
+            Designed for real inspections
+          </h2>
+          <p className="text-slate-300 text-sm">
+            CarVerity is built for the moment you’re standing next to the car —
+            not for analysing listings or making assumptions from seller
+            wording.
           </p>
-          <Link to="/scan/online" className="text-blue-400 text-sm underline">
-            Start online scan →
-          </Link>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-5">
-          <h2 className="text-lg font-semibold mb-1">In-Person Inspection Mode</h2>
-          <p className="text-slate-300 text-sm mb-3">
-            Guided photo checklist with prompts, observations, and condition awareness
-            helpful for real-world viewing.
+          <h2 className="text-lg font-semibold mb-1">
+            Helps you ask the right questions
+          </h2>
+          <p className="text-slate-300 text-sm">
+            We help you document what you see and turn it into calm,
+            confidence-building conversations with the seller.
           </p>
-          <Link
-            to="/scan/in-person/start"
-            className="text-blue-400 text-sm underline"
-          >
-            Start in-person scan →
-          </Link>
         </div>
       </section>
     </div>

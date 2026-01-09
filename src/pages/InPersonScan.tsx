@@ -56,7 +56,7 @@ export default function InPersonScan() {
           cursor: "pointer",
         }}
       >
-        Start inspection
+        Begin inspection
       </button>
 
       <footer style={{ fontSize: 14, color: "#9aa3c7" }}>

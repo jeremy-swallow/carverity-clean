@@ -3,81 +3,127 @@ import { Link } from "react-router-dom";
 
 export default function WhatToExpect() {
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12 text-white space-y-10">
-      <header className="space-y-3">
+    <div className="max-w-3xl mx-auto px-6 py-12 text-white space-y-12">
+      {/* INTRO */}
+      <header className="space-y-4">
         <h1 className="text-2xl md:text-3xl font-semibold">
           What to expect when using CarVerity
         </h1>
-        <p className="text-slate-300">
-          CarVerity is designed to support careful used-car decisions by providing
-          condition-based context — not pressure, predictions, or sales guidance.
+
+        <p className="text-slate-300 leading-relaxed">
+          Buying a used car can feel rushed, pressured, and uncertain.
+          CarVerity is designed to slow things down — giving you calm,
+          practical guidance while you’re standing next to the car.
         </p>
       </header>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">What CarVerity helps with</h2>
-        <p className="text-slate-300">
-          CarVerity helps you understand inspection findings, condition-based risk,
-          and pricing confidence when assessing a used car. The goal is to support
-          informed decisions about whether to proceed, negotiate, or move on.
+      {/* REASSURANCE */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">
+          A calm guide — not a judgement
+        </h2>
+
+        <p className="text-slate-300 leading-relaxed">
+          CarVerity doesn’t tell you what to buy or push you toward a decision.
+          It helps you notice what’s in front of you, document what you see,
+          and understand how condition affects confidence and negotiation.
+        </p>
+
+        <p className="text-slate-300 leading-relaxed">
+          There’s no scoring, no pressure, and no “gotcha” moments —
+          just structured support while you take your time.
         </p>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">What CarVerity does not do</h2>
-        <p className="text-slate-300">
-          CarVerity does not provide market valuations, price predictions, or seller
-          incentives. It does not rank vehicles or tell you what to buy. All guidance
-          is based on observed condition and inspection context.
-        </p>
-      </section>
+      {/* WHAT IT DOES */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">
+          What CarVerity helps with
+        </h2>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">What happens when you run a scan</h2>
         <ul className="text-slate-300 list-disc list-inside space-y-1">
-          <li>You review an online listing or inspect a vehicle in person</li>
-          <li>CarVerity highlights missing details, condition signals, and risks</li>
-          <li>Pricing confidence and buyer context are presented</li>
-          <li>You decide the next step based on that context</li>
+          <li>Guided photo capture during an in-person inspection</li>
+          <li>Documenting observations you might otherwise forget</li>
+          <li>Highlighting condition-related risk and uncertainty</li>
+          <li>Providing pricing confidence based on what you observed</li>
+          <li>Helping you decide whether to proceed, negotiate, or walk away</li>
         </ul>
       </section>
 
-      {/* NEW — visual reassurance section */}
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold">What you’ll see during a scan</h2>
+      {/* WHAT IT DOES NOT DO */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">
+          What CarVerity deliberately does not do
+        </h2>
 
-        <img
-          src="/what-to-expect/scan-examples.png"
-          alt="Examples of online listing context and in-person inspection summaries"
-          className="w-full rounded-xl border border-white/10"
-        />
+        <ul className="text-slate-300 list-disc list-inside space-y-1">
+          <li>It does not analyse online listings or seller wording</li>
+          <li>It does not diagnose mechanical faults</li>
+          <li>It does not predict future repairs or ownership costs</li>
+          <li>It does not tell you what the car is “worth”</li>
+          <li>It does not pressure you to buy or negotiate</li>
+        </ul>
 
-        <p className="text-xs text-slate-400">
-          Illustrative examples of how CarVerity presents online listing context and
-          in-person inspection summaries. Actual content varies depending on the
-          information available.
+        <p className="text-slate-300 leading-relaxed">
+          Everything in CarVerity is grounded in what you actually see
+          during your inspection — not assumptions or guesses.
         </p>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">When CarVerity is most useful</h2>
+      {/* HOW A SCAN FEELS */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">
+          What an inspection feels like
+        </h2>
+
+        <p className="text-slate-300 leading-relaxed">
+          CarVerity guides you step by step through photos and simple checks,
+          using plain language and gentle prompts.
+        </p>
+
+        <p className="text-slate-300 leading-relaxed">
+          You’re encouraged to pause, look closer where needed,
+          and note anything that feels uncertain — without being alarmist.
+        </p>
+
+        <p className="text-slate-300 leading-relaxed">
+          At the end, you’ll see a clear summary that reflects
+          your observations and how they affect confidence and negotiation.
+        </p>
+      </section>
+
+      {/* WHEN IT HELPS MOST */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">
+          When CarVerity is most useful
+        </h2>
+
         <ul className="text-slate-300 list-disc list-inside space-y-1">
-          <li>Comparing multiple vehicles</li>
-          <li>Feeling uncertain after a test drive or inspection</li>
-          <li>Preparing to negotiate based on condition findings</li>
-          <li>Deciding whether to walk away from a vehicle</li>
+          <li>When you feel unsure after seeing a car in person</li>
+          <li>When you want to negotiate based on condition, not instinct</li>
+          <li>When deciding whether to walk away</li>
+          <li>When comparing how different cars made you feel</li>
         </ul>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-lg font-semibold">When it may not be the right fit</h2>
-        <p className="text-slate-300">
-          If you are only looking for a market price estimate or a quick deal
-          comparison, CarVerity may not be the right tool. It is designed for
-          buyers who value clarity over speed.
+      {/* WHEN NOT A FIT */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">
+          When it may not be the right fit
+        </h2>
+
+        <p className="text-slate-300 leading-relaxed">
+          If you’re only looking for a fast price estimate or a simple
+          “buy / don’t buy” answer, CarVerity may not suit you.
+        </p>
+
+        <p className="text-slate-300 leading-relaxed">
+          It’s designed for buyers who value clarity, reflection,
+          and confidence over speed.
         </p>
       </section>
 
+      {/* FOOTER */}
       <footer className="pt-6 border-t border-white/10">
         <Link to="/" className="text-slate-300 underline text-sm">
           ← Back to home
