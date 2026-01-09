@@ -169,6 +169,17 @@ export default function Layout() {
                   </NavLink>
                 ))}
 
+                {/* Support / orientation link */}
+                <div className="pt-2 mt-2 border-t border-slate-800">
+                  <NavLink
+                    to="/what-to-expect"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-2 py-1.5 text-sm text-slate-300 underline"
+                  >
+                    What to expect
+                  </NavLink>
+                </div>
+
                 <div className="pt-3 mt-2 border-t border-slate-800 flex items-center justify-between">
                   <span className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs">
                     Scan credits: {credits}
