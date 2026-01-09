@@ -34,6 +34,7 @@ export default function InPersonSummary() {
   };
 
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [showWhy, setShowWhy] = useState(false);
 
   const pricingInsight = useMemo(() => {
     if (!askingPrice) {
@@ -42,12 +43,12 @@ export default function InPersonSummary() {
         confidence: "Price confidence unavailable",
         advice:
           "Add the asking price to unlock condition-aware pricing guidance.",
+        hasHighSignal: false,
+        total: 0,
       };
     }
 
     const total = imperfections.length;
-
-    let verdict: PricingVerdict = "info";
 
     const hasHighSignal = imperfections.some((i: any) =>
       `${i?.type ?? ""} ${i?.note ?? ""}`
@@ -55,6 +56,7 @@ export default function InPersonSummary() {
         .match(/rust|crack|leak|warning|accident|misaligned|corrosion/)
     );
 
+    let verdict: PricingVerdict = "info";
     if (hasHighSignal) verdict = "concern";
     else if (total > 0) verdict = "room";
 
@@ -79,6 +81,8 @@ export default function InPersonSummary() {
       verdict,
       confidence: confidenceMap[verdict],
       advice: adviceMap[verdict],
+      hasHighSignal,
+      total,
     };
   }, [askingPrice, imperfections]);
 
@@ -164,31 +168,61 @@ export default function InPersonSummary() {
           Pricing confidence
         </h2>
 
-        <div className="flex items-center gap-2">
-          <span
-            className={`px-2 py-0.5 rounded-full text-xs font-semibold
-              ${
-                pricingInsight.confidence.includes("reasonable")
-                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/40"
-                  : pricingInsight.confidence.includes("negotiation")
-                  ? "bg-amber-500/20 text-amber-300 border border-amber-400/40"
-                  : pricingInsight.confidence.includes("Low")
-                  ? "bg-red-500/20 text-red-300 border border-red-400/40"
-                  : "bg-slate-500/20 text-slate-300 border border-slate-400/30"
-              }
-            `}
-          >
-            {pricingInsight.confidence}
-          </span>
-        </div>
+        <span
+          className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold
+            ${
+              pricingInsight.verdict === "info"
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/40"
+                : pricingInsight.verdict === "room"
+                ? "bg-amber-500/20 text-amber-300 border border-amber-400/40"
+                : pricingInsight.verdict === "concern"
+                ? "bg-red-500/20 text-red-300 border border-red-400/40"
+                : "bg-slate-500/20 text-slate-300 border border-slate-400/30"
+            }
+          `}
+        >
+          {pricingInsight.confidence}
+        </span>
 
         <p className="text-sm text-slate-300">
           {pricingInsight.advice}
         </p>
 
-        <p className="text-[11px] text-slate-400">
-          Condition-aware guidance only — not a market valuation.
-        </p>
+        <button
+          onClick={() => setShowWhy((v) => !v)}
+          className="text-xs text-slate-400 underline pt-1"
+        >
+          {showWhy ? "Hide explanation" : "Why we reached this conclusion"}
+        </button>
+
+        {showWhy && (
+          <div className="mt-2 rounded-lg bg-slate-900/60 border border-white/10 px-4 py-3 text-sm text-slate-300 space-y-1">
+            <p>
+              • You recorded {pricingInsight.total} inspection
+              {pricingInsight.total === 1 ? " observation" : " observations"}.
+            </p>
+            {pricingInsight.hasHighSignal ? (
+              <p>
+                • At least one item may indicate condition beyond normal wear.
+              </p>
+            ) : pricingInsight.total > 0 ? (
+              <p>
+                • Items recorded appear consistent with cosmetic or general wear.
+              </p>
+            ) : (
+              <p>
+                • No condition issues were recorded during this inspection.
+              </p>
+            )}
+            <p>
+              • Dealers often price in visible wear, but not always underlying
+              risks or repair costs.
+            </p>
+            <p className="text-[11px] text-slate-400 pt-1">
+              This is condition-aware guidance only — not a market valuation.
+            </p>
+          </div>
+        )}
       </section>
 
       {/* SAVE */}
