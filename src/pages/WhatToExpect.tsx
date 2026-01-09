@@ -42,6 +42,23 @@ export default function WhatToExpect() {
         </ul>
       </section>
 
+      {/* NEW — visual reassurance section */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold">What you’ll see during a scan</h2>
+
+        <img
+          src="/what-to-expect/scan-examples.png"
+          alt="Examples of online listing context and in-person inspection summaries"
+          className="w-full rounded-xl border border-white/10"
+        />
+
+        <p className="text-xs text-slate-400">
+          Illustrative examples of how CarVerity presents online listing context and
+          in-person inspection summaries. Actual content varies depending on the
+          information available.
+        </p>
+      </section>
+
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">When CarVerity is most useful</h2>
         <ul className="text-slate-300 list-disc list-inside space-y-1">
