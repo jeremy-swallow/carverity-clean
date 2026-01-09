@@ -8,6 +8,7 @@ interface PricingInsight {
   confidence: string;
   advice: string;
   buyerRiskReason?: string;
+  buyerContext?: string;
 }
 
 interface ScanHistoryEvent {
@@ -114,10 +115,6 @@ export default function MyScans() {
     return [v.year, v.make, v.model].filter(Boolean).join(" ") || scan.title;
   }
 
-  /* =========================================================
-     Card
-  ========================================================== */
-
   function PricingBadge({ insight }: { insight: PricingInsight }) {
     const text = insight.confidence || "";
 
@@ -167,6 +164,12 @@ export default function MyScans() {
                 ⚠ Buyer risk noted — review inspection findings
               </p>
             )}
+
+            {pricing.buyerContext && (
+              <p className="text-xs text-slate-200">
+                Buyer context: {pricing.buyerContext}
+              </p>
+            )}
           </div>
         )}
 
@@ -178,7 +181,6 @@ export default function MyScans() {
           {online && !inPerson && (
             <button
               onClick={() => {
-                // NOTE: we do not saveProgress here in this version (kept as-is)
                 navigate("/scan/in-person/start");
               }}
               className="px-4 py-2 rounded-xl bg-emerald-400 text-black font-semibold"

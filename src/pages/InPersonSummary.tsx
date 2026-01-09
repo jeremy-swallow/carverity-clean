@@ -43,6 +43,7 @@ export default function InPersonSummary() {
         advice:
           "Add the asking price to unlock condition-aware pricing guidance.",
         buyerRiskReason: undefined as string | undefined,
+        buyerContext: undefined as string | undefined,
         hasHighSignal: false,
         total: 0,
       };
@@ -82,11 +83,19 @@ export default function InPersonSummary() {
         ? "Inspection notes include one or more condition issues beyond normal wear that materially weaken the asking price justification."
         : undefined;
 
+    const buyerContext =
+      verdict === "room"
+        ? "Your inspection notes suggest the vehicle condition may support a reasonable negotiation."
+        : verdict === "concern"
+        ? "The condition issues noted meaningfully weaken the asking price justification. If the seller is unwilling to adjust, this may affect whether the vehicle remains a suitable option."
+        : undefined;
+
     return {
       verdict,
       confidence: confidenceMap[verdict],
       advice: adviceMap[verdict],
       buyerRiskReason,
+      buyerContext,
       hasHighSignal,
       total,
     };
@@ -111,14 +120,15 @@ export default function InPersonSummary() {
         checks,
         photos,
       },
-      history: pricingInsight.verdict === "concern"
-        ? [
-            {
-              at: new Date().toISOString(),
-              event: "Buyer risk flagged due to inspection findings",
-            },
-          ]
-        : undefined,
+      history:
+        pricingInsight.verdict === "concern"
+          ? [
+              {
+                at: new Date().toISOString(),
+                event: "Buyer risk flagged due to inspection findings",
+              },
+            ]
+          : undefined,
     } as any);
 
     clearProgress();
@@ -186,13 +196,18 @@ export default function InPersonSummary() {
           {pricingInsight.confidence}
         </span>
 
-        <p className="text-sm text-slate-300">
-          {pricingInsight.advice}
-        </p>
+        <p className="text-sm text-slate-300">{pricingInsight.advice}</p>
 
         {pricingInsight.buyerRiskReason && (
           <p className="text-sm text-red-300 font-semibold">
             ⚠ Buyer risk: {pricingInsight.buyerRiskReason}
+          </p>
+        )}
+
+        {pricingInsight.buyerContext && (
+          <p className="text-sm text-slate-200">
+            <span className="font-semibold">Buyer context:</span>{" "}
+            {pricingInsight.buyerContext}
           </p>
         )}
 
