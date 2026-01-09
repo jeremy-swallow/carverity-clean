@@ -58,6 +58,11 @@ export default function Home() {
             )}
           </div>
 
+          <p className="text-slate-300 text-sm max-w-2xl">
+            CarVerity focuses on condition-based risk and pricing confidence — so you can
+            decide whether to proceed, negotiate, or move on.
+          </p>
+
           <Link
             to="/my-scans"
             className="text-slate-300 underline text-sm mt-1"
