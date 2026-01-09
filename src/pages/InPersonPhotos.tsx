@@ -18,6 +18,9 @@ type StepPhoto = {
   stepId: string;
 };
 
+const MAX_PHOTOS = 15;
+const SOFT_GUIDANCE_THRESHOLD = 12;
+
 export default function InPersonPhotos() {
   const navigate = useNavigate();
   const existingProgress: any = loadProgress();
@@ -49,6 +52,10 @@ export default function InPersonPhotos() {
 
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  const totalPhotos = photos.length;
+  const atSoftLimit = totalPhotos >= SOFT_GUIDANCE_THRESHOLD;
+  const atHardLimit = totalPhotos >= MAX_PHOTOS;
 
   useEffect(() => {
     const stored = loadOnlineResults();
@@ -170,6 +177,8 @@ export default function InPersonPhotos() {
   ========================================================== */
 
   function savePhotoFromFile(file: File) {
+    if (atHardLimit) return;
+
     const reader = new FileReader();
     reader.onload = () => {
       const record: StepPhoto = {
@@ -194,12 +203,19 @@ export default function InPersonPhotos() {
   }
 
   function handleUploadFromGallery(e: React.ChangeEvent<HTMLInputElement>) {
+    if (atHardLimit) {
+      e.target.value = "";
+      return;
+    }
+
     const file = e.target.files?.[0];
     if (file) savePhotoFromFile(file);
     e.target.value = "";
   }
 
   function handleTakePhoto() {
+    if (atHardLimit) return;
+
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
@@ -378,22 +394,49 @@ export default function InPersonPhotos() {
           {stepPhotos.length > 0 ? "Photos for this angle" : "Add a photo for this angle"}
         </h3>
 
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] text-slate-300">
+            Total photos: <span className="font-semibold">{totalPhotos}</span> / {MAX_PHOTOS}
+          </p>
+
+          {!atHardLimit && atSoftLimit && (
+            <p className="text-[11px] text-slate-400">
+              You’ve added most of what’s needed — focus on anything unusual.
+            </p>
+          )}
+
+          {atHardLimit && (
+            <p className="text-[11px] text-amber-200 font-semibold">
+              You’ve added enough photos for a clear inspection.
+            </p>
+          )}
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-2">
           <button
             onClick={handleTakePhoto}
-            className="w-full rounded-lg bg-emerald-400 text-black font-semibold px-3 py-2"
+            disabled={atHardLimit}
+            className="w-full rounded-lg bg-emerald-400 text-black font-semibold px-3 py-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             📷 Take photo with camera
           </button>
 
           <label className="w-full">
-            <span className="block rounded-lg bg-slate-800 border border-white/20 px-3 py-2 text-sm text-slate-200 text-center cursor-pointer">
+            <span
+              className={[
+                "block rounded-lg px-3 py-2 text-sm text-slate-200 text-center cursor-pointer",
+                atHardLimit
+                  ? "bg-slate-800/60 border border-white/10 opacity-60 cursor-not-allowed"
+                  : "bg-slate-800 border border-white/20",
+              ].join(" ")}
+            >
               📁 Upload from gallery / files
             </span>
             <input
               type="file"
               accept="image/*"
               className="hidden"
+              disabled={atHardLimit}
               onChange={handleUploadFromGallery}
             />
           </label>
@@ -405,6 +448,7 @@ export default function InPersonPhotos() {
               <div key={p.id} className="relative group">
                 <img
                   src={p.dataUrl}
+                  alt="Inspection photo"
                   className="rounded-lg border border-white/20 object-cover w-full h-24"
                 />
                 <button
