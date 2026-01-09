@@ -53,12 +53,11 @@ export default function Layout() {
   }
 
   /* -------------------------------------------------------
-   * Nav config
+   * Nav config (pricing removed)
    * ----------------------------------------------------- */
   const navItems = [
     { to: "/start-scan", label: "Start scan" },
     { to: "/my-scans", label: "My scans" },
-    { to: "/pricing", label: "Pricing" },
     { to: "/faq", label: "FAQ" },
     { to: "/credits-history", label: "Credits history" },
   ];
@@ -89,10 +88,7 @@ export default function Layout() {
         <div className="bg-slate-950/85 backdrop-blur border-b border-slate-800">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
             {/* LOGO */}
-            <NavLink
-              to="/"
-              className="flex items-center gap-2"
-            >
+            <NavLink to="/" className="flex items-center gap-2">
               <span className="text-base font-semibold tracking-tight">
                 CarVerity
               </span>
@@ -169,7 +165,7 @@ export default function Layout() {
                   </NavLink>
                 ))}
 
-                {/* Support / orientation link */}
+                {/* Orientation link */}
                 <div className="pt-2 mt-2 border-t border-slate-800">
                   <NavLink
                     to="/what-to-expect"
@@ -180,18 +176,11 @@ export default function Layout() {
                   </NavLink>
                 </div>
 
-                <div className="pt-3 mt-2 border-t border-slate-800 flex items-center justify-between">
+                {/* Credits display only — no pricing link */}
+                <div className="pt-3 mt-2 border-t border-slate-800">
                   <span className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs">
                     Scan credits: {credits}
                   </span>
-
-                  <NavLink
-                    to="/pricing"
-                    onClick={() => setMenuOpen(false)}
-                    className="text-xs text-indigo-300 underline"
-                  >
-                    Buy more credits
-                  </NavLink>
                 </div>
               </div>
             </div>

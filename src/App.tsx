@@ -32,7 +32,6 @@ import InPersonReportPrint from "./pages/InPersonReportPrint";
    Other pages
 ======================= */
 import MyScans from "./pages/MyScans";
-import Pricing from "./pages/Pricing";
 
 export default function App() {
   return (
@@ -77,7 +76,6 @@ export default function App() {
 
         {/* Other */}
         <Route path="/my-scans" element={<MyScans />} />
-        <Route path="/pricing" element={<Pricing />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
