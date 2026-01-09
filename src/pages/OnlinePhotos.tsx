@@ -7,6 +7,8 @@ import {
   type SavedResult,
 } from "../utils/onlineResults";
 
+const MAX_ONLINE_PHOTOS = 8;
+
 export default function OnlinePhotos() {
   const navigate = useNavigate();
   const [result, setResult] = useState<SavedResult | null>(null);
@@ -24,7 +26,6 @@ export default function OnlinePhotos() {
     setResult(stored);
   }, [navigate]);
 
-  // Until we know what to show, render nothing
   if (!result) return null;
 
   async function handleContinue() {
@@ -36,6 +37,10 @@ export default function OnlinePhotos() {
 
     const updated: SavedResult = {
       ...result,
+      // Ensure required fields exist to satisfy SavedResult typing
+      createdAt: result.createdAt ?? new Date().toISOString(),
+      id: result.id ?? crypto.randomUUID(),
+
       type: "online",
       step: "results",
       photos: result.photos ?? {
@@ -45,16 +50,16 @@ export default function OnlinePhotos() {
     };
 
     saveOnlineResults(updated);
-
-    // Correct route for the online results screen
     navigate("/scan/online/results", { replace: true });
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-16">
-      <h1 className="text-2xl font-semibold mb-2">Select listing photos</h1>
+    <div className="max-w-3xl mx-auto px-4 py-16 text-white">
+      <h1 className="text-2xl font-semibold mb-2">
+        Listing photos (optional context)
+      </h1>
 
-      <p className="text-muted-foreground mb-4">
+      <p className="text-slate-400 mb-4">
         From listing:{" "}
         <a
           href={result.listingUrl ?? "#"}
@@ -66,18 +71,26 @@ export default function OnlinePhotos() {
         </a>
       </p>
 
-      <div className="bg-slate-800/40 border border-white/10 rounded-xl p-4 mb-8">
-        🚗 We’ll automatically pull up to 8 relevant photos from the listing.
-        You’ll be able to confirm or replace these later.
+      <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4 mb-6 space-y-2">
+        <p className="text-sm text-slate-300">
+          CarVerity automatically extracts up to{" "}
+          <strong>{MAX_ONLINE_PHOTOS}</strong> relevant photos from the listing.
+        </p>
+
+        <p className="text-xs text-slate-400">
+          Online scans focus on listing context and missing details — not physical
+          inspection. You’ll have a chance to capture detailed photos during an
+          in-person scan.
+        </p>
       </div>
 
-      <p className="text-muted-foreground mb-6">
+      <p className="text-slate-400 mb-6">
         No photos extracted yet — continue to proceed.
       </p>
 
       <button
         onClick={handleContinue}
-        className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white"
+        className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-black font-semibold"
       >
         Continue
       </button>
