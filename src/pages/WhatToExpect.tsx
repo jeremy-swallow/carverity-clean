@@ -50,6 +50,30 @@ export default function WhatToExpect() {
         </ul>
       </section>
 
+      {/* PRICING CONTEXT */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">
+          How pricing fits in
+        </h2>
+
+        <p className="text-slate-300 leading-relaxed">
+          CarVerity does not estimate what a car is worth or predict market prices.
+          Instead, pricing confidence appears <strong>after</strong> your inspection,
+          once you’ve noted the vehicle’s condition.
+        </p>
+
+        <p className="text-slate-300 leading-relaxed">
+          Based on what you observed, CarVerity reflects whether the asking price
+          feels broadly reasonable, whether there may be room to negotiate, or
+          whether condition issues meaningfully weaken price confidence.
+        </p>
+
+        <p className="text-slate-300 leading-relaxed">
+          This gives you practical language and context to discuss price with the
+          seller — without relying on guesses or generic valuations.
+        </p>
+      </section>
+
       {/* WHAT IT DOES NOT DO */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">
@@ -60,7 +84,7 @@ export default function WhatToExpect() {
           <li>It does not analyse online listings or seller wording</li>
           <li>It does not diagnose mechanical faults</li>
           <li>It does not predict future repairs or ownership costs</li>
-          <li>It does not tell you what the car is “worth”</li>
+          <li>It does not provide market valuations</li>
           <li>It does not pressure you to buy or negotiate</li>
         </ul>
 
