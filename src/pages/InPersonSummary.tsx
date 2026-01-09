@@ -39,9 +39,9 @@ export default function InPersonSummary() {
     if (!askingPrice) {
       return {
         verdict: "missing" as PricingVerdict,
-        confidence: "Price confidence unavailable",
+        confidence: "Price context not added yet",
         advice:
-          "Add the asking price to unlock condition-aware pricing guidance.",
+          "Add the asking price to see how the condition you observed lines up with the price.",
         buyerRiskReason: undefined as string | undefined,
         buyerContext: undefined as string | undefined,
         hasHighSignal: false,
@@ -62,25 +62,25 @@ export default function InPersonSummary() {
     else if (total > 0) verdict = "room";
 
     const confidenceMap: Record<PricingVerdict, string> = {
-      missing: "Price confidence unavailable",
-      info: "Price appears reasonable for condition",
-      room: "Some negotiation room is likely",
-      concern: "Low price confidence — negotiate firmly",
+      missing: "Price context not added yet",
+      info: "What you observed broadly supports the asking price",
+      room: "Your inspection suggests there may be room to negotiate",
+      concern: "Some inspection findings weaken the asking price",
     };
 
     const adviceMap: Record<PricingVerdict, string> = {
       missing: "",
       info:
-        "Based on your inspection notes, the asking price broadly aligns with observed condition.",
+        "Based on what you noted during the inspection, the condition appears broadly consistent with the asking price.",
       room:
-        "The dealer may have priced in some wear, but your notes support a reasonable negotiation.",
+        "Based on what you observed, the condition may support a reasonable negotiation — even if the price initially seems firm.",
       concern:
-        "One or more inspection findings significantly weaken price justification.",
+        "Several things you noted go beyond normal wear, which makes the asking price difficult to justify without meaningful movement.",
     };
 
     const buyerRiskReason =
       verdict === "concern"
-        ? "Inspection notes include one or more condition issues beyond normal wear that materially weaken the asking price justification."
+        ? "One or more inspection findings go beyond normal wear and materially weaken the justification for the asking price."
         : undefined;
 
     const buyerContext =
@@ -119,7 +119,7 @@ export default function InPersonSummary() {
               ? [
                   {
                     at: new Date().toISOString(),
-                    event: "Buyer risk flagged due to inspection findings",
+                    event: "Buyer leverage increased due to inspection findings",
                   },
                 ]
               : []),
@@ -203,7 +203,7 @@ export default function InPersonSummary() {
       {/* PRICING CONFIDENCE */}
       <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-2">
         <h2 className="text-sm font-semibold text-emerald-200">
-          Pricing confidence
+          What your inspection suggests
         </h2>
 
         <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-300 border border-red-400/40">
@@ -214,13 +214,13 @@ export default function InPersonSummary() {
 
         {pricingInsight.buyerRiskReason && (
           <p className="text-sm text-red-300 font-semibold">
-            ⚠ Buyer risk: {pricingInsight.buyerRiskReason}
+            ⚠ Why this matters: {pricingInsight.buyerRiskReason}
           </p>
         )}
 
         {pricingInsight.buyerContext && (
           <p className="text-sm text-slate-200">
-            <span className="font-semibold">Buyer context:</span>{" "}
+            <span className="font-semibold">Context:</span>{" "}
             {pricingInsight.buyerContext}
           </p>
         )}
@@ -229,7 +229,7 @@ export default function InPersonSummary() {
           onClick={() => setShowWhy((v) => !v)}
           className="text-xs text-slate-400 underline pt-1"
         >
-          {showWhy ? "Hide explanation" : "Why we reached this conclusion"}
+          {showWhy ? "Hide explanation" : "Why we reached this guidance"}
         </button>
       </section>
 
