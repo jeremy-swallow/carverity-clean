@@ -21,59 +21,63 @@ export default function Home() {
           className="absolute inset-0 w-full h-full object-cover"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/70 to-black/85" />
+        {/* Desktop: slightly stronger gradient to de-emphasise image */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/75 to-black/90 md:from-black/80 md:via-black/85 md:to-black/95" />
 
-        <div className="relative max-w-5xl mx-auto px-6 py-24 flex flex-col gap-4">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-            Confidence before you commit to a used car
-          </h1>
+        <div className="relative max-w-5xl mx-auto px-6 py-24 md:py-20 flex flex-col gap-4">
+          {/* Constrain reading width on desktop */}
+          <div className="max-w-xl md:max-w-2xl flex flex-col gap-4">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              Confidence before you commit to a used car
+            </h1>
 
-          <p className="text-slate-200 max-w-2xl">
-            Condition-aware inspection and pricing context to help you decide what’s worth
-            pursuing — without pressure.
-          </p>
+            <p className="text-slate-200">
+              Condition-aware inspection and pricing context to help you decide what’s worth
+              pursuing — without pressure.
+            </p>
 
-          <div className="flex flex-wrap gap-3 mt-3">
-            <button
-              onClick={() => navigate("/scan/online")}
-              className="px-4 py-2 rounded-xl bg-blue-400 text-black font-semibold"
-            >
-              Start Online Scan
-            </button>
-
-            <button
-              onClick={() => navigate("/scan/in-person/start")}
-              className="px-4 py-2 rounded-xl bg-slate-300 text-black font-semibold"
-            >
-              Start In-Person Scan
-            </button>
-
-            {progress?.step && (
+            <div className="flex flex-wrap gap-3 mt-2">
               <button
-                onClick={resumeScan}
-                className="px-4 py-2 rounded-xl bg-amber-400 text-black font-semibold"
+                onClick={() => navigate("/scan/online")}
+                className="px-4 py-2 rounded-xl bg-blue-400 text-black font-semibold"
               >
-                Resume Scan
+                Start Online Scan
               </button>
-            )}
+
+              <button
+                onClick={() => navigate("/scan/in-person/start")}
+                className="px-4 py-2 rounded-xl bg-slate-300 text-black font-semibold"
+              >
+                Start In-Person Scan
+              </button>
+
+              {progress?.step && (
+                <button
+                  onClick={resumeScan}
+                  className="px-4 py-2 rounded-xl bg-amber-400 text-black font-semibold"
+                >
+                  Resume Scan
+                </button>
+              )}
+            </div>
+
+            <p className="text-slate-300 text-sm">
+              CarVerity focuses on condition-based risk and pricing confidence — so you can
+              decide whether to proceed, negotiate, or move on.
+            </p>
+
+            <Link
+              to="/my-scans"
+              className="text-slate-300 underline text-sm mt-1"
+            >
+              View My Scans
+            </Link>
           </div>
-
-          <p className="text-slate-300 text-sm max-w-2xl">
-            CarVerity focuses on condition-based risk and pricing confidence — so you can
-            decide whether to proceed, negotiate, or move on.
-          </p>
-
-          <Link
-            to="/my-scans"
-            className="text-slate-300 underline text-sm mt-1"
-          >
-            View My Scans
-          </Link>
         </div>
       </section>
 
       {/* INFORMATION CARDS */}
-      <section className="max-w-5xl mx-auto px-6 py-12 grid gap-6 md:grid-cols-2">
+      <section className="max-w-5xl mx-auto px-6 py-12 md:py-10 grid gap-6 md:grid-cols-2">
         <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-5">
           <h2 className="text-lg font-semibold mb-1">Online Listing Scan</h2>
           <p className="text-slate-300 text-sm mb-3">
