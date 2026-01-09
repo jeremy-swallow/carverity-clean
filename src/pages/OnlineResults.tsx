@@ -8,7 +8,6 @@ import {
   type VehicleInfo,
   normaliseVehicle,
 } from "../utils/onlineResults";
-import { getPhotoSetFromResult } from "../utils/listingPhotos";
 
 const UNLOCK_KEY = "carverity_test_full_unlock";
 
@@ -266,104 +265,6 @@ function buildSyntheticSections(cleaned: string): ReportSection[] {
 }
 
 /* =========================================================
-   Risk section post-processing
-   (strip neutral service-history explanations from "Key risk signals")
-========================================================= */
-
-function scrubNeutralServiceHistoryInRiskSection(body: string): string {
-  if (!body) return "";
-
-  const sentences = body
-    .split(/(?<=[.!?])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  const filtered = sentences.filter((s) => {
-    const lower = s.toLowerCase();
-
-    const mentionsService =
-      lower.includes("service history") ||
-      lower.includes("logbook") ||
-      lower.includes("service book");
-
-    // If the sentence doesn't talk about service history at all, keep it.
-    if (!mentionsService) return true;
-
-    const clearlyNeutral =
-      lower.includes("future-dated entries") ||
-      lower.includes("scheduled service intervals") ||
-      lower.includes("manufacturer-scheduled") ||
-      lower.includes("not indicative of missing past services") ||
-      lower.includes("not indicative of missing services") ||
-      lower.includes("typical for") ||
-      lower.includes("provides peace of mind") ||
-      lower.includes("rwc") ||
-      lower.includes("roadworthy certificate") ||
-      lower.includes("ppsr report") ||
-      lower.includes("worth confirming with the seller") ||
-      lower.includes("worth confirming with seller");
-
-    if (clearlyNeutral) {
-      // Definitely not a red flag — drop it from "Key risk signals"
-      return false;
-    }
-
-    const explicitRedFlag =
-      lower.includes("no service history") ||
-      lower.includes("service history missing") ||
-      lower.includes("service history not provided") ||
-      lower.includes("service books missing") ||
-      lower.includes("logbook missing") ||
-      lower.includes("books missing") ||
-      lower.includes("cannot verify") ||
-      lower.includes("unable to verify") ||
-      lower.includes("odometer rollback") ||
-      lower.includes("rolled back") ||
-      lower.includes("tamper") ||
-      lower.includes("falsified") ||
-      lower.includes("falsification");
-
-    // Only keep service-history sentences that are explicit red flags
-    return explicitRedFlag;
-  });
-
-  return filtered.join(" ").trim();
-}
-
-function refineSections(
-  sections: ReportSection[],
-  cleanedFallback: string
-): ReportSection[] {
-  if (!sections.length) return sections;
-
-  const refined: ReportSection[] = [];
-
-  for (const section of sections) {
-    const isRiskSection = section.title.toLowerCase().includes("key risk");
-    if (isRiskSection) {
-      const scrubbedBody = scrubNeutralServiceHistoryInRiskSection(
-        section.body
-      );
-      if (!scrubbedBody || !isMeaningfulContent(scrubbedBody)) {
-        // If nothing risky remains, drop the risk section entirely
-        continue;
-      }
-      refined.push({ ...section, body: scrubbedBody });
-    } else {
-      refined.push(section);
-    }
-  }
-
-  // If we gutted things too hard and now don't really have structure,
-  // fall back to synthetic sections from the cleaned text.
-  if (refined.length <= 1) {
-    return buildSyntheticSections(cleanedFallback);
-  }
-
-  return refined;
-}
-
-/* =========================================================
    Section builder
 ========================================================= */
 
@@ -412,11 +313,11 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
     }
   }
 
-  if (!sections.length) {
+  if (sections.length <= 1) {
     return buildSyntheticSections(cleaned);
   }
 
-  return refineSections(sections, cleaned);
+  return sections;
 }
 
 /* =========================================================
@@ -1301,9 +1202,6 @@ export default function OnlineResults() {
 
   const riskBuckets = buildRiskBuckets(rawReport);
 
-  const photoSet = getPhotoSetFromResult(result);
-  const hasPhotos = Boolean(photoSet.hero || photoSet.thumbnails.length);
-
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
       {/* Sticky vehicle bar */}
@@ -1377,49 +1275,6 @@ export default function OnlineResults() {
           <ConfidenceGauge code={confidenceCode} />
         </div>
       </section>
-
-      {/* Photos from listing */}
-      {hasPhotos && (
-        <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-4 space-y-3">
-          <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
-            <span>📷</span>
-            <span>Photos from this listing</span>
-          </h2>
-
-          <div className="flex flex-col md:flex-row gap-3 mt-2">
-            {photoSet.hero && (
-              <div className="md:w-2/3">
-                <div className="aspect-video rounded-2xl overflow-hidden border border-white/10 bg-slate-950/70">
-                  <img
-                    src={photoSet.hero}
-                    alt="Primary vehicle photo from listing"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              </div>
-            )}
-
-            {photoSet.thumbnails.length > 0 && (
-              <div className="md:w-1/3">
-                <div className="grid grid-cols-3 md:grid-cols-2 gap-2">
-                  {photoSet.thumbnails.map((url, idx) => (
-                    <div
-                      key={`${url}-${idx}`}
-                      className="aspect-video rounded-xl overflow-hidden border border-white/10 bg-slate-950/70"
-                    >
-                      <img
-                        src={url}
-                        alt={`Listing photo ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
 
       {/* Risk & Confidence Heat-Map */}
       <RiskHeatMap buckets={riskBuckets} showUnlocked={showUnlocked} />
