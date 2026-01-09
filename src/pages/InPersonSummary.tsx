@@ -85,9 +85,9 @@ export default function InPersonSummary() {
 
     const buyerContext =
       verdict === "room"
-        ? "Your inspection notes suggest the vehicle condition may support a reasonable negotiation."
+        ? "Inspection notes suggest the vehicle condition may support a reasonable negotiation."
         : verdict === "concern"
-        ? "The condition issues noted meaningfully weaken the asking price justification. If the seller is unwilling to adjust, this may affect whether the vehicle remains a suitable option."
+        ? "Condition issues noted meaningfully weaken the asking price justification and may affect overall suitability if unaddressed."
         : undefined;
 
     return {
@@ -103,6 +103,28 @@ export default function InPersonSummary() {
 
   function saveToLibrary() {
     const id = activeScanId ?? generateScanId();
+
+    const historyEvents =
+      pricingInsight.verdict === "room" || pricingInsight.verdict === "concern"
+        ? [
+            ...(pricingInsight.buyerContext
+              ? [
+                  {
+                    at: new Date().toISOString(),
+                    event: `Buyer context recorded: ${pricingInsight.buyerContext}`,
+                  },
+                ]
+              : []),
+            ...(pricingInsight.verdict === "concern"
+              ? [
+                  {
+                    at: new Date().toISOString(),
+                    event: "Buyer risk flagged due to inspection findings",
+                  },
+                ]
+              : []),
+          ]
+        : undefined;
 
     saveScan({
       id,
@@ -120,15 +142,7 @@ export default function InPersonSummary() {
         checks,
         photos,
       },
-      history:
-        pricingInsight.verdict === "concern"
-          ? [
-              {
-                at: new Date().toISOString(),
-                event: "Buyer risk flagged due to inspection findings",
-              },
-            ]
-          : undefined,
+      history: historyEvents,
     } as any);
 
     clearProgress();
