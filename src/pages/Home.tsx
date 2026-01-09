@@ -25,12 +25,12 @@ export default function Home() {
 
         <div className="relative max-w-5xl mx-auto px-6 py-24 flex flex-col gap-4">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-            Smarter used-car checks with CarVerity
+            Confidence before you commit to a used car
           </h1>
 
           <p className="text-slate-200 max-w-2xl">
-            Analyse an online listing, or guide your in-person inspection — step-by-step,
-            with helpful prompts and context.
+            Condition-aware inspection and pricing context to help you decide what’s worth
+            pursuing — without pressure.
           </p>
 
           <div className="flex flex-wrap gap-3 mt-3">
