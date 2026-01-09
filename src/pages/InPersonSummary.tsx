@@ -188,6 +188,20 @@ export default function InPersonSummary() {
           {pricingInsight.advice}
         </p>
 
+        {/* BUYER RISK / WALK AWAY */}
+        {pricingInsight.verdict === "concern" && (
+          <div className="mt-2 rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <p className="font-semibold">
+              Buyer risk — consider walking away
+            </p>
+            <p className="mt-1 text-red-100">
+              Based on the issues you recorded, proceeding at this price carries
+              elevated risk. If the seller cannot repair or formally account
+              for these items, walking away may be the safest decision.
+            </p>
+          </div>
+        )}
+
         <button
           onClick={() => setShowWhy((v) => !v)}
           className="text-xs text-slate-400 underline pt-1"

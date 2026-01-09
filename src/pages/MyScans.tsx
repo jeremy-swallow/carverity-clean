@@ -37,10 +37,6 @@ interface SavedScan {
   history?: ScanHistoryEvent[];
 }
 
-/* =========================================================
-   Pairing helpers — link scans for same vehicle
-========================================================= */
-
 function normaliseVehicleKey(scan: SavedScan): string | null {
   const v = scan.vehicle;
   if (!v) return null;
@@ -81,10 +77,6 @@ function buildPairs(scans: SavedScan[]): PairedEntry[] {
   return Array.from(map.values());
 }
 
-/* =========================================================
-   Component
-========================================================= */
-
 export default function MyScans() {
   const navigate = useNavigate();
   const [scans, setScans] = useState<SavedScan[]>([]);
@@ -116,10 +108,6 @@ export default function MyScans() {
     const v = scan.vehicle ?? {};
     return [v.year, v.make, v.model].filter(Boolean).join(" ") || scan.title;
   }
-
-  /* =========================================================
-     Card
-  ========================================================== */
 
   function PricingBadge({ insight }: { insight: PricingInsight }) {
     const text = insight.confidence || "";
@@ -166,6 +154,12 @@ export default function MyScans() {
             <p className="text-xs text-slate-300">
               {pricing.advice}
             </p>
+
+            {pricing.verdict === "concern" && (
+              <p className="text-xs text-red-300 pt-1">
+                Buyer risk elevated — walking away may be the safer option.
+              </p>
+            )}
           </div>
         )}
 
@@ -207,9 +201,7 @@ export default function MyScans() {
     return (
       <div className="max-w-3xl mx-auto px-6 py-16 text-center">
         <h1 className="text-2xl font-semibold mb-2">My scans</h1>
-        <p className="text-slate-400 mb-6">
-          No saved scans yet.
-        </p>
+        <p className="text-slate-400 mb-6">No saved scans yet.</p>
 
         <Link
           to="/start-scan"
