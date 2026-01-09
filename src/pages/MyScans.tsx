@@ -1,13 +1,13 @@
-// src/pages/MyScans.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { loadScans } from "../utils/scanStorage";
-import { loadProgress, saveProgress } from "../utils/scanProgress";
+import { loadProgress } from "../utils/scanProgress";
 
 interface PricingInsight {
   verdict?: "missing" | "info" | "room" | "concern";
   confidence: string;
   advice: string;
+  buyerRiskReason?: string;
 }
 
 interface ScanHistoryEvent {
@@ -37,6 +37,10 @@ interface SavedScan {
   history?: ScanHistoryEvent[];
 }
 
+/* =========================================================
+   Pairing helpers — link scans for same vehicle
+========================================================= */
+
 function normaliseVehicleKey(scan: SavedScan): string | null {
   const v = scan.vehicle;
   if (!v) return null;
@@ -58,8 +62,7 @@ function buildPairs(scans: SavedScan[]): PairedEntry[] {
   const map = new Map<string, PairedEntry>();
 
   for (const scan of scans) {
-    const urlKey =
-      (scan.listingUrl ?? "").trim().toLowerCase() || undefined;
+    const urlKey = (scan.listingUrl ?? "").trim().toLowerCase() || undefined;
     const vehicleKey = normaliseVehicleKey(scan) ?? undefined;
 
     const matchKey = urlKey || vehicleKey || scan.id;
@@ -76,6 +79,10 @@ function buildPairs(scans: SavedScan[]): PairedEntry[] {
 
   return Array.from(map.values());
 }
+
+/* =========================================================
+   Component
+========================================================= */
 
 export default function MyScans() {
   const navigate = useNavigate();
@@ -94,9 +101,7 @@ export default function MyScans() {
   const sorted = useMemo(
     () =>
       [...scans].sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() -
-          new Date(a.createdAt).getTime()
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ),
     [scans]
   );
@@ -108,6 +113,10 @@ export default function MyScans() {
     const v = scan.vehicle ?? {};
     return [v.year, v.make, v.model].filter(Boolean).join(" ") || scan.title;
   }
+
+  /* =========================================================
+     Card
+  ========================================================== */
 
   function PricingBadge({ insight }: { insight: PricingInsight }) {
     const text = insight.confidence || "";
@@ -151,13 +160,11 @@ export default function MyScans() {
         {pricing && (
           <div className="rounded-lg bg-slate-950/40 border border-white/10 px-3 py-2 space-y-1">
             <PricingBadge insight={pricing} />
-            <p className="text-xs text-slate-300">
-              {pricing.advice}
-            </p>
+            <p className="text-xs text-slate-300">{pricing.advice}</p>
 
-            {pricing.verdict === "concern" && (
-              <p className="text-xs text-red-300 pt-1">
-                Buyer risk elevated — walking away may be the safer option.
+            {pricing.buyerRiskReason && (
+              <p className="text-xs text-red-300">
+                ⚠ Buyer risk noted — review inspection findings
               </p>
             )}
           </div>
@@ -171,13 +178,7 @@ export default function MyScans() {
           {online && !inPerson && (
             <button
               onClick={() => {
-                saveProgress({
-                  type: "in-person",
-                  step: "/scan/in-person/start",
-                  listingUrl: online.listingUrl ?? "",
-                  vehicle: online.vehicle ?? {},
-                  fromOnlineScan: true,
-                });
+                // NOTE: we do not saveProgress here in this version (kept as-is)
                 navigate("/scan/in-person/start");
               }}
               className="px-4 py-2 rounded-xl bg-emerald-400 text-black font-semibold"

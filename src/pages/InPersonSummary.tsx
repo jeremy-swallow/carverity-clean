@@ -1,4 +1,3 @@
-// src/pages/InPersonSummary.tsx
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { loadProgress, clearProgress } from "../utils/scanProgress";
@@ -43,6 +42,7 @@ export default function InPersonSummary() {
         confidence: "Price confidence unavailable",
         advice:
           "Add the asking price to unlock condition-aware pricing guidance.",
+        buyerRiskReason: undefined as string | undefined,
         hasHighSignal: false,
         total: 0,
       };
@@ -77,10 +77,16 @@ export default function InPersonSummary() {
         "One or more inspection findings significantly weaken price justification.",
     };
 
+    const buyerRiskReason =
+      verdict === "concern"
+        ? "Inspection notes include one or more condition issues beyond normal wear that materially weaken the asking price justification."
+        : undefined;
+
     return {
       verdict,
       confidence: confidenceMap[verdict],
       advice: adviceMap[verdict],
+      buyerRiskReason,
       hasHighSignal,
       total,
     };
@@ -105,6 +111,14 @@ export default function InPersonSummary() {
         checks,
         photos,
       },
+      history: pricingInsight.verdict === "concern"
+        ? [
+            {
+              at: new Date().toISOString(),
+              event: "Buyer risk flagged due to inspection findings",
+            },
+          ]
+        : undefined,
     } as any);
 
     clearProgress();
@@ -168,19 +182,7 @@ export default function InPersonSummary() {
           Pricing confidence
         </h2>
 
-        <span
-          className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold
-            ${
-              pricingInsight.verdict === "info"
-                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/40"
-                : pricingInsight.verdict === "room"
-                ? "bg-amber-500/20 text-amber-300 border border-amber-400/40"
-                : pricingInsight.verdict === "concern"
-                ? "bg-red-500/20 text-red-300 border border-red-400/40"
-                : "bg-slate-500/20 text-slate-300 border border-slate-400/30"
-            }
-          `}
-        >
+        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-300 border border-red-400/40">
           {pricingInsight.confidence}
         </span>
 
@@ -188,18 +190,10 @@ export default function InPersonSummary() {
           {pricingInsight.advice}
         </p>
 
-        {/* BUYER RISK / WALK AWAY */}
-        {pricingInsight.verdict === "concern" && (
-          <div className="mt-2 rounded-lg border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            <p className="font-semibold">
-              Buyer risk — consider walking away
-            </p>
-            <p className="mt-1 text-red-100">
-              Based on the issues you recorded, proceeding at this price carries
-              elevated risk. If the seller cannot repair or formally account
-              for these items, walking away may be the safest decision.
-            </p>
-          </div>
+        {pricingInsight.buyerRiskReason && (
+          <p className="text-sm text-red-300 font-semibold">
+            ⚠ Buyer risk: {pricingInsight.buyerRiskReason}
+          </p>
         )}
 
         <button
@@ -208,35 +202,6 @@ export default function InPersonSummary() {
         >
           {showWhy ? "Hide explanation" : "Why we reached this conclusion"}
         </button>
-
-        {showWhy && (
-          <div className="mt-2 rounded-lg bg-slate-900/60 border border-white/10 px-4 py-3 text-sm text-slate-300 space-y-1">
-            <p>
-              • You recorded {pricingInsight.total} inspection
-              {pricingInsight.total === 1 ? " observation" : " observations"}.
-            </p>
-            {pricingInsight.hasHighSignal ? (
-              <p>
-                • At least one item may indicate condition beyond normal wear.
-              </p>
-            ) : pricingInsight.total > 0 ? (
-              <p>
-                • Items recorded appear consistent with cosmetic or general wear.
-              </p>
-            ) : (
-              <p>
-                • No condition issues were recorded during this inspection.
-              </p>
-            )}
-            <p>
-              • Dealers often price in visible wear, but not always underlying
-              risks or repair costs.
-            </p>
-            <p className="text-[11px] text-slate-400 pt-1">
-              This is condition-aware guidance only — not a market valuation.
-            </p>
-          </div>
-        )}
       </section>
 
       {/* SAVE */}
