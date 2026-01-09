@@ -21,11 +21,9 @@ export default function Home() {
           className="absolute inset-0 w-full h-full object-cover"
         />
 
-        {/* Restored original gradient */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/70 to-black/85" />
 
         <div className="relative max-w-5xl mx-auto px-6 py-24 md:py-20 flex flex-col gap-4">
-          {/* Constrained reading width on desktop */}
           <div className="max-w-xl md:max-w-2xl flex flex-col gap-4">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
               Confidence before you commit to a used car
@@ -66,12 +64,14 @@ export default function Home() {
               decide whether to proceed, negotiate, or move on.
             </p>
 
-            <Link
-              to="/my-scans"
-              className="text-slate-300 underline text-sm mt-1"
-            >
-              View My Scans
-            </Link>
+            <div className="flex gap-4 text-sm text-slate-300 mt-1">
+              <Link to="/my-scans" className="underline">
+                View My Scans
+              </Link>
+              <Link to="/what-to-expect" className="underline">
+                What to expect
+              </Link>
+            </div>
           </div>
         </div>
       </section>

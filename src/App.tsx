@@ -4,6 +4,7 @@ import Layout from "./components/Layout";
 
 import Home from "./pages/Home";
 import StartScan from "./pages/StartScan";
+import WhatToExpect from "./pages/WhatToExpect";
 
 /* =======================
    Online scan flow
@@ -39,6 +40,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/start-scan" element={<StartScan />} />
+        <Route path="/what-to-expect" element={<WhatToExpect />} />
 
         {/* ONLINE SCAN */}
         <Route path="/scan/online" element={<OnlineStart />} />
