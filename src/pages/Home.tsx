@@ -64,14 +64,21 @@ export default function Home() {
               decide whether to proceed, negotiate, or move on.
             </p>
 
-            <div className="flex gap-4 text-sm text-slate-300 mt-1">
-              <Link to="/my-scans" className="underline">
-                View My Scans
-              </Link>
-              <Link to="/what-to-expect" className="underline">
-                What to expect
-              </Link>
-            </div>
+            {/* Orientation link — repositioned for discoverability */}
+            <Link
+              to="/what-to-expect"
+              className="text-slate-300 underline text-sm"
+            >
+              What to expect
+            </Link>
+
+            {/* Utility link */}
+            <Link
+              to="/my-scans"
+              className="text-slate-300 underline text-sm mt-1"
+            >
+              View My Scans
+            </Link>
           </div>
         </div>
       </section>
