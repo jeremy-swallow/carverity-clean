@@ -9,8 +9,6 @@ import {
   normaliseVehicle,
 } from "../utils/onlineResults";
 
-const UNLOCK_KEY = "carverity_test_full_unlock";
-
 /* =========================================================
    Types & constants
 ========================================================= */
@@ -155,7 +153,6 @@ function sanitiseReportText(text: string): string {
 
   return filtered.join("\n").replace(/\n{3,}/g, "\n\n");
 }
-
 /* =========================================================
    Synthetic sections (when no headings come back)
 ========================================================= */
@@ -263,7 +260,6 @@ function buildSyntheticSections(cleaned: string): ReportSection[] {
 
   return sections;
 }
-
 /* =========================================================
    Section builder
 ========================================================= */
@@ -319,7 +315,6 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 
   return sections;
 }
-
 /* =========================================================
    Smart teaser generator
 ========================================================= */
@@ -380,7 +375,6 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
 
   return teaser.slice(0, 2);
 }
-
 /* =========================================================
    Theming
 ========================================================= */
@@ -480,7 +474,6 @@ function getSectionSubtitle(title: string): string {
 
   return "Guidance based on the details we found in this listing.";
 }
-
 /* =========================================================
    Vehicle display enrichment
 ========================================================= */
@@ -573,7 +566,6 @@ function enrichVehicleForDisplay(
 
   return updated;
 }
-
 /* =========================================================
    Risk & Confidence Heat-Map helpers
 ========================================================= */
@@ -786,7 +778,6 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
 
   return buckets;
 }
-
 /* =========================================================
    UI components
 ========================================================= */
@@ -896,7 +887,6 @@ function FullReportSection({
     </div>
   );
 }
-
 /* =========================================================
    Risk Heat-Map UI
 ========================================================= */
@@ -1015,7 +1005,6 @@ function RiskHeatMap({
     </section>
   );
 }
-
 /* =========================================================
    Main component
 ========================================================= */
@@ -1040,12 +1029,35 @@ export default function OnlineResults() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  /**
+   * Load results + migrate legacy unlock once (Change A)
+   */
   useEffect(() => {
     const stored = loadOnlineResults();
-    if (stored) {
-      setResult(stored);
-      localStorage.setItem("carverity_online_completed", "1");
+    if (!stored) return;
+
+    let migrated = stored;
+
+    // 🔁 Legacy unlock migration (one-time)
+    if (!stored.isUnlocked) {
+      const legacyUnlocked =
+        localStorage.getItem("carverity_test_full_unlock") === "1";
+
+      if (legacyUnlocked) {
+        migrated = {
+          ...stored,
+          isUnlocked: true,
+        };
+
+        saveOnlineResults(migrated);
+      }
     }
+
+    // Always remove legacy key after load
+    localStorage.removeItem("carverity_test_full_unlock");
+
+    setResult(migrated);
+    localStorage.setItem("carverity_online_completed", "1");
   }, []);
 
   function unlockForTesting() {
@@ -1058,19 +1070,10 @@ export default function OnlineResults() {
     };
 
     saveOnlineResults(updated);
-    localStorage.setItem(UNLOCK_KEY, "1");
     setResult(updated);
   }
 
-  useEffect(() => {
-    if (!result) return;
-    if (!result.isUnlocked) {
-      localStorage.removeItem(UNLOCK_KEY);
-    }
-  }, [result]);
-
   function goStartNewScan() {
-    localStorage.removeItem(UNLOCK_KEY);
     navigate("/start-scan");
   }
 
@@ -1116,7 +1119,6 @@ export default function OnlineResults() {
   } = result;
 
   const isAssistMode = step === "assist-required";
-
   /* =====================================================
      Assist-required state
   ====================================================== */
@@ -1185,7 +1187,6 @@ export default function OnlineResults() {
   /* =====================================================
      Normal full-report / preview state
   ====================================================== */
-
   const rawReport = fullSummary || summary || "";
   const baseVehicle = normaliseVehicle(storedVehicle as VehicleInfo);
   const displayVehicle = enrichVehicleForDisplay(baseVehicle, rawReport);
@@ -1193,8 +1194,7 @@ export default function OnlineResults() {
   const sections = buildSectionsFromFreeText(rawReport);
   const teaserSnippets = buildTeaserFromSections(sections);
 
-  const storedUnlock = localStorage.getItem(UNLOCK_KEY) === "1";
-  const showUnlocked = Boolean(isUnlocked) || storedUnlock;
+  const showUnlocked = Boolean(isUnlocked);
 
   const createdLabel = createdAt
     ? new Date(createdAt).toLocaleString()
@@ -1240,7 +1240,6 @@ export default function OnlineResults() {
           </p>
         </section>
       )}
-
       {/* Scan overview strip */}
       <section className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs md:text-sm text-slate-200">
@@ -1278,7 +1277,6 @@ export default function OnlineResults() {
 
       {/* Risk & Confidence Heat-Map */}
       <RiskHeatMap buckets={riskBuckets} showUnlocked={showUnlocked} />
-
       {/* PREVIEW MODE */}
       {!showUnlocked && (
         <section className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_18px_40px_rgba(0,0,0,0.55)] px-5 py-5 space-y-3">
@@ -1320,7 +1318,6 @@ export default function OnlineResults() {
               </div>
             </>
           )}
-
           <button
             onClick={unlockForTesting}
             className="mt-3 inline-flex items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow"
@@ -1357,7 +1354,6 @@ export default function OnlineResults() {
           </div>
         </section>
       )}
-
       {/* Optional encouragement — ONLY when in-person scan not done */}
       {!hasInPersonScan && (
         <section className="rounded-2xl border border-blue-400/30 bg-blue-500/10 px-5 py-5 space-y-3">
@@ -1415,7 +1411,6 @@ export default function OnlineResults() {
           </div>
         </div>
       </section>
-
       {/* DESKTOP ACTIONS */}
       <section className="hidden md:block rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-5 space-y-3">
         {!hasInPersonScan && (
@@ -1476,7 +1471,6 @@ export default function OnlineResults() {
           </div>
         </div>
       )}
-
       <style>{`
         @keyframes fadeUp {
           from {
