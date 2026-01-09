@@ -9,6 +9,8 @@ import {
   normaliseVehicle,
 } from "../utils/onlineResults";
 
+const UNLOCK_KEY = "carverity_test_full_unlock";
+
 /* =========================================================
    Types & constants
 ========================================================= */
@@ -32,6 +34,7 @@ type RiskBuckets = {
   moderate: RiskItem[];
   info: RiskItem[];
 };
+
 /**
  * Normalises headings so we can match things like:
  * — KEY RISK SIGNALS —
@@ -93,6 +96,7 @@ const SECTION_ALIASES: Record<string, string[]> = {
 const SECTION_MARKERS = Object.entries(SECTION_ALIASES).map(
   ([label, aliases]) => ({ label, aliases })
 );
+
 /* =========================================================
    Text helpers & section cleaning
 ========================================================= */
@@ -151,6 +155,7 @@ function sanitiseReportText(text: string): string {
 
   return filtered.join("\n").replace(/\n{3,}/g, "\n\n");
 }
+
 /* =========================================================
    Synthetic sections (when no headings come back)
 ========================================================= */
@@ -188,20 +193,21 @@ function buildSyntheticSections(cleaned: string): ReportSection[] {
 
   const remaining = sentences.slice(2);
 
-  const riskSentences = pickSentencesByKeywords(remaining, [
-    "risk",
-    "concern",
-    "issue",
-    "warning",
-    "red flag",
-    "accident",
-    "damage",
-    "unknown",
-    "import",
-    "compliance",
-    "repair",
-    "history",
-  ]);
+  const riskSentences =
+    pickSentencesByKeywords(remaining, [
+      "risk",
+      "concern",
+      "issue",
+      "warning",
+      "red flag",
+      "accident",
+      "damage",
+      "unknown",
+      "import",
+      "compliance",
+      "repair",
+      "history",
+    ]) || [];
 
   if (riskSentences.length) {
     sections.push({
@@ -210,17 +216,18 @@ function buildSyntheticSections(cleaned: string): ReportSection[] {
     });
   }
 
-  const buyerSentences = pickSentencesByKeywords(remaining, [
-    "price",
-    "value",
-    "market",
-    "budget",
-    "buyer",
-    "suitable",
-    "consider",
-    "offer",
-    "deal",
-  ]);
+  const buyerSentences =
+    pickSentencesByKeywords(remaining, [
+      "price",
+      "value",
+      "market",
+      "budget",
+      "buyer",
+      "suitable",
+      "consider",
+      "offer",
+      "deal",
+    ]) || [];
 
   if (buyerSentences.length) {
     sections.push({
@@ -229,18 +236,19 @@ function buildSyntheticSections(cleaned: string): ReportSection[] {
     });
   }
 
-  const ownershipSentences = pickSentencesByKeywords(remaining, [
-    "ownership",
-    "warranty",
-    "servicing",
-    "service",
-    "maintenance",
-    "running costs",
-    "fuel",
-    "economy",
-    "long-term",
-    "daily use",
-  ]);
+  const ownershipSentences =
+    pickSentencesByKeywords(remaining, [
+      "ownership",
+      "warranty",
+      "servicing",
+      "service",
+      "maintenance",
+      "running costs",
+      "fuel",
+      "economy",
+      "long-term",
+      "daily use",
+    ]) || [];
 
   if (ownershipSentences.length) {
     sections.push({
@@ -249,14 +257,15 @@ function buildSyntheticSections(cleaned: string): ReportSection[] {
     });
   }
 
-  if (sections.length === 1) {
-    return sections;
+  if (sections.length === 0) {
+    sections.push({ title: "Overview", body: overviewBody });
   }
 
   return sections;
 }
+
 /* =========================================================
-   Section builder (real headings)
+   Section builder
 ========================================================= */
 
 function buildSectionsFromFreeText(text: string): ReportSection[] {
@@ -280,30 +289,28 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 
   const sections: ReportSection[] = [];
 
-  // Optional intro before first heading
-  if (indexed.length && indexed[0].idx > 0) {
-    const intro = cleanSectionBody(
-      lines.slice(0, indexed[0].idx).join("\n")
-    );
-    if (isMeaningfulContent(intro)) {
-      sections.push({ title: "Overview", body: intro });
+  if (indexed.length) {
+    // Intro as overview (if present)
+    if (indexed[0].idx > 0) {
+      const intro = cleanSectionBody(lines.slice(0, indexed[0].idx).join("\n"));
+      if (isMeaningfulContent(intro)) {
+        sections.push({ title: "Overview", body: intro });
+      }
     }
-  }
 
-  for (let i = 0; i < indexed.length; i++) {
-    const startIdx = indexed[i].idx;
-    const endIdx =
-      i + 1 < indexed.length ? indexed[i + 1].idx : lines.length;
+    for (let i = 0; i < indexed.length; i++) {
+      const startIdx = indexed[i].idx;
+      const endIdx = i + 1 < indexed.length ? indexed[i + 1].idx : lines.length;
 
-    let body = lines.slice(startIdx + 1, endIdx).join("\n");
-    body = cleanSectionBody(body);
+      let body = lines.slice(startIdx + 1, endIdx).join("\n");
+      body = cleanSectionBody(body);
+      if (!isMeaningfulContent(body)) continue;
 
-    if (!isMeaningfulContent(body)) continue;
-
-    sections.push({
-      title: indexed[i].label,
-      body,
-    });
+      sections.push({
+        title: indexed[i].label,
+        body,
+      });
+    }
   }
 
   if (sections.length <= 1) {
@@ -312,6 +319,7 @@ function buildSectionsFromFreeText(text: string): ReportSection[] {
 
   return sections;
 }
+
 /* =========================================================
    Smart teaser generator
 ========================================================= */
@@ -372,6 +380,7 @@ function buildTeaserFromSections(sections: ReportSection[]): string[] {
 
   return teaser.slice(0, 2);
 }
+
 /* =========================================================
    Theming
 ========================================================= */
@@ -440,6 +449,7 @@ function getSectionTheme(title: string): SectionTheme {
     cardGradient: "from-slate-950 to-slate-900",
   };
 }
+
 function getSectionSubtitle(title: string): string {
   const t = title.toLowerCase();
 
@@ -470,6 +480,7 @@ function getSectionSubtitle(title: string): string {
 
   return "Guidance based on the details we found in this listing.";
 }
+
 /* =========================================================
    Vehicle display enrichment
 ========================================================= */
@@ -562,6 +573,7 @@ function enrichVehicleForDisplay(
 
   return updated;
 }
+
 /* =========================================================
    Risk & Confidence Heat-Map helpers
 ========================================================= */
@@ -774,6 +786,7 @@ function buildRiskBuckets(rawReport: string): RiskBuckets {
 
   return buckets;
 }
+
 /* =========================================================
    UI components
 ========================================================= */
@@ -835,6 +848,7 @@ function CompactSection({ section }: { section: ReportSection }) {
     </div>
   );
 }
+
 function FullReportSection({
   section,
   index,
@@ -882,6 +896,7 @@ function FullReportSection({
     </div>
   );
 }
+
 /* =========================================================
    Risk Heat-Map UI
 ========================================================= */
@@ -1000,6 +1015,7 @@ function RiskHeatMap({
     </section>
   );
 }
+
 /* =========================================================
    Main component
 ========================================================= */
@@ -1024,35 +1040,12 @@ export default function OnlineResults() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  /**
-   * Load results + migrate legacy unlock once (Change A)
-   */
   useEffect(() => {
     const stored = loadOnlineResults();
-    if (!stored) return;
-
-    let migrated = stored;
-
-    // 🔁 Legacy unlock migration (one-time)
-    if (!stored.isUnlocked) {
-      const legacyUnlocked =
-        localStorage.getItem("carverity_test_full_unlock") === "1";
-
-      if (legacyUnlocked) {
-        migrated = {
-          ...stored,
-          isUnlocked: true,
-        };
-
-        saveOnlineResults(migrated);
-      }
+    if (stored) {
+      setResult(stored);
+      localStorage.setItem("carverity_online_completed", "1");
     }
-
-    // Always remove legacy key after load
-    localStorage.removeItem("carverity_test_full_unlock");
-
-    setResult(migrated);
-    localStorage.setItem("carverity_online_completed", "1");
   }, []);
 
   function unlockForTesting() {
@@ -1065,10 +1058,19 @@ export default function OnlineResults() {
     };
 
     saveOnlineResults(updated);
+    localStorage.setItem(UNLOCK_KEY, "1");
     setResult(updated);
   }
 
+  useEffect(() => {
+    if (!result) return;
+    if (!result.isUnlocked) {
+      localStorage.removeItem(UNLOCK_KEY);
+    }
+  }, [result]);
+
   function goStartNewScan() {
+    localStorage.removeItem(UNLOCK_KEY);
     navigate("/start-scan");
   }
 
@@ -1114,6 +1116,7 @@ export default function OnlineResults() {
   } = result;
 
   const isAssistMode = step === "assist-required";
+
   /* =====================================================
      Assist-required state
   ====================================================== */
@@ -1133,7 +1136,7 @@ export default function OnlineResults() {
           </span>
         </div>
 
-        <section className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-xs md:text-sm text-amber-100">
+        <section className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-xs md:text-sm text-amber-100 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
           <div className="font-semibold mb-1">
             We couldn&apos;t read this listing automatically
           </div>
@@ -1145,20 +1148,27 @@ export default function OnlineResults() {
         </section>
 
         <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5 space-y-3">
-          <h1 className="text-base md:text-lg font-semibold text-white">
-            Continue your CarVerity scan
-          </h1>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-base md:text-lg font-semibold text-white">
+                Continue your CarVerity scan
+              </h1>
+              <p className="text-xs md:text-sm text-slate-300 mt-1">
+                We&apos;ll guide you through a short assist screen to capture
+                the make, model, year and kilometres from the listing.
+              </p>
+            </div>
 
-          <p className="text-xs md:text-sm text-slate-300">
-            We&apos;ll guide you through a short assist screen to capture the
-            vehicle details from the listing.
-          </p>
+            <span className="hidden md:inline-block text-[11px] text-slate-400">
+              Saved {createdLabel}
+            </span>
+          </div>
 
           <button
             onClick={goAssistFlow}
-            className="mt-4 w-full rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2.5"
+            className="mt-4 w-full rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2.5 shadow flex items-center justify-center gap-2"
           >
-            Continue — add vehicle details
+            <span>Continue — add vehicle details</span>
           </button>
 
           <button
@@ -1167,14 +1177,11 @@ export default function OnlineResults() {
           >
             Start a new online scan instead
           </button>
-
-          <div className="text-[11px] text-slate-400 mt-1">
-            Saved {createdLabel}
-          </div>
         </section>
       </div>
     );
   }
+
   /* =====================================================
      Normal full-report / preview state
   ====================================================== */
@@ -1194,6 +1201,7 @@ export default function OnlineResults() {
     : "Saved locally";
 
   const riskBuckets = buildRiskBuckets(rawReport);
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
       {/* Sticky vehicle bar */}
@@ -1228,27 +1236,89 @@ export default function OnlineResults() {
           </h3>
           <p className="text-xs text-emerald-200/90 mt-1">
             You’ve completed both the online listing analysis and the in-person
-            inspection.
+            inspection. That gives you the most balanced view of this car.
           </p>
         </section>
       )}
+
+      {/* Scan overview strip */}
+      <section className="rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs md:text-sm text-slate-200">
+          <div className="flex items-center gap-2">
+            <span>📡</span>
+            <span className="font-semibold">Online listing scan</span>
+            <span className="opacity-60">•</span>
+            <span>{showUnlocked ? "Full report" : "Preview mode"}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-white/20 bg-slate-800/70 px-2 py-0.5 text-[10px] tracking-wide text-slate-200">
+              STEP 2 — Results &amp; guidance
+            </span>
+            <span className="opacity-80">{createdLabel}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Premium header */}
+      <section className="rounded-2xl bg-gradient-to-r from-violet-700/85 to-indigo-600/85 border border-white/12 shadow-[0_24px_60px_rgba(0,0,0,0.7)] px-6 py-5 md:py-6 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-lg font-semibold text-white mb-1">
+              CarVerity online scan results
+            </h1>
+            <p className="text-xs md:text-sm text-slate-100/90">
+              Independent guidance based on the details in this listing.
+            </p>
+          </div>
+
+          <ConfidenceGauge code={confidenceCode} />
+        </div>
+      </section>
 
       {/* Risk & Confidence Heat-Map */}
       <RiskHeatMap buckets={riskBuckets} showUnlocked={showUnlocked} />
 
       {/* PREVIEW MODE */}
       {!showUnlocked && (
-        <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5 space-y-3">
-          <h2 className="text-sm font-semibold text-slate-100">
-            👁️ CarVerity analysis — preview
+        <section className="rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_18px_40px_rgba(0,0,0,0.55)] px-5 py-5 space-y-3">
+          <h2 className="text-sm md:text-base font-semibold text-slate-100 flex items-center gap-2">
+            👁️ CARVERITY ANALYSIS — PREVIEW
           </h2>
 
-          {teaserSnippets.length > 0 && (
-            <ul className="text-sm text-slate-200 space-y-2 list-disc list-inside">
-              {teaserSnippets.map((t, i) => (
-                <li key={i}>{t}</li>
-              ))}
-            </ul>
+          {teaserSnippets.length > 0 ? (
+            <>
+              <p className="text-sm text-slate-300">
+                Based on the listing details so far, here are early insights our
+                analysis has surfaced for this car. Unlock the full CarVerity
+                report to reveal deeper checks, negotiation angles, and
+                ownership considerations tailored specifically to this listing.
+              </p>
+
+              <ul className="mt-1 text-sm text-slate-200 space-y-2 list-disc list-inside">
+                {teaserSnippets.map((t, i) => (
+                  <li key={i}>{t}</li>
+                ))}
+              </ul>
+
+              <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-2 text-sm text-slate-400">
+                Remaining guidance and full context locked — upgrade to
+                continue.
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-slate-300">
+                This preview highlights a small portion of the analysis for this
+                car. Unlock the full CarVerity report to see deeper risk
+                markers, in-person inspection priorities, negotiation insights,
+                and ownership guidance — tailored specifically to this vehicle.
+              </p>
+
+              <div className="mt-1 rounded-xl border border-white/12 bg-slate-800/60 px-4 py-3 text-sm text-slate-400">
+                Full report content locked — upgrade to continue.
+              </div>
+            </>
           )}
 
           <button
@@ -1257,29 +1327,156 @@ export default function OnlineResults() {
           >
             Unlock full report (testing)
           </button>
+
+          <p className="text-[11px] text-slate-500">
+            In the live app, this unlocks after purchasing a scan.
+          </p>
         </section>
       )}
 
       {/* FULL REPORT */}
       {showUnlocked && (
-        <section className="rounded-2xl border border-white/12 bg-slate-950/85 px-5 py-5 space-y-5">
+        <section className="rounded-2xl border border-white/12 bg-slate-950/85 shadow-[0_28px_70px_rgba(0,0,0,0.75)] px-5 py-5 space-y-5">
           <header className="flex items-center justify-between mb-1">
-            <h2 className="text-sm font-semibold text-slate-100">
-              ✨ Full CarVerity report
-            </h2>
+            <div className="flex items-center gap-2 text-slate-100">
+              <span className="text-base">✨</span>
+              <h2 className="text-sm md:text-base font-semibold tracking-wide uppercase">
+                Full CarVerity report
+              </h2>
+            </div>
+
+            <span className="text-[11px] text-emerald-300/90 border border-emerald-400/40 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
+              Unlocked for testing
+            </span>
           </header>
 
           <div className="space-y-5">
             {sections.map((section, idx) => (
-              <FullReportSection
-                key={idx}
-                section={section}
-                index={idx}
-              />
+              <FullReportSection key={idx} section={section} index={idx} />
             ))}
           </div>
         </section>
       )}
+
+      {/* Optional encouragement — ONLY when in-person scan not done */}
+      {!hasInPersonScan && (
+        <section className="rounded-2xl border border-blue-400/30 bg-blue-500/10 px-5 py-5 space-y-3">
+          <h3 className="text-sm font-semibold text-slate-100">
+            🧭 Optional next step — in-person inspection
+          </h3>
+          <p className="text-xs md:text-sm text-slate-300">
+            If this car still looks promising, you can continue with a guided
+            in-person inspection to capture photos and check condition clues.
+            This step is optional, but many buyers complete both stages to feel
+            more confident before deciding.
+          </p>
+          <button
+            onClick={goInPersonFlow}
+            className="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow"
+          >
+            Continue — in-person inspection checklist
+          </button>
+        </section>
+      )}
+
+      {/* VEHICLE DETAILS */}
+      <section className="rounded-2xl border border-white/10 bg-slate-900/80 px-5 py-5">
+        <h2 className="text-sm font-semibold flex items-center gap-2 text-slate-200">
+          🚗 VEHICLE DETAILS
+        </h2>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-y-3 mt-3 text-sm">
+          <div>
+            <div className="text-slate-400 text-xs">Make</div>
+            <div className="font-medium text-slate-100">
+              {displayVehicle.make || "—"}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-slate-400 text-xs">Model</div>
+            <div className="font-medium text-slate-100">
+              {displayVehicle.model || "—"}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-slate-400 text-xs">Year</div>
+            <div className="font-medium text-slate-100">
+              {displayVehicle.year || "—"}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-slate-400 text-xs">Kilometres</div>
+            <div className="font-medium text-slate-100">
+              {displayVehicle.kilometres || "—"}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* DESKTOP ACTIONS */}
+      <section className="hidden md:block rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-5 space-y-3">
+        {!hasInPersonScan && (
+          <button
+            onClick={goInPersonFlow}
+            className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-4 py-2 shadow flex items-center justify-between"
+          >
+            <span>Continue — in-person inspection checklist</span>
+            <span className="text-[11px] font-medium opacity-80">
+              Optional step
+            </span>
+          </button>
+        )}
+
+        <button
+          onClick={goStartNewScan}
+          className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 shadow"
+        >
+          Start another online scan
+        </button>
+
+        <button
+          onClick={goMyScans}
+          className="w-full rounded-xl border border-white/20 text-slate-200 px-4 py-2"
+        >
+          View my scans
+        </button>
+      </section>
+
+      {/* MOBILE FLOATING CTA */}
+      {showFloatingBar && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40">
+          <div className="mx-3 mb-3 rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur shadow-[0_20px_60px_rgba(0,0,0,0.7)] px-4 py-3 space-y-2">
+            {!hasInPersonScan && (
+              <button
+                onClick={goInPersonFlow}
+                className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold px-3 py-2 text-sm"
+              >
+                Continue — in-person inspection
+              </button>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={goStartNewScan}
+                className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 text-sm shadow"
+              >
+                New scan
+              </button>
+
+              <button
+                onClick={goMyScans}
+                className="flex-1 rounded-xl border border-white/25 text-slate-200 px-3 py-2 text-sm"
+              >
+                My scans
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes fadeUp {
           from {
@@ -1295,8 +1492,3 @@ export default function OnlineResults() {
     </div>
   );
 }
-
-// -----------------------------------------------------------------------------
-// Local unlock key (testing only)
-// -----------------------------------------------------------------------------
-const UNLOCK_KEY = "carverity_test_full_unlock";
