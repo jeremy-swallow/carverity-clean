@@ -27,6 +27,7 @@ import InPersonReportPrint from "./pages/InPersonReportPrint";
 ======================= */
 import MyScans from "./pages/MyScans";
 import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
 
 export default function App() {
   return (
@@ -79,6 +80,7 @@ export default function App() {
 
         {/* Legal */}
         <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
 
         {/* Library */}
         <Route path="/my-scans" element={<MyScans />} />
