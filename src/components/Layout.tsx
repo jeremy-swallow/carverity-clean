@@ -10,6 +10,34 @@ import { useEffect, useState } from "react";
 import { loadCredits } from "../utils/scanCredits";
 import { loadProgress } from "../utils/scanProgress";
 
+/* =========================================================
+   Helpers
+========================================================= */
+
+const VALID_RESUME_ROUTES = new Set([
+  "/scan/in-person/start",
+  "/scan/in-person/vehicle-details",
+  "/scan/in-person/photos",
+  "/scan/in-person/checks/around",
+  "/scan/in-person/checks/inside",
+  "/scan/in-person/checks/drive",
+  "/scan/in-person/summary",
+  "/scan/in-person/preview",
+  "/scan/in-person/unlock",
+  "/scan/in-person/results",
+  "/scan/in-person/negotiation",
+]);
+
+function getSafeResumeRoute(step?: string): string | null {
+  if (!step) return null;
+  if (VALID_RESUME_ROUTES.has(step)) return step;
+  return "/scan/in-person/summary";
+}
+
+/* =========================================================
+   Layout
+========================================================= */
+
 export default function Layout() {
   const [credits, setCredits] = useState<number>(0);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -19,8 +47,8 @@ export default function Layout() {
   const navigate = useNavigate();
 
   /* -------------------------------------------------------
-   * Credits — live from localStorage
-   * ----------------------------------------------------- */
+     Credits — live from localStorage
+  ------------------------------------------------------- */
   useEffect(() => {
     setCredits(loadCredits());
 
@@ -37,8 +65,8 @@ export default function Layout() {
   }, []);
 
   /* -------------------------------------------------------
-   * Resume pill — check if there is progress
-   * ----------------------------------------------------- */
+     Resume pill — robust + safe
+  ------------------------------------------------------- */
   useEffect(() => {
     const progress = loadProgress();
     setHasActiveScan(Boolean(progress?.step));
@@ -46,20 +74,21 @@ export default function Layout() {
 
   function handleResume() {
     const progress = loadProgress();
-    if (!progress?.step) return;
+    const safeRoute = getSafeResumeRoute(progress?.step);
 
-    navigate(progress.step);
+    if (!safeRoute) return;
+
+    navigate(safeRoute);
     setMenuOpen(false);
   }
 
   /* -------------------------------------------------------
-   * Nav config
-   * ----------------------------------------------------- */
+     Nav config
+  ------------------------------------------------------- */
   const navItems = [
     { to: "/start-scan", label: "Start scan" },
     { to: "/my-scans", label: "My scans" },
-    { to: "/faq", label: "FAQ" },
-    { to: "/credits-history", label: "Credits history" },
+    { to: "/what-to-expect", label: "What to expect" },
   ];
 
   const desktopLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -79,8 +108,8 @@ export default function Layout() {
     ].join(" ");
 
   /* -------------------------------------------------------
-   * Render
-   * ----------------------------------------------------- */
+     Render
+  ------------------------------------------------------- */
 
   return (
     <div className="bg-slate-950 text-white min-h-screen flex flex-col">
@@ -123,7 +152,7 @@ export default function Layout() {
               )}
             </div>
 
-            {/* MOBILE ACTIONS + HAMBURGER */}
+            {/* MOBILE ACTIONS */}
             <div className="flex md:hidden items-center gap-2">
               {hasActiveScan && (
                 <button
@@ -165,16 +194,6 @@ export default function Layout() {
                   </NavLink>
                 ))}
 
-                <div className="pt-2 mt-2 border-t border-slate-800">
-                  <NavLink
-                    to="/what-to-expect"
-                    onClick={() => setMenuOpen(false)}
-                    className="block px-2 py-1.5 text-sm text-slate-300 underline"
-                  >
-                    What to expect
-                  </NavLink>
-                </div>
-
                 <div className="pt-3 mt-2 border-t border-slate-800">
                   <span className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs">
                     Scan credits: {credits}
@@ -186,27 +205,11 @@ export default function Layout() {
         </div>
       </header>
 
-      {/* Spacer so content clears the fixed header */}
       <div className="h-14" />
 
       <main className="flex-1">
         <Outlet />
       </main>
-
-      {/* FOOTER — subtle legal links */}
-      <footer className="border-t border-slate-800 bg-slate-950">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400">
-          <NavLink to="/privacy" className="hover:text-slate-200">
-            Privacy
-          </NavLink>
-          <NavLink to="/terms" className="hover:text-slate-200">
-            Terms
-          </NavLink>
-          <span className="opacity-60">
-            © {new Date().getFullYear()} CarVerity
-          </span>
-        </div>
-      </footer>
     </div>
   );
 }
