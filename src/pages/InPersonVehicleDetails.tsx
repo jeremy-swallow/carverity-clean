@@ -188,7 +188,7 @@ export default function InPersonVehicleDetails() {
   function continueNext() {
     if (!isComplete) return;
     saveRecentModel(normalise(makeText), normalise(modelText));
-    navigate("/scan/in-person/asking-price");
+    navigate("/scan/in-person/photos");
   }
 
   /* =========================================================
