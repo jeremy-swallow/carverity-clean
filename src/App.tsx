@@ -16,6 +16,8 @@ import InPersonChecksAroundCar from "./pages/InPersonChecksAroundCar";
 import InPersonChecksInsideCabin from "./pages/InPersonChecksInsideCabin";
 import InPersonChecksDrive from "./pages/InPersonChecksDrive";
 import InPersonSummary from "./pages/InPersonSummary";
+import InPersonResultsPreview from "./pages/InPersonResultsPreview";
+import InPersonUnlock from "./pages/InPersonUnlock";
 import InPersonResults from "./pages/InPersonResults";
 import InPersonNegotiation from "./pages/InPersonNegotiation";
 import InPersonReportPrint from "./pages/InPersonReportPrint";
@@ -55,6 +57,16 @@ export default function App() {
           element={<InPersonChecksDrive />}
         />
         <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
+
+        {/* PREVIEW → UNLOCK → RESULTS */}
+        <Route
+          path="/scan/in-person/preview"
+          element={<InPersonResultsPreview />}
+        />
+        <Route
+          path="/scan/in-person/unlock"
+          element={<InPersonUnlock />}
+        />
         <Route path="/scan/in-person/results" element={<InPersonResults />} />
         <Route
           path="/scan/in-person/negotiation"

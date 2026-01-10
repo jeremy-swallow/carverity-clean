@@ -10,8 +10,8 @@ export type RiskSignal = {
 };
 
 export type AnalysisResult = {
-  completenessScore: number; // 0–100
-  confidenceScore: number; // 0–100
+  completenessScore: number;
+  confidenceScore: number;
   verdict: Verdict;
   verdictReason: string;
   risks: RiskSignal[];
@@ -34,14 +34,15 @@ const REQUIRED_PHOTO_STEPS = [
 ];
 
 export function analyseInPersonInspection(
-  progress: ScanProgress
+  progress: ScanProgress,
+  unlockToken: { unlocked: true }
 ): AnalysisResult {
+  if (!unlockToken?.unlocked) {
+    throw new Error("Analysis attempted without unlock");
+  }
+
   const photos = progress.photos ?? [];
   const checks = progress.checks ?? {};
-
-  /* =========================
-     COMPLETENESS
-  ========================== */
 
   const coveredSteps = new Set(photos.map((p) => p.stepId));
   const requiredCovered = REQUIRED_PHOTO_STEPS.filter((s) =>
@@ -62,10 +63,6 @@ export function analyseInPersonInspection(
     photoCompleteness * 0.6 + checkCompleteness * 0.4
   );
 
-  /* =========================
-     CONFIDENCE
-  ========================== */
-
   const concerns = checkAnswers.filter((c) => c.value === "concern").length;
   const unsure = checkAnswers.filter((c) => c.value === "unsure").length;
 
@@ -73,10 +70,6 @@ export function analyseInPersonInspection(
   confidenceScore -= unsure * 6;
   confidenceScore -= (100 - completenessScore) * 0.4;
   confidenceScore = Math.max(30, Math.round(confidenceScore));
-
-  /* =========================
-     RISK SIGNALS
-  ========================== */
 
   const risks: RiskSignal[] = [];
 
@@ -110,10 +103,6 @@ export function analyseInPersonInspection(
     });
   }
 
-  /* =========================
-     VERDICT
-  ========================== */
-
   let verdict: Verdict = "proceed";
   let verdictReason =
     "Based on what was visible, nothing stood out as a clear blocker.";
@@ -128,51 +117,6 @@ export function analyseInPersonInspection(
       "There are some points worth resolving before committing.";
   }
 
-  /* =========================
-     PRICE ADJUSTMENT
-  ========================== */
-
-  const baseline = null; // future-safe: asking price input
-  const deduction =
-    concerns * 500 + unsure * 300 + (100 - confidenceScore) * 20;
-
-  const adjusted =
-    baseline != null ? Math.max(0, baseline - deduction) : null;
-
-  /* =========================
-     NEGOTIATION LEVERAGE
-  ========================== */
-
-  const negotiationLeverage = [];
-
-  if (concerns > 0) {
-    negotiationLeverage.push({
-      category: "Condition observations",
-      points: [
-        "There were a few things that stood out during inspection",
-        "I’d like to factor those into the price",
-      ],
-    });
-  }
-
-  if (unsure > 0) {
-    negotiationLeverage.push({
-      category: "Unverified areas",
-      points: [
-        "Some areas couldn’t be checked today",
-        "That uncertainty affects how comfortable I feel",
-      ],
-    });
-  }
-
-  negotiationLeverage.push({
-    category: "Buyer position",
-    points: [
-      "I’m ready to move forward if we can align on value",
-      "I’m comparing this with other similar vehicles",
-    ],
-  });
-
   return {
     completenessScore,
     confidenceScore,
@@ -180,11 +124,19 @@ export function analyseInPersonInspection(
     verdictReason,
     risks,
     adjustedPrice: {
-      baseline,
-      adjusted,
+      baseline: null,
+      adjusted: null,
       explanation:
         "Adjusted based on observed condition, uncertainty, and inspection confidence.",
     },
-    negotiationLeverage,
+    negotiationLeverage: [
+      {
+        category: "Buyer position",
+        points: [
+          "I’m ready to move forward if we can align on value",
+          "I’m comparing this with other similar vehicles",
+        ],
+      },
+    ],
   };
 }
