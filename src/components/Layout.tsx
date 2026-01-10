@@ -53,7 +53,7 @@ export default function Layout() {
   }
 
   /* -------------------------------------------------------
-   * Nav config (pricing removed)
+   * Nav config
    * ----------------------------------------------------- */
   const navItems = [
     { to: "/start-scan", label: "Start scan" },
@@ -165,7 +165,6 @@ export default function Layout() {
                   </NavLink>
                 ))}
 
-                {/* Orientation link */}
                 <div className="pt-2 mt-2 border-t border-slate-800">
                   <NavLink
                     to="/what-to-expect"
@@ -176,7 +175,6 @@ export default function Layout() {
                   </NavLink>
                 </div>
 
-                {/* Credits display only — no pricing link */}
                 <div className="pt-3 mt-2 border-t border-slate-800">
                   <span className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs">
                     Scan credits: {credits}
@@ -194,6 +192,21 @@ export default function Layout() {
       <main className="flex-1">
         <Outlet />
       </main>
+
+      {/* FOOTER — subtle legal links */}
+      <footer className="border-t border-slate-800 bg-slate-950">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400">
+          <NavLink to="/privacy" className="hover:text-slate-200">
+            Privacy
+          </NavLink>
+          <NavLink to="/terms" className="hover:text-slate-200">
+            Terms
+          </NavLink>
+          <span className="opacity-60">
+            © {new Date().getFullYear()} CarVerity
+          </span>
+        </div>
+      </footer>
     </div>
   );
 }
