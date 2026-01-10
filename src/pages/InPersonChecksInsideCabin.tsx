@@ -1,3 +1,5 @@
+// src/pages/InPersonChecksInsideCabin.tsx
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sofa } from "lucide-react";
@@ -9,10 +11,14 @@ type CheckAnswer = { value: AnswerValue; note?: string };
 export default function InPersonChecksInsideCabin() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
+
   const [answers, setAnswers] = useState<Record<string, CheckAnswer>>(
     progress?.checks ?? {}
   );
 
+  /* -------------------------------------------------------
+     Persist progress
+  ------------------------------------------------------- */
   useEffect(() => {
     saveProgress({
       ...(progress ?? {}),
@@ -48,6 +54,10 @@ export default function InPersonChecksInsideCabin() {
     },
   ];
 
+  /* -------------------------------------------------------
+     UI
+  ------------------------------------------------------- */
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
       <div className="flex items-center gap-3">
@@ -59,22 +69,51 @@ export default function InPersonChecksInsideCabin() {
 
       {checks.map((c) => {
         const current = answers[c.id];
+
         return (
           <section
             key={c.id}
-            className="rounded-xl bg-slate-900/60 px-4 py-3 space-y-2"
+            className="rounded-xl bg-slate-900/60 px-4 py-4 space-y-2"
           >
-            <div className="text-sm text-slate-200">{c.title}</div>
+            <div className="text-sm font-medium text-slate-200">
+              {c.title}
+            </div>
             <p className="text-xs text-slate-400">{c.guidance}</p>
 
             <div className="flex gap-2">
-              <button onClick={() => setAnswer(c.id, "ok")} className="flex-1 rounded-lg border border-white/20 px-3 py-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setAnswer(c.id, "ok")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs border ${
+                  current?.value === "ok"
+                    ? "bg-emerald-500 text-black border-emerald-500"
+                    : "border-white/20 text-slate-200"
+                }`}
+              >
                 Seemed normal
               </button>
-              <button onClick={() => setAnswer(c.id, "concern")} className="flex-1 rounded-lg border border-white/20 px-3 py-2 text-xs">
+
+              <button
+                type="button"
+                onClick={() => setAnswer(c.id, "concern")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs border ${
+                  current?.value === "concern"
+                    ? "bg-amber-400 text-black border-amber-400"
+                    : "border-white/20 text-slate-200"
+                }`}
+              >
                 Something stood out
               </button>
-              <button onClick={() => setAnswer(c.id, "unsure")} className="flex-1 rounded-lg border border-white/20 px-3 py-2 text-xs">
+
+              <button
+                type="button"
+                onClick={() => setAnswer(c.id, "unsure")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs border ${
+                  current?.value === "unsure"
+                    ? "bg-slate-600 text-white border-slate-600"
+                    : "border-white/20 text-slate-200"
+                }`}
+              >
                 Couldn’t check
               </button>
             </div>
@@ -83,19 +122,32 @@ export default function InPersonChecksInsideCabin() {
               <textarea
                 value={current?.note ?? ""}
                 onChange={(e) => setNote(c.id, e.target.value)}
-                className="w-full rounded-lg bg-slate-900 border border-white/20 px-3 py-2 text-xs text-slate-200"
+                placeholder="Add a note (optional)…"
+                className="w-full mt-2 rounded-lg bg-slate-900 border border-white/20 px-3 py-2 text-xs text-slate-200"
               />
             )}
           </section>
         );
       })}
 
-      <button
-        onClick={() => navigate("/scan/in-person/checks/drive")}
-        className="w-full rounded-xl bg-emerald-500 text-black font-semibold px-4 py-3"
-      >
-        Continue
-      </button>
+      {/* NAVIGATION */}
+      <div className="flex gap-3 pt-4">
+        <button
+          type="button"
+          onClick={() => navigate("/scan/in-person/checks/around")}
+          className="flex-1 rounded-xl border border-white/25 px-4 py-3 text-slate-200"
+        >
+          Back
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate("/scan/in-person/checks/drive")}
+          className="flex-1 rounded-xl bg-emerald-500 text-black font-semibold px-4 py-3"
+        >
+          Continue
+        </button>
+      </div>
     </div>
   );
 }
