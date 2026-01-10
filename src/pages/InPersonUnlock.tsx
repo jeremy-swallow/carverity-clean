@@ -1,61 +1,128 @@
-import { useNavigate } from "react-router-dom";
+// src/pages/InPersonUnlock.tsx
+
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { loadProgress } from "../utils/scanProgress";
-import { unlockScan } from "../utils/scanUnlock";
 
 export default function InPersonUnlock() {
   const navigate = useNavigate();
-  const progress: any = loadProgress();
+  const [searchParams] = useSearchParams();
 
-  if (!progress?.scanId) {
-    navigate("/scan/in-person/start", { replace: true });
-    return null;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const progress = loadProgress();
+  const scanId =
+    searchParams.get("scanId") ||
+    progress?.scanId ||
+    "";
+
+  /* -------------------------------------------------------
+     Safety: no scan → restart
+  ------------------------------------------------------- */
+  useEffect(() => {
+    if (!scanId) {
+      navigate("/scan/in-person/start", { replace: true });
+    }
+  }, [scanId, navigate]);
+
+  /* -------------------------------------------------------
+     Stripe Checkout redirect
+  ------------------------------------------------------- */
+  async function handleUnlock() {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scanId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data?.url) {
+        throw new Error(
+          data?.error || "Unable to start secure checkout"
+        );
+      }
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } catch (err: any) {
+      setError(err?.message ?? "Something went wrong");
+      setLoading(false);
+    }
   }
 
-  function unlockLocally() {
-    // Placeholder for payment / credit / whitelist confirmation
-    unlockScan(progress.scanId);
-    navigate("/scan/in-person/results", { replace: true });
-  }
+  /* -------------------------------------------------------
+     UI
+  ------------------------------------------------------- */
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
+    <div className="max-w-3xl mx-auto px-6 py-12 space-y-8">
       <span className="text-[11px] uppercase tracking-wide text-slate-400">
         In-person scan — Unlock
       </span>
 
-      <h1 className="text-2xl font-semibold text-white">
-        Unlock the full inspection report
+      <h1 className="text-2xl md:text-3xl font-semibold text-white">
+        Unlock full inspection results
       </h1>
 
-      <section className="rounded-2xl bg-slate-900/70 border border-white/10 px-6 py-5 space-y-3">
-        <p className="text-sm text-slate-300">
-          Unlocking runs the full analysis for this inspection only.
-        </p>
+      <p className="text-sm text-slate-300 max-w-xl">
+        You’ve completed the inspection. Unlocking gives you the full
+        assessment, clear proceed / caution / walk-away guidance, and
+        buyer-safe negotiation points — for this vehicle only.
+      </p>
 
-        <ul className="text-sm text-slate-300 list-disc ml-5 space-y-1">
-          <li>Proceed / caution / walk-away assessment</li>
-          <li>Key risk signals</li>
-          <li>Negotiation guidance</li>
-          <li>Printable report</li>
-        </ul>
+      <section className="rounded-2xl bg-slate-900/70 border border-white/10 px-6 py-5 space-y-4">
+        <div>
+          <p className="text-sm font-semibold text-white">
+            What you’ll unlock
+          </p>
+          <ul className="mt-2 text-sm text-slate-300 space-y-1">
+            <li>• Overall inspection verdict</li>
+            <li>• Confidence & completeness signals</li>
+            <li>• Key risks worth clarifying</li>
+            <li>• Buyer-safe negotiation guidance</li>
+          </ul>
+        </div>
+
+        <div className="pt-3 border-t border-white/10">
+          <p className="text-xs text-slate-400">
+            One-time payment • Applies only to this scan
+          </p>
+          <p className="text-lg font-semibold text-white mt-1">
+            $14.99 AUD
+          </p>
+        </div>
       </section>
 
+      {error && (
+        <p className="text-sm text-red-400">
+          {error}
+        </p>
+      )}
+
       <button
-        onClick={unlockLocally}
-        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-5 py-3"
+        onClick={handleUnlock}
+        disabled={loading}
+        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-black font-semibold px-6 py-4"
       >
-        Continue & unlock
+        {loading ? "Redirecting to secure checkout…" : "Unlock for $14.99"}
       </button>
 
       <button
-        onClick={() => navigate("/scan/in-person/preview")}
-        className="w-full rounded-xl border border-white/25 text-slate-200 px-4 py-3"
+        onClick={() => navigate("/scan/in-person/summary")}
+        className="w-full rounded-xl border border-white/25 text-slate-200 px-6 py-3"
       >
-        Back
+        Back to summary
       </button>
 
-      <p className="text-[11px] text-slate-400 text-center">
-        Unlock applies only to this inspection.
+      <p className="text-[11px] text-slate-400 text-center max-w-xl mx-auto">
+        Payments are securely handled by Stripe. CarVerity never stores
+        your card details.
       </p>
     </div>
   );
