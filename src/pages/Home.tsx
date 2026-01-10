@@ -1,4 +1,3 @@
-// src/pages/Home.tsx
 import { Link, useNavigate } from "react-router-dom";
 import { loadProgress } from "../utils/scanProgress";
 
@@ -48,12 +47,17 @@ export default function Home() {
               </button>
 
               {progress?.step && (
-                <button
-                  onClick={resumeScan}
-                  className="px-4 py-2 rounded-xl bg-amber-400 text-black font-semibold"
-                >
-                  Resume scan
-                </button>
+                <div className="flex flex-col gap-1">
+                  <button
+                    onClick={resumeScan}
+                    className="px-4 py-2 rounded-xl bg-amber-400 text-black font-semibold"
+                  >
+                    Resume inspection
+                  </button>
+                  <span className="text-[11px] text-slate-300">
+                    You’re partway through an inspection — nothing has been lost.
+                  </span>
+                </div>
               )}
             </div>
 
@@ -85,7 +89,7 @@ export default function Home() {
           <p className="text-slate-300 text-sm mb-3">
             A guided, step-by-step companion designed to help you slow down,
             capture what matters, and build confidence before you decide to
-            proceed or negotiate.
+            proceed.
           </p>
           <Link
             to="/scan/in-person/start"
