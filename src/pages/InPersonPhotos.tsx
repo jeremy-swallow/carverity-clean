@@ -20,6 +20,9 @@ type PhotoStep = {
 
 const MAX_PHOTOS = 15;
 
+// ✅ IMPORTANT: this must match your real first checks route
+const FIRST_CHECKS_ROUTE = "/scan/in-person/checks/around";
+
 export default function InPersonPhotos() {
   const navigate = useNavigate();
   const existingProgress: any = loadProgress();
@@ -59,8 +62,7 @@ export default function InPersonPhotos() {
       scanId,
       step: "/scan/in-person/photos",
       photos,
-      startedAt:
-        existingProgress?.startedAt ?? new Date().toISOString(),
+      startedAt: existingProgress?.startedAt ?? new Date().toISOString(),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanId, photos]);
@@ -137,14 +139,12 @@ export default function InPersonPhotos() {
     {
       id: "service-records",
       title: "Service records (optional)",
-      guidance:
-        "Capture stamped logbook pages or receipts if available.",
+      guidance: "Capture stamped logbook pages or receipts if available.",
     },
     {
       id: "vin",
       title: "VIN / compliance (optional)",
-      guidance:
-        "Capture the VIN plate or compliance sticker if easy to access.",
+      guidance: "Capture the VIN plate or compliance sticker if easy to access.",
     },
   ];
 
@@ -177,9 +177,7 @@ export default function InPersonPhotos() {
     reader.readAsDataURL(file);
   }
 
-  function handleUploadFromGallery(
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
+  function handleUploadFromGallery(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) savePhotoFromFile(file);
     e.target.value = "";
@@ -207,8 +205,7 @@ export default function InPersonPhotos() {
 
   const mustHavePhotoForThisStep = Boolean(step.required);
   const hasAtLeastOneForStep = stepPhotos.length > 0;
-  const canContinue =
-    !mustHavePhotoForThisStep || hasAtLeastOneForStep;
+  const canContinue = !mustHavePhotoForThisStep || hasAtLeastOneForStep;
 
   function prevStep() {
     if (stepIndex === 0) {
@@ -226,15 +223,19 @@ export default function InPersonPhotos() {
       return;
     }
 
+    // ✅ CRITICAL FIX:
+    // Your real checks routes are /checks/around, /checks/inside, /checks/drive
+    // Navigating to /scan/in-person/checks (non-existent) triggers the app fallback → "/"
     saveProgress({
       ...(existingProgress ?? {}),
       type: "in-person",
       scanId,
-      step: "/scan/in-person/checks",
+      step: FIRST_CHECKS_ROUTE,
       photos,
+      startedAt: existingProgress?.startedAt ?? new Date().toISOString(),
     });
 
-    navigate("/scan/in-person/checks");
+    navigate(FIRST_CHECKS_ROUTE);
   }
 
   function skipStep() {
@@ -252,10 +253,7 @@ export default function InPersonPhotos() {
   ========================================================== */
 
   return (
-    <div
-      ref={containerRef}
-      className="max-w-3xl mx-auto px-6 py-10 space-y-6"
-    >
+    <div ref={containerRef} className="max-w-3xl mx-auto px-6 py-10 space-y-6">
       <span className="text-[11px] uppercase text-slate-400">
         In-person scan — Photos
       </span>
@@ -266,9 +264,7 @@ export default function InPersonPhotos() {
 
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-3">
         <div className="flex justify-between items-center">
-          <h2 className="font-semibold text-slate-100">
-            {step.title}
-          </h2>
+          <h2 className="font-semibold text-slate-100">{step.title}</h2>
           <span className="text-[11px] text-slate-400">
             Step {stepIndex + 1} of {steps.length}
           </span>
@@ -282,9 +278,7 @@ export default function InPersonPhotos() {
           />
         )}
 
-        <p className="text-sm text-slate-300">
-          {step.guidance}
-        </p>
+        <p className="text-sm text-slate-300">{step.guidance}</p>
 
         {step.required && (
           <p className="text-[11px] text-slate-400">
@@ -322,6 +316,7 @@ export default function InPersonPhotos() {
                 <img
                   src={p.dataUrl}
                   className="h-24 w-full object-cover rounded-lg border border-white/20"
+                  alt="Captured"
                 />
                 <button
                   onClick={() => removePhoto(p.id)}
@@ -368,19 +363,16 @@ export default function InPersonPhotos() {
       </div>
 
       <p className="text-[11px] text-slate-400 text-center">
-        CarVerity helps you document observations — it does not
-        diagnose mechanical faults.
+        CarVerity helps you document observations — it does not diagnose
+        mechanical faults.
       </p>
 
       {showExitConfirm && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center px-6">
           <div className="bg-slate-900 border border-white/20 rounded-2xl px-6 py-5 space-y-3 max-w-md w-full">
-            <h3 className="font-semibold text-white">
-              Leave the photo step?
-            </h3>
+            <h3 className="font-semibold text-white">Leave the photo step?</h3>
             <p className="text-sm text-slate-300">
-              You can return later — your photos will remain on
-              this device.
+              You can return later — your photos will remain on this device.
             </p>
 
             <div className="flex gap-2">
