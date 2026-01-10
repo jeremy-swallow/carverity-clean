@@ -3,6 +3,17 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { loadProgress } from "../utils/scanProgress";
+import { isScanUnlocked } from "../utils/scanUnlock";
+
+function unlockScan(scanId: string) {
+  const raw = localStorage.getItem("carverity_unlocked_scans");
+  const unlocked = raw ? JSON.parse(raw) : {};
+  unlocked[scanId] = true;
+  localStorage.setItem(
+    "carverity_unlocked_scans",
+    JSON.stringify(unlocked)
+  );
+}
 
 export default function InPersonUnlock() {
   const navigate = useNavigate();
@@ -17,6 +28,9 @@ export default function InPersonUnlock() {
     progress?.scanId ||
     "";
 
+  const isSuccessReturn =
+    window.location.pathname.endsWith("/unlock/success");
+
   /* -------------------------------------------------------
      Safety: no scan → restart
   ------------------------------------------------------- */
@@ -25,6 +39,19 @@ export default function InPersonUnlock() {
       navigate("/scan/in-person/start", { replace: true });
     }
   }, [scanId, navigate]);
+
+  /* -------------------------------------------------------
+     Stripe success → unlock scan
+  ------------------------------------------------------- */
+  useEffect(() => {
+    if (!scanId || !isSuccessReturn) return;
+
+    if (!isScanUnlocked(scanId)) {
+      unlockScan(scanId);
+    }
+
+    navigate("/scan/in-person/results", { replace: true });
+  }, [scanId, isSuccessReturn, navigate]);
 
   /* -------------------------------------------------------
      Stripe Checkout redirect
@@ -48,7 +75,6 @@ export default function InPersonUnlock() {
         );
       }
 
-      // Redirect to Stripe Checkout
       window.location.href = data.url;
     } catch (err: any) {
       setError(err?.message ?? "Something went wrong");
