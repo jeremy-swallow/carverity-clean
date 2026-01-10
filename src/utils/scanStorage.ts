@@ -1,25 +1,22 @@
 /* =========================================================
-   Scan Storage Utility
-   Local-only persistence (v2)
+   Inspection Storage Utility
+   Local-only persistence (in-person only)
 ========================================================= */
 
-export type ScanType = "online" | "in-person";
+export type InspectionType = "in-person";
 
-export interface ScanHistoryEvent {
+export interface InspectionHistoryEvent {
   at: string;
   event: string;
 }
 
-export interface SavedScan {
+export interface SavedInspection {
   id: string;
-  type: ScanType;
+  type: InspectionType;
   title: string;
   createdAt: string;
 
-  listingUrl?: string;
-  summary?: string;
-
-  // Vehicle identity (used for pairing + pricing logic)
+  // Vehicle identity (used for display + grouping)
   vehicle?: {
     make?: string;
     model?: string;
@@ -27,32 +24,33 @@ export interface SavedScan {
     variant?: string;
   };
 
-  // Timeline of user actions (rename, export, follow-ups)
-  history?: ScanHistoryEvent[];
+  // Timeline of user actions (save, export, follow-ups, notes)
+  history?: InspectionHistoryEvent[];
 
   // Completion hint (future use)
   completed?: boolean;
 }
 
-const STORAGE_KEY = "carverity_saved_scans";
+const STORAGE_KEY = "carverity_saved_inspections";
 
 /* =========================================================
-   Normalisation — keeps old scans valid
+   Normalisation — keeps older saved records safe
 ========================================================= */
 
-function normalizeScans(scans: any[]): SavedScan[] {
-  return scans.map((scan) => ({
-    completed: false,
-    history: [],
-    ...scan,
-  })) as SavedScan[];
+function normaliseInspections(records: any[]): SavedInspection[] {
+  return records.map((record) => ({
+    ...record,
+    type: "in-person",
+    completed: record.completed ?? false,
+    history: record.history ?? [],
+  })) as SavedInspection[];
 }
 
 /* =========================================================
    Public API
 ========================================================= */
 
-export function loadScans(): SavedScan[] {
+export function loadScans(): SavedInspection[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -60,20 +58,21 @@ export function loadScans(): SavedScan[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
-    return normalizeScans(parsed);
+    return normaliseInspections(parsed);
   } catch {
     return [];
   }
 }
 
-export function saveScan(scan: SavedScan) {
-  const existing = loadScans().filter((s) => s.id !== scan.id);
+export function saveScan(inspection: SavedInspection) {
+  const existing = loadScans().filter((i) => i.id !== inspection.id);
 
-  const updated = [
+  const updated: SavedInspection[] = [
     {
-      completed: false,
-      history: [],
-      ...scan,
+      ...inspection,
+      type: "in-person",
+      completed: inspection.completed ?? false,
+      history: inspection.history ?? [],
     },
     ...existing,
   ];
@@ -81,16 +80,16 @@ export function saveScan(scan: SavedScan) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
 
-export function updateScanTitle(scanId: string, title: string) {
-  const updated = loadScans().map((scan) =>
-    scan.id === scanId ? { ...scan, title } : scan
+export function updateScanTitle(inspectionId: string, title: string) {
+  const updated = loadScans().map((inspection) =>
+    inspection.id === inspectionId ? { ...inspection, title } : inspection
   );
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
 
-export function deleteScan(scanId: string) {
-  const filtered = loadScans().filter((s) => s.id !== scanId);
+export function deleteScan(inspectionId: string) {
+  const filtered = loadScans().filter((i) => i.id !== inspectionId);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
 }
 
@@ -99,7 +98,7 @@ export function clearAllScans() {
 }
 
 export function generateScanId() {
-  return `scan_${Date.now()}_${Math.random()
+  return `inspection_${Date.now()}_${Math.random()
     .toString(36)
     .slice(2, 8)}`;
 }
