@@ -22,10 +22,6 @@ export default function InPersonSummary() {
 
   const [savedId, setSavedId] = useState<string | null>(null);
 
-  /* =========================================================
-     Actions
-  ========================================================== */
-
   function continueToResults() {
     navigate("/scan/in-person/results");
   }
@@ -61,27 +57,23 @@ export default function InPersonSummary() {
     navigate("/start-scan");
   }
 
-  /* =========================================================
-     UI
-  ========================================================== */
-
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
+    <div className="max-w-3xl mx-auto px-6 py-12 space-y-10">
       <span className="text-[11px] uppercase tracking-wide text-slate-400">
-        In-person scan — Inspection summary
+        In-person scan
       </span>
 
-      <h1 className="text-xl md:text-2xl font-semibold text-white">
-        Inspection summary
-      </h1>
+      <section className="space-y-3">
+        <h1 className="text-2xl md:text-3xl font-semibold text-white">
+          Inspection summary
+        </h1>
+        <p className="text-sm text-slate-300 max-w-xl">
+          This is a recap of what you captured. Next, CarVerity will interpret
+          the inspection and surface anything worth understanding.
+        </p>
+      </section>
 
-      <p className="text-sm text-slate-400">
-        Review what you captured. From here, you can view the inspection results
-        or save this inspection for later.
-      </p>
-
-      {/* VEHICLE */}
-      <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-4 space-y-1">
+      <section className="rounded-2xl bg-slate-900/60 px-6 py-5 space-y-2">
         <p className="font-semibold text-slate-100">
           {vehicle.year} {vehicle.make} {vehicle.model}
           {vehicle.variant ? ` — ${vehicle.variant}` : ""}
@@ -89,89 +81,78 @@ export default function InPersonSummary() {
         <p className="text-sm text-slate-400">
           Odometer: {vehicle.kms || "—"} km
         </p>
-        <p className="text-[11px] text-slate-500">
+        <p className="text-xs text-slate-400">
           Details reflect what was visible at the time of inspection.
         </p>
       </section>
 
-      {/* OBSERVATIONS */}
-      <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-2">
-        <h2 className="text-sm font-semibold text-amber-200">
-          Inspection observations
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-slate-200">
+          Things you noted
         </h2>
 
-        <p className="text-[11px] text-slate-400">
-          These are things that stood out during the inspection. They are not
-          diagnoses or confirmed faults.
-        </p>
+        <div className="rounded-2xl bg-slate-900/50 px-6 py-5 space-y-2">
+          {imperfections.length === 0 ? (
+            <p className="text-sm text-slate-300">
+              No notable observations were recorded.
+            </p>
+          ) : (
+            <ul className="text-sm text-slate-300 space-y-1">
+              {imperfections.map((i: any) => (
+                <li key={i.id}>
+                  • {i.area}: {i.type}
+                  {i.note ? ` — ${i.note}` : ""}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-        {imperfections.length === 0 ? (
-          <p className="text-sm text-slate-300">
-            No notable observations were recorded.
-          </p>
-        ) : (
-          <ul className="text-sm text-slate-300 space-y-1">
-            {imperfections.map((i: any) => (
-              <li key={i.id}>
-                • {i.area}: {i.type}
-                {i.note ? ` — ${i.note}` : ""}
-              </li>
-            ))}
-          </ul>
-        )}
+        <p className="text-xs text-slate-400">
+          These aren’t diagnoses — just things that stood out at the time.
+        </p>
       </section>
 
-      {/* NEXT STEP */}
-      <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-3">
-        <h2 className="text-sm font-semibold text-emerald-200">
-          Ready to interpret the inspection?
-        </h2>
-
-        <p className="text-sm text-slate-300">
-          CarVerity will now assess completeness, confidence, and key signals
-          based on what you captured.
-        </p>
-
+      <section className="space-y-4">
         <button
           onClick={continueToResults}
-          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3"
+          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-5 py-3"
         >
           View inspection results
         </button>
+
+        {!savedId ? (
+          <>
+            <button
+              onClick={saveToLibrary}
+              className="w-full rounded-xl border border-white/25 text-slate-200 px-5 py-2"
+            >
+              Save inspection for later
+            </button>
+            <p className="text-[11px] text-slate-400 text-center">
+              Saved locally to this device.
+            </p>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={viewMyScans}
+              className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-5 py-3"
+            >
+              View in My Scans
+            </button>
+            <button
+              onClick={startNewScan}
+              className="w-full rounded-xl border border-white/25 text-slate-200 px-5 py-2"
+            >
+              Start a new inspection
+            </button>
+          </>
+        )}
       </section>
 
-      {/* SAVE (SECONDARY) */}
-      {!savedId ? (
-        <div className="space-y-2">
-          <button
-            onClick={saveToLibrary}
-            className="w-full rounded-xl border border-white/25 text-slate-200 px-4 py-2"
-          >
-            Save inspection for later
-          </button>
-          <p className="text-[11px] text-slate-400 text-center">
-            Saved locally to this device.
-          </p>
-        </div>
-      ) : (
-        <>
-          <button
-            onClick={viewMyScans}
-            className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-3"
-          >
-            View in My Scans
-          </button>
-          <button
-            onClick={startNewScan}
-            className="w-full mt-2 rounded-xl border border-white/25 text-slate-200 px-4 py-2"
-          >
-            Start a new inspection
-          </button>
-        </>
-      )}
-
       <p className="text-[11px] text-slate-400 text-center">
-        CarVerity helps you interpret visible condition — it does not diagnose
+        CarVerity helps interpret visible condition — it does not diagnose
         mechanical faults.
       </p>
     </div>

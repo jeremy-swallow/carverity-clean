@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Sofa } from "lucide-react";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 type AnswerValue = "ok" | "concern" | "unsure";
@@ -48,17 +49,20 @@ export default function InPersonChecksInsideCabin() {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
-      <h1 className="text-xl font-semibold text-white">
-        Inside the cabin
-      </h1>
+    <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
+      <div className="flex items-center gap-3">
+        <Sofa className="h-5 w-5 text-slate-400" />
+        <h1 className="text-2xl font-semibold text-white">
+          Inside the cabin
+        </h1>
+      </div>
 
       {checks.map((c) => {
         const current = answers[c.id];
         return (
           <section
             key={c.id}
-            className="rounded-xl border border-white/12 bg-slate-900/70 px-4 py-3 space-y-2"
+            className="rounded-xl bg-slate-900/60 px-4 py-3 space-y-2"
           >
             <div className="text-sm text-slate-200">{c.title}</div>
             <p className="text-xs text-slate-400">{c.guidance}</p>
