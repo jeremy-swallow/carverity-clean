@@ -1,3 +1,5 @@
+// src/pages/InPersonChecksDrive.tsx
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Gauge } from "lucide-react";
@@ -9,10 +11,14 @@ type CheckAnswer = { value: AnswerValue; note?: string };
 export default function InPersonChecksDrive() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
+
   const [answers, setAnswers] = useState<Record<string, CheckAnswer>>(
     progress?.checks ?? {}
   );
 
+  /* -------------------------------------------------------
+     Persist progress
+  ------------------------------------------------------- */
   useEffect(() => {
     saveProgress({
       ...(progress ?? {}),
@@ -23,25 +29,35 @@ export default function InPersonChecksDrive() {
   }, [answers]);
 
   function setAnswer(id: string, value: AnswerValue) {
-    setAnswers((p) => ({ ...p, [id]: { ...p[id], value } }));
+    setAnswers((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], value },
+    }));
   }
 
   function setNote(id: string, note: string) {
-    setAnswers((p) => ({ ...p, [id]: { ...p[id], note } }));
+    setAnswers((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], note },
+    }));
   }
 
   const checks = [
     {
-      id: "steering-feel",
+      id: "drive-steering",
       title: "Steering & handling",
-      guidance: "Notice pulling or vibration.",
+      guidance: "Notice pulling, vibration, or looseness.",
     },
     {
-      id: "noise-vibration",
+      id: "drive-noise",
       title: "Noise or hesitation",
-      guidance: "Listen for unusual sounds.",
+      guidance: "Listen for unusual sounds or delays.",
     },
   ];
+
+  function finishChecks() {
+    navigate("/scan/in-person/summary");
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
@@ -54,22 +70,55 @@ export default function InPersonChecksDrive() {
 
       {checks.map((c) => {
         const current = answers[c.id];
+
         return (
           <section
             key={c.id}
-            className="rounded-xl bg-slate-900/60 px-4 py-3 space-y-2"
+            className="rounded-xl bg-slate-900/60 px-4 py-4 space-y-3"
           >
-            <div className="text-sm text-slate-200">{c.title}</div>
+            <div className="text-sm font-medium text-slate-200">
+              {c.title}
+            </div>
             <p className="text-xs text-slate-400">{c.guidance}</p>
 
+            {/* Segmented buttons */}
             <div className="flex gap-2">
-              <button onClick={() => setAnswer(c.id, "ok")} className="flex-1 rounded-lg border border-white/20 px-3 py-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setAnswer(c.id, "ok")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs border transition
+                  ${
+                    current?.value === "ok"
+                      ? "bg-emerald-500 text-black border-emerald-400"
+                      : "border-white/20 text-slate-200 hover:bg-slate-800"
+                  }`}
+              >
                 Seemed normal
               </button>
-              <button onClick={() => setAnswer(c.id, "concern")} className="flex-1 rounded-lg border border-white/20 px-3 py-2 text-xs">
+
+              <button
+                type="button"
+                onClick={() => setAnswer(c.id, "concern")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs border transition
+                  ${
+                    current?.value === "concern"
+                      ? "bg-amber-400 text-black border-amber-300"
+                      : "border-white/20 text-slate-200 hover:bg-slate-800"
+                  }`}
+              >
                 Something stood out
               </button>
-              <button onClick={() => setAnswer(c.id, "unsure")} className="flex-1 rounded-lg border border-white/20 px-3 py-2 text-xs">
+
+              <button
+                type="button"
+                onClick={() => setAnswer(c.id, "unsure")}
+                className={`flex-1 rounded-lg px-3 py-2 text-xs border transition
+                  ${
+                    current?.value === "unsure"
+                      ? "bg-slate-300 text-black border-slate-300"
+                      : "border-white/20 text-slate-200 hover:bg-slate-800"
+                  }`}
+              >
                 Couldn’t check
               </button>
             </div>
@@ -78,6 +127,7 @@ export default function InPersonChecksDrive() {
               <textarea
                 value={current?.note ?? ""}
                 onChange={(e) => setNote(c.id, e.target.value)}
+                placeholder="Optional notes"
                 className="w-full rounded-lg bg-slate-900 border border-white/20 px-3 py-2 text-xs text-slate-200"
               />
             )}
@@ -85,12 +135,24 @@ export default function InPersonChecksDrive() {
         );
       })}
 
-      <button
-        onClick={() => navigate("/scan/in-person/summary")}
-        className="w-full rounded-xl bg-emerald-500 text-black font-semibold px-4 py-3"
-      >
-        Finish checks
-      </button>
+      {/* Navigation */}
+      <div className="flex gap-2 pt-4">
+        <button
+          onClick={() =>
+            navigate("/scan/in-person/checks/inside")
+          }
+          className="flex-1 rounded-xl border border-white/25 px-4 py-3 text-slate-200"
+        >
+          Back
+        </button>
+
+        <button
+          onClick={finishChecks}
+          className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-3 font-semibold text-black"
+        >
+          Finish checks
+        </button>
+      </div>
     </div>
   );
 }
