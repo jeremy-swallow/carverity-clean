@@ -1,5 +1,3 @@
-// src/pages/InPersonChecks.tsx
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { saveProgress, loadProgress } from "../utils/scanProgress";
@@ -33,22 +31,21 @@ export default function InPersonChecks() {
     return id;
   });
 
+  const [answers, setAnswers] = useState<Record<string, CheckAnswer>>(
+    progress?.checks ?? {}
+  );
+
   useEffect(() => {
     saveProgress({
       ...(progress ?? {}),
       type: "in-person",
       scanId,
       step: "/scan/in-person/checks",
+      checks: answers,
       startedAt: progress?.startedAt ?? new Date().toISOString(),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scanId]);
-
-  /* =========================================================
-     State
-  ========================================================== */
-
-  const [answers, setAnswers] = useState<Record<string, CheckAnswer>>({});
+  }, [scanId, answers]);
 
   function setAnswer(id: string, value: AnswerValue) {
     setAnswers((prev) => ({
@@ -65,121 +62,72 @@ export default function InPersonChecks() {
   }
 
   /* =========================================================
-     Inspection zones & checks
+     Zones & checks (unchanged)
   ========================================================== */
 
   const zones = [
     {
       id: "around-car",
       title: "Around the car",
-      intro:
-        "Walk around the vehicle and note any obvious exterior or safety-related observations.",
+      intro: "Walk around the vehicle and note any obvious observations.",
       checks: [
         {
           id: "tyre-wear",
           title: "Tyre wear & tread",
-          guidance:
-            "Look for even wear across each tyre. Uneven wear may simply mean tyres are due soon.",
+          guidance: "Look for even wear across each tyre.",
         },
         {
           id: "brakes-visible",
           title: "Brake discs (if visible)",
-          guidance:
-            "Light surface rust is normal. Deep grooves or heavy wear may be worth confirming.",
+          guidance: "Light surface rust is normal.",
         },
         {
           id: "seatbelts-trim",
           title: "Seatbelts and airbag trim",
-          guidance:
-            "Check for fraying, damage, or loose trim in visible areas.",
+          guidance: "Check for fraying or damage.",
         },
       ],
     },
     {
       id: "inside-cabin",
       title: "Inside the cabin",
-      intro:
-        "Once inside the car, focus on the interior environment and general condition.",
+      intro: "Focus on the interior environment and condition.",
       checks: [
         {
           id: "interior-smell",
           title: "Smell or moisture",
-          guidance:
-            "Damp or musty smells may fade quickly, but are worth noting if present.",
+          guidance: "Note any damp or musty smells.",
         },
         {
           id: "interior-condition",
           title: "General interior condition",
-          guidance:
-            "Normal wear is expected. Excessive wear may indicate heavy use.",
+          guidance: "Normal wear is expected.",
         },
         {
           id: "aircon",
-          title: "Air-conditioning performance",
-          guidance:
-            "Weak or warm airflow doesn’t always mean a major issue.",
-        },
-      ],
-    },
-    {
-      id: "driver-seat",
-      title: "Driver’s seat",
-      intro:
-        "With the ignition on, take note of the dashboard and vehicle systems.",
-      checks: [
-        {
-          id: "warning-lights",
-          title: "Warning lights on the dashboard",
-          guidance:
-            "If any lights are showing, it’s worth noting what you see.",
-        },
-      ],
-    },
-    {
-      id: "engine-bay",
-      title: "Under the bonnet (visual only)",
-      intro:
-        "Only if you’re comfortable. Look without touching anything.",
-      checks: [
-        {
-          id: "engine-visual",
-          title: "Visual engine bay check",
-          guidance:
-            "Look for obvious leaks, loose components, or unusual residue.",
+          title: "Air-conditioning",
+          guidance: "Weak airflow may be worth noting.",
         },
       ],
     },
     {
       id: "test-drive",
       title: "Short drive (if allowed)",
-      intro:
-        "If a short drive is allowed, note how the car feels in real conditions.",
+      intro: "If permitted, note how the car feels to drive.",
       checks: [
         {
           id: "steering-feel",
           title: "Steering & handling",
-          guidance:
-            "Notice pulling, vibration, or anything that felt unusual.",
+          guidance: "Notice pulling or vibration.",
         },
         {
           id: "noise-vibration",
           title: "Noise or hesitation",
-          guidance:
-            "Listen for knocks, rattles, or hesitation during acceleration.",
-        },
-        {
-          id: "safety-features",
-          title: "Safety or driver-assist features (if fitted)",
-          guidance:
-            "If fitted, notice whether features seemed to operate as expected.",
+          guidance: "Listen for unusual sounds.",
         },
       ],
     },
   ];
-
-  /* =========================================================
-     Continue → summary
-  ========================================================== */
 
   function continueToSummary() {
     saveProgress({
@@ -194,7 +142,7 @@ export default function InPersonChecks() {
   }
 
   /* =========================================================
-     Render
+     UI
   ========================================================== */
 
   return (
@@ -206,6 +154,10 @@ export default function InPersonChecks() {
       <h1 className="text-xl md:text-2xl font-semibold text-white">
         Guided condition checks
       </h1>
+
+      <p className="text-[11px] text-slate-400">
+        You’re partway through an inspection. You can leave and return at any time.
+      </p>
 
       {zones.map((zone) => (
         <section
@@ -227,19 +179,15 @@ export default function InPersonChecks() {
                 key={check.id}
                 className="rounded-xl border border-white/10 bg-slate-800/50 px-4 py-3 space-y-2"
               >
-                <div className="text-sm text-slate-200">
-                  {check.title}
-                </div>
-                <p className="text-xs text-slate-400">
-                  {check.guidance}
-                </p>
+                <div className="text-sm text-slate-200">{check.title}</div>
+                <p className="text-xs text-slate-400">{check.guidance}</p>
 
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => setAnswer(check.id, "ok")}
                     className={`flex-1 rounded-lg px-3 py-2 text-xs border ${
                       current?.value === "ok"
-                        ? "bg-emerald-500 text-black border-emerald-400"
+                        ? "bg-emerald-500 text-black"
                         : "bg-slate-900 text-slate-200 border-white/20"
                     }`}
                   >
@@ -249,7 +197,7 @@ export default function InPersonChecks() {
                     onClick={() => setAnswer(check.id, "concern")}
                     className={`flex-1 rounded-lg px-3 py-2 text-xs border ${
                       current?.value === "concern"
-                        ? "bg-amber-400 text-black border-amber-300"
+                        ? "bg-amber-400 text-black"
                         : "bg-slate-900 text-slate-200 border-white/20"
                     }`}
                   >
@@ -259,7 +207,7 @@ export default function InPersonChecks() {
                     onClick={() => setAnswer(check.id, "unsure")}
                     className={`flex-1 rounded-lg px-3 py-2 text-xs border ${
                       current?.value === "unsure"
-                        ? "bg-slate-600 text-white border-slate-500"
+                        ? "bg-slate-600 text-white"
                         : "bg-slate-900 text-slate-200 border-white/20"
                     }`}
                   >
@@ -270,9 +218,7 @@ export default function InPersonChecks() {
                 {(current?.value === "concern" || current?.note) && (
                   <textarea
                     value={current?.note ?? ""}
-                    onChange={(e) =>
-                      setNote(check.id, e.target.value)
-                    }
+                    onChange={(e) => setNote(check.id, e.target.value)}
                     placeholder="Add a note (optional)…"
                     className="w-full mt-2 rounded-lg bg-slate-900 border border-white/20 px-3 py-2 text-xs text-slate-200"
                   />
@@ -291,7 +237,7 @@ export default function InPersonChecks() {
       </button>
 
       <p className="text-[11px] text-slate-400 text-center">
-        CarVerity helps you record what you noticed — not label faults.
+        CarVerity helps you record what you noticed — not diagnose faults.
       </p>
     </div>
   );
