@@ -22,6 +22,14 @@ export default function InPersonSummary() {
 
   const [savedId, setSavedId] = useState<string | null>(null);
 
+  /* =========================================================
+     Actions
+  ========================================================== */
+
+  function continueToResults() {
+    navigate("/scan/in-person/results");
+  }
+
   function saveToLibrary() {
     const id = activeScanId ?? generateScanId();
 
@@ -30,20 +38,21 @@ export default function InPersonSummary() {
       type: "in-person",
       title: "In-person inspection",
       createdAt: new Date().toISOString(),
+      completed: true,
       vehicle,
       history: [
         {
           at: new Date().toISOString(),
-          event: "Inspection summary saved",
+          event: "Inspection completed",
         },
       ],
     } as any);
 
-    clearProgress();
     setSavedId(id);
   }
 
   function viewMyScans() {
+    clearProgress();
     navigate("/my-scans");
   }
 
@@ -51,6 +60,10 @@ export default function InPersonSummary() {
     clearProgress();
     navigate("/start-scan");
   }
+
+  /* =========================================================
+     UI
+  ========================================================== */
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
@@ -63,7 +76,8 @@ export default function InPersonSummary() {
       </h1>
 
       <p className="text-sm text-slate-400">
-        What you observed during this visit — clearly and without judgement.
+        Review what you captured. From here, you can view the inspection results
+        or save this inspection for later.
       </p>
 
       {/* VEHICLE */}
@@ -87,13 +101,13 @@ export default function InPersonSummary() {
         </h2>
 
         <p className="text-[11px] text-slate-400">
-          These are things that stood out to you during the inspection. They are
-          not faults — just points worth understanding or confirming.
+          These are things that stood out during the inspection. They are not
+          diagnoses or confirmed faults.
         </p>
 
         {imperfections.length === 0 ? (
           <p className="text-sm text-slate-300">
-            No notable observations were recorded during this inspection.
+            No notable observations were recorded.
           </p>
         ) : (
           <ul className="text-sm text-slate-300 space-y-1">
@@ -107,32 +121,33 @@ export default function InPersonSummary() {
         )}
       </section>
 
-      {/* INTERPRETATION */}
-      <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-2">
+      {/* NEXT STEP */}
+      <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-3">
         <h2 className="text-sm font-semibold text-emerald-200">
-          What this inspection suggests
+          Ready to interpret the inspection?
         </h2>
 
         <p className="text-sm text-slate-300">
-          Based on what you captured and noted, you now have a clearer picture of
-          the vehicle’s visible condition.
+          CarVerity will now assess completeness, confidence, and key signals
+          based on what you captured.
         </p>
 
-        <p className="text-sm text-slate-300">
-          Some observations may simply reflect normal wear. Others may be worth
-          discussing with the seller so you can decide how comfortable you feel
-          proceeding.
-        </p>
+        <button
+          onClick={continueToResults}
+          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3"
+        >
+          View inspection results
+        </button>
       </section>
 
-      {/* SAVE */}
+      {/* SAVE (SECONDARY) */}
       {!savedId ? (
         <div className="space-y-2">
           <button
             onClick={saveToLibrary}
-            className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3"
+            className="w-full rounded-xl border border-white/25 text-slate-200 px-4 py-2"
           >
-            Save inspection
+            Save inspection for later
           </button>
           <p className="text-[11px] text-slate-400 text-center">
             Saved locally to this device.
@@ -156,7 +171,7 @@ export default function InPersonSummary() {
       )}
 
       <p className="text-[11px] text-slate-400 text-center">
-        CarVerity helps you document observations — it does not diagnose
+        CarVerity helps you interpret visible condition — it does not diagnose
         mechanical faults.
       </p>
     </div>
