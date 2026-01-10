@@ -1,29 +1,49 @@
-// src/utils/scanProgress.ts
+export type ScanJourneyType = "in-person";
 
-export type ScanJourneyType = "online" | "in-person";
+export type CheckAnswerValue = "ok" | "concern" | "unsure";
+
+export type CheckAnswer = {
+  value: CheckAnswerValue;
+  note?: string;
+};
+
+export type StepPhoto = {
+  id: string;
+  dataUrl: string;
+  stepId: string;
+};
 
 export interface ScanProgress {
+  /* =====================
+     Journey identity
+  ====================== */
   type?: ScanJourneyType;
+  scanId?: string;
   step?: string;
   startedAt?: string;
 
-  // In-person journey identity
-  scanId?: string;
-  linkedOnlineScanId?: string | null;
-  fromOnlineScan?: boolean;
+  /* =====================
+     Vehicle context
+  ====================== */
+  vehicleYear?: number;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  kilometres?: number;
 
-  // In-person data
-  imperfections?: any[];
-  followUpPhotos?: any[];
-  checks?: Record<string, string>;
-  photos?: string[];
-  photoStepIndex?: number;
+  /* =====================
+     Inspection evidence
+  ====================== */
+  photos?: StepPhoto[];
+  checks?: Record<string, CheckAnswer>;
 
-  // Future / online journey fields can also live here
-  [key: string]: unknown;
+  /* =====================
+     Future-safe extension
+     (kept intentionally narrow)
+  ====================== */
+  meta?: Record<string, unknown>;
 }
 
-const STORAGE_KEY = "carverity_scan_progress_v1";
+const STORAGE_KEY = "carverity_scan_progress_v2";
 
 /**
  * Safely load the current scan progress from localStorage.
