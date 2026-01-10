@@ -1,54 +1,40 @@
 // src/pages/StartScan.tsx
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { saveListingUrl } from "../utils/onlineResults";
 
 export default function StartScan() {
   const navigate = useNavigate();
-  const [url, setUrl] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    const cleaned = url.trim();
-    if (!cleaned) {
-      alert("Please paste a valid car listing URL before continuing.");
-      return;
-    }
-
-    // ✅ Persist URL for the analyzing step (shared helper)
-    saveListingUrl(cleaned);
-    console.log("🚗 Listing URL saved from StartScan:", cleaned);
-
-    // ✅ MUST match App.tsx route:
-    // <Route path="/scan/online/analyzing" element={<OnlineAnalyzing />} />
-    navigate("/scan/online/analyzing", { replace: true });
+  function beginInPerson() {
+    navigate("/scan/in-person/start");
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-16">
-      <h1 className="text-2xl font-semibold mb-2">Paste the listing URL</h1>
-      <p className="text-muted-foreground mb-6">
-        CarVerity will scan the listing and help you review it.
+    <div className="max-w-2xl mx-auto px-4 py-16 space-y-6">
+      <span className="text-[11px] tracking-wide uppercase text-slate-400">
+        In-person inspection
+      </span>
+
+      <h1 className="text-2xl font-semibold text-white">
+        Begin your in-person inspection
+      </h1>
+
+      <p className="text-slate-300">
+        CarVerity guides you through a calm, real-world inspection of the
+        vehicle. You’ll take a few key photos, follow guided checks, and note
+        anything worth confirming.
       </p>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          className="w-full px-4 py-2 border rounded-lg bg-slate-900"
-          placeholder="https://example.com/car-listing"
-          required
-        />
+      <p className="text-sm text-slate-400">
+        This process focuses on observations and confidence — not pricing or
+        diagnosis.
+      </p>
 
-        <button
-          type="submit"
-          className="bg-blue-600 text-white px-5 py-2 rounded shadow w-full"
-        >
-          Scan listing
-        </button>
-      </form>
+      <button
+        onClick={beginInPerson}
+        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-5 py-3 shadow"
+      >
+        Start in-person inspection
+      </button>
     </div>
   );
 }
