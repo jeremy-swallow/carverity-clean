@@ -3,17 +3,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { loadProgress } from "../utils/scanProgress";
-import { isScanUnlocked } from "../utils/scanUnlock";
-
-function unlockScan(scanId: string) {
-  const raw = localStorage.getItem("carverity_unlocked_scans");
-  const unlocked = raw ? JSON.parse(raw) : {};
-  unlocked[scanId] = true;
-  localStorage.setItem(
-    "carverity_unlocked_scans",
-    JSON.stringify(unlocked)
-  );
-}
+import { isScanUnlocked, unlockScan } from "../utils/scanUnlock";
 
 export default function InPersonUnlock() {
   const navigate = useNavigate();
@@ -28,8 +18,7 @@ export default function InPersonUnlock() {
     progress?.scanId ||
     "";
 
-  const isSuccessReturn =
-    window.location.pathname.endsWith("/unlock/success");
+  const stripeSessionId = searchParams.get("session_id");
 
   /* -------------------------------------------------------
      Safety: no scan → restart
@@ -41,20 +30,19 @@ export default function InPersonUnlock() {
   }, [scanId, navigate]);
 
   /* -------------------------------------------------------
-     Stripe success → unlock scan → analyze
+     Stripe success → unlock → analyze
   ------------------------------------------------------- */
   useEffect(() => {
-    if (!scanId || !isSuccessReturn) return;
+    if (!scanId || !stripeSessionId) return;
 
     if (!isScanUnlocked(scanId)) {
       unlockScan(scanId);
     }
 
-    // IMPORTANT: route through analyzing to avoid race conditions
-    navigate(`/scan/in-person/analyzing?scanId=${scanId}`, {
+    navigate(`/scan/in-person/analyzing?scanId=${encodeURIComponent(scanId)}`, {
       replace: true,
     });
-  }, [scanId, isSuccessReturn, navigate]);
+  }, [scanId, stripeSessionId, navigate]);
 
   /* -------------------------------------------------------
      Stripe Checkout redirect
@@ -73,9 +61,7 @@ export default function InPersonUnlock() {
       const data = await res.json();
 
       if (!res.ok || !data?.url) {
-        throw new Error(
-          data?.error || "Unable to start secure checkout"
-        );
+        throw new Error(data?.error || "Unable to start secure checkout");
       }
 
       window.location.href = data.url;
