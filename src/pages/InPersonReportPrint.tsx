@@ -1,77 +1,35 @@
+// src/pages/InPersonReportPrint.tsx
+
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress } from "../utils/scanProgress";
+import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 
 export default function InPersonReportPrint() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
 
+  const analysis = analyseInPersonInspection(progress);
+
   const hasOnlineScan =
     localStorage.getItem("carverity_online_completed") === "1";
-  const hasInPersonScan = true;
-  const dualJourneyComplete = hasOnlineScan && hasInPersonScan;
+  const dualJourneyComplete = hasOnlineScan;
 
   const imperfections = progress?.imperfections ?? [];
-  const followUps = progress?.followUpPhotos ?? [];
-  const checks = progress?.checks ?? {};
   const listingUrl = localStorage.getItem("carverity_listing_url") || "";
 
   /* =========================================================
      Derived sections
   ========================================================== */
 
-  const sellerQuestions = useMemo(() => {
-    const list: string[] = [];
-
-    imperfections.forEach((i: any) => {
-      if (i?.label) list.push(`Confirm details about: ${i.label}`);
-    });
-
-    followUps
-      .filter((f: any) => !f.completed)
-      .forEach((f: any) => list.push(`Ask to clarify: ${f.label}`));
-
-    Object.entries(checks).forEach(([k, v]) => {
-      if (typeof v === "string" && v.includes("worth confirming")) {
-        list.push(`Discuss inspection finding: ${k}`);
-      }
-    });
-
-    return list;
-  }, [imperfections, followUps, checks]);
-
-  const possibleCostAreas = useMemo(() => {
-    const list: string[] = [];
-
-    imperfections.forEach((i: any) => {
-      const l = (i?.label ?? "").toLowerCase();
-
-      if (l.includes("tyre")) list.push("Tyres may require replacement soon.");
-      if (l.includes("scratch") || l.includes("paint"))
-        list.push("Cosmetic paintwork may need touch-ups.");
-      if (l.includes("dent"))
-        list.push("Panel dents may require repair depending on severity.");
-      if (l.includes("interior"))
-        list.push("Interior wear may affect resale value.");
-    });
-
-    return list;
-  }, [imperfections]);
-
-  const generalImpressions = useMemo(() => {
-    const list: string[] = [];
-
-    Object.entries(checks).forEach(([k, v]) => {
-      if (typeof v === "string" && v.includes("everything seemed normal")) {
-        list.push(`No issues noticed for: ${k}`);
-      }
-    });
-
-    return list;
-  }, [checks]);
+  const clarificationItems = useMemo(() => {
+    return analysis.risks
+      .filter((r) => r.severity !== "info")
+      .map((r) => r.label);
+  }, [analysis.risks]);
 
   /* =========================================================
-     Print helpers
+     Helpers
   ========================================================== */
 
   function triggerPrint() {
@@ -82,128 +40,133 @@ export default function InPersonReportPrint() {
     navigate("/scan/in-person/summary");
   }
 
+  function fmt(aud: number) {
+    return `$${aud.toLocaleString()}`;
+  }
+
+  const { conservative, balanced, aggressive } =
+    analysis.negotiationPositioning;
+
   /* =========================================================
      UI
   ========================================================== */
 
   return (
-    <div className="print-body bg-slate-950 text-slate-100 min-h-screen">
-      <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
-        <header className="space-y-2">
+    <div className="print-body bg-white text-black min-h-screen">
+      <div className="max-w-3xl mx-auto px-8 py-10 space-y-8">
+        {/* Header */}
+        <header className="space-y-3">
           <h1 className="text-2xl font-bold">
-            CarVerity — In-person Inspection Report
+            CarVerity — In-Person Inspection Summary
           </h1>
 
           {listingUrl && (
-            <p className="text-sm text-slate-300">
+            <p className="text-sm">
               Listing reference: <span className="underline">{listingUrl}</span>
             </p>
           )}
 
+          <div className="flex flex-wrap gap-4 text-sm">
+            <span>
+              <strong>Verdict:</strong>{" "}
+              {analysis.verdict === "proceed"
+                ? "Proceed with confidence"
+                : analysis.verdict === "caution"
+                ? "Proceed with caution"
+                : "High risk — walk-away reasonable"}
+            </span>
+            <span>
+              <strong>Confidence:</strong> {analysis.confidenceScore}%
+            </span>
+            <span>
+              <strong>Coverage:</strong> {analysis.completenessScore}%
+            </span>
+          </div>
+
           {dualJourneyComplete && (
-            <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-2">
-              <strong className="text-emerald-200 text-sm">
-                ✅ Dual-scan complete — online + in-person insights combined
-              </strong>
+            <div className="border border-black/20 bg-black/5 px-4 py-2 text-sm">
+              ✓ Dual-scan complete (online + in-person insights combined)
             </div>
           )}
         </header>
 
-        <p className="text-sm text-slate-300">
-          This report summarises observations recorded during your guided
-          in-person visit. Nothing here is labelled as a defect — it highlights
-          areas that appeared normal, may be worth confirming with the seller,
-          or could influence costs or negotiation.
-        </p>
+        {/* Explanation */}
+        <ReportSection title="Why this verdict">
+          <ul className="list-disc list-inside space-y-1 text-sm">
+            {analysis.whyThisVerdict.map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
+        </ReportSection>
 
+        {/* Negotiation */}
+        <ReportSection title="Negotiation positioning (context only)">
+          <p className="text-sm mb-3">
+            These figures represent a reasonable negotiation allowance based on
+            recorded observations. They are not a valuation or repair quote.
+          </p>
+
+          <ul className="space-y-2 text-sm">
+            <li>
+              <strong>Conservative:</strong>{" "}
+              {fmt(conservative.audLow)}–{fmt(conservative.audHigh)}
+            </li>
+            <li>
+              <strong>Balanced:</strong>{" "}
+              {fmt(balanced.audLow)}–{fmt(balanced.audHigh)}
+            </li>
+            <li>
+              <strong>Aggressive:</strong>{" "}
+              {fmt(aggressive.audLow)}–{fmt(aggressive.audHigh)}
+            </li>
+          </ul>
+        </ReportSection>
+
+        {/* Clarifications */}
+        {clarificationItems.length > 0 && (
+          <ReportSection title="Items worth clarifying with the seller">
+            <ul className="list-disc list-inside space-y-1 text-sm">
+              {clarificationItems.map((c, i) => (
+                <li key={i}>{c}</li>
+              ))}
+            </ul>
+          </ReportSection>
+        )}
+
+        {/* Observations */}
         {imperfections.length > 0 && (
-          <ReportSection title="Observed notes & areas photographed">
-            <ul className="list-disc list-inside space-y-1 text-sm text-slate-200">
+          <ReportSection title="Recorded observations & notes">
+            <ul className="list-disc list-inside space-y-1 text-sm">
               {imperfections.map((i: any) => (
                 <li key={i.id}>
-                  {i.area ?? "Observation"} — {i.type}
-                  {i.note ? ` · ${i.note}` : ""}
+                  {i.label}
+                  {i.location ? ` (${i.location})` : ""}
+                  {i.note ? ` — ${i.note}` : ""}
                 </li>
               ))}
             </ul>
           </ReportSection>
         )}
 
-        {!!sellerQuestions.length && (
-          <ReportSection title="Questions or confirmations to discuss with the seller">
-            <ul className="list-disc list-inside space-y-1 text-sm text-slate-200">
-              {sellerQuestions.map((q, i) => (
-                <li key={i}>{q}</li>
-              ))}
-            </ul>
-          </ReportSection>
-        )}
-
-        {!!possibleCostAreas.length && (
-          <ReportSection title="Areas that may relate to future cost or negotiation (context only)">
-            <ul className="list-disc list-inside space-y-1 text-sm text-slate-200">
-              {possibleCostAreas.map((c, i) => (
-                <li key={i}>{c}</li>
-              ))}
-            </ul>
-            <p className="text-xs text-slate-400 mt-2">
-              These are not fault statements — costs depend on condition and a
-              professional inspection.
-            </p>
-          </ReportSection>
-        )}
-
-        {!!generalImpressions.length && (
-          <ReportSection title="General condition impressions">
-            <ul className="list-disc list-inside space-y-1 text-sm text-slate-200">
-              {generalImpressions.map((g, i) => (
-                <li key={i}>{g}</li>
-              ))}
-            </ul>
-          </ReportSection>
-        )}
-
-        <ReportSection title="Test-drive & safety-feature awareness">
-          <ul className="list-disc list-inside space-y-1 text-sm text-slate-200">
-            <li>
-              Listen for knocks, rattles or grinding noises when braking,
-              turning or accelerating.
-            </li>
-            <li>Ensure the car tracks straight and the steering feels stable.</li>
-            <li>
-              Watch for dashboard warning lights that stay on or appear while
-              driving.
-            </li>
-            <li>
-              If fitted, check ADAS features (lane-keep, adaptive cruise,
-              blind-spot, parking sensors) behave predictably with no warnings.
-            </li>
-            <li>
-              After driving, check for unusual smells, smoke or fluid drips
-              under the car.
-            </li>
-          </ul>
-        </ReportSection>
-
-        <div className="rounded-xl border border-white/15 bg-slate-900/70 px-4 py-3">
-          <p className="text-xs text-slate-400">
-            This is not a mechanical inspection or defect certificate. It is a
-            guided record to support your decision-making and discussion with
-            the seller.
-          </p>
+        {/* Disclaimer */}
+        <div className="border border-black/20 bg-black/5 px-4 py-3 text-xs">
+          This summary is not a mechanical inspection or defect certificate. It
+          reflects observations recorded during a guided in-person walkthrough
+          and is intended to support buyer decision-making and discussion.
         </div>
 
+        {/* Actions */}
         <div className="no-print flex gap-3 pt-4">
           <button
             onClick={triggerPrint}
-            className="px-4 py-2 rounded-lg bg-emerald-400 text-black font-semibold"
+            className="px-4 py-2 rounded bg-black text-white font-semibold"
           >
             Print / Save as PDF
           </button>
 
           <button
             onClick={backToSummary}
-            className="px-4 py-2 rounded-lg bg-slate-700 text-slate-200"
+            className="px-4 py-2 rounded border border-black/30"
           >
             Back to summary
           </button>
@@ -213,7 +176,8 @@ export default function InPersonReportPrint() {
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          .print-body { background: white !important; color: #000; }
+          body { background: white !important; }
+          section { break-inside: avoid; }
         }
       `}</style>
     </div>
@@ -231,8 +195,10 @@ function ReportSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-white/15 bg-slate-900/60 px-5 py-4 space-y-2">
-      <h2 className="text-sm font-semibold">{title}</h2>
+    <section className="border border-black/20 px-5 py-4 space-y-2">
+      <h2 className="text-sm font-semibold uppercase tracking-wide">
+        {title}
+      </h2>
       {children}
     </section>
   );
