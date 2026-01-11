@@ -1,3 +1,5 @@
+// src/pages/InPersonResults.tsx
+
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -11,6 +13,7 @@ import {
   HelpCircle,
   DollarSign,
   TrendingDown,
+  Info,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -61,40 +64,20 @@ export default function InPersonResults() {
   }[analysis.verdict];
 
   /* -------------------------------------------------------
-     Negotiation leverage logic
+     Helpers
   ------------------------------------------------------- */
-  const significantConcerns = analysis.risks.filter(
-    (r) => r.severity !== "info"
-  ).length;
-
-  const uncertaintyPenalty = Math.max(0, 100 - analysis.confidenceScore);
-
-  const pressureScore =
-    significantConcerns * 1.2 + uncertaintyPenalty * 0.15;
-
-  function leverageLabel(score: number) {
-    if (score < 3) return "Very light leverage";
-    if (score < 6) return "Light leverage";
-    if (score < 10) return "Moderate leverage";
-    return "Strong leverage";
+  function formatMoney(aud?: number) {
+    if (!aud || aud <= 0) return "$0";
+    return `$${aud.toLocaleString()}`;
   }
 
-  const conservative = pressureScore * 0.6;
-  const balanced = pressureScore;
-  const aggressive = pressureScore * 1.5;
-
-  /* -------------------------------------------------------
-     Severity → price impact explanation
-  ------------------------------------------------------- */
-  function impactExplanation(sev: string) {
-    if (sev === "high") {
-      return "Often justifies meaningful price movement or walking away if unresolved.";
-    }
-    if (sev === "moderate") {
-      return "Commonly supports a modest adjustment or request for evidence.";
-    }
-    return "Low impact alone, but adds weight alongside other findings.";
+  function formatPct(pct?: number) {
+    if (pct === undefined) return "";
+    return ` (~${Math.round(pct)}%)`;
   }
+
+  const { conservative, balanced, aggressive, basisNote } =
+    analysis.negotiationPositioning;
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-14 space-y-12">
@@ -142,6 +125,36 @@ export default function InPersonResults() {
         </div>
       </section>
 
+      {/* Why this verdict */}
+      <section className="rounded-2xl bg-slate-900/60 px-6 py-6 space-y-5">
+        <div className="flex items-center gap-2 text-slate-300">
+          <Info className="h-4 w-4 text-slate-400" />
+          <h2 className="text-sm font-semibold">Why this verdict?</h2>
+        </div>
+
+        <div className="space-y-4">
+          {analysis.verdictDrivers.map((d, i) => (
+            <div
+              key={i}
+              className="rounded-xl bg-slate-900/50 px-5 py-4"
+            >
+              <p className="text-sm font-medium text-slate-200">
+                {d.label}
+              </p>
+              <p className="text-sm text-slate-400 mt-1">
+                {d.whyItMatters}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <ul className="list-disc list-inside text-sm text-slate-400 space-y-1">
+          {analysis.whyThisVerdict.map((line, i) => (
+            <li key={i}>{line}</li>
+          ))}
+        </ul>
+      </section>
+
       {/* Negotiation positioning */}
       <section className="rounded-2xl bg-slate-900/60 px-6 py-6 space-y-5">
         <div className="flex items-center gap-2 text-slate-300">
@@ -151,38 +164,24 @@ export default function InPersonResults() {
           </h2>
         </div>
 
-        <p className="text-sm text-slate-400">
-          These ranges indicate how firmly you could reasonably negotiate —
-          not a valuation of the vehicle.
-        </p>
+        <p className="text-sm text-slate-400">{basisNote}</p>
 
-        <div className="space-y-4">
-          <div className="rounded-xl bg-slate-900/50 px-5 py-4">
-            <p className="text-sm font-medium text-slate-200">
-              Conservative approach
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              {leverageLabel(conservative)}
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-slate-900/50 px-5 py-4">
-            <p className="text-sm font-medium text-slate-200">
-              Balanced approach
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              {leverageLabel(balanced)}
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-slate-900/50 px-5 py-4">
-            <p className="text-sm font-medium text-slate-200">
-              Aggressive approach
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              {leverageLabel(aggressive)}
-            </p>
-          </div>
+        <div className="grid gap-4">
+          <NegotiationRow
+            label="Conservative"
+            range={conservative}
+            tone="bg-slate-900/50"
+          />
+          <NegotiationRow
+            label="Balanced"
+            range={balanced}
+            tone="bg-slate-900/40 border border-white/10"
+          />
+          <NegotiationRow
+            label="Aggressive"
+            range={aggressive}
+            tone="bg-slate-900/50"
+          />
         </div>
       </section>
 
@@ -196,25 +195,35 @@ export default function InPersonResults() {
             </h2>
           </div>
 
-          {analysis.risks.map((r) => (
-            <div
-              key={r.id}
-              className="rounded-xl bg-slate-900/50 px-5 py-4"
-            >
-              <p className="text-sm font-medium text-slate-200">
-                {r.label}
-              </p>
-              <p className="text-sm text-slate-400 mt-1">
-                {r.explanation}
-              </p>
-              <div className="mt-3 flex gap-2">
-                <DollarSign className="h-4 w-4 text-slate-400 mt-0.5" />
-                <p className="text-sm text-slate-400">
-                  {impactExplanation(r.severity)}
+          {analysis.risks.map((r) => {
+            const hint = r.negotiationHint?.range;
+            return (
+              <div
+                key={r.id}
+                className="rounded-xl bg-slate-900/50 px-5 py-4"
+              >
+                <p className="text-sm font-medium text-slate-200">
+                  {r.label}
                 </p>
+                <p className="text-sm text-slate-400 mt-1">
+                  {r.explanation}
+                </p>
+
+                {hint && (
+                  <div className="mt-3 flex gap-2">
+                    <DollarSign className="h-4 w-4 text-slate-400 mt-0.5" />
+                    <p className="text-sm text-slate-400">
+                      Likely negotiation allowance:{" "}
+                      <strong className="text-slate-200">
+                        {formatMoney(hint.audLow)}–{formatMoney(hint.audHigh)}
+                      </strong>
+                      {formatPct(hint.pctHigh)}
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </section>
       )}
 
@@ -245,6 +254,44 @@ export default function InPersonResults() {
           </button>
         </div>
       </section>
+    </div>
+  );
+}
+
+/* =========================================================
+   Subcomponents
+========================================================= */
+
+function NegotiationRow({
+  label,
+  range,
+  tone,
+}: {
+  label: string;
+  range: {
+    audLow: number;
+    audHigh: number;
+    pctLow?: number;
+    pctHigh?: number;
+  };
+  tone: string;
+}) {
+  function fmt(aud: number) {
+    return `$${aud.toLocaleString()}`;
+  }
+
+  return (
+    <div className={`rounded-xl px-5 py-4 ${tone}`}>
+      <p className="text-sm font-medium text-slate-200">{label}</p>
+      <p className="text-sm text-slate-300 mt-1">
+        {fmt(range.audLow)}–{fmt(range.audHigh)}
+        {range.pctLow !== undefined && range.pctHigh !== undefined && (
+          <span className="text-slate-400">
+            {" "}
+            (~{Math.round(range.pctLow)}–{Math.round(range.pctHigh)}%)
+          </span>
+        )}
+      </p>
     </div>
   );
 }
