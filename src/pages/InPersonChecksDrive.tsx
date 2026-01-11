@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Gauge } from "lucide-react";
+import { Gauge, Radar } from "lucide-react";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 type AnswerValue = "ok" | "concern" | "unsure";
@@ -53,6 +53,13 @@ export default function InPersonChecksDrive() {
       title: "Noise or hesitation",
       guidance: "Listen for unusual sounds or delays.",
     },
+    {
+      id: "adas-systems",
+      title: "Driver-assist safety systems (if fitted)",
+      guidance:
+        "Blind-spot monitoring, lane assist, adaptive cruise, collision warnings — note if anything didn’t behave as expected.",
+      icon: Radar,
+    },
   ];
 
   function finishChecks() {
@@ -70,15 +77,20 @@ export default function InPersonChecksDrive() {
 
       {checks.map((c) => {
         const current = answers[c.id];
+        const Icon = (c as any).icon;
 
         return (
           <section
             key={c.id}
             className="rounded-xl bg-slate-900/60 px-4 py-4 space-y-3"
           >
-            <div className="text-sm font-medium text-slate-200">
-              {c.title}
+            <div className="flex items-center gap-2">
+              {Icon && <Icon className="h-4 w-4 text-slate-400" />}
+              <div className="text-sm font-medium text-slate-200">
+                {c.title}
+              </div>
             </div>
+
             <p className="text-xs text-slate-400">{c.guidance}</p>
 
             {/* Segmented buttons */}
@@ -119,7 +131,7 @@ export default function InPersonChecksDrive() {
                       : "border-white/20 text-slate-200 hover:bg-slate-800"
                   }`}
               >
-                Couldn’t check
+                Couldn’t check / not fitted
               </button>
             </div>
 
