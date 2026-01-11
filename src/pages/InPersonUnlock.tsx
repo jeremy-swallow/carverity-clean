@@ -41,7 +41,7 @@ export default function InPersonUnlock() {
   }, [scanId, navigate]);
 
   /* -------------------------------------------------------
-     Stripe success → unlock scan
+     Stripe success → unlock scan → analyze
   ------------------------------------------------------- */
   useEffect(() => {
     if (!scanId || !isSuccessReturn) return;
@@ -50,7 +50,10 @@ export default function InPersonUnlock() {
       unlockScan(scanId);
     }
 
-    navigate("/scan/in-person/results", { replace: true });
+    // IMPORTANT: route through analyzing to avoid race conditions
+    navigate(`/scan/in-person/analyzing?scanId=${scanId}`, {
+      replace: true,
+    });
   }, [scanId, isSuccessReturn, navigate]);
 
   /* -------------------------------------------------------
