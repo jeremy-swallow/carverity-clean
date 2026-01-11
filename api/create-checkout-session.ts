@@ -1,5 +1,3 @@
-// api/create-checkout-session.ts
-
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Stripe from "stripe";
 
@@ -11,7 +9,20 @@ if (!STRIPE_SECRET_KEY) {
 
 const stripe = new Stripe(STRIPE_SECRET_KEY);
 
-const PRICE_ID = "price_1So9TcE9gXaXx1nSyeYvpaQb";
+const PRICE_ID = "price_1So9TcE9gXaXx1nSyeYvpaQb"; // your $14.99 price
+
+function getOrigin(req: VercelRequest) {
+  const proto =
+    (req.headers["x-forwarded-proto"] as string) ||
+    "https";
+
+  const host =
+    (req.headers["x-forwarded-host"] as string) ||
+    (req.headers.host as string) ||
+    "www.carverity.com.au";
+
+  return `${proto}://${host}`;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -25,17 +36,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Missing scanId" });
     }
 
-    const origin = req.headers.origin || "https://carverity.com.au";
+    const origin = getOrigin(req);
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [{ price: PRICE_ID, quantity: 1 }],
+
+      // ✅ MUST land on a route your app actually has
       success_url: `${origin}/scan/in-person/unlock/success?scanId=${encodeURIComponent(
         scanId
       )}`,
+
       cancel_url: `${origin}/scan/in-person/unlock?scanId=${encodeURIComponent(
         scanId
       )}`,
+
       metadata: { scanId },
     });
 
