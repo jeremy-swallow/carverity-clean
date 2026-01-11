@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CheckCircle2,
@@ -8,10 +8,9 @@ import {
   Eye,
   Handshake,
   FileText,
-  ChevronDown,
-  ChevronUp,
   HelpCircle,
   DollarSign,
+  TrendingDown,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -21,7 +20,6 @@ import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 export default function InPersonResults() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [showWhy, setShowWhy] = useState(false);
 
   const progress: any = loadProgress();
   const scanId = params.get("scanId") || progress?.scanId || "";
@@ -41,6 +39,9 @@ export default function InPersonResults() {
 
   const analysis = analyseInPersonInspection(progress);
 
+  /* -------------------------------------------------------
+     Verdict meta
+  ------------------------------------------------------- */
   const verdictMeta = {
     proceed: {
       icon: <CheckCircle2 className="h-7 w-7 text-emerald-400" />,
@@ -60,56 +61,44 @@ export default function InPersonResults() {
   }[analysis.verdict];
 
   /* -------------------------------------------------------
-     Price-impact inference (non-numeric, buyer-safe)
+     Negotiation leverage logic
   ------------------------------------------------------- */
-  function priceImpactForRisk(severity: string) {
-    if (severity === "critical") {
-      return {
-        label: "High leverage",
-        detail:
-          "Often justifies a meaningful price reduction or a decision to walk away if unresolved.",
-      };
-    }
-    if (severity === "moderate") {
-      return {
-        label: "Moderate leverage",
-        detail:
-          "Commonly supports a smaller negotiation adjustment or request for evidence.",
-      };
-    }
-    return {
-      label: "Low leverage",
-      detail:
-        "Unlikely to move price alone, but useful when combined with other findings.",
-    };
+  const significantConcerns = analysis.risks.filter(
+    (r) => r.severity !== "info"
+  ).length;
+
+  const uncertaintyPenalty = Math.max(0, 100 - analysis.confidenceScore);
+
+  const pressureScore =
+    significantConcerns * 1.2 + uncertaintyPenalty * 0.15;
+
+  function leverageLabel(score: number) {
+    if (score < 3) return "Very light leverage";
+    if (score < 6) return "Light leverage";
+    if (score < 10) return "Moderate leverage";
+    return "Strong leverage";
   }
 
+  const conservative = pressureScore * 0.6;
+  const balanced = pressureScore;
+  const aggressive = pressureScore * 1.5;
+
   /* -------------------------------------------------------
-     Seller clarification prompts with price impact
+     Severity → price impact explanation
   ------------------------------------------------------- */
-  const clarificationItems = analysis.risks.map((r) => {
-    const impact = priceImpactForRisk(r.severity);
-
-    let question = `Clarify whether ${r.label.toLowerCase()} has been previously identified, repaired, or priced into the sale.`;
-
-    if (r.severity === "critical") {
-      question = `Ask for a clear explanation and supporting evidence regarding ${r.label.toLowerCase()}.`;
-    } else if (r.severity === "moderate") {
-      question = `Confirm whether ${r.label.toLowerCase()} has been inspected, repaired, or acknowledged by the seller.`;
+  function impactExplanation(sev: string) {
+    if (sev === "high") {
+      return "Often justifies meaningful price movement or walking away if unresolved.";
     }
-
-    return {
-      id: r.id,
-      question,
-      impact,
-    };
-  });
+    if (sev === "moderate") {
+      return "Commonly supports a modest adjustment or request for evidence.";
+    }
+    return "Low impact alone, but adds weight alongside other findings.";
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-14 space-y-12">
-      {/* --------------------------------------------------
-          Verdict
-      -------------------------------------------------- */}
+      {/* Verdict */}
       <header className="space-y-3">
         <span className="text-[11px] uppercase tracking-widest text-slate-400">
           In-person inspection result
@@ -130,9 +119,7 @@ export default function InPersonResults() {
         </div>
       </header>
 
-      {/* --------------------------------------------------
-          Scores
-      -------------------------------------------------- */}
+      {/* Scores */}
       <section className="grid grid-cols-2 gap-6">
         <div className="rounded-2xl bg-slate-900/60 px-6 py-5">
           <div className="flex items-center gap-2 text-slate-300">
@@ -141,9 +128,6 @@ export default function InPersonResults() {
           </div>
           <p className="mt-3 text-3xl font-semibold text-white">
             {analysis.confidenceScore}%
-          </p>
-          <p className="text-xs text-slate-400 mt-1">
-            How reliable this inspection feels overall
           </p>
         </div>
 
@@ -155,120 +139,86 @@ export default function InPersonResults() {
           <p className="mt-3 text-3xl font-semibold text-white">
             {analysis.completenessScore}%
           </p>
-          <p className="text-xs text-slate-400 mt-1">
-            How much of the vehicle was meaningfully checked
-          </p>
         </div>
       </section>
 
-      {/* --------------------------------------------------
-          WHY THIS SCORE
-      -------------------------------------------------- */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/40">
-        <button
-          onClick={() => setShowWhy((v) => !v)}
-          className="w-full flex items-center justify-between px-6 py-4 text-left"
-        >
-          <div>
-            <h2 className="text-sm font-semibold text-slate-200">
-              Why these scores were given
-            </h2>
-            <p className="text-xs text-slate-400 mt-1">
-              How observations translated into confidence and coverage
-            </p>
-          </div>
-          {showWhy ? (
-            <ChevronUp className="h-4 w-4 text-slate-400" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-slate-400" />
-          )}
-        </button>
+      {/* Negotiation positioning */}
+      <section className="rounded-2xl bg-slate-900/60 px-6 py-6 space-y-5">
+        <div className="flex items-center gap-2 text-slate-300">
+          <TrendingDown className="h-4 w-4 text-slate-400" />
+          <h2 className="text-sm font-semibold">
+            Estimated negotiation positioning
+          </h2>
+        </div>
 
-        {showWhy && (
-          <div className="px-6 pb-5 space-y-4 text-sm text-slate-300">
-            <p>
-              Confidence reflects how decisive and consistent your observations
-              were. Coverage reflects how many high-value inspection areas were
-              meaningfully assessed.
+        <p className="text-sm text-slate-400">
+          These ranges indicate how firmly you could reasonably negotiate —
+          not a valuation of the vehicle.
+        </p>
+
+        <div className="space-y-4">
+          <div className="rounded-xl bg-slate-900/50 px-5 py-4">
+            <p className="text-sm font-medium text-slate-200">
+              Conservative approach
             </p>
-            <p>
-              These scores are designed to support negotiation and decision
-              confidence — not replace mechanical inspection.
+            <p className="text-xs text-slate-400 mt-1">
+              {leverageLabel(conservative)}
             </p>
           </div>
-        )}
+
+          <div className="rounded-xl bg-slate-900/50 px-5 py-4">
+            <p className="text-sm font-medium text-slate-200">
+              Balanced approach
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              {leverageLabel(balanced)}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-slate-900/50 px-5 py-4">
+            <p className="text-sm font-medium text-slate-200">
+              Aggressive approach
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              {leverageLabel(aggressive)}
+            </p>
+          </div>
+        </div>
       </section>
 
-      {/* --------------------------------------------------
-          WHAT TO CLARIFY + PRICE IMPACT
-      -------------------------------------------------- */}
-      {clarificationItems.length > 0 && (
+      {/* Clarifications */}
+      {analysis.risks.length > 0 && (
         <section className="rounded-2xl bg-slate-900/60 px-6 py-6 space-y-5">
           <div className="flex items-center gap-2 text-slate-300">
             <HelpCircle className="h-4 w-4 text-slate-400" />
             <h2 className="text-sm font-semibold">
-              What to clarify with the seller — and why it matters
+              What to clarify with the seller
             </h2>
           </div>
-
-          <div className="space-y-4">
-            {clarificationItems.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-xl border border-slate-800 bg-slate-900/50 px-5 py-4"
-              >
-                <p className="text-sm text-slate-200 font-medium">
-                  {item.question}
-                </p>
-
-                <div className="mt-3 flex items-start gap-3">
-                  <DollarSign className="h-4 w-4 text-slate-400 mt-0.5" />
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-400">
-                      Price impact: {item.impact.label}
-                    </p>
-                    <p className="text-sm text-slate-400 mt-1">
-                      {item.impact.detail}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-xs text-slate-400 pt-2">
-            These are buyer-safe discussion points — not claims. Use them to
-            verify value, negotiate fairly, or decide to walk away.
-          </p>
-        </section>
-      )}
-
-      {/* --------------------------------------------------
-          Risks
-      -------------------------------------------------- */}
-      {analysis.risks.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wide">
-            Key observations
-          </h2>
 
           {analysis.risks.map((r) => (
             <div
               key={r.id}
-              className="rounded-xl bg-slate-900/50 px-6 py-4 border border-slate-800"
+              className="rounded-xl bg-slate-900/50 px-5 py-4"
             >
-              <p className="text-sm text-slate-200 font-medium">{r.label}</p>
+              <p className="text-sm font-medium text-slate-200">
+                {r.label}
+              </p>
               <p className="text-sm text-slate-400 mt-1">
                 {r.explanation}
               </p>
+              <div className="mt-3 flex gap-2">
+                <DollarSign className="h-4 w-4 text-slate-400 mt-0.5" />
+                <p className="text-sm text-slate-400">
+                  {impactExplanation(r.severity)}
+                </p>
+              </div>
             </div>
           ))}
         </section>
       )}
 
-      {/* --------------------------------------------------
-          Actions
-      -------------------------------------------------- */}
+      {/* Actions */}
       <section className="space-y-4">
         <button
           onClick={() => navigate("/scan/in-person/negotiation")}
