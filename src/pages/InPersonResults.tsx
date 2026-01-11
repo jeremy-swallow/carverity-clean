@@ -10,6 +10,7 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
+  HelpCircle,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -56,6 +57,19 @@ export default function InPersonResults() {
       tone: "bg-red-500/10 border-red-500/30",
     },
   }[analysis.verdict];
+
+  /* -------------------------------------------------------
+     Seller clarification prompts (derived from risks)
+  ------------------------------------------------------- */
+  const clarificationPoints = analysis.risks.map((r) => {
+    if (r.severity === "critical") {
+      return `Ask for a clear explanation and supporting evidence regarding ${r.label.toLowerCase()}.`;
+    }
+    if (r.severity === "moderate") {
+      return `Clarify whether ${r.label.toLowerCase()} has been inspected, repaired, or priced into the sale.`;
+    }
+    return `Confirm whether ${r.label.toLowerCase()} has been previously noted or addressed.`;
+  });
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-14 space-y-12">
@@ -114,7 +128,7 @@ export default function InPersonResults() {
       </section>
 
       {/* --------------------------------------------------
-          WHY THIS SCORE (Expandable)
+          WHY THIS SCORE
       -------------------------------------------------- */}
       <section className="rounded-2xl border border-slate-800 bg-slate-900/40">
         <button
@@ -138,37 +152,43 @@ export default function InPersonResults() {
 
         {showWhy && (
           <div className="px-6 pb-5 space-y-4 text-sm text-slate-300">
-            <div>
-              <p className="font-medium text-slate-200">Confidence score</p>
-              <p className="mt-1">
-                This reflects how consistent and decisive the inspection
-                responses were. Clear “normal” vs “stood out” answers increase
-                confidence, while skipped or uncertain checks reduce it.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-medium text-slate-200">Inspection coverage</p>
-              <p className="mt-1">
-                Coverage is based on how many key inspection areas were assessed
-                during your visit — including exterior condition, cabin checks,
-                test-drive observations, and safety features where applicable.
-              </p>
-            </div>
-
-            <div>
-              <p className="font-medium text-slate-200">
-                What this does (and doesn’t) mean
-              </p>
-              <p className="mt-1">
-                These scores don’t guarantee mechanical condition. They indicate
-                how much useful signal you gathered in-person to support a
-                buying decision or negotiation discussion.
-              </p>
-            </div>
+            <p>
+              Confidence reflects how decisive and complete your observations
+              were. Coverage reflects how many key inspection areas were
+              meaningfully assessed.
+            </p>
+            <p>
+              These scores support decision-making and negotiation — they are
+              not mechanical guarantees.
+            </p>
           </div>
         )}
       </section>
+
+      {/* --------------------------------------------------
+          WHAT TO CLARIFY WITH THE SELLER
+      -------------------------------------------------- */}
+      {clarificationPoints.length > 0 && (
+        <section className="rounded-2xl bg-slate-900/60 px-6 py-5 space-y-4">
+          <div className="flex items-center gap-2 text-slate-300">
+            <HelpCircle className="h-4 w-4 text-slate-400" />
+            <h2 className="text-sm font-semibold">
+              What to clarify with the seller
+            </h2>
+          </div>
+
+          <ul className="list-disc list-inside space-y-2 text-sm text-slate-300">
+            {clarificationPoints.map((q, i) => (
+              <li key={i}>{q}</li>
+            ))}
+          </ul>
+
+          <p className="text-xs text-slate-400 pt-2">
+            These are discussion points — not accusations. Use them to confirm,
+            negotiate, or decide whether to proceed.
+          </p>
+        </section>
+      )}
 
       {/* --------------------------------------------------
           Risks
@@ -176,7 +196,7 @@ export default function InPersonResults() {
       {analysis.risks.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wide">
-            Key things worth understanding
+            Key observations
           </h2>
 
           {analysis.risks.map((r) => (
@@ -185,7 +205,7 @@ export default function InPersonResults() {
               className="rounded-xl bg-slate-900/50 px-6 py-4 border border-slate-800"
             >
               <p className="text-sm text-slate-200 font-medium">{r.label}</p>
-              <p className="text-sm text-slate-400 mt-1 max-w-2xl">
+              <p className="text-sm text-slate-400 mt-1">
                 {r.explanation}
               </p>
             </div>
