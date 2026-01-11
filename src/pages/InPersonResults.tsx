@@ -11,68 +11,50 @@ import {
   Handshake,
   FileText,
   TrendingDown,
-  DollarSign,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
 import { isScanUnlocked } from "../utils/scanUnlock";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 
-function unlockScan(scanId: string) {
-  const raw = localStorage.getItem("carverity_unlocked_scans");
-  const unlocked = raw ? JSON.parse(raw) : {};
-  unlocked[scanId] = true;
-  localStorage.setItem("carverity_unlocked_scans", JSON.stringify(unlocked));
-}
-
 export default function InPersonResults() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
 
   const progress: any = loadProgress();
-
   const scanId =
     params.get("scanId") || progress?.scanId || "";
 
-  const stripeSessionId = params.get("session_id"); // comes from Stripe success_url
-
-  // -------------------------------------------------------
-  // Routing / safety
-  // -------------------------------------------------------
+  /* -------------------------------------------------------
+     Routing safety
+  ------------------------------------------------------- */
   useEffect(() => {
     if (!scanId) {
       navigate("/scan/in-person/start", { replace: true });
       return;
     }
 
-    // ✅ If Stripe sent us back here with session_id, unlock FIRST.
-    // (MVP approach: client-side unlock, since your whole unlock system is client-side already.)
-    if (stripeSessionId && !isScanUnlocked(scanId)) {
-      unlockScan(scanId);
-
-      // route through analyzing for perceived value + stability
-      navigate(`/scan/in-person/analyzing?scanId=${encodeURIComponent(scanId)}`, {
-        replace: true,
-      });
-      return;
-    }
-
-    // If still not unlocked, go to preview (normal paywall behavior)
     if (!isScanUnlocked(scanId)) {
-      navigate(`/scan/in-person/preview?scanId=${encodeURIComponent(scanId)}`, {
-        replace: true,
-      });
+      navigate(
+        `/scan/in-person/preview?scanId=${encodeURIComponent(scanId)}`,
+        { replace: true }
+      );
       return;
     }
-  }, [scanId, stripeSessionId, navigate]);
+  }, [scanId, navigate]);
 
-  // If we're going to redirect, render nothing.
   if (!scanId) return null;
   if (!isScanUnlocked(scanId)) return null;
 
+  /* -------------------------------------------------------
+     Analysis
+  ------------------------------------------------------- */
   const analysis = useMemo(() => {
-    return analyseInPersonInspection(progress);
-  }, [progress]);
+    return analyseInPersonInspection({
+      ...(progress ?? {}),
+      scanId,
+    });
+  }, [progress, scanId]);
 
   /* -------------------------------------------------------
      Verdict meta
@@ -103,7 +85,8 @@ export default function InPersonResults() {
   ).length;
 
   const uncertaintyPenalty = Math.max(0, 100 - analysis.confidenceScore);
-  const pressureScore = significantConcerns * 1.2 + uncertaintyPenalty * 0.15;
+  const pressureScore =
+    significantConcerns * 1.2 + uncertaintyPenalty * 0.15;
 
   function leverageLabel(score: number) {
     if (score < 3) return "Very light leverage";
@@ -117,18 +100,8 @@ export default function InPersonResults() {
   const aggressive = pressureScore * 1.5;
 
   /* -------------------------------------------------------
-     Severity → price impact explanation
+     UI
   ------------------------------------------------------- */
-  function impactExplanation(sev: string) {
-    if (sev === "high") {
-      return "Often justifies meaningful price movement or walking away if unresolved.";
-    }
-    if (sev === "moderate") {
-      return "Commonly supports a modest adjustment or request for evidence.";
-    }
-    return "Low impact alone, but adds weight alongside other findings.";
-  }
-
   return (
     <div className="max-w-4xl mx-auto px-6 py-14 space-y-12">
       {/* Verdict */}
@@ -167,7 +140,9 @@ export default function InPersonResults() {
         <div className="rounded-2xl bg-slate-900/60 px-6 py-5">
           <div className="flex items-center gap-2 text-slate-300">
             <Eye className="h-4 w-4 text-slate-400" />
-            <span className="text-sm font-medium">Inspection coverage</span>
+            <span className="text-sm font-medium">
+              Inspection coverage
+            </span>
           </div>
           <p className="mt-3 text-3xl font-semibold text-white">
             {analysis.completenessScore}%
@@ -185,7 +160,8 @@ export default function InPersonResults() {
         </div>
 
         <p className="text-sm text-slate-400">
-          These ranges indicate how firmly you could reasonably negotiate — not a valuation of the vehicle.
+          These ranges indicate how firmly you could reasonably
+          negotiate — not a valuation of the vehicle.
         </p>
 
         <div className="space-y-4">
@@ -221,22 +197,21 @@ export default function InPersonResults() {
       {/* Clarifications */}
       {analysis.risks.length > 0 && (
         <section className="rounded-2xl bg-slate-900/60 px-6 py-6 space-y-5">
-          <div className="flex items-center gap-2 text-slate-300">
-            <h2 className="text-sm font-semibold">
-              What to clarify with the seller
-            </h2>
-          </div>
+          <h2 className="text-sm font-semibold text-slate-300">
+            What to clarify with the seller
+          </h2>
 
           {analysis.risks.map((r) => (
-            <div key={r.id} className="rounded-xl bg-slate-900/50 px-5 py-4">
-              <p className="text-sm font-medium text-slate-200">{r.label}</p>
-              <p className="text-sm text-slate-400 mt-1">{r.explanation}</p>
-              <div className="mt-3 flex gap-2">
-                <DollarSign className="h-4 w-4 text-slate-400 mt-0.5" />
-                <p className="text-sm text-slate-400">
-                  {impactExplanation(r.severity)}
-                </p>
-              </div>
+            <div
+              key={r.id}
+              className="rounded-xl bg-slate-900/50 px-5 py-4"
+            >
+              <p className="text-sm font-medium text-slate-200">
+                {r.label}
+              </p>
+              <p className="text-sm text-slate-400 mt-1">
+                {r.explanation}
+              </p>
             </div>
           ))}
         </section>
@@ -245,7 +220,9 @@ export default function InPersonResults() {
       {/* Actions */}
       <section className="space-y-4">
         <button
-          onClick={() => navigate("/scan/in-person/negotiation")}
+          onClick={() =>
+            navigate(`/scan/in-person/negotiation?scanId=${scanId}`)
+          }
           className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 flex items-center justify-center gap-2"
         >
           <Handshake className="h-4 w-4" />
@@ -254,7 +231,9 @@ export default function InPersonResults() {
 
         <div className="flex gap-3">
           <button
-            onClick={() => navigate("/scan/in-person/report-print")}
+            onClick={() =>
+              navigate(`/scan/in-person/report-print?scanId=${scanId}`)
+            }
             className="flex-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-3 flex items-center justify-center gap-2"
           >
             <FileText className="h-4 w-4" />
@@ -262,7 +241,9 @@ export default function InPersonResults() {
           </button>
 
           <button
-            onClick={() => navigate("/scan/in-person/summary")}
+            onClick={() =>
+              navigate(`/scan/in-person/summary?scanId=${scanId}`)
+            }
             className="flex-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 px-5 py-3"
           >
             Back to summary
