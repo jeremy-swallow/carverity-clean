@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CheckCircle2,
@@ -8,6 +8,8 @@ import {
   Eye,
   Handshake,
   FileText,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -17,6 +19,7 @@ import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 export default function InPersonResults() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const [showWhy, setShowWhy] = useState(false);
 
   const progress: any = loadProgress();
   const scanId = params.get("scanId") || progress?.scanId || "";
@@ -57,7 +60,7 @@ export default function InPersonResults() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-14 space-y-12">
       {/* --------------------------------------------------
-          Header
+          Verdict
       -------------------------------------------------- */}
       <header className="space-y-3">
         <span className="text-[11px] uppercase tracking-widest text-slate-400">
@@ -80,7 +83,7 @@ export default function InPersonResults() {
       </header>
 
       {/* --------------------------------------------------
-          Signals
+          Scores
       -------------------------------------------------- */}
       <section className="grid grid-cols-2 gap-6">
         <div className="rounded-2xl bg-slate-900/60 px-6 py-5">
@@ -92,7 +95,7 @@ export default function InPersonResults() {
             {analysis.confidenceScore}%
           </p>
           <p className="text-xs text-slate-400 mt-1">
-            Based on inspection clarity and consistency
+            How reliable this inspection feels overall
           </p>
         </div>
 
@@ -105,9 +108,66 @@ export default function InPersonResults() {
             {analysis.completenessScore}%
           </p>
           <p className="text-xs text-slate-400 mt-1">
-            How much of the vehicle was reasonably assessed
+            How much of the vehicle was meaningfully checked
           </p>
         </div>
+      </section>
+
+      {/* --------------------------------------------------
+          WHY THIS SCORE (Expandable)
+      -------------------------------------------------- */}
+      <section className="rounded-2xl border border-slate-800 bg-slate-900/40">
+        <button
+          onClick={() => setShowWhy((v) => !v)}
+          className="w-full flex items-center justify-between px-6 py-4 text-left"
+        >
+          <div>
+            <h2 className="text-sm font-semibold text-slate-200">
+              Why these scores were given
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">
+              Transparency into how this inspection was assessed
+            </p>
+          </div>
+          {showWhy ? (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+
+        {showWhy && (
+          <div className="px-6 pb-5 space-y-4 text-sm text-slate-300">
+            <div>
+              <p className="font-medium text-slate-200">Confidence score</p>
+              <p className="mt-1">
+                This reflects how consistent and decisive the inspection
+                responses were. Clear “normal” vs “stood out” answers increase
+                confidence, while skipped or uncertain checks reduce it.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-medium text-slate-200">Inspection coverage</p>
+              <p className="mt-1">
+                Coverage is based on how many key inspection areas were assessed
+                during your visit — including exterior condition, cabin checks,
+                test-drive observations, and safety features where applicable.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-medium text-slate-200">
+                What this does (and doesn’t) mean
+              </p>
+              <p className="mt-1">
+                These scores don’t guarantee mechanical condition. They indicate
+                how much useful signal you gathered in-person to support a
+                buying decision or negotiation discussion.
+              </p>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* --------------------------------------------------
@@ -119,40 +179,17 @@ export default function InPersonResults() {
             Key things worth understanding
           </h2>
 
-          {analysis.risks
-            .slice()
-            .sort(
-              (a, b) =>
-                (b.severity === "critical" ? 3 : b.severity === "moderate" ? 2 : 1) -
-                (a.severity === "critical" ? 3 : a.severity === "moderate" ? 2 : 1)
-            )
-            .map((r) => (
-              <div
-                key={r.id}
-                className="rounded-xl bg-slate-900/50 px-6 py-4 border border-slate-800"
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-xs uppercase tracking-wide ${
-                      r.severity === "critical"
-                        ? "text-red-400"
-                        : r.severity === "moderate"
-                        ? "text-amber-400"
-                        : "text-slate-400"
-                    }`}
-                  >
-                    {r.severity}
-                  </span>
-                </div>
-
-                <p className="text-sm text-slate-200 font-medium mt-1">
-                  {r.label}
-                </p>
-                <p className="text-sm text-slate-400 mt-1 max-w-2xl">
-                  {r.explanation}
-                </p>
-              </div>
-            ))}
+          {analysis.risks.map((r) => (
+            <div
+              key={r.id}
+              className="rounded-xl bg-slate-900/50 px-6 py-4 border border-slate-800"
+            >
+              <p className="text-sm text-slate-200 font-medium">{r.label}</p>
+              <p className="text-sm text-slate-400 mt-1 max-w-2xl">
+                {r.explanation}
+              </p>
+            </div>
+          ))}
         </section>
       )}
 
