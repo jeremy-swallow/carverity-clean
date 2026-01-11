@@ -1,5 +1,4 @@
-// src/pages/InPersonResults.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CheckCircle2,
@@ -8,233 +7,184 @@ import {
   BarChart3,
   Eye,
   Handshake,
+  FileText,
 } from "lucide-react";
 
-import { loadProgress, saveProgress } from "../utils/scanProgress";
+import { loadProgress } from "../utils/scanProgress";
 import { isScanUnlocked } from "../utils/scanUnlock";
-import {
-  analyseInPersonInspection,
-  type ScanProgress,
-} from "../utils/inPersonAnalysis";
-
-const UNLOCK_KEY_PREFIX = "carverity_inperson_unlocked_";
-
-function localUnlock(scanId: string) {
-  try {
-    localStorage.setItem(`${UNLOCK_KEY_PREFIX}${scanId}`, "1");
-  } catch {
-    // ignore
-  }
-}
-
-function localIsUnlocked(scanId: string) {
-  try {
-    return localStorage.getItem(`${UNLOCK_KEY_PREFIX}${scanId}`) === "1";
-  } catch {
-    return false;
-  }
-}
+import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 
 export default function InPersonResults() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [params] = useSearchParams();
 
-  const urlScanId = searchParams.get("scanId") || "";
-  const sessionId = searchParams.get("session_id") || "";
+  const progress: any = loadProgress();
+  const scanId = params.get("scanId") || progress?.scanId || "";
 
-  const [progress, setProgress] = useState<ScanProgress>(() => {
-    return (loadProgress() ?? {}) as ScanProgress;
-  });
-
-  // Re-load once on mount (handles edge cases where storage updates late)
   useEffect(() => {
-    setProgress(((loadProgress() ?? {}) as ScanProgress) ?? {});
-  }, []);
-
-  const effectiveScanId = urlScanId || progress?.scanId || "";
-
-  /* -------------------------------------------------------
-     Repair missing scanId after Stripe redirect:
-     - URL has scanId
-     - local progress may be empty/mismatched
-  ------------------------------------------------------- */
-  useEffect(() => {
-    if (!urlScanId) return;
-
-    if (!progress || progress.scanId !== urlScanId) {
-      const next: ScanProgress = {
-        ...(progress ?? {}),
-        type: "in-person",
-        scanId: urlScanId,
-        step: "/scan/in-person/results",
-      };
-      saveProgress(next as any);
-      setProgress(next);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlScanId]);
-
-  /* -------------------------------------------------------
-     Stripe success redirect → mark locally unlocked
-     and clean session_id from URL
-  ------------------------------------------------------- */
-  useEffect(() => {
-    if (effectiveScanId && sessionId) {
-      localUnlock(effectiveScanId);
-
-      const clean = `/scan/in-person/results?scanId=${encodeURIComponent(
-        effectiveScanId
-      )}`;
-      window.history.replaceState({}, "", clean);
-    }
-  }, [effectiveScanId, sessionId]);
-
-  /* -------------------------------------------------------
-     Safety: no scan → restart
-  ------------------------------------------------------- */
-  useEffect(() => {
-    if (!effectiveScanId) {
+    if (!scanId) {
       navigate("/scan/in-person/start", { replace: true });
     }
-  }, [effectiveScanId, navigate]);
+  }, [scanId, navigate]);
 
-  /* -------------------------------------------------------
-     Lock enforcement
-  ------------------------------------------------------- */
-  const unlocked =
-    (effectiveScanId ? isScanUnlocked(effectiveScanId) : false) ||
-    (effectiveScanId ? localIsUnlocked(effectiveScanId) : false);
+  if (!scanId) return null;
 
-  useEffect(() => {
-    if (effectiveScanId && !unlocked) {
-      navigate("/scan/in-person/preview", { replace: true });
-    }
-  }, [effectiveScanId, unlocked, navigate]);
+  if (!isScanUnlocked(scanId)) {
+    navigate("/scan/in-person/preview", { replace: true });
+    return null;
+  }
 
-  // Hard stop for render if scan missing / locked
-  if (!effectiveScanId) return null;
-  if (!unlocked) return null;
+  const analysis = analyseInPersonInspection(progress);
 
-  const analysis = useMemo(() => {
-    const safe: ScanProgress = (progress ?? {}) as ScanProgress;
-    // Ensure scanId exists for analysis context
-    const enriched: ScanProgress = { ...safe, scanId: effectiveScanId };
-    return analyseInPersonInspection(enriched);
-  }, [progress, effectiveScanId]);
-
-  const verdictIcon =
-    analysis.verdict === "proceed" ? (
-      <CheckCircle2 className="h-6 w-6 text-emerald-400" />
-    ) : analysis.verdict === "caution" ? (
-      <AlertTriangle className="h-6 w-6 text-amber-400" />
-    ) : (
-      <XCircle className="h-6 w-6 text-red-400" />
-    );
+  const verdictMeta = {
+    proceed: {
+      icon: <CheckCircle2 className="h-7 w-7 text-emerald-400" />,
+      title: "Proceed with confidence",
+      tone: "bg-emerald-500/10 border-emerald-500/30",
+    },
+    caution: {
+      icon: <AlertTriangle className="h-7 w-7 text-amber-400" />,
+      title: "Proceed — but clarify a few things",
+      tone: "bg-amber-500/10 border-amber-500/30",
+    },
+    "walk-away": {
+      icon: <XCircle className="h-7 w-7 text-red-400" />,
+      title: "High risk — walking away is reasonable",
+      tone: "bg-red-500/10 border-red-500/30",
+    },
+  }[analysis.verdict];
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12 space-y-10">
-      <span className="text-[11px] uppercase tracking-wide text-slate-400">
-        In-person scan results
-      </span>
+    <div className="max-w-4xl mx-auto px-6 py-14 space-y-12">
+      {/* --------------------------------------------------
+          Header
+      -------------------------------------------------- */}
+      <header className="space-y-3">
+        <span className="text-[11px] uppercase tracking-widest text-slate-400">
+          In-person inspection result
+        </span>
 
-      <section className="space-y-4">
-        <div className="flex items-start gap-3">
-          {verdictIcon}
-          <h1 className="text-2xl md:text-3xl font-semibold text-white">
-            {analysis.verdict === "proceed" &&
-              "Proceed — no major red flags detected"}
-            {analysis.verdict === "caution" &&
-              "Proceed carefully — a few items need clarification"}
-            {analysis.verdict === "walk-away" &&
-              "High concern — walking away may be safest"}
-          </h1>
-        </div>
-
-        <p className="text-sm text-slate-300 max-w-xl">
-          {analysis.verdictReason}
-        </p>
-      </section>
-
-      <section className="rounded-2xl bg-slate-900/60 px-6 py-5 space-y-4">
-        <div className="flex items-center gap-2 text-slate-300">
-          <BarChart3 className="h-4 w-4 text-slate-400" />
-          <span className="text-sm font-medium">Inspection signals</span>
-        </div>
-
-        <div className="flex gap-10">
+        <div
+          className={`rounded-2xl border px-6 py-5 flex items-start gap-4 ${verdictMeta.tone}`}
+        >
+          {verdictMeta.icon}
           <div>
-            <p className="text-[11px] uppercase text-slate-400">Confidence</p>
-            <p className="text-lg font-semibold text-white">
-              {analysis.confidenceScore}%
-            </p>
-          </div>
-          <div>
-            <p className="text-[11px] uppercase text-slate-400">
-              Inspection coverage
-            </p>
-            <p className="text-lg font-semibold text-white">
-              {analysis.completenessScore}%
+            <h1 className="text-2xl md:text-3xl font-semibold text-white">
+              {verdictMeta.title}
+            </h1>
+            <p className="text-sm text-slate-300 mt-2 max-w-2xl">
+              {analysis.verdictReason}
             </p>
           </div>
         </div>
+      </header>
 
-        {/* Hidden inference exists in analysis output (no new UI requested).
-            If you later want to use it in report/negotiation, it's available:
-            analysis.inferredSignals.adasPresentButDisabled */}
-      </section>
+      {/* --------------------------------------------------
+          Signals
+      -------------------------------------------------- */}
+      <section className="grid grid-cols-2 gap-6">
+        <div className="rounded-2xl bg-slate-900/60 px-6 py-5">
+          <div className="flex items-center gap-2 text-slate-300">
+            <BarChart3 className="h-4 w-4 text-slate-400" />
+            <span className="text-sm font-medium">Confidence score</span>
+          </div>
+          <p className="mt-3 text-3xl font-semibold text-white">
+            {analysis.confidenceScore}%
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            Based on inspection clarity and consistency
+          </p>
+        </div>
 
-      {analysis.risks.length > 0 ? (
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
+        <div className="rounded-2xl bg-slate-900/60 px-6 py-5">
+          <div className="flex items-center gap-2 text-slate-300">
             <Eye className="h-4 w-4 text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-200">
-              Key items worth understanding
-            </h2>
+            <span className="text-sm font-medium">Inspection coverage</span>
           </div>
+          <p className="mt-3 text-3xl font-semibold text-white">
+            {analysis.completenessScore}%
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            How much of the vehicle was reasonably assessed
+          </p>
+        </div>
+      </section>
 
-          {analysis.risks.map((r) => (
-            <div
-              key={r.id}
-              className="rounded-xl bg-slate-900/50 px-5 py-4 border border-white/10"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-slate-200 font-medium">{r.label}</p>
-                <span className="text-[10px] uppercase tracking-wide text-slate-400">
-                  {r.severity}
-                </span>
+      {/* --------------------------------------------------
+          Risks
+      -------------------------------------------------- */}
+      {analysis.risks.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wide">
+            Key things worth understanding
+          </h2>
+
+          {analysis.risks
+            .slice()
+            .sort(
+              (a, b) =>
+                (b.severity === "critical" ? 3 : b.severity === "moderate" ? 2 : 1) -
+                (a.severity === "critical" ? 3 : a.severity === "moderate" ? 2 : 1)
+            )
+            .map((r) => (
+              <div
+                key={r.id}
+                className="rounded-xl bg-slate-900/50 px-6 py-4 border border-slate-800"
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-xs uppercase tracking-wide ${
+                      r.severity === "critical"
+                        ? "text-red-400"
+                        : r.severity === "moderate"
+                        ? "text-amber-400"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {r.severity}
+                  </span>
+                </div>
+
+                <p className="text-sm text-slate-200 font-medium mt-1">
+                  {r.label}
+                </p>
+                <p className="text-sm text-slate-400 mt-1 max-w-2xl">
+                  {r.explanation}
+                </p>
               </div>
-              <p className="text-sm text-slate-400 mt-1">{r.explanation}</p>
-            </div>
-          ))}
-        </section>
-      ) : (
-        <section className="rounded-2xl bg-slate-900/40 px-6 py-5 border border-white/10">
-          <p className="text-sm text-slate-200 font-medium">
-            No major risks were flagged from what was recorded.
-          </p>
-          <p className="text-sm text-slate-400 mt-1">
-            If you skipped checks or didn’t capture the baseline exterior photos,
-            increase coverage to improve reliability.
-          </p>
+            ))}
         </section>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <button
-          onClick={() => navigate("/scan/in-person/report-print")}
-          className="w-full rounded-xl border border-white/20 text-slate-200 font-semibold px-5 py-3"
-        >
-          View printable report
-        </button>
-
+      {/* --------------------------------------------------
+          Actions
+      -------------------------------------------------- */}
+      <section className="space-y-4">
         <button
           onClick={() => navigate("/scan/in-person/negotiation")}
-          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-5 py-3 flex items-center justify-center gap-2"
+          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 flex items-center justify-center gap-2"
         >
           <Handshake className="h-4 w-4" />
-          View negotiation guidance
+          View buyer-safe negotiation guidance
         </button>
-      </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate("/scan/in-person/report-print")}
+            className="flex-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-3 flex items-center justify-center gap-2"
+          >
+            <FileText className="h-4 w-4" />
+            Print / save report
+          </button>
+
+          <button
+            onClick={() => navigate("/scan/in-person/summary")}
+            className="flex-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 px-5 py-3"
+          >
+            Back to summary
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
