@@ -9,12 +9,15 @@ import {
   Handshake,
 } from "lucide-react";
 
-import { loadProgress } from "../utils/scanProgress";
+import { loadProgress, saveProgress } from "../utils/scanProgress";
 import { isScanUnlocked } from "../utils/scanUnlock";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 
 const UNLOCK_KEY_PREFIX = "carverity_inperson_unlocked_";
 
+/* -------------------------------------------------------
+   Local unlock fallback (Stripe redirect safety)
+------------------------------------------------------- */
 function localUnlock(scanId: string) {
   try {
     localStorage.setItem(`${UNLOCK_KEY_PREFIX}${scanId}`, "1");
@@ -35,53 +38,77 @@ export default function InPersonResults() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const progress: any = loadProgress();
-
-  const scanId =
-    searchParams.get("scanId") ||
-    progress?.scanId ||
-    "";
-
+  const urlScanId = searchParams.get("scanId") || "";
   const sessionId = searchParams.get("session_id") || "";
+
+  const initialProgress = loadProgress();
+
+  /* -------------------------------------------------------
+     🔑 Repair missing / mismatched scanId after Stripe
+  ------------------------------------------------------- */
+  useEffect(() => {
+    if (urlScanId && (!initialProgress || initialProgress.scanId !== urlScanId)) {
+      saveProgress({
+        ...(initialProgress ?? {}),
+        scanId: urlScanId,
+      });
+    }
+  }, [urlScanId]);
+
+  const effectiveScanId =
+    urlScanId || initialProgress?.scanId || "";
 
   /* -------------------------------------------------------
      Safety: no scan → restart
   ------------------------------------------------------- */
   useEffect(() => {
-    if (!scanId) {
+    if (!effectiveScanId) {
       navigate("/scan/in-person/start", { replace: true });
     }
-  }, [scanId, navigate]);
+  }, [effectiveScanId, navigate]);
 
   /* -------------------------------------------------------
-     Stripe success redirect → mark locally unlocked
-     (keeps working even if scanUnlock.ts only exposes isScanUnlocked)
+     Stripe success → mark unlocked locally + clean URL
   ------------------------------------------------------- */
   useEffect(() => {
-    if (scanId && sessionId) {
-      localUnlock(scanId);
+    if (effectiveScanId && sessionId) {
+      localUnlock(effectiveScanId);
 
-      // Clean URL so refresh doesn't keep "session_id" around
-      const clean = `/scan/in-person/results?scanId=${encodeURIComponent(
-        scanId
+      const cleanUrl = `/scan/in-person/results?scanId=${encodeURIComponent(
+        effectiveScanId
       )}`;
-      window.history.replaceState({}, "", clean);
+      window.history.replaceState({}, "", cleanUrl);
     }
-  }, [scanId, sessionId]);
+  }, [effectiveScanId, sessionId]);
 
   /* -------------------------------------------------------
      Lock enforcement
   ------------------------------------------------------- */
   const unlocked =
-    (scanId ? isScanUnlocked(scanId) : false) || (scanId ? localIsUnlocked(scanId) : false);
+    (effectiveScanId ? isScanUnlocked(effectiveScanId) : false) ||
+    (effectiveScanId ? localIsUnlocked(effectiveScanId) : false);
 
-  if (!scanId) return null;
+  if (!effectiveScanId) return null;
 
   if (!unlocked) {
     navigate("/scan/in-person/preview", { replace: true });
     return null;
   }
 
+  /* -------------------------------------------------------
+     Progress must exist before analysis
+  ------------------------------------------------------- */
+  const progress = loadProgress();
+
+  if (!progress || !progress.scanId) {
+    // Defensive fallback — should not happen now
+    navigate("/scan/in-person/start", { replace: true });
+    return null;
+  }
+
+  /* -------------------------------------------------------
+     Analysis (now type-safe)
+  ------------------------------------------------------- */
   const analysis = analyseInPersonInspection(progress);
 
   const verdictIcon =
@@ -120,12 +147,16 @@ export default function InPersonResults() {
       <section className="rounded-2xl bg-slate-900/60 px-6 py-5 space-y-4">
         <div className="flex items-center gap-2 text-slate-300">
           <BarChart3 className="h-4 w-4 text-slate-400" />
-          <span className="text-sm font-medium">Inspection signals</span>
+          <span className="text-sm font-medium">
+            Inspection signals
+          </span>
         </div>
 
         <div className="flex gap-10">
           <div>
-            <p className="text-[11px] uppercase text-slate-400">Confidence</p>
+            <p className="text-[11px] uppercase text-slate-400">
+              Confidence
+            </p>
             <p className="text-lg font-semibold text-white">
               {analysis.confidenceScore}%
             </p>
