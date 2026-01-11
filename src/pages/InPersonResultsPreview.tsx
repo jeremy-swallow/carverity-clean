@@ -1,3 +1,6 @@
+// src/pages/InPersonResultsPreview.tsx
+
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress } from "../utils/scanProgress";
 import { isScanUnlocked } from "../utils/scanUnlock";
@@ -5,23 +8,41 @@ import { isScanUnlocked } from "../utils/scanUnlock";
 export default function InPersonResultsPreview() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
+  const scanId: string | undefined = progress?.scanId;
 
-  if (!progress?.scanId) {
-    navigate("/scan/in-person/start", { replace: true });
+  /* -------------------------------------------------------
+     Guard & redirect logic (must run in effects)
+  ------------------------------------------------------- */
+  useEffect(() => {
+    if (!scanId) {
+      navigate("/scan/in-person/start", { replace: true });
+      return;
+    }
+
+    if (isScanUnlocked(scanId)) {
+      navigate(
+        `/scan/in-person/analyzing?scanId=${encodeURIComponent(scanId)}`,
+        { replace: true }
+      );
+    }
+  }, [scanId, navigate]);
+
+  if (!scanId || isScanUnlocked(scanId)) {
     return null;
   }
 
-  if (isScanUnlocked(progress.scanId)) {
-    navigate("/scan/in-person/results", { replace: true });
-    return null;
-  }
-
+  /* -------------------------------------------------------
+     Preview data
+  ------------------------------------------------------- */
   const photos = progress.photos?.length ?? 0;
   const checks = Object.values(progress.checks ?? {}).filter(Boolean).length;
 
   const confidenceLabel =
     photos >= 4 && checks >= 5 ? "High" : photos >= 3 ? "Medium" : "Low";
 
+  /* -------------------------------------------------------
+     UI
+  ------------------------------------------------------- */
   return (
     <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
       <span className="text-[11px] uppercase tracking-wide text-slate-400">
@@ -64,7 +85,11 @@ export default function InPersonResultsPreview() {
       </section>
 
       <button
-        onClick={() => navigate("/scan/in-person/unlock")}
+        onClick={() =>
+          navigate(
+            `/scan/in-person/unlock?scanId=${encodeURIComponent(scanId)}`
+          )
+        }
         className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-5 py-3"
       >
         Unlock full report
