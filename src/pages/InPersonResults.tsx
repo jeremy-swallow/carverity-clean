@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   HelpCircle,
+  DollarSign,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -59,16 +60,49 @@ export default function InPersonResults() {
   }[analysis.verdict];
 
   /* -------------------------------------------------------
-     Seller clarification prompts (derived from risks)
+     Price-impact inference (non-numeric, buyer-safe)
   ------------------------------------------------------- */
-  const clarificationPoints = analysis.risks.map((r) => {
+  function priceImpactForRisk(severity: string) {
+    if (severity === "critical") {
+      return {
+        label: "High leverage",
+        detail:
+          "Often justifies a meaningful price reduction or a decision to walk away if unresolved.",
+      };
+    }
+    if (severity === "moderate") {
+      return {
+        label: "Moderate leverage",
+        detail:
+          "Commonly supports a smaller negotiation adjustment or request for evidence.",
+      };
+    }
+    return {
+      label: "Low leverage",
+      detail:
+        "Unlikely to move price alone, but useful when combined with other findings.",
+    };
+  }
+
+  /* -------------------------------------------------------
+     Seller clarification prompts with price impact
+  ------------------------------------------------------- */
+  const clarificationItems = analysis.risks.map((r) => {
+    const impact = priceImpactForRisk(r.severity);
+
+    let question = `Clarify whether ${r.label.toLowerCase()} has been previously identified, repaired, or priced into the sale.`;
+
     if (r.severity === "critical") {
-      return `Ask for a clear explanation and supporting evidence regarding ${r.label.toLowerCase()}.`;
+      question = `Ask for a clear explanation and supporting evidence regarding ${r.label.toLowerCase()}.`;
+    } else if (r.severity === "moderate") {
+      question = `Confirm whether ${r.label.toLowerCase()} has been inspected, repaired, or acknowledged by the seller.`;
     }
-    if (r.severity === "moderate") {
-      return `Clarify whether ${r.label.toLowerCase()} has been inspected, repaired, or priced into the sale.`;
-    }
-    return `Confirm whether ${r.label.toLowerCase()} has been previously noted or addressed.`;
+
+    return {
+      id: r.id,
+      question,
+      impact,
+    };
   });
 
   return (
@@ -140,7 +174,7 @@ export default function InPersonResults() {
               Why these scores were given
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              Transparency into how this inspection was assessed
+              How observations translated into confidence and coverage
             </p>
           </div>
           {showWhy ? (
@@ -153,39 +187,58 @@ export default function InPersonResults() {
         {showWhy && (
           <div className="px-6 pb-5 space-y-4 text-sm text-slate-300">
             <p>
-              Confidence reflects how decisive and complete your observations
-              were. Coverage reflects how many key inspection areas were
+              Confidence reflects how decisive and consistent your observations
+              were. Coverage reflects how many high-value inspection areas were
               meaningfully assessed.
             </p>
             <p>
-              These scores support decision-making and negotiation — they are
-              not mechanical guarantees.
+              These scores are designed to support negotiation and decision
+              confidence — not replace mechanical inspection.
             </p>
           </div>
         )}
       </section>
 
       {/* --------------------------------------------------
-          WHAT TO CLARIFY WITH THE SELLER
+          WHAT TO CLARIFY + PRICE IMPACT
       -------------------------------------------------- */}
-      {clarificationPoints.length > 0 && (
-        <section className="rounded-2xl bg-slate-900/60 px-6 py-5 space-y-4">
+      {clarificationItems.length > 0 && (
+        <section className="rounded-2xl bg-slate-900/60 px-6 py-6 space-y-5">
           <div className="flex items-center gap-2 text-slate-300">
             <HelpCircle className="h-4 w-4 text-slate-400" />
             <h2 className="text-sm font-semibold">
-              What to clarify with the seller
+              What to clarify with the seller — and why it matters
             </h2>
           </div>
 
-          <ul className="list-disc list-inside space-y-2 text-sm text-slate-300">
-            {clarificationPoints.map((q, i) => (
-              <li key={i}>{q}</li>
+          <div className="space-y-4">
+            {clarificationItems.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-xl border border-slate-800 bg-slate-900/50 px-5 py-4"
+              >
+                <p className="text-sm text-slate-200 font-medium">
+                  {item.question}
+                </p>
+
+                <div className="mt-3 flex items-start gap-3">
+                  <DollarSign className="h-4 w-4 text-slate-400 mt-0.5" />
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-slate-400">
+                      Price impact: {item.impact.label}
+                    </p>
+                    <p className="text-sm text-slate-400 mt-1">
+                      {item.impact.detail}
+                    </p>
+                  </div>
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
 
           <p className="text-xs text-slate-400 pt-2">
-            These are discussion points — not accusations. Use them to confirm,
-            negotiate, or decide whether to proceed.
+            These are buyer-safe discussion points — not claims. Use them to
+            verify value, negotiate fairly, or decide to walk away.
           </p>
         </section>
       )}
