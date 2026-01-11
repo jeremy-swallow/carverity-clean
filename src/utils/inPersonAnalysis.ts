@@ -1,48 +1,99 @@
 // src/utils/inPersonAnalysis.ts
 
-import type { ScanProgress } from "./scanProgress";
+export type AnswerValue = "ok" | "concern" | "unsure";
 
-/* =========================================================
-   Types
-========================================================= */
+export type CheckAnswer = {
+  value: AnswerValue;
+  note?: string;
+};
 
-export type Verdict = "proceed" | "caution" | "walk-away";
+export type ScanProgress = {
+  type?: string;
+  scanId?: string;
+  step?: string;
 
-export type RiskSignal = {
+  checks?: Record<string, CheckAnswer>;
+  photos?: Array<{ id: string; dataUrl: string; stepId: string }>;
+  followUpPhotos?: Array<{ id: string; dataUrl: string; note?: string }>;
+  imperfections?: Array<{
+    id: string;
+    label?: string;
+    severity?: "minor" | "moderate" | "major";
+    location?: string;
+    note?: string;
+  }>;
+};
+
+export type RiskItem = {
   id: string;
   label: string;
-  severity: "info" | "moderate" | "high";
   explanation: string;
+  severity: "info" | "moderate" | "critical";
+};
+
+export type NegotiationLeverageGroup = {
+  category: string;
+  points: string[];
 };
 
 export type AnalysisResult = {
-  completenessScore: number;
-  confidenceScore: number;
-  verdict: Verdict;
+  verdict: "proceed" | "caution" | "walk-away";
   verdictReason: string;
-  risks: RiskSignal[];
+  confidenceScore: number;
+  completenessScore: number;
+  risks: RiskItem[];
+  negotiationLeverage: NegotiationLeverageGroup[];
   inferredSignals: {
-    adasLikelyDisabled: boolean;
+    adasPresentButDisabled: boolean;
     confidence: number;
   };
 };
 
 /* =========================================================
-   Constants
+   Helpers
 ========================================================= */
 
-const REQUIRED_PHOTO_STEPS = [
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function hasNote(note?: string) {
+  return (note ?? "").trim().length >= 5;
+}
+
+function severityWeight(sev?: string) {
+  if (sev === "major") return 3;
+  if (sev === "moderate") return 2;
+  return 1;
+}
+
+/* =========================================================
+   Coverage definitions (NOW USED)
+========================================================= */
+
+const REQUIRED_PHOTO_STEP_IDS = [
   "exterior-front",
   "exterior-side-left",
   "exterior-rear",
   "exterior-side-right",
 ];
 
-const ADAS_RELATED_CHECKS = [
-  "adas-lane-keep",
-  "adas-blind-spot",
-  "adas-adaptive-cruise",
-  "adas-collision-warning",
+const KEY_CHECK_IDS = [
+  // Around car
+  "body-panels",
+  "paint",
+  "glass-lights",
+  "tyres",
+  "underbody-leaks",
+  // Cabin
+  "interior-smell",
+  "interior-condition",
+  "aircon",
+  // Drive
+  "steering",
+  "noise-hesitation",
+  // ADAS
+  "adas-systems",
 ];
 
 /* =========================================================
@@ -52,151 +103,194 @@ const ADAS_RELATED_CHECKS = [
 export function analyseInPersonInspection(
   progress: ScanProgress
 ): AnalysisResult {
-  const photos = progress.photos ?? [];
   const checks = progress.checks ?? {};
+  const photos = progress.photos ?? [];
+  const followUps = progress.followUpPhotos ?? [];
+  const imperfections = progress.imperfections ?? [];
 
-  /* =========================
-     COMPLETENESS
-  ========================== */
-
-  const coveredSteps = new Set(photos.map((p) => p.stepId));
-  const requiredCovered = REQUIRED_PHOTO_STEPS.filter((s) =>
-    coveredSteps.has(s)
+  /* -----------------------------
+     PHOTO COVERAGE
+  ----------------------------- */
+  const photoSteps = new Set(photos.map((p) => p.stepId));
+  const photosCaptured = REQUIRED_PHOTO_STEP_IDS.filter((id) =>
+    photoSteps.has(id)
   ).length;
 
-  const photoCompleteness =
-    (requiredCovered / REQUIRED_PHOTO_STEPS.length) * 100;
+  const photoCoverage =
+    REQUIRED_PHOTO_STEP_IDS.length > 0
+      ? photosCaptured / REQUIRED_PHOTO_STEP_IDS.length
+      : 0;
 
-  const checkValues = Object.values(checks);
-  const answeredChecks = checkValues.filter(
-    (c) => typeof c?.value === "string"
+  /* -----------------------------
+     CHECK COVERAGE (THIS USES KEY_CHECK_IDS)
+  ----------------------------- */
+  const answeredKeyChecks = KEY_CHECK_IDS.filter(
+    (id) => checks[id]?.value
   ).length;
 
-  const checkCompleteness =
-    checkValues.length === 0
-      ? 0
-      : (answeredChecks / checkValues.length) * 100;
+  const checkCoverage =
+    KEY_CHECK_IDS.length > 0
+      ? answeredKeyChecks / KEY_CHECK_IDS.length
+      : 0;
 
+  /* -----------------------------
+     COMPLETENESS SCORE
+  ----------------------------- */
   const completenessScore = Math.round(
-    photoCompleteness * 0.6 + checkCompleteness * 0.4
+    clamp(photoCoverage * 55 + checkCoverage * 40 + (followUps.length ? 5 : 0), 0, 100)
   );
 
-  /* =========================
-     CONFIDENCE
-  ========================== */
-
-  const concerns = checkValues.filter(
-    (c) => c?.value === "concern"
+  /* -----------------------------
+     CONFIDENCE SCORE
+  ----------------------------- */
+  const values = Object.values(checks);
+  const concernCount = values.filter((v) => v?.value === "concern").length;
+  const unsureCount = values.filter((v) => v?.value === "unsure").length;
+  const weakNotes = values.filter(
+    (v) => v?.value === "concern" && !hasNote(v.note)
   ).length;
 
-  const unsure = checkValues.filter(
-    (c) => c?.value === "unsure"
-  ).length;
+  let confidence =
+    30 +
+    completenessScore * 0.7 -
+    unsureCount * 4 -
+    weakNotes * 3;
 
-  let confidenceScore = 100;
-  confidenceScore -= concerns * 8;
-  confidenceScore -= unsure * 6;
-  confidenceScore -= (100 - completenessScore) * 0.4;
-  confidenceScore = Math.max(30, Math.round(confidenceScore));
+  confidence = clamp(Math.round(confidence), 0, 100);
 
-  /* =========================
-     RISK SIGNALS
-  ========================== */
+  /* -----------------------------
+     RISKS
+  ----------------------------- */
+  const risks: RiskItem[] = [];
 
-  const risks: RiskSignal[] = [];
-
-  if (unsure >= 3) {
+  if (photosCaptured < REQUIRED_PHOTO_STEP_IDS.length) {
     risks.push({
-      id: "limited-access",
-      label: "Limited inspection access",
+      id: "missing-photos",
+      label: "Some exterior photos are missing",
+      explanation:
+        "Not all baseline exterior angles were captured. This limits confidence and negotiation leverage.",
       severity: "moderate",
-      explanation:
-        "Several areas couldn’t be checked, increasing uncertainty.",
     });
   }
 
-  if (concerns >= 3) {
+  if (unsureCount >= 3) {
     risks.push({
-      id: "multiple-observations",
-      label: "Multiple condition observations",
-      severity: "high",
+      id: "many-unknowns",
+      label: "Several checks couldn’t be completed",
       explanation:
-        "Several things stood out during inspection and should be clarified.",
-    });
-  }
-
-  if (requiredCovered < REQUIRED_PHOTO_STEPS.length) {
-    risks.push({
-      id: "incomplete-photos",
-      label: "Incomplete exterior coverage",
+        "Multiple items were marked as ‘unsure’. These unknowns can hide expensive issues.",
       severity: "moderate",
-      explanation:
-        "Not all baseline exterior views were captured.",
     });
   }
 
-  /* =========================
-     ADAS INFERENCE (no UI)
-  ========================== */
+  imperfections.forEach((i) => {
+    if (i.severity === "major") {
+      risks.push({
+        id: `imp-${i.id}`,
+        label: "Major defect recorded",
+        explanation:
+          i.note ||
+          "A major defect was recorded and should be resolved or priced in before proceeding.",
+        severity: "critical",
+      });
+    }
+  });
 
-  const adasChecksPresent = ADAS_RELATED_CHECKS.some(
-    (id) => checks[id]
+  /* -----------------------------
+     SPECIFIC HIGH-SIGNAL CONCERNS
+  ----------------------------- */
+  const pushConcern = (
+    id: string,
+    label: string,
+    explanation: string,
+    severity: RiskItem["severity"]
+  ) => {
+    if (checks[id]?.value === "concern") {
+      risks.push({
+        id: `check-${id}`,
+        label,
+        explanation,
+        severity,
+      });
+    }
+  };
+
+  pushConcern(
+    "noise-hesitation",
+    "Engine or drivetrain behaviour stood out",
+    "Hesitation or unusual noises can indicate drivetrain issues. Clarify cold-start behaviour and recent repairs.",
+    "critical"
   );
 
-  const adasNegativeSignals = ADAS_RELATED_CHECKS.filter(
-    (id) =>
-      checks[id]?.value === "concern" ||
-      checks[id]?.value === "unsure"
-  ).length;
+  pushConcern(
+    "steering",
+    "Steering or handling concern",
+    "Steering issues can indicate alignment, suspension wear, or prior accident damage.",
+    "critical"
+  );
 
-  const adasLikelyDisabled =
-    adasChecksPresent && adasNegativeSignals >= 2;
+  pushConcern(
+    "adas-systems",
+    "Driver-assist systems may not be working correctly",
+    "If fitted, systems like blind-spot monitoring or adaptive cruise should behave predictably.",
+    "moderate"
+  );
 
-  const adasConfidence = adasChecksPresent
-    ? Math.max(40, 100 - adasNegativeSignals * 20)
-    : 0;
-
-  if (adasLikelyDisabled) {
-    risks.push({
-      id: "adas-disabled",
-      label: "Driver assistance systems may be disabled",
-      severity: "info",
-      explanation:
-        "Some driver assistance features appear unavailable or inactive. This can be intentional or indicate a fault.",
-    });
-  }
-
-  /* =========================
+  /* -----------------------------
      VERDICT
-  ========================== */
+  ----------------------------- */
+  const criticalCount = risks.filter((r) => r.severity === "critical").length;
+  const score =
+    concernCount * 2 +
+    criticalCount * 4 +
+    imperfections.reduce((s, i) => s + severityWeight(i.severity), 0);
 
-  let verdict: Verdict = "proceed";
+  let verdict: AnalysisResult["verdict"] = "proceed";
+  if (criticalCount >= 2 || score >= 14) verdict = "walk-away";
+  else if (criticalCount >= 1 || score >= 7) verdict = "caution";
+
   let verdictReason =
-    "Based on what was visible, nothing stood out as a clear blocker.";
+    verdict === "proceed"
+      ? "No major red flags were detected from what was recorded."
+      : verdict === "caution"
+      ? "A few meaningful concerns are worth clarifying before committing."
+      : "Multiple high-impact concerns were identified.";
 
-  if (concerns >= 4 || confidenceScore < 55) {
-    verdict = "walk-away";
-    verdictReason =
-      "Too many uncertainties or concerns to proceed comfortably.";
-  } else if (concerns >= 2 || confidenceScore < 75) {
-    verdict = "caution";
-    verdictReason =
-      "There are some points worth resolving before committing.";
+  /* -----------------------------
+     NEGOTIATION LEVERAGE
+  ----------------------------- */
+  const negotiationLeverage: NegotiationLeverageGroup[] = [
+    {
+      category: "Evidence-based leverage",
+      points: risks
+        .filter((r) => r.severity !== "info")
+        .map((r) => `• ${r.label}: ${r.explanation}`),
+    },
+  ];
+
+  if (negotiationLeverage[0].points.length === 0) {
+    negotiationLeverage[0].points.push(
+      "• Confirm service history, ownership, and any recent repairs."
+    );
   }
 
-  /* =========================
-     RETURN
-  ========================== */
+  /* -----------------------------
+     ADAS INFERENCE (NO UI)
+  ----------------------------- */
+  const adas = checks["adas-systems"];
+  const adasPresentButDisabled =
+    adas?.value === "concern" || adas?.value === "unsure";
 
   return {
-    completenessScore,
-    confidenceScore,
     verdict,
     verdictReason,
+    confidenceScore: confidence,
+    completenessScore,
     risks,
+    negotiationLeverage,
     inferredSignals: {
-      adasLikelyDisabled,
-      confidence: adasConfidence,
+      adasPresentButDisabled,
+      confidence: adasPresentButDisabled ? 70 : 10,
     },
   };
 }
