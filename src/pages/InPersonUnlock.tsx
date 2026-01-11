@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { loadProgress } from "../utils/scanProgress";
+import { loadProgress, saveProgress } from "../utils/scanProgress";
 import { isScanUnlocked, unlockScan } from "../utils/scanUnlock";
 
 export default function InPersonUnlock() {
@@ -12,13 +12,13 @@ export default function InPersonUnlock() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const progress = loadProgress();
-  const scanId =
-    searchParams.get("scanId") ||
-    progress?.scanId ||
-    "";
+  const progress: any = loadProgress();
 
-  const stripeSessionId = searchParams.get("session_id");
+  const scanId =
+    searchParams.get("scanId") || progress?.scanId || "";
+
+  const isSuccessReturn =
+    window.location.pathname.endsWith("/unlock/success");
 
   /* -------------------------------------------------------
      Safety: no scan → restart
@@ -26,23 +26,35 @@ export default function InPersonUnlock() {
   useEffect(() => {
     if (!scanId) {
       navigate("/scan/in-person/start", { replace: true });
+      return;
     }
+
+    // Ensure scanId is persisted (important on fresh Stripe return)
+    if (!progress?.scanId || progress.scanId !== scanId) {
+      saveProgress({
+        ...(progress ?? {}),
+        scanId,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanId, navigate]);
 
   /* -------------------------------------------------------
-     Stripe success → unlock → analyze
+     Stripe success → unlock scan → analyzing
   ------------------------------------------------------- */
   useEffect(() => {
-    if (!scanId || !stripeSessionId) return;
+    if (!scanId || !isSuccessReturn) return;
 
+    // ✅ Use the NEW unlock system (carverity_scan_unlocks_v1)
     if (!isScanUnlocked(scanId)) {
       unlockScan(scanId);
     }
 
+    // Always route through analyzing for premium feel + stability
     navigate(`/scan/in-person/analyzing?scanId=${encodeURIComponent(scanId)}`, {
       replace: true,
     });
-  }, [scanId, stripeSessionId, navigate]);
+  }, [scanId, isSuccessReturn, navigate]);
 
   /* -------------------------------------------------------
      Stripe Checkout redirect
@@ -61,7 +73,9 @@ export default function InPersonUnlock() {
       const data = await res.json();
 
       if (!res.ok || !data?.url) {
-        throw new Error(data?.error || "Unable to start secure checkout");
+        throw new Error(
+          data?.error || "Unable to start secure checkout"
+        );
       }
 
       window.location.href = data.url;
@@ -114,11 +128,7 @@ export default function InPersonUnlock() {
         </div>
       </section>
 
-      {error && (
-        <p className="text-sm text-red-400">
-          {error}
-        </p>
-      )}
+      {error && <p className="text-sm text-red-400">{error}</p>}
 
       <button
         onClick={handleUnlock}

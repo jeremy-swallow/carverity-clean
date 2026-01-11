@@ -69,16 +69,13 @@ export default function App() {
         />
         <Route path="/scan/in-person/unlock" element={<InPersonUnlock />} />
 
-        {/* ✅ IMPORTANT: Stripe success lands here */}
+        {/* ✅ IMPORTANT: Stripe success return */}
         <Route
           path="/scan/in-person/unlock/success"
           element={<InPersonUnlock />}
         />
 
-        <Route
-          path="/scan/in-person/analyzing"
-          element={<InPersonAnalyzing />}
-        />
+        <Route path="/scan/in-person/analyzing" element={<InPersonAnalyzing />} />
         <Route path="/scan/in-person/results" element={<InPersonResults />} />
         <Route
           path="/scan/in-person/negotiation"
