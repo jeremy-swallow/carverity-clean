@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Layout from "./components/Layout";
@@ -18,6 +20,7 @@ import InPersonChecksDrive from "./pages/InPersonChecksDrive";
 import InPersonSummary from "./pages/InPersonSummary";
 import InPersonResultsPreview from "./pages/InPersonResultsPreview";
 import InPersonUnlock from "./pages/InPersonUnlock";
+import InPersonAnalyzing from "./pages/InPersonAnalyzing";
 import InPersonResults from "./pages/InPersonResults";
 import InPersonNegotiation from "./pages/InPersonNegotiation";
 import InPersonReportPrint from "./pages/InPersonReportPrint";
@@ -59,7 +62,7 @@ export default function App() {
         />
         <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
 
-        {/* PREVIEW → UNLOCK → RESULTS */}
+        {/* PREVIEW → UNLOCK → ANALYZE → RESULTS */}
         <Route
           path="/scan/in-person/preview"
           element={<InPersonResultsPreview />}
@@ -67,6 +70,10 @@ export default function App() {
         <Route
           path="/scan/in-person/unlock"
           element={<InPersonUnlock />}
+        />
+        <Route
+          path="/scan/in-person/analyzing"
+          element={<InPersonAnalyzing />}
         />
         <Route path="/scan/in-person/results" element={<InPersonResults />} />
         <Route
