@@ -7,7 +7,6 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { loadCredits } from "../utils/scanCredits";
 import { loadProgress } from "../utils/scanProgress";
 
 /* =========================================================
@@ -39,30 +38,11 @@ function getSafeResumeRoute(step?: string): string | null {
 ========================================================= */
 
 export default function Layout() {
-  const [credits, setCredits] = useState<number>(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hasActiveScan, setHasActiveScan] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
-
-  /* -------------------------------------------------------
-     Credits — live from localStorage
-  ------------------------------------------------------- */
-  useEffect(() => {
-    setCredits(loadCredits());
-
-    const handler = (e: StorageEvent) => {
-      if (e.key === "carverity_scan_credits") {
-        const raw = e.newValue ?? "0";
-        const parsed = parseInt(raw, 10);
-        setCredits(Number.isFinite(parsed) ? parsed : 0);
-      }
-    };
-
-    window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
-  }, []);
 
   /* -------------------------------------------------------
      Resume pill — robust + safe
@@ -138,8 +118,8 @@ export default function Layout() {
 
             {/* DESKTOP ACTIONS */}
             <div className="hidden md:flex items-center gap-3">
-              <span className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs">
-                Scan credits: {credits}
+              <span className="px-3 py-1 rounded-full bg-slate-800/60 border border-slate-600/50 text-slate-300 text-xs">
+                Scans available
               </span>
 
               {hasActiveScan && (
@@ -195,8 +175,8 @@ export default function Layout() {
                 ))}
 
                 <div className="pt-3 mt-2 border-t border-slate-800">
-                  <span className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs">
-                    Scan credits: {credits}
+                  <span className="px-3 py-1 rounded-full bg-slate-800/60 border border-slate-600/50 text-slate-300 text-xs">
+                    Scans available
                   </span>
                 </div>
               </div>
