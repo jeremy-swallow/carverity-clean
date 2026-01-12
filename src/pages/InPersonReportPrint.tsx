@@ -20,15 +20,30 @@ function asCleanText(value: unknown): string {
   return "";
 }
 
-function renderParagraph(value: unknown): ReactNode {
+function Paragraph({
+  value,
+  muted = false,
+}: {
+  value: unknown;
+  muted?: boolean;
+}): ReactNode {
   const t = asCleanText(value);
   if (!t) return null;
-  return <p className="text-sm text-black/80 whitespace-pre-line">{t}</p>;
+  return (
+    <p
+      className={`text-sm leading-relaxed whitespace-pre-line ${
+        muted ? "text-black/60" : "text-black/80"
+      }`}
+    >
+      {t}
+    </p>
+  );
 }
 
-function renderStringList(items: string[]): ReactNode {
+function BulletList({ items }: { items: string[] }): ReactNode {
+  if (items.length === 0) return null;
   return (
-    <ul className="list-disc list-inside space-y-1 text-sm">
+    <ul className="list-disc list-inside space-y-1 text-sm text-black/80">
       {items.map((t, i) => (
         <li key={i}>{t}</li>
       ))}
@@ -38,45 +53,38 @@ function renderStringList(items: string[]): ReactNode {
 
 function renderEvidenceSummary(evidenceSummary: unknown): ReactNode {
   if (typeof evidenceSummary === "string") {
-    return renderParagraph(evidenceSummary);
+    return <Paragraph value={evidenceSummary} />;
   }
 
   if (Array.isArray(evidenceSummary)) {
     const strings = evidenceSummary.map(asCleanText).filter(Boolean);
-    if (strings.length > 0) return renderStringList(strings);
+    if (strings.length > 0) return <BulletList items={strings} />;
   }
 
   if (isRecord(evidenceSummary)) {
     const candidateKeys = [
+      "summary",
+      "text",
+      "notes",
       "bullets",
       "bulletPoints",
       "points",
       "items",
-      "highlights",
-      "summary",
-      "text",
-      "notes",
     ];
 
     for (const key of candidateKeys) {
       const v = evidenceSummary[key];
-      if (typeof v === "string" && v.trim()) return renderParagraph(v);
+      if (typeof v === "string" && v.trim())
+        return <Paragraph value={v} />;
       if (Array.isArray(v)) {
         const strings = v.map(asCleanText).filter(Boolean);
-        if (strings.length > 0) return renderStringList(strings);
+        if (strings.length > 0) return <BulletList items={strings} />;
       }
     }
-
-    const flattened: string[] = [];
-    Object.entries(evidenceSummary).forEach(([k, v]) => {
-      const t = asCleanText(v);
-      if (t) flattened.push(`${k}: ${t}`);
-    });
-    if (flattened.length > 0) return renderStringList(flattened);
   }
 
   return (
-    <p className="text-sm text-black/70">
+    <p className="text-sm text-black/60">
       Evidence was recorded during the inspection but could not be summarised
       into text.
     </p>
@@ -87,20 +95,13 @@ function uncertaintyToText(u: unknown): string {
   if (typeof u === "string") return u;
 
   if (isRecord(u)) {
-    const candidates = [
-      u.label,
-      u.title,
-      u.name,
-      u.factor,
-      u.description,
-      u.message,
-      u.text,
-      u.reason,
-    ]
-      .map(asCleanText)
-      .filter(Boolean);
-
-    if (candidates.length > 0) return candidates[0];
+    return (
+      asCleanText(u.label) ||
+      asCleanText(u.title) ||
+      asCleanText(u.reason) ||
+      asCleanText(u.description) ||
+      "An item was marked as unsure by the buyer."
+    );
   }
 
   return "An item was marked as unsure by the buyer.";
@@ -157,6 +158,9 @@ function rangeToText(value: unknown): string {
   return "";
 }
 
+/* -------------------------------------------------------
+   Page
+------------------------------------------------------- */
 export default function InPersonReportPrint() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
@@ -204,16 +208,16 @@ export default function InPersonReportPrint() {
 
   return (
     <div className="print-body bg-white text-black min-h-screen">
-      <div className="max-w-3xl mx-auto px-10 py-12 space-y-10">
+      <div className="max-w-3xl mx-auto px-10 py-14 space-y-12">
         {/* =====================================================
             HEADER
         ===================================================== */}
-        <header className="space-y-3">
-          <h1 className="text-2xl font-bold">
+        <header className="space-y-4 border-b border-black/20 pb-6">
+          <h1 className="text-3xl font-bold">
             CarVerity — In-Person Buyer Inspection Report
           </h1>
 
-          <div className="flex flex-wrap gap-4 text-sm">
+          <div className="flex flex-wrap gap-6 text-sm text-black/70">
             <span>
               <strong>Scan ID:</strong> {scanId}
             </span>
@@ -223,23 +227,21 @@ export default function InPersonReportPrint() {
             </span>
           </div>
 
-          <p className="text-sm text-black/70 max-w-2xl">
-            This report summarises what was recorded during a guided,
-            buyer-performed in-person inspection. It reflects observed evidence
-            and buyer-marked uncertainty only. It does not assume unobserved
-            conditions.
-          </p>
+          <Paragraph
+            muted
+            value="This report summarises what was recorded during a guided, buyer-performed in-person inspection. It reflects observed evidence and buyer-marked uncertainty only, and does not assume unobserved conditions."
+          />
         </header>
 
         {/* =====================================================
             EXECUTIVE VERDICT
         ===================================================== */}
-        <section className="border border-black/20 px-6 py-5 space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Executive verdict
           </h2>
 
-          <p className="text-lg font-semibold">
+          <p className="text-xl font-semibold">
             {analysis.verdict === "proceed"
               ? "Proceed with confidence"
               : analysis.verdict === "caution"
@@ -247,12 +249,14 @@ export default function InPersonReportPrint() {
               : "Risk appears elevated — walking away is reasonable"}
           </p>
 
-          {renderParagraph(
-            (analysis as any).whyThisVerdict ||
+          <Paragraph
+            value={
+              (analysis as any).whyThisVerdict ||
               (analysis as any).verdictReason
-          )}
+            }
+          />
 
-          <div className="flex gap-6 pt-2 text-sm">
+          <div className="flex gap-8 pt-2 text-sm">
             <span>
               <strong>Confidence:</strong> {analysis.confidenceScore}%
             </span>
@@ -265,8 +269,8 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             EVIDENCE BASIS
         ===================================================== */}
-        <section className="border border-black/20 px-6 py-5 space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Evidence considered
           </h2>
 
@@ -281,20 +285,24 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             PHOTO EVIDENCE
         ===================================================== */}
-        <section className="border border-black/20 px-6 py-5 space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Photo evidence
           </h2>
 
           {photos.length > 0 ? (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-4">
               {photos.map((src, i) => (
-                <img
-                  key={i}
-                  src={src}
-                  alt={`Inspection photo ${i + 1}`}
-                  className="border border-black/20 object-cover aspect-square"
-                />
+                <figure key={i} className="space-y-1">
+                  <img
+                    src={src}
+                    alt={`Inspection photo ${i + 1}`}
+                    className="border border-black/20 object-cover aspect-square"
+                  />
+                  <figcaption className="text-[11px] text-black/50">
+                    Buyer-captured inspection photo {i + 1}
+                  </figcaption>
+                </figure>
               ))}
             </div>
           ) : (
@@ -308,8 +316,8 @@ export default function InPersonReportPrint() {
             PRIORITY FINDINGS
         ===================================================== */}
         {priorityRisks.length > 0 && (
-          <section className="border border-black/20 px-6 py-5 space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide">
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
               Priority findings
             </h2>
 
@@ -327,8 +335,8 @@ export default function InPersonReportPrint() {
             ITEMS WORTH CLARIFYING
         ===================================================== */}
         {moderateRisks.length > 0 && (
-          <section className="border border-black/20 px-6 py-5 space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide">
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
               Items worth clarifying
             </h2>
 
@@ -346,8 +354,8 @@ export default function InPersonReportPrint() {
             DECLARED UNCERTAINTY
         ===================================================== */}
         {uncertaintyFactors.length > 0 && (
-          <section className="border border-black/20 px-6 py-5 space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide">
+          <section className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
               Buyer-declared uncertainty
             </h2>
 
@@ -367,31 +375,33 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             RISK WEIGHTING
         ===================================================== */}
-        <section className="border border-black/20 px-6 py-5 space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             How risk was weighed
           </h2>
 
-          {renderParagraph(
-            (analysis as any).riskWeightingExplanation
-          )}
+          <Paragraph
+            value={(analysis as any).riskWeightingExplanation}
+          />
         </section>
 
         {/* =====================================================
             NEGOTIATION POSITION
         ===================================================== */}
-        <section className="border border-black/20 px-6 py-5 space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide">
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Buyer positioning
           </h2>
 
-          {renderParagraph(
-            negotiation.summary ??
+          <Paragraph
+            value={
+              negotiation.summary ??
               negotiation.message ??
               negotiation.text
-          )}
+            }
+          />
 
-          <div className="flex gap-6 text-sm">
+          <div className="flex gap-8 text-sm">
             {conservativeRange && (
               <span>
                 <strong>Conservative adjustment:</strong>{" "}
@@ -410,7 +420,7 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             DISCLAIMER
         ===================================================== */}
-        <div className="border border-black/20 bg-black/5 px-5 py-4 text-xs">
+        <div className="border border-black/20 bg-black/5 px-6 py-4 text-xs leading-relaxed">
           This document is not a mechanical inspection, defect report, or
           valuation. It reflects buyer-recorded observations only and should be
           used alongside professional inspections and independent checks.
