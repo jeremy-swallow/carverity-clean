@@ -1,3 +1,5 @@
+// api/create-checkout-session.ts
+
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Stripe from "stripe";
 
@@ -7,24 +9,17 @@ if (!STRIPE_SECRET_KEY) {
   throw new Error("missing_STRIPE_SECRET_KEY");
 }
 
-const stripe = new Stripe(STRIPE_SECRET_KEY);
+const stripe = new Stripe(STRIPE_SECRET_KEY, {
+  // IMPORTANT:
+  // Leave apiVersion undefined to avoid TS literal mismatch
+});
 
-const PRICE_ID = "price_1So9TcE9gXaXx1nSyeYvpaQb"; // your $14.99 price
+const PRICE_ID = "price_1So9TcE9gXaXx1nSyeYvpaQb"; // $14.99 AUD price ID
 
-function getOrigin(req: VercelRequest) {
-  const proto =
-    (req.headers["x-forwarded-proto"] as string) ||
-    "https";
-
-  const host =
-    (req.headers["x-forwarded-host"] as string) ||
-    (req.headers.host as string) ||
-    "www.carverity.com.au";
-
-  return `${proto}://${host}`;
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -36,13 +31,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Missing scanId" });
     }
 
-    const origin = getOrigin(req);
+    const origin =
+      req.headers.origin || "https://carverity.com.au";
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      line_items: [{ price: PRICE_ID, quantity: 1 }],
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price: PRICE_ID,
+          quantity: 1,
+        },
+      ],
 
-      // ✅ MUST land on a route your app actually has
+      // ✅ CRITICAL FIX:
+      // Stripe must return to a dedicated success handler
       success_url: `${origin}/scan/in-person/unlock/success?scanId=${encodeURIComponent(
         scanId
       )}`,
@@ -51,14 +54,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         scanId
       )}`,
 
-      metadata: { scanId },
+      metadata: {
+        scanId,
+      },
     });
 
     return res.status(200).json({ url: session.url });
   } catch (err: any) {
     console.error("Stripe checkout error:", err);
+
     return res.status(500).json({
-      error: err?.message || "Failed to create checkout session",
+      error:
+        err?.message ||
+        "Failed to create checkout session",
     });
   }
 }
