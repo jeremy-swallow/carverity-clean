@@ -3,12 +3,23 @@
 import { useNavigate } from "react-router-dom";
 
 type Pack = {
-  id: string;
+  id: "single" | "triple" | "five";
   title: string;
   scans: number;
-  price: string;
+  priceLabel: string;
+  stripePriceId?: string;
   highlight?: boolean;
   description: string;
+};
+
+/* =========================================================
+   Stripe price IDs (AUD, one-time)
+========================================================= */
+
+const STRIPE_PRICES = {
+  single: "price_1So9TcE9gXaXx1nSyeYvpaQb",
+  triple: "price_1SoppbE9gXaXx1nSfp5Xex9O",
+  five: "price_1SoprRE9gXaXx1nSnlKEnh0U",
 };
 
 const PACKS: Pack[] = [
@@ -16,48 +27,67 @@ const PACKS: Pack[] = [
     id: "single",
     title: "Single scan",
     scans: 1,
-    price: "$14.99",
+    priceLabel: "$14.99",
     description:
-      "Best for a one-off check. Includes full buyer report, photos, and negotiation positioning.",
+      "Best for a one-off check. Includes the full buyer report, photos, and negotiation positioning.",
   },
   {
     id: "triple",
     title: "3 scan pack",
     scans: 3,
-    price: "$39",
+    priceLabel: "$39",
+    stripePriceId: STRIPE_PRICES.triple,
     highlight: true,
     description:
-      "Most popular. Ideal if you’re comparing a few cars during your search.",
+      "Most popular. Ideal if you’re comparing a few vehicles during your search.",
   },
   {
     id: "five",
     title: "5 scan pack",
     scans: 5,
-    price: "$59",
+    priceLabel: "$59",
+    stripePriceId: STRIPE_PRICES.five,
     description:
-      "Best value. Designed for active buyers inspecting multiple vehicles.",
+      "Best value for active buyers inspecting multiple cars.",
   },
 ];
 
 export default function Pricing() {
   const navigate = useNavigate();
 
-  function handlePurchase(pack: Pack) {
-    /**
-     * IMPORTANT:
-     * This page does NOT enforce credits.
-     * It simply routes intent to Stripe.
-     *
-     * You already have Stripe flows in place.
-     * Wire these IDs to your existing checkout logic.
-     */
+  async function handlePurchase(pack: Pack) {
+    // Existing, proven single-scan flow — do not change
     if (pack.id === "single") {
       navigate("/scan/in-person/unlock");
       return;
     }
 
-    // Placeholder route for credit packs (to be wired to Stripe Checkout)
-    navigate(`/checkout/credits?pack=${pack.id}`);
+    if (!pack.stripePriceId) return;
+
+    try {
+      const res = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priceId: pack.stripePriceId,
+          mode: "payment",
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("checkout-session-failed");
+      }
+
+      const data = await res.json();
+
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch {
+      alert(
+        "Something went wrong while starting checkout. Please try again."
+      );
+    }
   }
 
   return (
@@ -71,9 +101,8 @@ export default function Pricing() {
         </h1>
 
         <p className="text-slate-300 text-lg leading-relaxed">
-          CarVerity helps you make confident buying decisions by guiding you
-          through an in-person inspection and turning what you record into a
-          clear, buyer-safe report.
+          CarVerity guides you through an in-person inspection and turns what you
+          record into a clear, buyer-safe report you can confidently rely on.
         </p>
       </header>
 
@@ -87,7 +116,7 @@ export default function Pricing() {
             className={[
               "rounded-2xl border px-6 py-8 space-y-6",
               pack.highlight
-                ? "border-emerald-500/50 bg-emerald-500/10"
+      ? "border-emerald-500/50 bg-emerald-500/10"
                 : "border-white/10 bg-slate-900/60",
             ].join(" ")}
           >
@@ -103,7 +132,7 @@ export default function Pricing() {
 
             <div className="space-y-1">
               <p className="text-3xl font-bold text-white">
-                {pack.price}
+                {pack.priceLabel}
               </p>
 
               <p className="text-xs text-slate-400">
@@ -133,7 +162,7 @@ export default function Pricing() {
       ===================================================== */}
       <section className="max-w-3xl space-y-4">
         <h3 className="text-lg font-semibold text-white">
-          What every scan includes
+          Every scan includes
         </h3>
 
         <ul className="list-disc list-inside space-y-2 text-slate-300 text-sm">
@@ -150,7 +179,6 @@ export default function Pricing() {
           FOOTNOTE
       ===================================================== */}
       <footer className="max-w-3xl text-xs text-slate-400 leading-relaxed">
-        Scans are designed to support buying decisions and discussions.
         CarVerity does not perform mechanical inspections and does not assume
         conditions that were not observed or recorded.
       </footer>
