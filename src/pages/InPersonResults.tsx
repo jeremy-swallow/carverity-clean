@@ -8,9 +8,10 @@ import {
   XCircle,
   BarChart3,
   Eye,
-  Handshake,
+  Camera,
+  ClipboardList,
+  ShieldCheck,
   FileText,
-  TrendingDown,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -35,181 +36,174 @@ export default function InPersonResults() {
     }
 
     if (!isScanUnlocked(scanId)) {
-      navigate(
-        `/scan/in-person/preview?scanId=${encodeURIComponent(scanId)}`,
-        { replace: true }
-      );
-      return;
+      navigate(`/scan/in-person/preview?scanId=${encodeURIComponent(scanId)}`, {
+        replace: true,
+      });
     }
   }, [scanId, navigate]);
 
-  if (!scanId) return null;
-  if (!isScanUnlocked(scanId)) return null;
+  if (!scanId || !isScanUnlocked(scanId)) return null;
 
   /* -------------------------------------------------------
      Analysis
   ------------------------------------------------------- */
   const analysis = useMemo(() => {
-    return analyseInPersonInspection({
-      ...(progress ?? {}),
-      scanId,
-    });
-  }, [progress, scanId]);
+    return analyseInPersonInspection(progress);
+  }, [progress]);
+
+  const photos: string[] = (progress?.photos ?? []).map(
+    (p: any) => p.dataUrl
+  );
 
   /* -------------------------------------------------------
      Verdict meta
   ------------------------------------------------------- */
   const verdictMeta = {
     proceed: {
-      icon: <CheckCircle2 className="h-7 w-7 text-emerald-400" />,
+      icon: <CheckCircle2 className="h-6 w-6 text-emerald-400" />,
       title: "Proceed with confidence",
-      tone: "bg-emerald-500/10 border-emerald-500/30",
+      tone: "border-emerald-500/40 bg-emerald-500/10",
     },
     caution: {
-      icon: <AlertTriangle className="h-7 w-7 text-amber-400" />,
+      icon: <AlertTriangle className="h-6 w-6 text-amber-400" />,
       title: "Proceed — but clarify a few things",
-      tone: "bg-amber-500/10 border-amber-500/30",
+      tone: "border-amber-500/40 bg-amber-500/10",
     },
     "walk-away": {
-      icon: <XCircle className="h-7 w-7 text-red-400" />,
+      icon: <XCircle className="h-6 w-6 text-red-400" />,
       title: "High risk — walking away is reasonable",
-      tone: "bg-red-500/10 border-red-500/30",
+      tone: "border-red-500/40 bg-red-500/10",
     },
   }[analysis.verdict];
 
   /* -------------------------------------------------------
-     Negotiation leverage logic
+     Derived groupings
   ------------------------------------------------------- */
-  const significantConcerns = analysis.risks.filter(
-    (r) => r.severity !== "info"
-  ).length;
+  const priorityRisks = analysis.risks.filter(
+    (r) => r.severity === "critical"
+  );
 
-  const uncertaintyPenalty = Math.max(0, 100 - analysis.confidenceScore);
-  const pressureScore =
-    significantConcerns * 1.2 + uncertaintyPenalty * 0.15;
-
-  function leverageLabel(score: number) {
-    if (score < 3) return "Very light leverage";
-    if (score < 6) return "Light leverage";
-    if (score < 10) return "Moderate leverage";
-    return "Strong leverage";
-  }
-
-  const conservative = pressureScore * 0.6;
-  const balanced = pressureScore;
-  const aggressive = pressureScore * 1.5;
+  const moderateRisks = analysis.risks.filter(
+    (r) => r.severity === "moderate"
+  );
 
   /* -------------------------------------------------------
      UI
   ------------------------------------------------------- */
   return (
-    <div className="max-w-4xl mx-auto px-6 py-14 space-y-12">
-      {/* Verdict */}
-      <header className="space-y-3">
+    <div className="max-w-4xl mx-auto px-6 py-14 space-y-16">
+      {/* =====================================================
+          01 — REPORT HEADER
+      ===================================================== */}
+      <section className="space-y-3">
         <span className="text-[11px] uppercase tracking-widest text-slate-400">
-          In-person inspection result
+          CarVerity buyer-side inspection report
         </span>
 
-        <div
-          className={`rounded-2xl border px-6 py-5 flex items-start gap-4 ${verdictMeta.tone}`}
-        >
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-400">
+          <span>Scan ID: {scanId}</span>
+          <span>
+            Generated: {new Date().toLocaleDateString()}
+          </span>
+        </div>
+      </section>
+
+      {/* =====================================================
+          02 — EXECUTIVE SUMMARY
+      ===================================================== */}
+      <section
+        className={`rounded-2xl border px-6 py-6 space-y-4 ${verdictMeta.tone}`}
+      >
+        <div className="flex items-start gap-3">
           {verdictMeta.icon}
           <div>
-            <h1 className="text-2xl md:text-3xl font-semibold text-white">
+            <h1 className="text-2xl font-semibold text-white">
               {verdictMeta.title}
             </h1>
-            <p className="text-sm text-slate-300 mt-2 max-w-2xl">
+            <p className="mt-2 text-sm text-slate-300 max-w-2xl">
               {analysis.verdictReason}
             </p>
           </div>
         </div>
-      </header>
 
-      {/* Scores */}
-      <section className="grid grid-cols-2 gap-6">
-        <div className="rounded-2xl bg-slate-900/60 px-6 py-5">
-          <div className="flex items-center gap-2 text-slate-300">
-            <BarChart3 className="h-4 w-4 text-slate-400" />
-            <span className="text-sm font-medium">Confidence score</span>
+        <div className="grid grid-cols-2 gap-6 pt-4">
+          <div>
+            <div className="flex items-center gap-2 text-slate-300">
+              <BarChart3 className="h-4 w-4 text-slate-400" />
+              <span className="text-sm font-medium">Confidence</span>
+            </div>
+            <p className="mt-2 text-2xl font-semibold text-white">
+              {analysis.confidenceScore}%
+            </p>
           </div>
-          <p className="mt-3 text-3xl font-semibold text-white">
-            {analysis.confidenceScore}%
-          </p>
-        </div>
 
-        <div className="rounded-2xl bg-slate-900/60 px-6 py-5">
-          <div className="flex items-center gap-2 text-slate-300">
-            <Eye className="h-4 w-4 text-slate-400" />
-            <span className="text-sm font-medium">
-              Inspection coverage
-            </span>
+          <div>
+            <div className="flex items-center gap-2 text-slate-300">
+              <Eye className="h-4 w-4 text-slate-400" />
+              <span className="text-sm font-medium">Coverage</span>
+            </div>
+            <p className="mt-2 text-2xl font-semibold text-white">
+              {analysis.completenessScore}%
+            </p>
           </div>
-          <p className="mt-3 text-3xl font-semibold text-white">
-            {analysis.completenessScore}%
-          </p>
         </div>
       </section>
 
-      {/* Negotiation positioning */}
-      <section className="rounded-2xl bg-slate-900/60 px-6 py-6 space-y-5">
+      {/* =====================================================
+          03 — EVIDENCE & COVERAGE
+      ===================================================== */}
+      <section className="space-y-5">
         <div className="flex items-center gap-2 text-slate-300">
-          <TrendingDown className="h-4 w-4 text-slate-400" />
+          <Camera className="h-4 w-4 text-slate-400" />
           <h2 className="text-sm font-semibold">
-            Estimated negotiation positioning
+            Inspection evidence
           </h2>
         </div>
 
-        <p className="text-sm text-slate-400">
-          These ranges indicate how firmly you could reasonably
-          negotiate — not a valuation of the vehicle.
+        {photos.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {photos.map((src, i) => (
+              <img
+                key={i}
+                src={src}
+                alt={`Inspection photo ${i + 1}`}
+                className="rounded-xl border border-white/10 object-cover aspect-square"
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">
+            No photos were captured during this inspection.
+          </p>
+        )}
+
+        <p className="text-xs text-slate-400 max-w-2xl">
+          This assessment is limited to what was recorded during the
+          inspection. Areas not photographed may still warrant follow-up.
         </p>
-
-        <div className="space-y-4">
-          <div className="rounded-xl bg-slate-900/50 px-5 py-4">
-            <p className="text-sm font-medium text-slate-200">
-              Conservative approach
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              {leverageLabel(conservative)}
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-slate-900/50 px-5 py-4">
-            <p className="text-sm font-medium text-slate-200">
-              Balanced approach
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              {leverageLabel(balanced)}
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-slate-900/50 px-5 py-4">
-            <p className="text-sm font-medium text-slate-200">
-              Aggressive approach
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              {leverageLabel(aggressive)}
-            </p>
-          </div>
-        </div>
       </section>
 
-      {/* Clarifications */}
-      {analysis.risks.length > 0 && (
-        <section className="rounded-2xl bg-slate-900/60 px-6 py-6 space-y-5">
-          <h2 className="text-sm font-semibold text-slate-300">
-            What to clarify with the seller
-          </h2>
+      {/* =====================================================
+          04 — PRIORITY FINDINGS
+      ===================================================== */}
+      {priorityRisks.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 text-slate-300">
+            <ClipboardList className="h-4 w-4 text-slate-400" />
+            <h2 className="text-sm font-semibold">
+              Priority findings
+            </h2>
+          </div>
 
-          {analysis.risks.map((r) => (
+          {priorityRisks.map((r) => (
             <div
               key={r.id}
-              className="rounded-xl bg-slate-900/50 px-5 py-4"
+              className="rounded-xl bg-slate-900/60 px-5 py-4"
             >
-              <p className="text-sm font-medium text-slate-200">
+              <p className="text-sm font-semibold text-white">
                 {r.label}
               </p>
-              <p className="text-sm text-slate-400 mt-1">
+              <p className="mt-1 text-sm text-slate-400">
                 {r.explanation}
               </p>
             </div>
@@ -217,38 +211,81 @@ export default function InPersonResults() {
         </section>
       )}
 
-      {/* Actions */}
+      {/* =====================================================
+          05 — WORTH CLARIFYING
+      ===================================================== */}
+      {moderateRisks.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 text-slate-300">
+            <ShieldCheck className="h-4 w-4 text-slate-400" />
+            <h2 className="text-sm font-semibold">
+              Worth clarifying
+            </h2>
+          </div>
+
+          {moderateRisks.map((r) => (
+            <div
+              key={r.id}
+              className="rounded-xl bg-slate-900/60 px-5 py-4"
+            >
+              <p className="text-sm font-medium text-slate-200">
+                {r.label}
+              </p>
+              <p className="mt-1 text-sm text-slate-400">
+                {r.explanation}
+              </p>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* =====================================================
+          06 — WHAT LOOKED OK
+      ===================================================== */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-slate-300">
+          What appeared normal from what was recorded
+        </h2>
+        <p className="text-sm text-slate-400 max-w-2xl">
+          Based on the evidence captured, no obvious high-risk mechanical
+          or safety issues were observed. This does not replace a
+          professional inspection.
+        </p>
+      </section>
+
+      {/* =====================================================
+          07 — NEXT BEST ACTIONS
+      ===================================================== */}
+      <section className="space-y-4">
+        <h2 className="text-sm font-semibold text-slate-300">
+          Suggested next steps
+        </h2>
+
+        <ul className="list-disc list-inside space-y-1 text-sm text-slate-400">
+          <li>Confirm documented service history</li>
+          <li>Pay attention to cold-start behaviour</li>
+          <li>Consider a professional inspection if concerns remain</li>
+        </ul>
+      </section>
+
+      {/* =====================================================
+          08 — ACTIONS
+      ===================================================== */}
       <section className="space-y-4">
         <button
-          onClick={() =>
-            navigate(`/scan/in-person/negotiation?scanId=${scanId}`)
-          }
-          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 flex items-center justify-center gap-2"
+          onClick={() => navigate("/scan/in-person/negotiation")}
+          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4"
         >
-          <Handshake className="h-4 w-4" />
           View buyer-safe negotiation guidance
         </button>
 
-        <div className="flex gap-3">
-          <button
-            onClick={() =>
-              navigate(`/scan/in-person/report-print?scanId=${scanId}`)
-            }
-            className="flex-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-3 flex items-center justify-center gap-2"
-          >
-            <FileText className="h-4 w-4" />
-            Print / save report
-          </button>
-
-          <button
-            onClick={() =>
-              navigate(`/scan/in-person/summary?scanId=${scanId}`)
-            }
-            className="flex-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 px-5 py-3"
-          >
-            Back to summary
-          </button>
-        </div>
+        <button
+          onClick={() => navigate("/scan/in-person/report-print")}
+          className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-3 flex items-center justify-center gap-2"
+        >
+          <FileText className="h-4 w-4" />
+          Print / save report
+        </button>
       </section>
     </div>
   );
