@@ -8,6 +8,7 @@ import {
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { loadProgress } from "../utils/scanProgress";
+import { supabase } from "../supabaseClient";
 
 /* =========================================================
    Helpers
@@ -40,12 +41,15 @@ function getSafeResumeRoute(step?: string): string | null {
 export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [hasActiveScan, setHasActiveScan] = useState(false);
+  const [credits, setCredits] = useState<number | null>(
+    null
+  );
 
   const location = useLocation();
   const navigate = useNavigate();
 
   /* -------------------------------------------------------
-     Resume pill — robust + safe
+     Resume pill
   ------------------------------------------------------- */
   useEffect(() => {
     const progress = loadProgress();
@@ -55,12 +59,54 @@ export default function Layout() {
   function handleResume() {
     const progress = loadProgress();
     const safeRoute = getSafeResumeRoute(progress?.step);
-
     if (!safeRoute) return;
-
     navigate(safeRoute);
     setMenuOpen(false);
   }
+
+  /* -------------------------------------------------------
+     Load real credits (read-only)
+  ------------------------------------------------------- */
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchCredits() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        setCredits(null);
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/get-credits", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!res.ok) throw new Error("failed");
+
+        const data = await res.json();
+        if (!cancelled) {
+          setCredits(
+            typeof data.credits === "number"
+              ? data.credits
+              : 0
+          );
+        }
+      } catch {
+        if (!cancelled) setCredits(null);
+      }
+    }
+
+    fetchCredits();
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname]);
 
   /* -------------------------------------------------------
      Nav config
@@ -87,6 +133,9 @@ export default function Layout() {
         : "text-slate-200 hover:bg-slate-800/70",
     ].join(" ");
 
+  const creditLabel =
+    credits === null ? "—" : credits.toString();
+
   /* -------------------------------------------------------
      Render
   ------------------------------------------------------- */
@@ -96,14 +145,12 @@ export default function Layout() {
       <header className="fixed inset-x-0 top-0 z-40">
         <div className="bg-slate-950/85 backdrop-blur border-b border-slate-800">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-            {/* LOGO */}
             <NavLink to="/" className="flex items-center gap-2">
               <span className="text-base font-semibold tracking-tight">
                 CarVerity
               </span>
             </NavLink>
 
-            {/* DESKTOP NAV */}
             <nav className="hidden md:flex items-center gap-6">
               {navItems.map((item) => (
                 <NavLink
@@ -116,10 +163,9 @@ export default function Layout() {
               ))}
             </nav>
 
-            {/* DESKTOP ACTIONS */}
             <div className="hidden md:flex items-center gap-3">
               <span className="px-3 py-1 rounded-full bg-slate-800/60 border border-slate-600/50 text-slate-300 text-xs">
-                Scans available
+                Scan credits: {creditLabel}
               </span>
 
               {hasActiveScan && (
@@ -132,7 +178,6 @@ export default function Layout() {
               )}
             </div>
 
-            {/* MOBILE ACTIONS */}
             <div className="flex md:hidden items-center gap-2">
               {hasActiveScan && (
                 <button
@@ -159,7 +204,6 @@ export default function Layout() {
             </div>
           </div>
 
-          {/* MOBILE MENU */}
           {menuOpen && (
             <div className="md:hidden border-t border-slate-800 bg-slate-950/95">
               <div className="max-w-6xl mx-auto px-4 py-3 space-y-2">
@@ -176,7 +220,7 @@ export default function Layout() {
 
                 <div className="pt-3 mt-2 border-t border-slate-800">
                   <span className="px-3 py-1 rounded-full bg-slate-800/60 border border-slate-600/50 text-slate-300 text-xs">
-                    Scans available
+                    Scan credits: {creditLabel}
                   </span>
                 </div>
               </div>
@@ -186,7 +230,6 @@ export default function Layout() {
       </header>
 
       <div className="h-14" />
-
       <main className="flex-1">
         <Outlet />
       </main>
