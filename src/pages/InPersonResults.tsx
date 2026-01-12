@@ -1,6 +1,6 @@
 // src/pages/InPersonResults.tsx
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CheckCircle2,
@@ -12,19 +12,251 @@ import {
   ClipboardList,
   ShieldCheck,
   FileText,
+  HelpCircle,
+  Scale,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
 import { isScanUnlocked } from "../utils/scanUnlock";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function asCleanText(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number") return String(value);
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return "";
+}
+
+function renderTextBlock(value: unknown): ReactNode {
+  const t = asCleanText(value);
+  if (!t) return null;
+
+  return (
+    <p className="text-sm text-slate-400 max-w-3xl whitespace-pre-line">{t}</p>
+  );
+}
+
+function renderStringList(items: string[]): ReactNode {
+  return (
+    <ul className="list-disc list-inside text-sm text-slate-400 space-y-1">
+      {items.map((t, i) => (
+        <li key={i}>{t}</li>
+      ))}
+    </ul>
+  );
+}
+
+function renderEvidenceSummary(evidenceSummary: unknown): ReactNode {
+  if (typeof evidenceSummary === "string") {
+    return (
+      <p className="text-sm text-slate-400 max-w-3xl whitespace-pre-line">
+        {evidenceSummary}
+      </p>
+    );
+  }
+
+  if (Array.isArray(evidenceSummary)) {
+    const strings = evidenceSummary.map(asCleanText).filter(Boolean);
+    if (strings.length > 0) return renderStringList(strings);
+
+    return (
+      <p className="text-sm text-slate-400 max-w-3xl">
+        Evidence was recorded, but could not be summarised into text.
+      </p>
+    );
+  }
+
+  if (isRecord(evidenceSummary)) {
+    const candidateKeys = [
+      "bullets",
+      "bulletPoints",
+      "points",
+      "items",
+      "highlights",
+      "summary",
+      "text",
+      "notes",
+    ];
+
+    for (const key of candidateKeys) {
+      const v = evidenceSummary[key];
+
+      if (typeof v === "string" && v.trim()) {
+        return (
+          <p className="text-sm text-slate-400 max-w-3xl whitespace-pre-line">
+            {v}
+          </p>
+        );
+      }
+
+      if (Array.isArray(v)) {
+        const strings = v.map(asCleanText).filter(Boolean);
+        if (strings.length > 0) return renderStringList(strings);
+      }
+    }
+
+    const flattened: string[] = [];
+    Object.entries(evidenceSummary).forEach(([k, v]) => {
+      const t = asCleanText(v);
+      if (t) flattened.push(`${k}: ${t}`);
+    });
+
+    if (flattened.length > 0) return renderStringList(flattened);
+
+    return (
+      <p className="text-sm text-slate-400 max-w-3xl">
+        Evidence was recorded, but could not be summarised into text.
+      </p>
+    );
+  }
+
+  return (
+    <p className="text-sm text-slate-400 max-w-3xl">
+      Evidence was recorded, but could not be summarised into text.
+    </p>
+  );
+}
+
+function uncertaintyToText(u: unknown): string {
+  if (typeof u === "string") return u;
+
+  if (isRecord(u)) {
+    const candidates = [
+      u.label,
+      u.title,
+      u.name,
+      u.factor,
+      u.description,
+      u.message,
+      u.text,
+      u.reason,
+    ]
+      .map(asCleanText)
+      .filter(Boolean);
+
+    if (candidates.length > 0) return candidates[0];
+
+    const label = asCleanText(u.label) || asCleanText(u.title) || "";
+    const reason = asCleanText(u.reason) || asCleanText(u.description) || "";
+
+    if (label && reason) return `${label} — ${reason}`;
+    if (label) return label;
+    if (reason) return reason;
+  }
+
+  return "An item was marked as unsure.";
+}
+
+function rangeToText(value: unknown): string {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (typeof value === "number") return `$${value.toLocaleString("en-AU")}`;
+
+  if (Array.isArray(value)) {
+    const nums = value
+      .map((x) => (typeof x === "number" ? x : null))
+      .filter((x): x is number => x != null);
+
+    if (nums.length >= 2) {
+      const lo = Math.min(nums[0], nums[1]);
+      const hi = Math.max(nums[0], nums[1]);
+      return `$${lo.toLocaleString("en-AU")}–$${hi.toLocaleString("en-AU")}`;
+    }
+  }
+
+  if (isRecord(value)) {
+    const min =
+      (typeof value.min === "number" && value.min) ||
+      (typeof value.low === "number" && value.low) ||
+      (typeof value.from === "number" && value.from) ||
+      null;
+
+    const max =
+      (typeof value.max === "number" && value.max) ||
+      (typeof value.high === "number" && value.high) ||
+      (typeof value.to === "number" && value.to) ||
+      null;
+
+    const label = asCleanText(value.label) || asCleanText(value.range) || "";
+
+    if (min != null && max != null) {
+      const lo = Math.min(min, max);
+      const hi = Math.max(min, max);
+      const numeric = `$${lo.toLocaleString("en-AU")}–$${hi.toLocaleString(
+        "en-AU"
+      )}`;
+      return label ? `${label} (${numeric})` : numeric;
+    }
+
+    const text =
+      asCleanText(value.text) ||
+      asCleanText(value.summary) ||
+      asCleanText(value.display) ||
+      "";
+
+    if (text) return text;
+  }
+
+  return "";
+}
+
+function pickNegotiationSummary(np: unknown): string {
+  if (!isRecord(np)) return "";
+  const candidates = [
+    np.summary,
+    np.positioningSummary,
+    np.buyerSummary,
+    np.message,
+    np.text,
+    np.notes,
+  ]
+    .map(asCleanText)
+    .filter(Boolean);
+
+  if (candidates.length > 0) return candidates[0];
+  return "";
+}
+
+function extractNegotiationRanges(np: unknown): {
+  conservativeLabel: string;
+  conservativeValue: string;
+  assertiveLabel: string;
+  assertiveValue: string;
+} {
+  const fallback = {
+    conservativeLabel: "Conservative adjustment",
+    conservativeValue: "",
+    assertiveLabel: "Assertive adjustment",
+    assertiveValue: "",
+  };
+
+  if (!isRecord(np)) return fallback;
+
+  const conservativeValue = rangeToText(np.conservative);
+
+  const assertiveCandidate =
+    np.assertive ?? np.aggressive ?? np.strong ?? np.firm ?? np.upper;
+
+  const assertiveValue = rangeToText(assertiveCandidate);
+
+  return {
+    conservativeLabel: "Conservative adjustment",
+    conservativeValue,
+    assertiveLabel: "Assertive adjustment",
+    assertiveValue,
+  };
+}
+
 export default function InPersonResults() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
 
   const progress: any = loadProgress();
-  const scanId =
-    params.get("scanId") || progress?.scanId || "";
+  const scanId = params.get("scanId") || progress?.scanId || "";
 
   /* -------------------------------------------------------
      Routing safety
@@ -36,9 +268,10 @@ export default function InPersonResults() {
     }
 
     if (!isScanUnlocked(scanId)) {
-      navigate(`/scan/in-person/preview?scanId=${encodeURIComponent(scanId)}`, {
-        replace: true,
-      });
+      navigate(
+        `/scan/in-person/preview?scanId=${encodeURIComponent(scanId)}`,
+        { replace: true }
+      );
     }
   }, [scanId, navigate]);
 
@@ -51,9 +284,7 @@ export default function InPersonResults() {
     return analyseInPersonInspection(progress);
   }, [progress]);
 
-  const photos: string[] = (progress?.photos ?? []).map(
-    (p: any) => p.dataUrl
-  );
+  const photos: string[] = (progress?.photos ?? []).map((p: any) => p.dataUrl);
 
   /* -------------------------------------------------------
      Verdict meta
@@ -66,30 +297,36 @@ export default function InPersonResults() {
     },
     caution: {
       icon: <AlertTriangle className="h-6 w-6 text-amber-400" />,
-      title: "Proceed — but clarify a few things",
+      title: "Proceed — with targeted clarification",
       tone: "border-amber-500/40 bg-amber-500/10",
     },
     "walk-away": {
       icon: <XCircle className="h-6 w-6 text-red-400" />,
-      title: "High risk — walking away is reasonable",
+      title: "Risk appears elevated — walking away is reasonable",
       tone: "border-red-500/40 bg-red-500/10",
     },
   }[analysis.verdict];
 
   /* -------------------------------------------------------
-     Derived groupings
+     Risk groupings
   ------------------------------------------------------- */
-  const priorityRisks = analysis.risks.filter(
-    (r) => r.severity === "critical"
+  const criticalRisks = analysis.risks.filter((r) => r.severity === "critical");
+  const moderateRisks = analysis.risks.filter((r) => r.severity === "moderate");
+
+  const negotiationSummary = pickNegotiationSummary(
+    (analysis as any).negotiationPositioning
   );
 
-  const moderateRisks = analysis.risks.filter(
-    (r) => r.severity === "moderate"
+  const negotiationRanges = extractNegotiationRanges(
+    (analysis as any).negotiationPositioning
   );
 
-  /* -------------------------------------------------------
-     UI
-  ------------------------------------------------------- */
+  const uncertaintyFactors: unknown[] = Array.isArray(
+    (analysis as any).uncertaintyFactors
+  )
+    ? ((analysis as any).uncertaintyFactors as unknown[])
+    : [];
+
   return (
     <div className="max-w-4xl mx-auto px-6 py-14 space-y-16">
       {/* =====================================================
@@ -102,17 +339,15 @@ export default function InPersonResults() {
 
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-400">
           <span>Scan ID: {scanId}</span>
-          <span>
-            Generated: {new Date().toLocaleDateString()}
-          </span>
+          <span>Generated: {new Date().toLocaleDateString()}</span>
         </div>
       </section>
 
       {/* =====================================================
-          02 — EXECUTIVE SUMMARY
+          02 — EXECUTIVE VERDICT
       ===================================================== */}
       <section
-        className={`rounded-2xl border px-6 py-6 space-y-4 ${verdictMeta.tone}`}
+        className={`rounded-2xl border px-6 py-6 space-y-5 ${verdictMeta.tone}`}
       >
         <div className="flex items-start gap-3">
           {verdictMeta.icon}
@@ -120,9 +355,13 @@ export default function InPersonResults() {
             <h1 className="text-2xl font-semibold text-white">
               {verdictMeta.title}
             </h1>
-            <p className="mt-2 text-sm text-slate-300 max-w-2xl">
-              {analysis.verdictReason}
-            </p>
+            <div className="mt-2">
+              {renderTextBlock((analysis as any).whyThisVerdict) || (
+                <p className="text-sm text-slate-300 max-w-2xl">
+                  {(analysis as any).verdictReason}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -130,7 +369,9 @@ export default function InPersonResults() {
           <div>
             <div className="flex items-center gap-2 text-slate-300">
               <BarChart3 className="h-4 w-4 text-slate-400" />
-              <span className="text-sm font-medium">Confidence</span>
+              <span className="text-sm font-medium">
+                Confidence in assessment
+              </span>
             </div>
             <p className="mt-2 text-2xl font-semibold text-white">
               {analysis.confidenceScore}%
@@ -140,7 +381,7 @@ export default function InPersonResults() {
           <div>
             <div className="flex items-center gap-2 text-slate-300">
               <Eye className="h-4 w-4 text-slate-400" />
-              <span className="text-sm font-medium">Coverage</span>
+              <span className="text-sm font-medium">Inspection coverage</span>
             </div>
             <p className="mt-2 text-2xl font-semibold text-white">
               {analysis.completenessScore}%
@@ -150,14 +391,31 @@ export default function InPersonResults() {
       </section>
 
       {/* =====================================================
-          03 — EVIDENCE & COVERAGE
+          03 — WHAT EVIDENCE THIS IS BASED ON
+      ===================================================== */}
+      <section className="space-y-5">
+        <div className="flex items-center gap-2 text-slate-300">
+          <ClipboardList className="h-4 w-4 text-slate-400" />
+          <h2 className="text-sm font-semibold">
+            Evidence considered in this assessment
+          </h2>
+        </div>
+
+        {renderEvidenceSummary((analysis as any).evidenceSummary)}
+
+        <p className="text-xs text-slate-400 max-w-3xl">
+          This report only uses what you recorded and what you explicitly marked
+          as unsure. Missing items are treated as “not recorded”, not as risk.
+        </p>
+      </section>
+
+      {/* =====================================================
+          04 — PHOTO EVIDENCE
       ===================================================== */}
       <section className="space-y-5">
         <div className="flex items-center gap-2 text-slate-300">
           <Camera className="h-4 w-4 text-slate-400" />
-          <h2 className="text-sm font-semibold">
-            Inspection evidence
-          </h2>
+          <h2 className="text-sm font-semibold">Photo evidence captured</h2>
         </div>
 
         {photos.length > 0 ? (
@@ -176,100 +434,131 @@ export default function InPersonResults() {
             No photos were captured during this inspection.
           </p>
         )}
-
-        <p className="text-xs text-slate-400 max-w-2xl">
-          This assessment is limited to what was recorded during the
-          inspection. Areas not photographed may still warrant follow-up.
-        </p>
       </section>
 
       {/* =====================================================
-          04 — PRIORITY FINDINGS
+          05 — KEY RISKS IDENTIFIED
       ===================================================== */}
-      {priorityRisks.length > 0 && (
+      {criticalRisks.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center gap-2 text-slate-300">
-            <ClipboardList className="h-4 w-4 text-slate-400" />
+            <AlertTriangle className="h-4 w-4 text-amber-400" />
             <h2 className="text-sm font-semibold">
-              Priority findings
+              High-impact items identified
             </h2>
           </div>
 
-          {priorityRisks.map((r) => (
+          {criticalRisks.map((r) => (
             <div
               key={r.id}
-              className="rounded-xl bg-slate-900/60 px-5 py-4"
+              className="rounded-xl bg-slate-900/60 px-5 py-4 space-y-1"
             >
-              <p className="text-sm font-semibold text-white">
-                {r.label}
-              </p>
-              <p className="mt-1 text-sm text-slate-400">
-                {r.explanation}
-              </p>
+              <p className="text-sm font-semibold text-white">{r.label}</p>
+              <p className="text-sm text-slate-400">{r.explanation}</p>
             </div>
           ))}
         </section>
       )}
 
       {/* =====================================================
-          05 — WORTH CLARIFYING
+          06 — ITEMS WORTH CLARIFYING
       ===================================================== */}
       {moderateRisks.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center gap-2 text-slate-300">
             <ShieldCheck className="h-4 w-4 text-slate-400" />
             <h2 className="text-sm font-semibold">
-              Worth clarifying
+              Items worth clarifying before proceeding
             </h2>
           </div>
 
           {moderateRisks.map((r) => (
-            <div
-              key={r.id}
-              className="rounded-xl bg-slate-900/60 px-5 py-4"
-            >
-              <p className="text-sm font-medium text-slate-200">
-                {r.label}
-              </p>
-              <p className="mt-1 text-sm text-slate-400">
-                {r.explanation}
-              </p>
+            <div key={r.id} className="rounded-xl bg-slate-900/60 px-5 py-4">
+              <p className="text-sm font-medium text-slate-200">{r.label}</p>
+              <p className="mt-1 text-sm text-slate-400">{r.explanation}</p>
             </div>
           ))}
         </section>
       )}
 
       {/* =====================================================
-          06 — WHAT LOOKED OK
+          07 — DECLARED UNCERTAINTY
       ===================================================== */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-300">
-          What appeared normal from what was recorded
-        </h2>
-        <p className="text-sm text-slate-400 max-w-2xl">
-          Based on the evidence captured, no obvious high-risk mechanical
-          or safety issues were observed. This does not replace a
-          professional inspection.
-        </p>
+      {uncertaintyFactors.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 text-slate-300">
+            <HelpCircle className="h-4 w-4 text-slate-400" />
+            <h2 className="text-sm font-semibold">Areas you marked as unsure</h2>
+          </div>
+
+          <ul className="list-disc list-inside text-sm text-slate-400 space-y-1">
+            {uncertaintyFactors.map((u, i) => (
+              <li key={i}>{uncertaintyToText(u)}</li>
+            ))}
+          </ul>
+
+          <p className="text-xs text-slate-400 max-w-3xl">
+            These are the only sources of uncertainty in this report — they come
+            directly from what you marked as unsure.
+          </p>
+        </section>
+      )}
+
+      {/* =====================================================
+          08 — HOW RISK WAS WEIGHED
+      ===================================================== */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 text-slate-300">
+          <Scale className="h-4 w-4 text-slate-400" />
+          <h2 className="text-sm font-semibold">How risk was weighed</h2>
+        </div>
+
+        {renderTextBlock((analysis as any).riskWeightingExplanation) || (
+          <p className="text-sm text-slate-400 max-w-3xl">
+            Risk weighting is based on the severity of recorded findings and any
+            buyer-marked uncertainty.
+          </p>
+        )}
       </section>
 
       {/* =====================================================
-          07 — NEXT BEST ACTIONS
+          09 — NEGOTIATION POSITION
       ===================================================== */}
       <section className="space-y-4">
         <h2 className="text-sm font-semibold text-slate-300">
-          Suggested next steps
+          Buyer positioning based on this inspection
         </h2>
 
-        <ul className="list-disc list-inside space-y-1 text-sm text-slate-400">
-          <li>Confirm documented service history</li>
-          <li>Pay attention to cold-start behaviour</li>
-          <li>Consider a professional inspection if concerns remain</li>
-        </ul>
+        {negotiationSummary ? (
+          <p className="text-sm text-slate-400 max-w-3xl whitespace-pre-line">
+            {negotiationSummary}
+          </p>
+        ) : (
+          <p className="text-sm text-slate-400 max-w-3xl">
+            This positioning is calculated from your recorded evidence and any
+            items you marked as unsure.
+          </p>
+        )}
+
+        <div className="flex flex-wrap gap-4 text-sm text-slate-300">
+          {negotiationRanges.conservativeValue ? (
+            <span>
+              {negotiationRanges.conservativeLabel}:{" "}
+              <strong>{negotiationRanges.conservativeValue}</strong>
+            </span>
+          ) : null}
+
+          {negotiationRanges.assertiveValue ? (
+            <span>
+              {negotiationRanges.assertiveLabel}:{" "}
+              <strong>{negotiationRanges.assertiveValue}</strong>
+            </span>
+          ) : null}
+        </div>
       </section>
 
       {/* =====================================================
-          08 — ACTIONS
+          10 — ACTIONS
       ===================================================== */}
       <section className="space-y-4">
         <button
