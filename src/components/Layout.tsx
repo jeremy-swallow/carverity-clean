@@ -9,7 +9,8 @@ import {
 import { useEffect, useState } from "react";
 import { loadProgress } from "../utils/scanProgress";
 import { loadCredits } from "../utils/scanCredits";
-import { getCurrentUser, signOut } from "../supabaseAuth";
+import { supabase } from "../supabaseClient";
+import { signOut } from "../supabaseAuth";
 
 /* =========================================================
    Helpers
@@ -40,34 +41,43 @@ function getSafeResumeRoute(step?: string): string | null {
 ========================================================= */
 
 export default function Layout() {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [hasActiveScan, setHasActiveScan] = useState(false);
   const [credits, setCredits] = useState(0);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [session, setSession] = useState<
+    Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null
+  >(null);
+  const [authReady, setAuthReady] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
 
+  const isLoggedIn = Boolean(session);
+
   /* -------------------------------------------------------
-     Auth + credits state
+     Auth state (SESSION is source of truth)
   ------------------------------------------------------- */
   useEffect(() => {
     let mounted = true;
 
-    async function syncAuth() {
-      const user = await getCurrentUser();
+    supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
+      setSession(data.session ?? null);
+      setCredits(data.session ? loadCredits() : 0);
+      setAuthReady(true);
+    });
 
-      setIsLoggedIn(Boolean(user));
-      setCredits(user ? loadCredits() : 0);
-    }
-
-    syncAuth();
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        setSession(newSession);
+        setCredits(newSession ? loadCredits() : 0);
+      }
+    );
 
     return () => {
       mounted = false;
+      listener.subscription.unsubscribe();
     };
-  }, [location.pathname]);
+  }, []);
 
   /* -------------------------------------------------------
      Resume pill
@@ -83,21 +93,22 @@ export default function Layout() {
     if (!safeRoute) return;
 
     navigate(safeRoute);
-    setMenuOpen(false);
   }
 
   async function handleLogout() {
     try {
       await signOut();
     } finally {
-      setMenuOpen(false);
       navigate("/", { replace: true });
     }
   }
 
   function handleCreditsClick() {
-    setMenuOpen(false);
     navigate("/pricing");
+  }
+
+  function handleSignIn() {
+    navigate("/start-scan");
   }
 
   /* -------------------------------------------------------
@@ -116,14 +127,6 @@ export default function Layout() {
       isActive
         ? "text-white font-semibold"
         : "text-slate-300 hover:text-white",
-    ].join(" ");
-
-  const mobileLinkClass = ({ isActive }: { isActive: boolean }) =>
-    [
-      "block w-full text-left px-2 py-1.5 rounded-lg text-sm",
-      isActive
-        ? "bg-slate-800 text-white font-semibold"
-        : "text-slate-200 hover:bg-slate-800/70",
     ].join(" ");
 
   /* -------------------------------------------------------
@@ -157,98 +160,41 @@ export default function Layout() {
 
             {/* DESKTOP ACTIONS */}
             <div className="hidden md:flex items-center gap-3">
-              <button
-                onClick={handleCreditsClick}
-                className="px-3 py-1 rounded-full border border-emerald-500/40 bg-emerald-900/40 text-emerald-300 text-xs hover:bg-emerald-900/60 transition"
-              >
-                {isLoggedIn
-                  ? `Scan credits: ${credits}`
-                  : "Buy scan credits"}
-              </button>
-
-              {hasActiveScan && (
-                <button
-                  onClick={handleResume}
-                  className="px-3 py-1 rounded-full bg-amber-400 text-slate-900 text-xs font-semibold shadow hover:bg-amber-300"
-                >
-                  Resume scan
-                </button>
-              )}
-
-              {isLoggedIn && (
-                <button
-                  onClick={handleLogout}
-                  className="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs"
-                >
-                  Log out
-                </button>
-              )}
-            </div>
-
-            {/* MOBILE ACTIONS */}
-            <div className="flex md:hidden items-center gap-2">
-              {hasActiveScan && (
-                <button
-                  onClick={handleResume}
-                  className="px-3 py-1 rounded-full bg-amber-400 text-slate-900 text-xs font-semibold shadow"
-                >
-                  Resume
-                </button>
-              )}
-
-              <button
-                type="button"
-                aria-label="Toggle navigation"
-                onClick={() => setMenuOpen((open) => !open)}
-                className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-white/15 bg-slate-900/80"
-              >
-                <span className="sr-only">Open main menu</span>
-                <span className="flex flex-col gap-[3px]">
-                  <span className="w-4 h-[2px] bg-white rounded" />
-                  <span className="w-4 h-[2px] bg-white rounded" />
-                  <span className="w-4 h-[2px] bg-white rounded" />
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* MOBILE MENU */}
-          {menuOpen && (
-            <div className="md:hidden border-t border-slate-800 bg-slate-950/95">
-              <div className="max-w-6xl mx-auto px-4 py-3 space-y-2">
-                {navItems.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    onClick={() => setMenuOpen(false)}
-                    className={mobileLinkClass}
-                  >
-                    {item.label}
-                  </NavLink>
-                ))}
-
-                <div className="pt-3 mt-2 border-t border-slate-800 space-y-2">
+              {!authReady ? null : isLoggedIn ? (
+                <>
                   <button
                     onClick={handleCreditsClick}
-                    className="block px-3 py-1 rounded-full border border-emerald-500/40 bg-emerald-900/40 text-emerald-300 text-xs w-fit"
+                    className="px-3 py-1 rounded-full border border-emerald-500/40 bg-emerald-900/40 text-emerald-300 text-xs hover:bg-emerald-900/60 transition"
                   >
-                    {isLoggedIn
-                      ? `Scan credits: ${credits}`
-                      : "Buy scan credits"}
+                    Scan credits: {credits}
                   </button>
 
-                  {isLoggedIn && (
+                  {hasActiveScan && (
                     <button
-                      onClick={handleLogout}
-                      className="block text-left px-3 py-1.5 rounded-lg text-sm text-slate-200 hover:bg-slate-800/70"
+                      onClick={handleResume}
+                      className="px-3 py-1 rounded-full bg-amber-400 text-slate-900 text-xs font-semibold shadow hover:bg-amber-300"
                     >
-                      Log out
+                      Resume scan
                     </button>
                   )}
-                </div>
-              </div>
+
+                  <button
+                    onClick={handleLogout}
+                    className="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs"
+                  >
+                    Log out
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleSignIn}
+                  className="px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-semibold"
+                >
+                  Sign in
+                </button>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </header>
 
