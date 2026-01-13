@@ -4,9 +4,14 @@ import { Routes, Route, Navigate } from "react-router-dom";
 
 import Layout from "./components/Layout";
 
+/* =======================
+   Core pages
+======================= */
 import Home from "./pages/Home";
 import StartScan from "./pages/StartScan";
 import WhatToExpect from "./pages/WhatToExpect";
+import MyScans from "./pages/MyScans";
+import Pricing from "./pages/Pricing";
 
 /* =======================
    In-person scan flow
@@ -14,40 +19,42 @@ import WhatToExpect from "./pages/WhatToExpect";
 import InPersonStart from "./pages/InPersonStart";
 import InPersonVehicleDetails from "./pages/InPersonVehicleDetails";
 import InPersonPhotos from "./pages/InPersonPhotos";
+import InPersonChecksIntro from "./pages/InPersonChecksIntro";
 import InPersonChecksAroundCar from "./pages/InPersonChecksAroundCar";
 import InPersonChecksInsideCabin from "./pages/InPersonChecksInsideCabin";
 import InPersonChecksDrive from "./pages/InPersonChecksDrive";
 import InPersonSummary from "./pages/InPersonSummary";
 import InPersonResultsPreview from "./pages/InPersonResultsPreview";
 import InPersonUnlock from "./pages/InPersonUnlock";
-import InPersonAnalyzing from "./pages/InPersonAnalyzing";
+import InPersonUnlockSuccess from "./pages/InPersonUnlockSuccess";
 import InPersonResults from "./pages/InPersonResults";
 import InPersonNegotiation from "./pages/InPersonNegotiation";
 import InPersonReportPrint from "./pages/InPersonReportPrint";
-
-/* =======================
-   Other pages
-======================= */
-import MyScans from "./pages/MyScans";
-import Terms from "./pages/Terms";
-import Privacy from "./pages/Privacy";
 
 export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        {/* Core */}
+        {/* Home */}
         <Route path="/" element={<Home />} />
-        <Route path="/start-scan" element={<StartScan />} />
-        <Route path="/what-to-expect" element={<WhatToExpect />} />
 
-        {/* IN-PERSON SCAN */}
+        {/* Core */}
+        <Route path="/start-scan" element={<StartScan />} />
+        <Route path="/my-scans" element={<MyScans />} />
+        <Route path="/what-to-expect" element={<WhatToExpect />} />
+        <Route path="/pricing" element={<Pricing />} />
+
+        {/* In-person scan */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
         <Route
           path="/scan/in-person/vehicle-details"
           element={<InPersonVehicleDetails />}
         />
         <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
+        <Route
+          path="/scan/in-person/checks/intro"
+          element={<InPersonChecksIntro />}
+        />
         <Route
           path="/scan/in-person/checks/around"
           element={<InPersonChecksAroundCar />}
@@ -61,41 +68,28 @@ export default function App() {
           element={<InPersonChecksDrive />}
         />
         <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
-
-        {/* PREVIEW → UNLOCK → ANALYZE → RESULTS */}
         <Route
           path="/scan/in-person/preview"
           element={<InPersonResultsPreview />}
         />
         <Route path="/scan/in-person/unlock" element={<InPersonUnlock />} />
-
-        {/* ✅ IMPORTANT: Stripe success return */}
         <Route
           path="/scan/in-person/unlock/success"
-          element={<InPersonUnlock />}
+          element={<InPersonUnlockSuccess />}
         />
-
-        <Route path="/scan/in-person/analyzing" element={<InPersonAnalyzing />} />
         <Route path="/scan/in-person/results" element={<InPersonResults />} />
         <Route
           path="/scan/in-person/negotiation"
           element={<InPersonNegotiation />}
         />
         <Route
-          path="/scan/in-person/report-print"
+          path="/scan/in-person/print"
           element={<InPersonReportPrint />}
         />
 
-        {/* Legal */}
-        <Route path="/terms" element={<Terms />} />
-        <Route path="/privacy" element={<Privacy />} />
-
-        {/* Library */}
-        <Route path="/my-scans" element={<MyScans />} />
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
-
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
