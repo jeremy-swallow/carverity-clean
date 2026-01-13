@@ -12,6 +12,7 @@ import StartScan from "./pages/StartScan";
 import WhatToExpect from "./pages/WhatToExpect";
 import MyScans from "./pages/MyScans";
 import Pricing from "./pages/Pricing";
+import SignIn from "./pages/SignIn";
 
 /* =======================
    In-person scan flow
@@ -40,6 +41,7 @@ export default function App() {
 
         {/* Core */}
         <Route path="/start-scan" element={<StartScan />} />
+        <Route path="/sign-in" element={<SignIn />} />
         <Route path="/my-scans" element={<MyScans />} />
         <Route path="/what-to-expect" element={<WhatToExpect />} />
         <Route path="/pricing" element={<Pricing />} />

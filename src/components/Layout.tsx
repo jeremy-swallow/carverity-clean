@@ -108,7 +108,7 @@ export default function Layout() {
   }
 
   function handleSignIn() {
-    navigate("/start-scan");
+    navigate("/sign-in");
   }
 
   /* -------------------------------------------------------
