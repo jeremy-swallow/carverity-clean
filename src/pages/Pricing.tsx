@@ -1,187 +1,115 @@
-// src/pages/Pricing.tsx
+import { useState } from "react";
+import { supabase } from "../supabaseClient";
 
-import { useNavigate } from "react-router-dom";
-
-type Pack = {
-  id: "single" | "triple" | "five";
-  title: string;
-  scans: number;
-  priceLabel: string;
-  stripePriceId?: string;
-  highlight?: boolean;
+type PriceOption = {
+  id: string;
+  label: string;
+  price: string;
   description: string;
 };
 
-/* =========================================================
-   Stripe price IDs (AUD, one-time)
-========================================================= */
-
-const STRIPE_PRICES = {
-  single: "price_1So9TcE9gXaXx1nSyeYvpaQb",
-  triple: "price_1SoppbE9gXaXx1nSfp5Xex9O",
-  five: "price_1SoprRE9gXaXx1nSnlKEnh0U",
-};
-
-const PACKS: Pack[] = [
+const PRICES: PriceOption[] = [
   {
-    id: "single",
-    title: "Single scan",
-    scans: 1,
-    priceLabel: "$14.99",
-    description:
-      "Best for a one-off check. Includes the full buyer report, photos, and negotiation positioning.",
+    id: "price_1So9TcE9gXaXx1nSyeYvpaQb",
+    label: "Single scan",
+    price: "$14.99",
+    description: "Best for a one-off check.",
   },
   {
-    id: "triple",
-    title: "3 scan pack",
-    scans: 3,
-    priceLabel: "$39",
-    stripePriceId: STRIPE_PRICES.triple,
-    highlight: true,
-    description:
-      "Most popular. Ideal if you’re comparing a few vehicles during your search.",
+    id: "price_1SoppbE9gXaXx1nSfp5Xex9O",
+    label: "3 scan pack",
+    price: "$39",
+    description: "Most popular.",
   },
   {
-    id: "five",
-    title: "5 scan pack",
-    scans: 5,
-    priceLabel: "$59",
-    stripePriceId: STRIPE_PRICES.five,
-    description:
-      "Best value for active buyers inspecting multiple cars.",
+    id: "price_1SoprRE9gXaXx1nSnlKEnh0U",
+    label: "5 scan pack",
+    price: "$59",
+    description: "Best value.",
   },
 ];
 
 export default function Pricing() {
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState<string | null>(null);
 
-  async function handlePurchase(pack: Pack) {
-    // Existing, proven single-scan flow — do not change
-    if (pack.id === "single") {
-      navigate("/scan/in-person/unlock");
-      return;
-    }
-
-    if (!pack.stripePriceId) return;
-
+  async function startCheckout(priceId: string) {
     try {
+      setLoading(priceId);
+
+      // Get authenticated Supabase session
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        alert("You must be logged in to purchase scan credits.");
+        setLoading(null);
+        return;
+      }
+
       const res = await fetch("/api/create-checkout-session", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          priceId: pack.stripePriceId,
-          mode: "payment",
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ priceId }),
       });
 
       if (!res.ok) {
-        throw new Error("checkout-session-failed");
+        throw new Error(`Checkout failed (${res.status})`);
       }
 
       const data = await res.json();
 
-      if (data?.url) {
-        window.location.href = data.url;
+      if (!data.url) {
+        throw new Error("Missing Stripe checkout URL");
       }
-    } catch {
-      alert(
-        "Something went wrong while starting checkout. Please try again."
-      );
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Something went wrong while starting checkout. Please try again.");
+    } finally {
+      setLoading(null);
     }
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-16 space-y-16">
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
-      <header className="space-y-4 max-w-3xl">
-        <h1 className="text-3xl font-bold text-white">
-          Pricing
-        </h1>
+    <div className="max-w-5xl mx-auto px-6 py-16">
+      <h1 className="text-3xl font-semibold text-white mb-8">
+        Pricing
+      </h1>
 
-        <p className="text-slate-300 text-lg leading-relaxed">
-          CarVerity guides you through an in-person inspection and turns what you
-          record into a clear, buyer-safe report you can confidently rely on.
-        </p>
-      </header>
-
-      {/* =====================================================
-          PACKS
-      ===================================================== */}
-      <section className="grid gap-6 md:grid-cols-3">
-        {PACKS.map((pack) => (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {PRICES.map((p) => (
           <div
-            key={pack.id}
-            className={[
-              "rounded-2xl border px-6 py-8 space-y-6",
-              pack.highlight
-      ? "border-emerald-500/50 bg-emerald-500/10"
-                : "border-white/10 bg-slate-900/60",
-            ].join(" ")}
+            key={p.id}
+            className="rounded-2xl bg-slate-900 border border-slate-800 p-6 flex flex-col"
           >
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-white">
-                {pack.title}
-              </h2>
+            <h2 className="text-lg font-semibold text-white">
+              {p.label}
+            </h2>
 
-              <p className="text-slate-300 text-sm">
-                {pack.description}
-              </p>
-            </div>
+            <p className="text-slate-400 mt-2">
+              {p.description}
+            </p>
 
-            <div className="space-y-1">
-              <p className="text-3xl font-bold text-white">
-                {pack.priceLabel}
-              </p>
-
-              <p className="text-xs text-slate-400">
-                {pack.scans} scan{pack.scans > 1 ? "s" : ""}
-              </p>
+            <div className="text-3xl font-bold text-white mt-4">
+              {p.price}
             </div>
 
             <button
-              onClick={() => handlePurchase(pack)}
-              className={[
-                "w-full rounded-xl px-5 py-3 font-semibold transition-colors",
-                pack.highlight
-                  ? "bg-emerald-500 text-black hover:bg-emerald-400"
-                  : "bg-slate-800 text-white hover:bg-slate-700",
-              ].join(" ")}
+              onClick={() => startCheckout(p.id)}
+              disabled={loading === p.id}
+              className="mt-auto rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 disabled:opacity-60"
             >
-              {pack.id === "single"
-                ? "Buy single scan"
-                : "Buy scan pack"}
+              {loading === p.id ? "Starting checkout…" : "Buy scan pack"}
             </button>
           </div>
         ))}
-      </section>
-
-      {/* =====================================================
-          WHAT YOU GET
-      ===================================================== */}
-      <section className="max-w-3xl space-y-4">
-        <h3 className="text-lg font-semibold text-white">
-          Every scan includes
-        </h3>
-
-        <ul className="list-disc list-inside space-y-2 text-slate-300 text-sm">
-          <li>Guided in-person inspection flow</li>
-          <li>Buyer-captured photo evidence</li>
-          <li>Clear explanation of why the verdict was reached</li>
-          <li>Risk weighting based only on what you recorded</li>
-          <li>Buyer-safe negotiation positioning</li>
-          <li>Printable, dealer-ready report</li>
-        </ul>
-      </section>
-
-      {/* =====================================================
-          FOOTNOTE
-      ===================================================== */}
-      <footer className="max-w-3xl text-xs text-slate-400 leading-relaxed">
-        CarVerity does not perform mechanical inspections and does not assume
-        conditions that were not observed or recorded.
-      </footer>
+      </div>
     </div>
   );
 }
