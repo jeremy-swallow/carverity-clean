@@ -1,136 +1,77 @@
-// api/create-checkout-session.ts
-
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Stripe from "stripe";
+import { createClient } from "@supabase/supabase-js";
 
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
-
-if (!STRIPE_SECRET_KEY) {
-  throw new Error("missing_STRIPE_SECRET_KEY");
-}
-
-const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  // Leave apiVersion undefined to avoid TS literal mismatch
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: "2024-06-20" as any,
 });
 
-/**
- * Single-scan price (existing behaviour)
- */
-const SINGLE_SCAN_PRICE_ID = "price_1So9TcE9gXaXx1nSyeYvpaQb";
+const supabaseAdmin = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).end();
   }
 
   try {
-    /**
-     * Two supported flows:
-     *
-     * 1) Single scan unlock
-     *    - requires scanId
-     *    - uses fixed SINGLE_SCAN_PRICE_ID
-     *
-     * 2) Credit pack purchase
-     *    - requires priceId
-     *    - creates Stripe customer
-     *    - credits granted via webhook
-     */
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+
     const {
-      scanId,
-      priceId,
-    } = req.body as {
-      scanId?: string;
-      priceId?: string;
-    };
+      data: { user },
+      error,
+    } = await supabaseAdmin.auth.getUser(token);
 
-    const origin =
-      req.headers.origin || "https://carverity.com.au";
+    if (error || !user) {
+      return res.status(401).json({ error: "Invalid user" });
+    }
 
-    /**
-     * -----------------------------------------------------
-     * FLOW 1 — Single scan unlock (UNCHANGED)
-     * -----------------------------------------------------
-     */
-    if (scanId && !priceId) {
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        payment_method_types: ["card"],
-        line_items: [
-          {
-            price: SINGLE_SCAN_PRICE_ID,
-            quantity: 1,
-          },
-        ],
+    let stripeCustomerId =
+      user.user_metadata?.stripe_customer_id ?? null;
 
-        success_url: `${origin}/scan/in-person/unlock/success?scanId=${encodeURIComponent(
-          scanId
-        )}`,
-
-        cancel_url: `${origin}/scan/in-person/unlock?scanId=${encodeURIComponent(
-          scanId
-        )}`,
-
+    // Create Stripe customer ONCE
+    if (!stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email: user.email ?? undefined,
         metadata: {
-          scanId,
-          purchase_type: "single_scan",
+          supabase_user_id: user.id,
         },
       });
 
-      return res.status(200).json({ url: session.url });
-    }
+      stripeCustomerId = customer.id;
 
-    /**
-     * -----------------------------------------------------
-     * FLOW 2 — Credit pack purchase
-     * -----------------------------------------------------
-     */
-    if (priceId && !scanId) {
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        payment_method_types: ["card"],
-
-        // CRITICAL:
-        // Always create / reuse a customer so credits persist
-        customer_creation: "always",
-
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
+      await supabaseAdmin.auth.admin.updateUserById(
+        user.id,
+        {
+          user_metadata: {
+            ...user.user_metadata,
+            stripe_customer_id: stripeCustomerId,
           },
-        ],
-
-        success_url: `${origin}/pricing?success=1`,
-        cancel_url: `${origin}/pricing?cancelled=1`,
-
-        metadata: {
-          purchase_type: "credit_pack",
-        },
-      });
-
-      return res.status(200).json({ url: session.url });
+        }
+      );
     }
 
-    /**
-     * -----------------------------------------------------
-     * Invalid request
-     * -----------------------------------------------------
-     */
-    return res.status(400).json({
-      error:
-        "Invalid request. Expected either { scanId } or { priceId }.",
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer: stripeCustomerId, // 🔑 CRITICAL LINE
+      line_items: req.body.lineItems,
+      success_url: `${req.headers.origin}/pricing/success`,
+      cancel_url: `${req.headers.origin}/pricing`,
     });
-  } catch (err: any) {
-    console.error("Stripe checkout error:", err);
 
-    return res.status(500).json({
-      error:
-        err?.message ||
-        "Failed to create checkout session",
-    });
+    res.status(200).json({ url: session.url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Checkout failed" });
   }
 }
