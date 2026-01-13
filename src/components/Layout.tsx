@@ -8,6 +8,8 @@ import {
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { loadProgress } from "../utils/scanProgress";
+import { loadCredits } from "../utils/scanCredits";
+import { getCurrentUser, signOut } from "../supabaseAuth";
 
 /* =========================================================
    Helpers
@@ -38,38 +40,34 @@ function getSafeResumeRoute(step?: string): string | null {
 ========================================================= */
 
 export default function Layout() {
-  const [credits, setCredits] = useState<number>(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hasActiveScan, setHasActiveScan] = useState(false);
+  const [credits, setCredits] = useState(0);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
 
   /* -------------------------------------------------------
-     Load credits from server (Stripe-backed)
+     Auth + credits state
   ------------------------------------------------------- */
   useEffect(() => {
-    let cancelled = false;
+    let mounted = true;
 
-    async function fetchCredits() {
-      try {
-        const res = await fetch("/api/get-credits");
-        if (!res.ok) return;
+    async function syncAuth() {
+      const user = await getCurrentUser();
+      if (!mounted) return;
 
-        const data = await res.json();
-        if (!cancelled && typeof data.credits === "number") {
-          setCredits(data.credits);
-        }
-      } catch {
-        // Fail silently — header can show 0 if unavailable
-      }
+      setIsLoggedIn(Boolean(user));
+      setCredits(user ? loadCredits() : 0);
     }
 
-    fetchCredits();
+    syncAuth();
+
     return () => {
-      cancelled = true;
+      mounted = false;
     };
-  }, []);
+  }, [location.pathname]);
 
   /* -------------------------------------------------------
      Resume pill — robust + safe
@@ -89,12 +87,22 @@ export default function Layout() {
     setMenuOpen(false);
   }
 
+  async function handleLogout() {
+    try {
+      await signOut();
+    } finally {
+      setMenuOpen(false);
+      navigate("/", { replace: true });
+    }
+  }
+
   /* -------------------------------------------------------
      Nav config
   ------------------------------------------------------- */
   const navItems = [
     { to: "/start-scan", label: "Start scan" },
     { to: "/my-scans", label: "My scans" },
+    { to: "/pricing", label: "Pricing" },
     { to: "/what-to-expect", label: "What to expect" },
   ];
 
@@ -145,12 +153,11 @@ export default function Layout() {
 
             {/* DESKTOP ACTIONS */}
             <div className="hidden md:flex items-center gap-3">
-              <button
-                onClick={() => navigate("/pricing")}
-                className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs hover:bg-emerald-900/60 transition"
-              >
-                Scan credits: {credits}
-              </button>
+              {isLoggedIn && (
+                <span className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs">
+                  Scan credits: {credits}
+                </span>
+              )}
 
               {hasActiveScan && (
                 <button
@@ -158,6 +165,15 @@ export default function Layout() {
                   className="px-3 py-1 rounded-full bg-amber-400 text-slate-900 text-xs font-semibold shadow hover:bg-amber-300"
                 >
                   Resume scan
+                </button>
+              )}
+
+              {isLoggedIn && (
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs"
+                >
+                  Log out
                 </button>
               )}
             </div>
@@ -204,17 +220,20 @@ export default function Layout() {
                   </NavLink>
                 ))}
 
-                <div className="pt-3 mt-2 border-t border-slate-800">
-                  <button
-                    onClick={() => {
-                      navigate("/pricing");
-                      setMenuOpen(false);
-                    }}
-                    className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs"
-                  >
-                    Scan credits: {credits}
-                  </button>
-                </div>
+                {isLoggedIn && (
+                  <div className="pt-3 mt-2 border-t border-slate-800 space-y-2">
+                    <span className="block px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs w-fit">
+                      Scan credits: {credits}
+                    </span>
+
+                    <button
+                      onClick={handleLogout}
+                      className="block text-left px-3 py-1.5 rounded-lg text-sm text-slate-200 hover:bg-slate-800/70"
+                    >
+                      Log out
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
