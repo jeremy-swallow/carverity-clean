@@ -1,77 +1,76 @@
+// api/create-checkout-session.ts
+
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Stripe from "stripe";
-import { createClient } from "@supabase/supabase-js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: "2024-06-20" as any,
-});
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 
-const supabaseAdmin = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+if (!STRIPE_SECRET_KEY) {
+  throw new Error("Missing STRIPE_SECRET_KEY");
+}
+
+const stripe = new Stripe(STRIPE_SECRET_KEY);
 
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
   if (req.method !== "POST") {
-    return res.status(405).end();
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-
     const {
-      data: { user },
-      error,
-    } = await supabaseAdmin.auth.getUser(token);
+      priceId,
+      scanId,
+    }: { priceId?: string; scanId?: string } = req.body;
 
-    if (error || !user) {
-      return res.status(401).json({ error: "Invalid user" });
+    if (!priceId) {
+      return res.status(400).json({ error: "Missing priceId" });
     }
 
-    let stripeCustomerId =
-      user.user_metadata?.stripe_customer_id ?? null;
+    const origin =
+      req.headers.origin || "https://carverity.com.au";
 
-    // Create Stripe customer ONCE
-    if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        email: user.email ?? undefined,
-        metadata: {
-          supabase_user_id: user.id,
-        },
-      });
-
-      stripeCustomerId = customer.id;
-
-      await supabaseAdmin.auth.admin.updateUserById(
-        user.id,
-        {
-          user_metadata: {
-            ...user.user_metadata,
-            stripe_customer_id: stripeCustomerId,
-          },
-        }
-      );
-    }
+    const isScanUnlock = Boolean(scanId);
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      customer: stripeCustomerId, // 🔑 CRITICAL LINE
-      line_items: req.body.lineItems,
-      success_url: `${req.headers.origin}/pricing/success`,
-      cancel_url: `${req.headers.origin}/pricing`,
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+
+      success_url: isScanUnlock
+        ? `${origin}/scan/in-person/unlock/success?scanId=${encodeURIComponent(
+            scanId!
+          )}`
+        : `${origin}/pricing?success=true`,
+
+      cancel_url: isScanUnlock
+        ? `${origin}/scan/in-person/unlock?scanId=${encodeURIComponent(
+            scanId!
+          )}`
+        : `${origin}/pricing?canceled=true`,
+
+      metadata: {
+        ...(scanId ? { scanId } : {}),
+        purchase_type: isScanUnlock
+          ? "scan_unlock"
+          : "credit_pack",
+      },
     });
 
-    res.status(200).json({ url: session.url });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Checkout failed" });
+    return res.status(200).json({ url: session.url });
+  } catch (err: any) {
+    console.error("Stripe checkout error:", err);
+    return res.status(500).json({
+      error:
+        err?.message ||
+        "Failed to create checkout session",
+    });
   }
 }
