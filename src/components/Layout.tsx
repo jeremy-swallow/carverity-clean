@@ -1,3 +1,5 @@
+// src/components/Layout.tsx
+
 import {
   Outlet,
   NavLink,
@@ -6,7 +8,6 @@ import {
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { loadProgress } from "../utils/scanProgress";
-import { loadCredits } from "../utils/scanCredits";
 
 /* =========================================================
    Helpers
@@ -37,29 +38,37 @@ function getSafeResumeRoute(step?: string): string | null {
 ========================================================= */
 
 export default function Layout() {
+  const [credits, setCredits] = useState<number>(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [hasActiveScan, setHasActiveScan] = useState(false);
-  const [credits, setCredits] = useState<number>(0);
 
   const location = useLocation();
   const navigate = useNavigate();
 
   /* -------------------------------------------------------
-     Credits — live from localStorage
+     Load credits from server (Stripe-backed)
   ------------------------------------------------------- */
   useEffect(() => {
-    setCredits(loadCredits());
+    let cancelled = false;
 
-    const handler = (e: StorageEvent) => {
-      if (e.key === "carverity_scan_credits") {
-        const raw = e.newValue ?? "0";
-        const parsed = parseInt(raw, 10);
-        setCredits(Number.isFinite(parsed) ? parsed : 0);
+    async function fetchCredits() {
+      try {
+        const res = await fetch("/api/get-credits");
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (!cancelled && typeof data.credits === "number") {
+          setCredits(data.credits);
+        }
+      } catch {
+        // Fail silently — header can show 0 if unavailable
       }
-    };
+    }
 
-    window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
+    fetchCredits();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   /* -------------------------------------------------------
@@ -136,12 +145,12 @@ export default function Layout() {
 
             {/* DESKTOP ACTIONS */}
             <div className="hidden md:flex items-center gap-3">
-              <NavLink
-                to="/pricing"
+              <button
+                onClick={() => navigate("/pricing")}
                 className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs hover:bg-emerald-900/60 transition"
               >
                 Scan credits: {credits}
-              </NavLink>
+              </button>
 
               {hasActiveScan && (
                 <button
@@ -196,13 +205,15 @@ export default function Layout() {
                 ))}
 
                 <div className="pt-3 mt-2 border-t border-slate-800">
-                  <NavLink
-                    to="/pricing"
-                    onClick={() => setMenuOpen(false)}
-                    className="px-3 py-1 inline-block rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs"
+                  <button
+                    onClick={() => {
+                      navigate("/pricing");
+                      setMenuOpen(false);
+                    }}
+                    className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs"
                   >
                     Scan credits: {credits}
-                  </NavLink>
+                  </button>
                 </div>
               </div>
             </div>
