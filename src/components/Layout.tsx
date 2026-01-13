@@ -70,7 +70,7 @@ export default function Layout() {
   }, [location.pathname]);
 
   /* -------------------------------------------------------
-     Resume pill — robust + safe
+     Resume pill
   ------------------------------------------------------- */
   useEffect(() => {
     const progress = loadProgress();
@@ -80,7 +80,6 @@ export default function Layout() {
   function handleResume() {
     const progress = loadProgress();
     const safeRoute = getSafeResumeRoute(progress?.step);
-
     if (!safeRoute) return;
 
     navigate(safeRoute);
@@ -94,6 +93,11 @@ export default function Layout() {
       setMenuOpen(false);
       navigate("/", { replace: true });
     }
+  }
+
+  function handleCreditsClick() {
+    setMenuOpen(false);
+    navigate("/pricing");
   }
 
   /* -------------------------------------------------------
@@ -153,11 +157,14 @@ export default function Layout() {
 
             {/* DESKTOP ACTIONS */}
             <div className="hidden md:flex items-center gap-3">
-              {isLoggedIn && (
-                <span className="px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs">
-                  Scan credits: {credits}
-                </span>
-              )}
+              <button
+                onClick={handleCreditsClick}
+                className="px-3 py-1 rounded-full border border-emerald-500/40 bg-emerald-900/40 text-emerald-300 text-xs hover:bg-emerald-900/60 transition"
+              >
+                {isLoggedIn
+                  ? `Scan credits: ${credits}`
+                  : "Buy scan credits"}
+              </button>
 
               {hasActiveScan && (
                 <button
@@ -220,20 +227,25 @@ export default function Layout() {
                   </NavLink>
                 ))}
 
-                {isLoggedIn && (
-                  <div className="pt-3 mt-2 border-t border-slate-800 space-y-2">
-                    <span className="block px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs w-fit">
-                      Scan credits: {credits}
-                    </span>
+                <div className="pt-3 mt-2 border-t border-slate-800 space-y-2">
+                  <button
+                    onClick={handleCreditsClick}
+                    className="block px-3 py-1 rounded-full border border-emerald-500/40 bg-emerald-900/40 text-emerald-300 text-xs w-fit"
+                  >
+                    {isLoggedIn
+                      ? `Scan credits: ${credits}`
+                      : "Buy scan credits"}
+                  </button>
 
+                  {isLoggedIn && (
                     <button
                       onClick={handleLogout}
                       className="block text-left px-3 py-1.5 rounded-lg text-sm text-slate-200 hover:bg-slate-800/70"
                     >
                       Log out
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           )}
