@@ -3,8 +3,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Stripe from "stripe";
 
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY as string;
-const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET as string;
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY!;
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
 
 if (!STRIPE_SECRET_KEY) {
   throw new Error("Missing STRIPE_SECRET_KEY");
@@ -13,23 +13,26 @@ if (!STRIPE_WEBHOOK_SECRET) {
   throw new Error("Missing STRIPE_WEBHOOK_SECRET");
 }
 
-const stripe = new Stripe(STRIPE_SECRET_KEY);
+const stripe = new Stripe(STRIPE_SECRET_KEY, {
+  // IMPORTANT:
+  // Leave apiVersion undefined to avoid TS literal mismatch.
+});
 
 /* =========================================================
-   Raw body reader (required for Stripe signature verification)
+   Raw body reader (required by Stripe)
 ========================================================= */
 async function readRawBody(req: VercelRequest): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (chunk) => {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    });
+    req.on("data", (chunk) =>
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+    );
     req.on("end", () => resolve(Buffer.concat(chunks)));
     req.on("error", reject);
   });
 }
 
-function parseNonNegativeInt(value: unknown): number {
+function parsePositiveInt(value: unknown): number {
   const n =
     typeof value === "string"
       ? parseInt(value, 10)
@@ -41,82 +44,7 @@ function parseNonNegativeInt(value: unknown): number {
   return Math.max(0, Math.floor(n));
 }
 
-/* =========================================================
-   Price → credits mapping (authoritative)
-========================================================= */
-
-const PRICE_TO_CREDITS: Record<string, number> = {
-  price_1So9TcE9gXaXx1nSyeYvpaQb: 1,
-  price_1SoppbE9gXaXx1nSfp5Xex9O: 3,
-  price_1SoprRE9gXaXx1nSnlKEnh0U: 5,
-};
-
-/* =========================================================
-   Customer helpers
-========================================================= */
-
-async function ensureCustomerIdFromSession(
-  session: Stripe.Checkout.Session
-): Promise<string | null> {
-  const customer = session.customer;
-
-  if (typeof customer === "string" && customer) return customer;
-
-  const email = session.customer_details?.email ?? null;
-  if (!email) return null;
-
-  const created = await stripe.customers.create({
-    email,
-    metadata: {
-      carverity_created_from: "checkout_session_completed",
-    },
-  });
-
-  return created.id;
-}
-
-/**
- * Idempotency: we store a small marker on the customer metadata:
- *   carverity_last_credit_session = <session.id>
- * If we see the same session again, we do nothing.
- *
- * This is intentionally simple and stable.
- */
-async function grantCreditsToCustomer(params: {
-  customerId: string;
-  sessionId: string;
-  creditsToAdd: number;
-}): Promise<void> {
-  const { customerId, sessionId, creditsToAdd } = params;
-
-  const customer = await stripe.customers.retrieve(customerId);
-  if (customer.deleted) return;
-
-  const alreadyProcessed =
-    customer.metadata?.carverity_last_credit_session === sessionId;
-
-  if (alreadyProcessed) return;
-
-  const current = parseNonNegativeInt(customer.metadata?.carverity_credits);
-  const next = current + creditsToAdd;
-
-  await stripe.customers.update(customerId, {
-    metadata: {
-      ...customer.metadata,
-      carverity_credits: String(next),
-      carverity_last_credit_session: sessionId,
-    },
-  });
-}
-
-/* =========================================================
-   Handler
-========================================================= */
-
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).send("Method Not Allowed");
@@ -124,7 +52,7 @@ export default async function handler(
 
   const signature = req.headers["stripe-signature"];
   if (!signature || Array.isArray(signature)) {
-    return res.status(400).send("Missing stripe-signature header");
+    return res.status(400).send("Missing stripe-signature");
   }
 
   let event: Stripe.Event;
@@ -136,64 +64,82 @@ export default async function handler(
       signature,
       STRIPE_WEBHOOK_SECRET
     );
-  } catch {
-    return res.status(400).send("Webhook signature verification failed");
+  } catch (err) {
+    console.error("Webhook signature verification failed:", err);
+    return res.status(400).send("Invalid signature");
   }
 
   try {
-    if (event.type !== "checkout.session.completed") {
-      return res.status(200).json({ received: true });
-    }
+    if (
+      event.type === "checkout.session.completed" ||
+      event.type === "checkout.session.async_payment_succeeded"
+    ) {
+      const session = event.data.object as Stripe.Checkout.Session;
 
-    const session = event.data.object as Stripe.Checkout.Session;
+      if (session.payment_status !== "paid") {
+        return res.status(200).json({ received: true, ignored: "not_paid" });
+      }
 
-    if (session.payment_status !== "paid") {
-      return res.status(200).json({ received: true, ignored: "not_paid" });
-    }
+      const paymentIntentId =
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : session.payment_intent?.id;
 
-    const items = await stripe.checkout.sessions.listLineItems(session.id, {
-      limit: 10,
-    });
+      if (!paymentIntentId) {
+        return res.status(200).json({ received: true, ignored: "no_payment_intent" });
+      }
 
-    let creditsToAdd = 0;
+      const creditsToAdd = parsePositiveInt(session.metadata?.credits_granted);
 
-    for (const item of items.data) {
-      const priceId = item.price?.id;
-      if (!priceId) continue;
+      if (creditsToAdd <= 0) {
+        return res.status(200).json({ received: true, ignored: "no_credits" });
+      }
 
-      const perUnit = PRICE_TO_CREDITS[priceId];
-      if (!perUnit) continue;
+      const customerId = typeof session.customer === "string" ? session.customer : null;
 
-      const qty = item.quantity ?? 1;
-      creditsToAdd += perUnit * qty;
-    }
+      if (!customerId) {
+        return res.status(200).json({ received: true, ignored: "no_customer" });
+      }
 
-    if (creditsToAdd <= 0) {
+      // Idempotency gate on PaymentIntent metadata
+      const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+      if (pi.metadata?.carverity_credits_applied === "true") {
+        return res.status(200).json({ received: true, ignored: "already_applied" });
+      }
+
+      const customer = await stripe.customers.retrieve(customerId);
+
+      if ((customer as any).deleted) {
+        return res.status(500).send("Customer deleted");
+      }
+
+      const current = parsePositiveInt((customer as Stripe.Customer).metadata?.carverity_credits);
+      const next = current + creditsToAdd;
+
+      await stripe.customers.update(customerId, {
+        metadata: {
+          ...(customer as Stripe.Customer).metadata,
+          carverity_credits: String(next),
+        },
+      });
+
+      await stripe.paymentIntents.update(paymentIntentId, {
+        metadata: {
+          ...pi.metadata,
+          carverity_credits_applied: "true",
+          carverity_credits_added: String(creditsToAdd),
+        },
+      });
+
       return res.status(200).json({
         received: true,
-        ignored: "no_matching_price",
+        creditsAdded: creditsToAdd,
+        newBalance: next,
       });
     }
 
-    const customerId = await ensureCustomerIdFromSession(session);
-
-    if (!customerId) {
-      return res.status(200).json({
-        received: true,
-        ignored: "no_customer",
-      });
-    }
-
-    await grantCreditsToCustomer({
-      customerId,
-      sessionId: session.id,
-      creditsToAdd,
-    });
-
-    return res.status(200).json({
-      received: true,
-      creditsAdded: creditsToAdd,
-    });
+    return res.status(200).json({ received: true });
   } catch (err) {
     console.error("stripe-webhook error:", err);
     return res.status(500).send("Webhook handler error");
