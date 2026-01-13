@@ -1,5 +1,5 @@
 // src/pages/Pricing.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 
 type PriceOption = {
@@ -32,21 +32,47 @@ const PRICES: PriceOption[] = [
 
 export default function Pricing() {
   const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null);
+  const [session, setSession] = useState<
+    Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null
+  >(null);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  // 🔐 Hydrate session properly and listen for changes
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) {
+        setSession(data.session ?? null);
+        setSessionReady(true);
+      }
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        setSession(newSession);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   async function startCheckout(priceId: string) {
+    if (!sessionReady) {
+      // Session still loading — do nothing yet
+      return;
+    }
+
+    if (!session?.access_token) {
+      alert("You must be logged in to purchase scan credits.");
+      return;
+    }
+
     try {
       setLoadingPriceId(priceId);
-
-      // 🔐 Always fetch LIVE session
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError || !session?.access_token) {
-        alert("You must be logged in to purchase scan credits.");
-        return;
-      }
 
       const res = await fetch("/api/create-checkout-session", {
         method: "POST",
@@ -80,9 +106,7 @@ export default function Pricing() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-16">
-      <h1 className="text-3xl font-semibold text-white mb-2">
-        Pricing
-      </h1>
+      <h1 className="text-3xl font-semibold text-white mb-2">Pricing</h1>
       <p className="text-slate-400 mb-10">
         Buy scan credits to unlock in-person inspection reports.
       </p>
@@ -106,7 +130,9 @@ export default function Pricing() {
 
             <button
               onClick={() => startCheckout(option.id)}
-              disabled={loadingPriceId === option.id}
+              disabled={
+                loadingPriceId === option.id || !sessionReady
+              }
               className="mt-auto rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-black font-semibold px-4 py-3 transition"
             >
               {loadingPriceId === option.id
