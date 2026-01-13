@@ -1,10 +1,19 @@
 // src/pages/StartScan.tsx
 import { useNavigate } from "react-router-dom";
+import { loadCredits } from "../utils/scanCredits";
 
 export default function StartScan() {
   const navigate = useNavigate();
 
   function beginInPerson() {
+    const credits = loadCredits();
+
+    // Hard gate: must have at least 1 credit to start a scan
+    if (credits <= 0) {
+      navigate("/pricing?reason=no_credits");
+      return;
+    }
+
     navigate("/scan/in-person/start");
   }
 
