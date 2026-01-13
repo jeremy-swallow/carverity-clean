@@ -7,14 +7,21 @@ const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY!;
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const APP_URL =
+  process.env.APP_URL || "https://www.carverity.com.au";
 
-if (!STRIPE_SECRET_KEY) throw new Error("Missing STRIPE_SECRET_KEY");
-if (!SUPABASE_SERVICE_ROLE_KEY)
+if (!STRIPE_SECRET_KEY) {
+  throw new Error("Missing STRIPE_SECRET_KEY");
+}
+if (!SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+}
 
-const stripe = new Stripe(STRIPE_SECRET_KEY);
+const stripe = new Stripe(STRIPE_SECRET_KEY, {
+  apiVersion: "2025-11-17.clover" as any,
+});
 
-// Server-side Supabase client
+// Server-side Supabase client (trusted)
 const supabaseAdmin = createClient(
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY
@@ -36,6 +43,7 @@ export default async function handler(
 
     const token = authHeader.replace("Bearer ", "");
 
+    // Verify Supabase user
     const {
       data: { user },
       error: userError,
@@ -45,15 +53,32 @@ export default async function handler(
       return res.status(401).json({ error: "Invalid user" });
     }
 
-    const { priceId } = req.body as { priceId?: string };
-    if (!priceId) {
-      return res.status(400).json({ error: "Missing priceId" });
+    const {
+      priceId,
+      purchaseType,
+      scanId,
+    } = req.body as {
+      priceId?: string;
+      purchaseType?: "credit_pack" | "single_scan";
+      scanId?: string;
+    };
+
+    if (!priceId || !purchaseType) {
+      return res
+        .status(400)
+        .json({ error: "Missing purchase details" });
     }
 
+    if (purchaseType === "single_scan" && !scanId) {
+      return res
+        .status(400)
+        .json({ error: "Missing scanId for single scan unlock" });
+    }
+
+    // Ensure Stripe customer
     let stripeCustomerId =
       user.user_metadata?.stripe_customer_id ?? null;
 
-    // Create Stripe customer once
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
         email: user.email ?? undefined,
@@ -75,9 +100,6 @@ export default async function handler(
       );
     }
 
-    const origin =
-      req.headers.origin || "https://www.carverity.com.au";
-
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer: stripeCustomerId,
@@ -88,16 +110,22 @@ export default async function handler(
           quantity: 1,
         },
       ],
-      success_url: `${origin}/pricing?success=true`,
-      cancel_url: `${origin}/pricing?canceled=true`,
+      success_url: `${APP_URL}/pricing?success=true`,
+      cancel_url: `${APP_URL}/pricing?canceled=true`,
       metadata: {
-        purchase_type: "credit_pack",
+        purchase_type: purchaseType,
+        ...(scanId ? { scanId } : {}),
       },
     });
 
-    return res.status(200).json({ url: session.url });
-  } catch (err: any) {
-    console.error("Checkout error:", err);
-    return res.status(500).json({ error: "Checkout failed" });
+    return res.status(200).json({
+      sessionId: session.id,
+      url: session.url,
+    });
+  } catch (err) {
+    console.error("create-checkout-session error:", err);
+    return res
+      .status(500)
+      .json({ error: "Failed to start checkout" });
   }
 }
