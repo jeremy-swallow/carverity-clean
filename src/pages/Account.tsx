@@ -87,7 +87,6 @@ export default function Account() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12 space-y-10">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-semibold mb-2">Your account</h1>
         <p className="text-slate-400">
@@ -101,7 +100,6 @@ export default function Account() {
         </div>
       )}
 
-      {/* Credits balance */}
       <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 flex items-center justify-between">
         <div>
           <p className="text-slate-400 text-sm mb-1">
@@ -118,7 +116,6 @@ export default function Account() {
         </button>
       </div>
 
-      {/* Explanation */}
       <div className="text-slate-400 text-sm">
         <p>
           Each in-person inspection report uses{" "}
@@ -129,7 +126,6 @@ export default function Account() {
         </p>
       </div>
 
-      {/* Credits history */}
       <div>
         <h2 className="text-xl font-semibold mb-4">
           Credits history
@@ -160,7 +156,7 @@ export default function Account() {
                       {new Date(row.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 capitalize">
-                      {row.event_type.replace("_", " ")}
+                      {row.event_type.replace(/_/g, " ")}
                     </td>
                     <td
                       className={`px-4 py-3 ${
