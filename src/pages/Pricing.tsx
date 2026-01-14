@@ -1,30 +1,34 @@
 // src/pages/Pricing.tsx
+
 import { useState } from "react";
 import { supabase } from "../supabaseClient";
-import { getCurrentUser } from "../supabaseAuth";
 
-type PriceOption = {
-  id: string;
+type PackKey = "single" | "three" | "five";
+
+type PackOption = {
+  key: PackKey;
   label: string;
   price: string;
   description: string;
+  highlight?: boolean;
 };
 
-const PRICES: PriceOption[] = [
+const PACKS: PackOption[] = [
   {
-    id: "price_1So9TcE9gXaXx1nSyeYvpaQb",
+    key: "single",
     label: "Single scan",
     price: "$14.99",
     description: "Best for a one-off check.",
   },
   {
-    id: "price_1SoppbE9gXaXx1nSfp5Xex90",
+    key: "three",
     label: "3 scan pack",
     price: "$39",
     description: "Most popular.",
+    highlight: true,
   },
   {
-    id: "price_1SoprRE9gXaXx1nSnIKEnh0W",
+    key: "five",
     label: "5 scan pack",
     price: "$59",
     description: "Best value.",
@@ -32,31 +36,20 @@ const PRICES: PriceOption[] = [
 ];
 
 export default function Pricing() {
-  const [loadingPriceId, setLoadingPriceId] = useState<string | null>(null);
+  const [loadingPack, setLoadingPack] = useState<PackKey | null>(null);
 
-  async function startCheckout(priceId: string) {
+  async function startCheckout(pack: PackKey) {
     try {
-      setLoadingPriceId(priceId);
+      setLoadingPack(pack);
 
-      // ✅ Use SAME auth source as Layout
-      const user = await getCurrentUser();
-
-      if (!user) {
-        alert("You must be logged in to purchase scan credits.");
-        return;
-      }
-
-      // 🔐 Fetch session ONLY after user is confirmed
+      // Always fetch LIVE session
       const {
         data: { session },
         error: sessionError,
       } = await supabase.auth.getSession();
 
       if (sessionError || !session?.access_token) {
-        console.error("Session missing after user confirmed:", sessionError);
-        alert(
-          "Your login session could not be verified. Please refresh and try again."
-        );
+        alert("You must be logged in to purchase scan credits.");
         return;
       }
 
@@ -66,10 +59,7 @@ export default function Pricing() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          priceId,
-          purchaseType: "credit_pack",
-        }),
+        body: JSON.stringify({ pack }),
       });
 
       const data = await res.json();
@@ -80,13 +70,12 @@ export default function Pricing() {
         return;
       }
 
-      // 🚀 Redirect to Stripe Checkout
       window.location.href = data.url;
     } catch (err) {
       console.error("startCheckout error:", err);
       alert("Unexpected error starting checkout.");
     } finally {
-      setLoadingPriceId(null);
+      setLoadingPack(null);
     }
   }
 
@@ -98,28 +87,31 @@ export default function Pricing() {
       </p>
 
       <div className="grid gap-6 md:grid-cols-3">
-        {PRICES.map((option) => (
+        {PACKS.map((pack) => (
           <div
-            key={option.id}
-            className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 flex flex-col"
+            key={pack.key}
+            className={[
+              "rounded-2xl border p-6 flex flex-col",
+              pack.highlight
+                ? "border-emerald-500/40 bg-emerald-900/20"
+                : "border-slate-800 bg-slate-900/60",
+            ].join(" ")}
           >
             <h2 className="text-lg font-semibold text-white mb-1">
-              {option.label}
+              {pack.label}
             </h2>
-            <p className="text-slate-400 text-sm mb-4">
-              {option.description}
-            </p>
+            <p className="text-slate-400 text-sm mb-4">{pack.description}</p>
 
             <div className="text-3xl font-bold text-white mb-6">
-              {option.price}
+              {pack.price}
             </div>
 
             <button
-              onClick={() => startCheckout(option.id)}
-              disabled={loadingPriceId === option.id}
+              onClick={() => startCheckout(pack.key)}
+              disabled={loadingPack === pack.key}
               className="mt-auto rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-black font-semibold px-4 py-3 transition"
             >
-              {loadingPriceId === option.id
+              {loadingPack === pack.key
                 ? "Starting checkout..."
                 : "Buy scan pack"}
             </button>
