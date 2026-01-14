@@ -1,5 +1,3 @@
-// api/start-in-person-scan.ts
-
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 
@@ -12,60 +10,69 @@ if (!SUPABASE_URL) throw new Error("Missing SUPABASE_URL");
 if (!SUPABASE_SERVICE_ROLE_KEY)
   throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
 
-// Service-role client (server only)
 const supabaseAdmin = createClient(
   SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY
+  SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      persistSession: false,
+    },
+  }
 );
-
-// Helper: extract JWT from request
-function getAccessToken(req: VercelRequest): string | null {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return null;
-  if (!authHeader.startsWith("Bearer ")) return null;
-  return authHeader.replace("Bearer ", "");
-}
 
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "METHOD_NOT_ALLOWED" });
+    res.status(405).json({ error: "METHOD_NOT_ALLOWED" });
+    return;
   }
 
-  const accessToken = getAccessToken(req);
-
-  if (!accessToken) {
-    return res.status(401).json({ error: "NOT_AUTHENTICATED" });
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    res.status(401).json({ error: "NOT_AUTHENTICATED" });
+    return;
   }
 
-  // Validate user via Supabase Auth
-  const {
-    data: { user },
-    error: authError,
-  } = await supabaseAdmin.auth.getUser(accessToken);
+  const jwt = authHeader.replace("Bearer ", "");
 
-  if (authError || !user) {
-    return res.status(401).json({ error: "INVALID_SESSION" });
-  }
-
-  // Call RPC with explicit user ID
-  const { error: rpcError } = await supabaseAdmin.rpc(
-    "deduct_credit_for_in_person_scan",
+  // Create user-scoped client
+  const supabase = createClient(
+    SUPABASE_URL,
+    process.env.VITE_SUPABASE_ANON_KEY!,
     {
-      p_user_id: user.id,
+      global: {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+        },
+      },
     }
   );
 
-  if (rpcError) {
-    if (rpcError.message.includes("INSUFFICIENT_CREDITS")) {
-      return res.status(402).json({ error: "INSUFFICIENT_CREDITS" });
+  const { data, error } = await supabase.rpc(
+    "deduct_credit_for_in_person_scan"
+  );
+
+  if (error) {
+    console.error("Credit deduction failed:", error.message);
+
+    if (error.message.includes("INSUFFICIENT_CREDITS")) {
+      res.status(402).json({ error: "INSUFFICIENT_CREDITS" });
+      return;
     }
 
-    console.error("RPC error:", rpcError);
-    return res.status(500).json({ error: "CREDIT_DEDUCTION_FAILED" });
+    if (error.message.includes("NOT_AUTHENTICATED")) {
+      res.status(401).json({ error: "NOT_AUTHENTICATED" });
+      return;
+    }
+
+    res.status(500).json({ error: "CREDIT_DEDUCTION_FAILED" });
+    return;
   }
 
-  return res.status(200).json({ ok: true });
+  res.status(200).json({
+    success: true,
+    remainingCredits: data?.[0]?.new_balance ?? null,
+  });
 }
