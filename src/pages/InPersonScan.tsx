@@ -1,67 +1,119 @@
+/* =========================================================
+   In-person start
+   • Requires auth
+   • Atomically deducts 1 credit via API
+   • Prevents double start
+========================================================= */
+
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { generateScanId } from "../utils/scanStorage";
+import { clearProgress } from "../utils/scanProgress";
+import { supabase } from "../supabaseClient";
 
-export default function InPersonScan() {
+export default function InPersonStart() {
   const navigate = useNavigate();
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function startInspection() {
-    const scanId = generateScanId();
-    navigate(`/scan/in-person/summary/${scanId}`);
+  useEffect(() => {
+    clearProgress();
+  }, []);
+
+  async function startInspection() {
+    if (starting) return;
+
+    setStarting(true);
+    setError(null);
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      navigate("/sign-in");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/start-in-person-scan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data?.error === "INSUFFICIENT_CREDITS") {
+          navigate("/pricing");
+          return;
+        }
+
+        throw new Error(data?.error || "START_FAILED");
+      }
+
+      navigate("/scan/in-person/vehicle-details");
+    } catch (err) {
+      console.error("Start inspection failed:", err);
+      setError(
+        "Something went wrong starting the inspection. Please try again."
+      );
+      setStarting(false);
+    }
   }
 
   return (
-    <div
-      style={{
-        maxWidth: 720,
-        margin: "0 auto",
-        padding: "clamp(24px, 6vw, 64px)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 32,
-      }}
-    >
-      <header>
-        <h1
-          style={{
-            fontSize: "clamp(28px, 6vw, 40px)",
-            marginBottom: 12,
-          }}
-        >
-          In-person inspection
-        </h1>
+    <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
+      <span className="text-[11px] tracking-wide uppercase text-slate-400">
+        In-person inspection
+      </span>
 
-        <p
-          style={{
-            color: "#cbd5f5",
-            lineHeight: 1.6,
-            maxWidth: 560,
-          }}
-        >
-          I’ll guide you through key checks while you’re standing next to the
-          car. You can take your time — this is designed for real inspections.
+      <h1 className="text-xl md:text-2xl font-semibold text-white">
+        Start your in-person inspection
+      </h1>
+
+      <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-4 space-y-3">
+        <p className="text-sm text-slate-300">
+          CarVerity will guide you through a calm, real-world inspection of the
+          vehicle.
         </p>
-      </header>
+
+        <ul className="text-sm text-slate-300 list-disc list-inside space-y-1">
+          <li>You’ll capture a few key exterior photos first</li>
+          <li>Then follow guided checks as you move around the car</li>
+          <li>You can note anything that feels worth confirming</li>
+        </ul>
+
+        <p className="text-[11px] text-slate-400">
+          This inspection focuses on observations and confidence — not pricing
+          or diagnosis.
+        </p>
+      </section>
+
+      {error && (
+        <div className="rounded-xl border border-red-500/40 bg-red-900/30 px-4 py-3 text-red-300 text-sm">
+          {error}
+        </div>
+      )}
 
       <button
         onClick={startInspection}
-        style={{
-          alignSelf: "flex-start",
-          padding: "14px 22px",
-          borderRadius: 14,
-          fontSize: 16,
-          fontWeight: 600,
-          background: "#7aa2ff",
-          color: "#0b1020",
-          border: "none",
-          cursor: "pointer",
-        }}
+        disabled={starting}
+        className={[
+          "w-full rounded-xl px-4 py-3 font-semibold shadow transition",
+          starting
+            ? "bg-emerald-500/60 text-black/70 cursor-not-allowed"
+            : "bg-emerald-500 hover:bg-emerald-400 text-black",
+        ].join(" ")}
       >
-        Begin inspection
+        {starting ? "Starting inspection…" : "Start inspection (uses 1 credit)"}
       </button>
 
-      <footer style={{ fontSize: 14, color: "#9aa3c7" }}>
-        This inspection will be saved on this device.
-      </footer>
+      <p className="text-[11px] text-slate-400 text-center">
+        One scan credit will be used when the inspection begins.
+      </p>
     </div>
   );
 }
