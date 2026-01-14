@@ -1,48 +1,64 @@
+/* =========================================================
+   In-person start
+   • Single, in-person–only inspection flow
+   • Atomic credit deduction before scan starts
+   • Redirects to pricing if no credits
+========================================================= */
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../supabaseClient";
 import { clearProgress } from "../utils/scanProgress";
+import { supabase } from "../supabaseClient";
 
 export default function InPersonStart() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Always start fresh — no auto-resume
     clearProgress();
   }, []);
 
   async function startInspection() {
-    if (loading) return;
     setLoading(true);
+    setError(null);
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (!session) {
-      navigate("/sign-in");
-      return;
-    }
+      if (!session) {
+        navigate("/sign-in");
+        return;
+      }
 
-    const res = await fetch("/api/start-in-person-scan", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
-    });
+      const res = await fetch("/api/start-in-person-scan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-    if (res.status === 402) {
-      navigate("/pricing");
-      return;
-    }
+      if (res.status === 402) {
+        // No credits
+        navigate("/pricing");
+        return;
+      }
 
-    if (!res.ok) {
-      alert("Something went wrong starting the inspection.");
+      if (!res.ok) {
+        throw new Error("Failed to start inspection");
+      }
+
+      // Credit successfully deducted — begin scan
+      navigate("/scan/in-person/vehicle-details");
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong starting the inspection. Please try again.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    navigate("/scan/in-person/vehicle-details");
   }
 
   return (
@@ -68,20 +84,31 @@ export default function InPersonStart() {
         </ul>
 
         <p className="text-[11px] text-slate-400">
-          One scan credit will be used when you begin.
+          This inspection focuses on observations and confidence — not pricing
+          or diagnosis.
         </p>
       </section>
+
+      {error && (
+        <div className="rounded-xl border border-red-500/40 bg-red-900/30 px-4 py-3 text-red-300 text-sm">
+          {error}
+        </div>
+      )}
 
       <button
         onClick={startInspection}
         disabled={loading}
-        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-semibold px-4 py-3 shadow"
+        className="
+          w-full rounded-xl bg-emerald-500 hover:bg-emerald-400
+          disabled:opacity-60 disabled:cursor-not-allowed
+          text-black font-semibold px-4 py-3 shadow
+        "
       >
-        {loading ? "Starting…" : "Start inspection"}
+        {loading ? "Starting inspection…" : "Start inspection (uses 1 credit)"}
       </button>
 
       <p className="text-[11px] text-slate-400 text-center">
-        Credits are deducted securely when the inspection begins.
+        One scan credit will be used when the inspection begins.
       </p>
     </div>
   );
