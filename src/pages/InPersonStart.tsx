@@ -1,70 +1,48 @@
-// src/pages/InPersonStart.tsx
-
-/* =========================================================
-   In-person start
-   • Single, in-person–only inspection flow
-   • No online scan linking
-   • Sets expectations clearly and calmly
-========================================================= */
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { clearProgress } from "../utils/scanProgress";
 import { supabase } from "../supabaseClient";
+import { clearProgress } from "../utils/scanProgress";
 
 export default function InPersonStart() {
   const navigate = useNavigate();
-  const [starting, setStarting] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Always start fresh — no auto-resume
     clearProgress();
   }, []);
 
   async function startInspection() {
-    if (starting) return;
+    if (loading) return;
+    setLoading(true);
 
-    try {
-      setStarting(true);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError || !session?.access_token) {
-        navigate("/sign-in");
-        return;
-      }
-
-      const res = await fetch("/api/start-in-person-scan", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (res.status === 402 && data?.code === "NO_CREDITS") {
-        navigate("/pricing");
-        return;
-      }
-
-      if (!res.ok) {
-        console.error("Failed to start scan:", data);
-        alert("Could not start the inspection. Please try again.");
-        return;
-      }
-
-      navigate("/scan/in-person/vehicle-details");
-    } catch (err) {
-      console.error("startInspection error:", err);
-      alert("Unexpected error starting inspection.");
-    } finally {
-      setStarting(false);
+    if (!session) {
+      navigate("/sign-in");
+      return;
     }
+
+    const res = await fetch("/api/start-in-person-scan", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+
+    if (res.status === 402) {
+      navigate("/pricing");
+      return;
+    }
+
+    if (!res.ok) {
+      alert("Something went wrong starting the inspection.");
+      setLoading(false);
+      return;
+    }
+
+    navigate("/scan/in-person/vehicle-details");
   }
 
   return (
@@ -90,21 +68,20 @@ export default function InPersonStart() {
         </ul>
 
         <p className="text-[11px] text-slate-400">
-          This inspection focuses on observations and confidence — not pricing
-          or diagnosis.
+          One scan credit will be used when you begin.
         </p>
       </section>
 
       <button
         onClick={startInspection}
-        disabled={starting}
-        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed text-black font-semibold px-4 py-3 shadow"
+        disabled={loading}
+        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black font-semibold px-4 py-3 shadow"
       >
-        {starting ? "Starting…" : "Start inspection"}
+        {loading ? "Starting…" : "Start inspection"}
       </button>
 
       <p className="text-[11px] text-slate-400 text-center">
-        Your progress is saved locally on this device only.
+        Credits are deducted securely when the inspection begins.
       </p>
     </div>
   );
