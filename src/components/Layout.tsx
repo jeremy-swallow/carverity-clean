@@ -53,12 +53,12 @@ export default function Layout() {
   const isLoggedIn = Boolean(session);
 
   /* -------------------------------------------------------
-     Auth + credits state (Supabase is source of truth)
+     Auth + credits (Supabase is source of truth)
   ------------------------------------------------------- */
   useEffect(() => {
     let mounted = true;
 
-    async function load() {
+    async function refresh() {
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
 
@@ -79,25 +79,11 @@ export default function Layout() {
       setAuthReady(true);
     }
 
-    load();
+    refresh();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, newSession) => {
-        setSession(newSession);
-
-        if (newSession) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("credits")
-            .eq("id", newSession.user.id)
-            .single();
-
-          setCredits(profile?.credits ?? 0);
-        } else {
-          setCredits(null);
-        }
-      }
-    );
+    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+      refresh();
+    });
 
     return () => {
       mounted = false;
@@ -128,14 +114,6 @@ export default function Layout() {
     }
   }
 
-  function handleCreditsClick() {
-    navigate("/account");
-  }
-
-  function handleSignIn() {
-    navigate("/sign-in");
-  }
-
   /* -------------------------------------------------------
      Nav config
   ------------------------------------------------------- */
@@ -163,14 +141,10 @@ export default function Layout() {
       <header className="fixed inset-x-0 top-0 z-40">
         <div className="bg-slate-950/85 backdrop-blur border-b border-slate-800">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-            {/* LOGO */}
-            <NavLink to="/" className="flex items-center gap-2">
-              <span className="text-base font-semibold tracking-tight">
-                CarVerity
-              </span>
+            <NavLink to="/" className="font-semibold">
+              CarVerity
             </NavLink>
 
-            {/* DESKTOP NAV */}
             <nav className="hidden md:flex items-center gap-6">
               {navItems.map((item) => (
                 <NavLink
@@ -183,23 +157,27 @@ export default function Layout() {
               ))}
             </nav>
 
-            {/* DESKTOP ACTIONS */}
             <div className="hidden md:flex items-center gap-3">
               {!authReady ? null : isLoggedIn ? (
                 <>
-                  {credits !== null && (
-                    <button
-                      onClick={handleCreditsClick}
-                      className="px-3 py-1 rounded-full border border-emerald-500/40 bg-emerald-900/40 text-emerald-300 text-xs hover:bg-emerald-900/60 transition"
-                    >
-                      Scan credits: {credits}
-                    </button>
-                  )}
+                  <button
+                    onClick={() => navigate("/account")}
+                    className="px-3 py-1 rounded-full border border-emerald-500/40 bg-emerald-900/40 text-emerald-300 text-xs hover:bg-emerald-900/60"
+                  >
+                    Credits: {credits ?? "—"}
+                  </button>
+
+                  <NavLink
+                    to="/account"
+                    className="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs"
+                  >
+                    Account
+                  </NavLink>
 
                   {hasActiveScan && (
                     <button
                       onClick={handleResume}
-                      className="px-3 py-1 rounded-full bg-amber-400 text-slate-900 text-xs font-semibold shadow hover:bg-amber-300"
+                      className="px-3 py-1 rounded-full bg-amber-400 text-slate-900 text-xs font-semibold"
                     >
                       Resume scan
                     </button>
@@ -213,12 +191,12 @@ export default function Layout() {
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={handleSignIn}
+                <NavLink
+                  to="/sign-in"
                   className="px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-semibold"
                 >
                   Sign in
-                </button>
+                </NavLink>
               )}
             </div>
           </div>

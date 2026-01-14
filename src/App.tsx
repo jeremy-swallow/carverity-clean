@@ -37,18 +37,14 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        {/* Home */}
         <Route path="/" element={<Home />} />
-
-        {/* Core */}
         <Route path="/start-scan" element={<StartScan />} />
         <Route path="/sign-in" element={<SignIn />} />
+        <Route path="/account" element={<Account />} />
         <Route path="/my-scans" element={<MyScans />} />
         <Route path="/what-to-expect" element={<WhatToExpect />} />
         <Route path="/pricing" element={<Pricing />} />
-        <Route path="/account" element={<Account />} />
 
-        {/* In-person scan */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
         <Route
           path="/scan/in-person/vehicle-details"
@@ -91,7 +87,6 @@ export default function App() {
           element={<InPersonReportPrint />}
         />
 
-        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

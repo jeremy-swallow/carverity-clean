@@ -19,6 +19,8 @@ export default function Account() {
 
   useEffect(() => {
     async function loadProfile() {
+      setLoading(true);
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -36,6 +38,7 @@ export default function Account() {
 
       if (error) {
         console.error("Failed to load profile:", error);
+        setProfile(null);
       } else {
         setProfile(data);
       }
@@ -44,7 +47,7 @@ export default function Account() {
     }
 
     loadProfile();
-  }, [navigate]);
+  }, [navigate, showSuccess]);
 
   if (loading) {
     return (
@@ -79,10 +82,10 @@ export default function Account() {
       <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-slate-400 text-sm mb-1">Available scan credits</p>
-            <p className="text-4xl font-bold">
-              {profile.credits}
+            <p className="text-slate-400 text-sm mb-1">
+              Available scan credits
             </p>
+            <p className="text-4xl font-bold">{profile.credits}</p>
           </div>
 
           <button
@@ -96,7 +99,8 @@ export default function Account() {
 
       <div className="mt-8 text-slate-400 text-sm leading-relaxed">
         <p>
-          Each in-person inspection report uses <strong>1 scan credit</strong>.
+          Each in-person inspection report uses{" "}
+          <strong>1 scan credit</strong>.
         </p>
         <p className="mt-2">
           Credits never expire and remain tied to your account.
