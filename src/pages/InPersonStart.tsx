@@ -1,9 +1,4 @@
-/* =========================================================
-   In-person start
-   • Single, in-person–only inspection flow
-   • Atomic credit deduction before scan starts
-   • Redirects to pricing if no credits
-========================================================= */
+// src/pages/InPersonStart.tsx
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,8 +7,8 @@ import { supabase } from "../supabaseClient";
 
 export default function InPersonStart() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Always start fresh — no auto-resume
@@ -21,8 +16,8 @@ export default function InPersonStart() {
   }, []);
 
   async function startInspection() {
-    setLoading(true);
     setError(null);
+    setLoading(true);
 
     try {
       const {
@@ -38,22 +33,19 @@ export default function InPersonStart() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
-      if (res.status === 402) {
-        // No credits
-        navigate("/pricing");
-        return;
-      }
+      const data = await res.json();
 
       if (!res.ok) {
-        throw new Error("Failed to start inspection");
+        throw new Error(data.error || "Failed to start inspection");
       }
 
-      // Credit successfully deducted — begin scan
+      // Credit successfully deducted → proceed
       navigate("/scan/in-person/vehicle-details");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setError("Something went wrong starting the inspection. Please try again.");
     } finally {
@@ -98,11 +90,7 @@ export default function InPersonStart() {
       <button
         onClick={startInspection}
         disabled={loading}
-        className="
-          w-full rounded-xl bg-emerald-500 hover:bg-emerald-400
-          disabled:opacity-60 disabled:cursor-not-allowed
-          text-black font-semibold px-4 py-3 shadow
-        "
+        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-black font-semibold px-4 py-3 shadow"
       >
         {loading ? "Starting inspection…" : "Start inspection (uses 1 credit)"}
       </button>

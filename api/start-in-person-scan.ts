@@ -1,16 +1,14 @@
 // api/start-in-person-scan.ts
+
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL =
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || "";
 
-const supabaseAdmin = createClient(
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY
-);
+if (!SUPABASE_URL) throw new Error("Missing SUPABASE_URL");
+if (!SUPABASE_ANON_KEY) throw new Error("Missing SUPABASE_ANON_KEY");
 
 export default async function handler(
   req: VercelRequest,
@@ -21,33 +19,38 @@ export default async function handler(
   }
 
   const authHeader = req.headers.authorization;
-  if (!authHeader) {
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ error: "NOT_AUTHENTICATED" });
   }
 
-  const token = authHeader.replace("Bearer ", "");
+  const accessToken = authHeader.replace("Bearer ", "");
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
 
   const {
     data: { user },
     error: authError,
-  } = await supabaseAdmin.auth.getUser(token);
+  } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return res.status(401).json({ error: "NOT_AUTHENTICATED" });
+    return res.status(401).json({ error: "INVALID_SESSION" });
   }
 
-  const { error } = await supabaseAdmin.rpc(
+  const { error } = await supabase.rpc(
     "deduct_credit_for_in_person_scan"
   );
 
   if (error) {
-    if (error.message.includes("NO_CREDITS")) {
-      return res.status(402).json({ error: "NO_CREDITS" });
-    }
-
-    console.error("Credit deduction failed:", error);
-    return res.status(500).json({ error: "FAILED_TO_DEDUCT_CREDIT" });
+    console.error("RPC error:", error);
+    return res.status(400).json({ error: error.message });
   }
 
-  return res.status(200).json({ ok: true });
+  return res.status(200).json({ success: true });
 }
