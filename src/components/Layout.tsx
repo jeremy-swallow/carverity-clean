@@ -8,7 +8,6 @@ import {
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { loadProgress } from "../utils/scanProgress";
-import { loadCredits } from "../utils/scanCredits";
 import { supabase } from "../supabaseClient";
 import { signOut } from "../supabaseAuth";
 
@@ -42,7 +41,7 @@ function getSafeResumeRoute(step?: string): string | null {
 
 export default function Layout() {
   const [hasActiveScan, setHasActiveScan] = useState(false);
-  const [credits, setCredits] = useState(0);
+  const [credits, setCredits] = useState<number | null>(null);
   const [session, setSession] = useState<
     Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null
   >(null);
@@ -54,22 +53,49 @@ export default function Layout() {
   const isLoggedIn = Boolean(session);
 
   /* -------------------------------------------------------
-     Auth state (SESSION is source of truth)
+     Auth + credits state (Supabase is source of truth)
   ------------------------------------------------------- */
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    async function load() {
+      const { data } = await supabase.auth.getSession();
       if (!mounted) return;
+
       setSession(data.session ?? null);
-      setCredits(data.session ? loadCredits() : 0);
+
+      if (data.session) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("credits")
+          .eq("id", data.session.user.id)
+          .single();
+
+        setCredits(profile?.credits ?? 0);
+      } else {
+        setCredits(null);
+      }
+
       setAuthReady(true);
-    });
+    }
+
+    load();
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      async (_event, newSession) => {
         setSession(newSession);
-        setCredits(newSession ? loadCredits() : 0);
+
+        if (newSession) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("credits")
+            .eq("id", newSession.user.id)
+            .single();
+
+          setCredits(profile?.credits ?? 0);
+        } else {
+          setCredits(null);
+        }
       }
     );
 
@@ -91,7 +117,6 @@ export default function Layout() {
     const progress = loadProgress();
     const safeRoute = getSafeResumeRoute(progress?.step);
     if (!safeRoute) return;
-
     navigate(safeRoute);
   }
 
@@ -104,7 +129,7 @@ export default function Layout() {
   }
 
   function handleCreditsClick() {
-    navigate("/pricing");
+    navigate("/account");
   }
 
   function handleSignIn() {
@@ -162,12 +187,14 @@ export default function Layout() {
             <div className="hidden md:flex items-center gap-3">
               {!authReady ? null : isLoggedIn ? (
                 <>
-                  <button
-                    onClick={handleCreditsClick}
-                    className="px-3 py-1 rounded-full border border-emerald-500/40 bg-emerald-900/40 text-emerald-300 text-xs hover:bg-emerald-900/60 transition"
-                  >
-                    Scan credits: {credits}
-                  </button>
+                  {credits !== null && (
+                    <button
+                      onClick={handleCreditsClick}
+                      className="px-3 py-1 rounded-full border border-emerald-500/40 bg-emerald-900/40 text-emerald-300 text-xs hover:bg-emerald-900/60 transition"
+                    >
+                      Scan credits: {credits}
+                    </button>
+                  )}
 
                   {hasActiveScan && (
                     <button

@@ -13,6 +13,7 @@ import WhatToExpect from "./pages/WhatToExpect";
 import MyScans from "./pages/MyScans";
 import Pricing from "./pages/Pricing";
 import SignIn from "./pages/SignIn";
+import Account from "./pages/Account";
 
 /* =======================
    In-person scan flow
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/my-scans" element={<MyScans />} />
         <Route path="/what-to-expect" element={<WhatToExpect />} />
         <Route path="/pricing" element={<Pricing />} />
+        <Route path="/account" element={<Account />} />
 
         {/* In-person scan */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
