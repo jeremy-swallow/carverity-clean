@@ -1,4 +1,9 @@
-// src/pages/InPersonStart.tsx
+/* =========================================================
+   In-person start
+   • Requires auth
+   • Atomically deducts 1 credit via API
+   • Prevents double start
+========================================================= */
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -7,8 +12,8 @@ import { supabase } from "../supabaseClient";
 
 export default function InPersonStart() {
   const navigate = useNavigate();
+  const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Always start fresh — no auto-resume
@@ -16,40 +21,47 @@ export default function InPersonStart() {
   }, []);
 
   async function startInspection() {
+    if (starting) return;
+
+    setStarting(true);
     setError(null);
-    setLoading(true);
+
+    // Ensure user is authenticated
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      navigate("/sign-in");
+      return;
+    }
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        navigate("/sign-in");
-        return;
-      }
-
       const res = await fetch("/api/start-in-person-scan", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to start inspection");
+        if (data?.error === "INSUFFICIENT_CREDITS") {
+          navigate("/pricing");
+          return;
+        }
+
+        throw new Error(data?.error || "START_FAILED");
       }
 
-      // Credit successfully deducted → proceed
+      // Success → proceed into inspection flow
       navigate("/scan/in-person/vehicle-details");
-    } catch (err: any) {
-      console.error(err);
+    } catch (err) {
+      console.error("Start inspection failed:", err);
       setError("Something went wrong starting the inspection. Please try again.");
-    } finally {
-      setLoading(false);
+      setStarting(false);
     }
   }
 
@@ -89,10 +101,15 @@ export default function InPersonStart() {
 
       <button
         onClick={startInspection}
-        disabled={loading}
-        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-black font-semibold px-4 py-3 shadow"
+        disabled={starting}
+        className={[
+          "w-full rounded-xl px-4 py-3 font-semibold shadow transition",
+          starting
+            ? "bg-emerald-500/60 text-black/70 cursor-not-allowed"
+            : "bg-emerald-500 hover:bg-emerald-400 text-black",
+        ].join(" ")}
       >
-        {loading ? "Starting inspection…" : "Start inspection (uses 1 credit)"}
+        {starting ? "Starting inspection…" : "Start inspection (uses 1 credit)"}
       </button>
 
       <p className="text-[11px] text-slate-400 text-center">
