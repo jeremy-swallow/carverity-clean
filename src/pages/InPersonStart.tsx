@@ -2,18 +2,40 @@
    In-person start
    • Requires auth
    • Atomically deducts 1 credit via API
-   • Prevents double start
+   • TRUE idempotency via stable reference (sessionStorage)
 ========================================================= */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { clearProgress } from "../utils/scanProgress";
 import { supabase } from "../supabaseClient";
+
+const START_REF_KEY = "carverity_in_person_start_ref";
+
+function getOrCreateStartRef(): string {
+  const existing = sessionStorage.getItem(START_REF_KEY);
+  if (existing && existing.trim().length > 0) return existing;
+
+  const created =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  sessionStorage.setItem(START_REF_KEY, created);
+  return created;
+}
+
+function clearStartRef() {
+  sessionStorage.removeItem(START_REF_KEY);
+}
 
 export default function InPersonStart() {
   const navigate = useNavigate();
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Prepare a stable reference for this start attempt
+  const startReference = useMemo(() => getOrCreateStartRef(), []);
 
   useEffect(() => {
     // Always start fresh — no auto-resume
@@ -43,27 +65,37 @@ export default function InPersonStart() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
+        body: JSON.stringify({ reference: startReference }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
         if (data?.error === "INSUFFICIENT_CREDITS") {
+          clearStartRef();
           navigate("/pricing");
+          return;
+        }
+
+        if (data?.error === "NOT_AUTHENTICATED") {
+          clearStartRef();
+          navigate("/sign-in");
           return;
         }
 
         throw new Error(data?.error || "START_FAILED");
       }
 
-      // Success → proceed into inspection flow
+      // Success — we can clear the idempotency reference now
+      clearStartRef();
+
+      // Proceed into inspection flow
       navigate("/scan/in-person/vehicle-details");
     } catch (err) {
       console.error("Start inspection failed:", err);
-      setError(
-        "Something went wrong starting the inspection. Please try again."
-      );
+      setError("Something went wrong starting the inspection. Please try again.");
       setStarting(false);
+      // Do NOT clear the reference here — retry must be idempotent
     }
   }
 
@@ -111,9 +143,7 @@ export default function InPersonStart() {
             : "bg-emerald-500 hover:bg-emerald-400 text-black",
         ].join(" ")}
       >
-        {starting
-          ? "Starting inspection…"
-          : "Start inspection (uses 1 credit)"}
+        {starting ? "Starting inspection…" : "Start inspection (uses 1 credit)"}
       </button>
 
       <p className="text-[11px] text-slate-400 text-center">
