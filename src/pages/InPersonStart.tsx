@@ -11,6 +11,7 @@ import { clearProgress } from "../utils/scanProgress";
 import { supabase } from "../supabaseClient";
 
 const START_REF_KEY = "carverity_in_person_start_ref";
+const SCAN_ID_KEY = "carverity_in_person_scan_id";
 
 function getOrCreateStartRef(): string {
   const existing = sessionStorage.getItem(START_REF_KEY);
@@ -25,8 +26,25 @@ function getOrCreateStartRef(): string {
   return created;
 }
 
+function getOrCreateScanId(): string {
+  const existing = sessionStorage.getItem(SCAN_ID_KEY);
+  if (existing && existing.trim().length > 0) return existing;
+
+  const created =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  sessionStorage.setItem(SCAN_ID_KEY, created);
+  return created;
+}
+
 function clearStartRef() {
   sessionStorage.removeItem(START_REF_KEY);
+}
+
+function clearScanId() {
+  sessionStorage.removeItem(SCAN_ID_KEY);
 }
 
 export default function InPersonStart() {
@@ -34,8 +52,9 @@ export default function InPersonStart() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Prepare a stable reference for this start attempt
+  // Prepare stable identifiers
   const startReference = useMemo(() => getOrCreateStartRef(), []);
+  const scanId = useMemo(() => getOrCreateScanId(), []);
 
   useEffect(() => {
     // Always start fresh — no auto-resume
@@ -65,7 +84,10 @@ export default function InPersonStart() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ reference: startReference }),
+        body: JSON.stringify({
+          scanId,
+          reference: startReference,
+        }),
       });
 
       const data = await res.json();
@@ -73,12 +95,14 @@ export default function InPersonStart() {
       if (!res.ok) {
         if (data?.error === "INSUFFICIENT_CREDITS") {
           clearStartRef();
+          clearScanId();
           navigate("/pricing");
           return;
         }
 
         if (data?.error === "NOT_AUTHENTICATED") {
           clearStartRef();
+          clearScanId();
           navigate("/sign-in");
           return;
         }
@@ -86,16 +110,16 @@ export default function InPersonStart() {
         throw new Error(data?.error || "START_FAILED");
       }
 
-      // Success — we can clear the idempotency reference now
+      // Success — clear idempotency helpers
       clearStartRef();
+      // NOTE: we intentionally keep scanId for the rest of the flow
 
-      // Proceed into inspection flow
       navigate("/scan/in-person/vehicle-details");
     } catch (err) {
       console.error("Start inspection failed:", err);
       setError("Something went wrong starting the inspection. Please try again.");
       setStarting(false);
-      // Do NOT clear the reference here — retry must be idempotent
+      // Do NOT clear refs here — retry must remain idempotent
     }
   }
 
