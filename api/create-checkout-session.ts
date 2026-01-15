@@ -88,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [{ price: PRICE_MAP[pack], quantity: 1 }],
-      success_url: `${APP_URL}/pricing?success=1`,
+      success_url: `${APP_URL}/pricing?success=1&restore=1`,
       cancel_url: `${APP_URL}/pricing?cancelled=1`,
       metadata: {
         purchase_type: "credit_pack",
