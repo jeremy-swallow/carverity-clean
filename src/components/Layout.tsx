@@ -6,7 +6,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { loadProgress } from "../utils/scanProgress";
 import { supabase } from "../supabaseClient";
 import { signOut } from "../supabaseAuth";
@@ -36,6 +36,63 @@ function getSafeResumeRoute(step?: string): string | null {
   return "/scan/in-person/summary";
 }
 
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+type ProgressMeta = {
+  label: string;
+  index: number; // 0-based
+  total: number;
+};
+
+function getInPersonProgressMeta(pathname: string): ProgressMeta | null {
+  // Keep this list short and “human” (not every micro-step)
+  const steps: Array<{ match: (p: string) => boolean; label: string }> = [
+    {
+      match: (p) => p === "/scan/in-person/start",
+      label: "Start",
+    },
+    {
+      match: (p) => p === "/scan/in-person/vehicle-details",
+      label: "Vehicle",
+    },
+    {
+      match: (p) => p === "/scan/in-person/photos",
+      label: "Photos",
+    },
+    {
+      match: (p) => p.startsWith("/scan/in-person/checks"),
+      label: "Checks",
+    },
+    {
+      match: (p) => p === "/scan/in-person/summary",
+      label: "Summary",
+    },
+    {
+      match: (p) => p.startsWith("/scan/in-person/analyzing"),
+      label: "Analysing",
+    },
+    {
+      match: (p) => p.startsWith("/scan/in-person/results"),
+      label: "Report",
+    },
+    {
+      match: (p) => p === "/scan/in-person/negotiation",
+      label: "Negotiation",
+    },
+  ];
+
+  const idx = steps.findIndex((s) => s.match(pathname));
+  if (idx === -1) return null;
+
+  return {
+    label: steps[idx].label,
+    index: idx,
+    total: steps.length,
+  };
+}
+
 /* =========================================================
    Layout
 ========================================================= */
@@ -53,6 +110,20 @@ export default function Layout() {
   const navigate = useNavigate();
 
   const isLoggedIn = Boolean(session);
+
+  const progressMeta = useMemo(() => {
+    return getInPersonProgressMeta(location.pathname);
+  }, [location.pathname]);
+
+  const progressPercent = useMemo(() => {
+    if (!progressMeta) return null;
+    // index 0 => ~10%, final => 100%
+    const raw =
+      progressMeta.total <= 1
+        ? 100
+        : ((progressMeta.index + 1) / progressMeta.total) * 100;
+    return clamp(Math.round(raw), 5, 100);
+  }, [progressMeta]);
 
   /* -------------------------------------------------------
      Auth + credits
@@ -138,16 +209,28 @@ export default function Layout() {
 
             {/* Desktop nav unchanged */}
             <nav className="hidden md:flex items-center gap-6 text-sm">
-              <NavLink to="/start-scan" className="text-slate-300 hover:text-white">
+              <NavLink
+                to="/start-scan"
+                className="text-slate-300 hover:text-white"
+              >
                 Start scan
               </NavLink>
-              <NavLink to="/my-scans" className="text-slate-300 hover:text-white">
+              <NavLink
+                to="/my-scans"
+                className="text-slate-300 hover:text-white"
+              >
                 My scans
               </NavLink>
-              <NavLink to="/pricing" className="text-slate-300 hover:text-white">
+              <NavLink
+                to="/pricing"
+                className="text-slate-300 hover:text-white"
+              >
                 Pricing
               </NavLink>
-              <NavLink to="/what-to-expect" className="text-slate-300 hover:text-white">
+              <NavLink
+                to="/what-to-expect"
+                className="text-slate-300 hover:text-white"
+              >
                 What to expect
               </NavLink>
             </nav>
@@ -190,6 +273,37 @@ export default function Layout() {
               <Menu size={20} />
             </button>
           </div>
+
+          {/* Premium in-person progress indicator (only in scan corridor) */}
+          {progressMeta && progressPercent !== null && (
+            <div className="border-t border-slate-800/70">
+              <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                      In-person inspection
+                    </p>
+                    <p className="text-sm text-slate-200 truncate">
+                      Step {progressMeta.index + 1} of {progressMeta.total} ·{" "}
+                      {progressMeta.label}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-xs text-slate-400 tabular-nums">
+                      {progressPercent}%
+                    </span>
+                    <div className="w-28 sm:w-40 h-2 rounded-full bg-slate-800 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -301,7 +415,8 @@ export default function Layout() {
         </div>
       </aside>
 
-      <div className="h-14" />
+      {/* Header spacer: 14 + optional progress bar height */}
+      <div className={progressMeta ? "h-[104px]" : "h-14"} />
 
       <main className="flex-1">
         <Outlet />
