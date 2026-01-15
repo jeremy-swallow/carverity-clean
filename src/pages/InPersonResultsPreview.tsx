@@ -86,9 +86,7 @@ export default function InPersonResultsPreview() {
 
       <button
         onClick={() =>
-          navigate(
-            `/scan/in-person/unlock?scanId=${encodeURIComponent(scanId)}`
-          )
+          navigate(`/scan/in-person/unlock/${encodeURIComponent(scanId)}`)
         }
         className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-5 py-3"
       >
