@@ -10,7 +10,14 @@ import { useEffect, useState } from "react";
 import { loadProgress } from "../utils/scanProgress";
 import { supabase } from "../supabaseClient";
 import { signOut } from "../supabaseAuth";
-import { Menu, X } from "lucide-react";
+import {
+  Menu,
+  X,
+  PlayCircle,
+  CreditCard,
+  User,
+  LogOut,
+} from "lucide-react";
 
 /* =========================================================
    Helpers
@@ -55,7 +62,7 @@ export default function Layout() {
   const isLoggedIn = Boolean(session);
 
   /* -------------------------------------------------------
-     Auth + credits (Supabase is source of truth)
+     Auth + credits
   ------------------------------------------------------- */
   useEffect(() => {
     let mounted = true;
@@ -122,10 +129,10 @@ export default function Layout() {
      Nav config
   ------------------------------------------------------- */
   const navItems = [
-    { to: "/start-scan", label: "Start scan" },
-    { to: "/my-scans", label: "My scans" },
-    { to: "/pricing", label: "Pricing" },
-    { to: "/what-to-expect", label: "What to expect" },
+    { to: "/start-scan", label: "Start scan", icon: PlayCircle },
+    { to: "/my-scans", label: "My scans", icon: PlayCircle },
+    { to: "/pricing", label: "Pricing", icon: CreditCard },
+    { to: "/what-to-expect", label: "What to expect", icon: PlayCircle },
   ];
 
   const desktopLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -135,8 +142,6 @@ export default function Layout() {
         ? "text-white font-semibold"
         : "text-slate-300 hover:text-white",
     ].join(" ");
-
-  const mobileLinkClass = "text-slate-200 text-sm py-2";
 
   /* -------------------------------------------------------
      Render
@@ -170,14 +175,14 @@ export default function Layout() {
                 <>
                   <button
                     onClick={() => navigate("/account")}
-                    className="px-3 py-1 rounded-full border border-emerald-500/40 bg-emerald-900/40 text-emerald-300 text-xs hover:bg-emerald-900/60"
+                    className="px-3 py-1 rounded-full border border-emerald-500/40 bg-emerald-900/40 text-emerald-300 text-xs"
                   >
                     Credits: {credits ?? "—"}
                   </button>
 
                   <NavLink
                     to="/account"
-                    className="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs"
+                    className="px-3 py-1 rounded-full bg-slate-800 text-slate-200 text-xs"
                   >
                     Account
                   </NavLink>
@@ -193,7 +198,7 @@ export default function Layout() {
 
                   <button
                     onClick={handleLogout}
-                    className="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs"
+                    className="px-3 py-1 rounded-full bg-slate-800 text-slate-200 text-xs"
                   >
                     Log out
                   </button>
@@ -201,7 +206,7 @@ export default function Layout() {
               ) : (
                 <NavLink
                   to="/sign-in"
-                  className="px-3 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-semibold"
+                  className="px-3 py-1 rounded-full bg-emerald-600 text-black text-xs font-semibold"
                 >
                   Sign in
                 </NavLink>
@@ -210,75 +215,98 @@ export default function Layout() {
 
             {/* Mobile hamburger */}
             <button
-              onClick={() => setMobileOpen((v) => !v)}
+              onClick={() => setMobileOpen(true)}
               className="md:hidden p-2 rounded-lg hover:bg-slate-800"
               aria-label="Open menu"
             >
-              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+              <Menu size={20} />
             </button>
           </div>
+        </div>
+      </header>
 
-          {/* Mobile menu */}
-          {mobileOpen && (
-            <div className="md:hidden border-t border-slate-800 bg-slate-950 px-4 py-4 space-y-3">
-              {navItems.map((item) => (
+      {/* Mobile scrim */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile drawer */}
+      <aside
+        className={[
+          "fixed top-0 right-0 z-50 h-full w-[82%] max-w-sm bg-slate-950 border-l border-slate-800",
+          "transform transition-transform duration-300 ease-out",
+          mobileOpen ? "translate-x-0" : "translate-x-full",
+        ].join(" ")}
+      >
+        <div className="h-14 px-4 flex items-center justify-between border-b border-slate-800">
+          <span className="font-semibold">Menu</span>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-2 rounded-lg hover:bg-slate-800"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="px-4 py-6 space-y-6">
+          <nav className="space-y-3">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
                 <NavLink
                   key={item.to}
                   to={item.to}
                   onClick={() => setMobileOpen(false)}
-                  className={mobileLinkClass}
+                  className="flex items-center gap-3 text-slate-200 text-sm py-2"
                 >
+                  <Icon size={18} className="text-slate-400" />
                   {item.label}
                 </NavLink>
-              ))}
+              );
+            })}
+          </nav>
 
-              <div className="pt-3 border-t border-slate-800 space-y-2">
-                {!authReady ? null : isLoggedIn ? (
-                  <>
-                    <div className="text-xs text-slate-400">
-                      Credits: {credits ?? "—"}
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        setMobileOpen(false);
-                        navigate("/account");
-                      }}
-                      className={mobileLinkClass}
-                    >
-                      Account
-                    </button>
-
-                    {hasActiveScan && (
-                      <button
-                        onClick={handleResume}
-                        className="w-full text-left text-amber-300 text-sm py-2"
-                      >
-                        Resume scan
-                      </button>
-                    )}
-
-                    <button
-                      onClick={handleLogout}
-                      className="w-full text-left text-slate-200 text-sm py-2"
-                    >
-                      Log out
-                    </button>
-                  </>
-                ) : (
-                  <NavLink
-                    to="/sign-in"
-                    onClick={() => setMobileOpen(false)}
-                    className="text-emerald-400 text-sm py-2 block"
-                  >
-                    Sign in
-                  </NavLink>
-                )}
+          {authReady && isLoggedIn && (
+            <div className="pt-4 border-t border-slate-800 space-y-3">
+              <div className="text-xs text-slate-400">
+                Credits: {credits ?? "—"}
               </div>
+
+              <button
+                onClick={() => {
+                  setMobileOpen(false);
+                  navigate("/account");
+                }}
+                className="flex items-center gap-3 text-sm text-slate-200 py-2"
+              >
+                <User size={18} className="text-slate-400" />
+                Account
+              </button>
+
+              {hasActiveScan && (
+                <button
+                  onClick={handleResume}
+                  className="flex items-center gap-3 text-sm text-amber-300 py-2"
+                >
+                  <PlayCircle size={18} />
+                  Resume scan
+                </button>
+              )}
+
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 text-sm text-slate-200 py-2"
+              >
+                <LogOut size={18} className="text-slate-400" />
+                Log out
+              </button>
             </div>
           )}
         </div>
-      </header>
+      </aside>
 
       <div className="h-14" />
 
