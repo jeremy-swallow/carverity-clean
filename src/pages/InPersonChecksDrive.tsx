@@ -1,6 +1,6 @@
 // src/pages/InPersonChecksDrive.tsx
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Gauge, Radar } from "lucide-react";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
@@ -15,21 +15,6 @@ export default function InPersonChecksDrive() {
   const [answers, setAnswers] = useState<Record<string, CheckAnswer>>(
     progress?.checks ?? {}
   );
-
-  /* -------------------------------------------------------
-     Progress indicator (checks corridor only)
-  ------------------------------------------------------- */
-  const steps = useMemo(
-    () => [
-      { key: "around", label: "Around" },
-      { key: "inside", label: "Inside" },
-      { key: "drive", label: "Drive" },
-    ],
-    []
-  );
-
-  const currentIndex = 2; // drive
-  const percent = Math.round(((currentIndex + 1) / steps.length) * 100);
 
   /* -------------------------------------------------------
      Persist progress
@@ -78,63 +63,16 @@ export default function InPersonChecksDrive() {
   ];
 
   function finishChecks() {
-    navigate("/scan/in-person/summary");
+    navigate("/scan/in-person/asking-price");
   }
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
-      {/* Mini progress */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-slate-500">
-          <span>Checks</span>
-          <span>{percent}%</span>
-        </div>
-
-        <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-emerald-400 transition-all"
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          {steps.map((s, i) => {
-            const active = i === currentIndex;
-            const done = i < currentIndex;
-            return (
-              <div
-                key={s.key}
-                className={[
-                  "flex-1 text-center",
-                  active ? "text-slate-200 font-medium" : "",
-                  done ? "text-slate-300" : "",
-                ].join(" ")}
-              >
-                {s.label}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3 pt-2">
+      <div className="flex items-center gap-3">
         <Gauge className="h-5 w-5 text-slate-400" />
         <h1 className="text-2xl font-semibold text-white">
           Short drive (if allowed)
         </h1>
-      </div>
-
-      <div className="rounded-2xl border border-white/10 bg-slate-900/40 px-5 py-4">
-        <p className="text-sm text-slate-200 font-medium">Before you drive</p>
-        <p className="text-xs text-slate-400 mt-1">
-          Keep it short and safe. You’re only looking for obvious behaviours —
-          not trying to diagnose faults.
-        </p>
-        <ul className="mt-3 text-xs text-slate-300 space-y-1 list-disc list-inside">
-          <li>Steer gently both directions (feel for pulling or vibration)</li>
-          <li>Light acceleration + light braking (listen for clunks / delay)</li>
-          <li>Watch the dash for warnings or sensor errors</li>
-        </ul>
       </div>
 
       {checks.map((c) => {
@@ -220,7 +158,7 @@ export default function InPersonChecksDrive() {
           onClick={finishChecks}
           className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-3 font-semibold text-black"
         >
-          Finish checks
+          Continue
         </button>
       </div>
     </div>

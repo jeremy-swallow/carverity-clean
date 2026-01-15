@@ -20,6 +20,7 @@ import InPersonChecksIntro from "./pages/InPersonChecksIntro";
 import InPersonChecksAroundCar from "./pages/InPersonChecksAroundCar";
 import InPersonChecksInsideCabin from "./pages/InPersonChecksInsideCabin";
 import InPersonChecksDrive from "./pages/InPersonChecksDrive";
+import InPersonAskingPrice from "./pages/InPersonAskingPrice";
 import InPersonSummary from "./pages/InPersonSummary";
 import InPersonAnalyzing from "./pages/InPersonAnalyzing";
 import InPersonResults from "./pages/InPersonResults";
@@ -66,6 +67,13 @@ export default function App() {
           path="/scan/in-person/checks/drive"
           element={<InPersonChecksDrive />}
         />
+
+        {/* NEW: Asking price */}
+        <Route
+          path="/scan/in-person/asking-price"
+          element={<InPersonAskingPrice />}
+        />
+
         <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
 
         {/* New irreversible corridor */}
@@ -78,7 +86,10 @@ export default function App() {
           element={<InPersonResults />}
         />
 
-        <Route path="/scan/in-person/negotiation" element={<InPersonNegotiation />} />
+        <Route
+          path="/scan/in-person/negotiation"
+          element={<InPersonNegotiation />}
+        />
         <Route path="/scan/in-person/print" element={<InPersonReportPrint />} />
 
         {/* Legacy (safe but unused) */}
