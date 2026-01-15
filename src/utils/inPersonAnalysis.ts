@@ -12,6 +12,9 @@ export type ScanProgress = {
   scanId?: string;
   step?: string;
 
+  // NEW
+  askingPrice?: number | null;
+
   checks?: Record<string, CheckAnswer>;
   photos?: Array<{ id: string; dataUrl: string; stepId: string }>;
   followUpPhotos?: Array<{ id: string; dataUrl: string; note?: string }>;
@@ -70,6 +73,22 @@ export type BuyerContextInterpretation = {
   guidance: string;
 };
 
+export type PriceGuidance = {
+  askingPriceAud: number | null;
+
+  // The app’s buyer-safe estimate of a “fairer” price window given what was recorded.
+  // This is NOT a valuation and NOT a repair quote.
+  adjustedPriceLowAud: number | null;
+  adjustedPriceHighAud: number | null;
+
+  // How much to push down from asking price (AUD)
+  suggestedReductionLowAud: number | null;
+  suggestedReductionHighAud: number | null;
+
+  disclaimer: string;
+  rationale: string[];
+};
+
 export type AnalysisResult = {
   verdict: "proceed" | "caution" | "walk-away";
   verdictReason: string;
@@ -79,14 +98,11 @@ export type AnalysisResult = {
 
   risks: RiskItem[];
 
-  // Existing + legacy-friendly
   negotiationLeverage: NegotiationLeverageGroup[];
 
-  // Newer, richer outputs used by report / results
   negotiationPositioning: NegotiationPositioning;
   whyThisVerdict: string[];
 
-  // Explicit reasoning (non-magical)
   evidenceSummary: EvidenceSummary;
   riskWeightingExplanation: string[];
   uncertaintyFactors: UncertaintyFactor[];
@@ -97,6 +113,9 @@ export type AnalysisResult = {
     adasPresentButDisabled: boolean;
     confidence: number;
   };
+
+  // NEW
+  priceGuidance: PriceGuidance;
 };
 
 /* =========================================================
@@ -124,58 +143,6 @@ function titleFromId(id: string) {
 }
 
 /* =========================================================
-   Compatibility: normalise check IDs (CRITICAL FIX)
-   - Your UI uses ids like "drive-steering" and "drive-noise"
-   - Analysis expects "steering" and "noise-hesitation"
-   - This alias layer makes BOTH work without breaking old scans
-========================================================= */
-
-const CHECK_ID_ALIASES: Record<string, string> = {
-  // Drive checks (UI -> analysis canonical)
-  "drive-steering": "steering",
-  "drive-noise": "noise-hesitation",
-
-  // If any other screens used these variants historically
-  "drive-noise-hesitation": "noise-hesitation",
-  "steering-handling": "steering",
-};
-
-function normaliseChecks(
-  raw: Record<string, CheckAnswer> | undefined
-): Record<string, CheckAnswer> {
-  const checks = raw ?? {};
-  const out: Record<string, CheckAnswer> = { ...checks };
-
-  for (const [from, to] of Object.entries(CHECK_ID_ALIASES)) {
-    const fromVal = checks[from];
-    const toVal = checks[to];
-
-    // If canonical is missing, copy alias into canonical
-    if (fromVal && !toVal) {
-      out[to] = fromVal;
-    }
-
-    // If both exist, keep the more "severe" signal:
-    // concern > unsure > ok
-    if (fromVal && toVal) {
-      const rank = (v: AnswerValue) =>
-        v === "concern" ? 3 : v === "unsure" ? 2 : 1;
-
-      if (rank(fromVal.value) > rank(toVal.value)) {
-        out[to] = fromVal;
-      }
-
-      // If canonical has no note but alias does, keep the note
-      if (!out[to]?.note && fromVal.note) {
-        out[to] = { ...out[to], note: fromVal.note };
-      }
-    }
-  }
-
-  return out;
-}
-
-/* =========================================================
    Coverage definitions
 ========================================================= */
 
@@ -192,7 +159,7 @@ const KEY_CHECK_IDS = [
   "paint",
   "glass-lights",
   "tyres",
-  "underbody-leaks", // NOTE: kept as an ID for backward compatibility ONLY (no “underbody” guidance is generated)
+  "underbody-leaks", // kept for backwards compatibility only
   // Cabin
   "interior-smell",
   "interior-condition",
@@ -227,15 +194,9 @@ function labelForCheckId(id: string) {
 ========================================================= */
 
 function rangeFromScore(score: number) {
-  // Converts an abstract “pressure” score into a sensible AUD allowance band.
-  // This is intentionally conservative and buyer-safe (not a valuation).
   const s = clamp(score, 0, 25);
-
-  // Base ranges (AUD)
   const low = Math.round(clamp(120 + s * 90, 120, 2600));
   const high = Math.round(clamp(380 + s * 170, 380, 6200));
-
-  // Keep high >= low
   return { low, high: Math.max(high, low + 150) };
 }
 
@@ -302,15 +263,147 @@ function bandRationale(
 }
 
 /* =========================================================
+   Price guidance helpers (legally safe)
+========================================================= */
+
+function formatAud(n: number) {
+  return n.toLocaleString("en-AU");
+}
+
+function computePriceGuidance(args: {
+  askingPriceAud: number | null;
+  negotiationPositioning: NegotiationPositioning;
+  verdict: AnalysisResult["verdict"];
+  risks: RiskItem[];
+  confidenceScore: number;
+  completenessScore: number;
+}): PriceGuidance {
+  const {
+    askingPriceAud,
+    negotiationPositioning,
+    verdict,
+    risks,
+    confidenceScore,
+    completenessScore,
+  } = args;
+
+  const disclaimer =
+    "Guidance only. This is not a valuation, and it does not estimate repair costs. It’s a buyer-safe adjustment range based on what you recorded.";
+
+  if (!askingPriceAud || askingPriceAud <= 0) {
+    return {
+      askingPriceAud: null,
+      adjustedPriceLowAud: null,
+      adjustedPriceHighAud: null,
+      suggestedReductionLowAud: null,
+      suggestedReductionHighAud: null,
+      disclaimer,
+      rationale: [
+        "No asking price was provided, so the report can’t calculate an adjusted range.",
+        "If you enter the advertised price, we’ll generate a buyer-safe adjustment window based on recorded concerns and uncertainty.",
+      ],
+    };
+  }
+
+  // We use the BALANCED positioning as the default anchor.
+  const redLow = negotiationPositioning.balanced.audLow;
+  const redHigh = negotiationPositioning.balanced.audHigh;
+
+  // Hard safety caps to avoid absurd outputs
+  const cappedRedLow = clamp(redLow, 0, Math.round(askingPriceAud * 0.25));
+  const cappedRedHigh = clamp(
+    redHigh,
+    cappedRedLow,
+    Math.round(askingPriceAud * 0.35)
+  );
+
+  // Adjusted price window (asking - reduction)
+  const adjustedHigh = Math.max(askingPriceAud - cappedRedLow, 0);
+  const adjustedLow = Math.max(askingPriceAud - cappedRedHigh, 0);
+
+  const criticalCount = risks.filter((r) => r.severity === "critical").length;
+  const moderateCount = risks.filter((r) => r.severity === "moderate").length;
+
+  const rationale: string[] = [];
+
+  if (verdict === "proceed") {
+    rationale.push(
+      "No high-impact red flags were recorded in the inspection you captured."
+    );
+  } else if (verdict === "caution") {
+    rationale.push(
+      "At least one meaningful concern or uncertainty was recorded, which supports a price adjustment."
+    );
+  } else {
+    rationale.push(
+      "Multiple high-impact concerns were recorded — strong downward pressure is reasonable if you still proceed."
+    );
+  }
+
+  if (criticalCount > 0) {
+    rationale.push(
+      criticalCount === 1
+        ? "A high-impact concern was recorded and weighted heavily."
+        : `${criticalCount} high-impact concerns were recorded and weighted heavily.`
+    );
+  } else if (moderateCount > 0) {
+    rationale.push(
+      moderateCount === 1
+        ? "A meaningful concern was recorded."
+        : `${moderateCount} meaningful concerns were recorded.`
+    );
+  }
+
+  if (confidenceScore < 55) {
+    rationale.push(
+      "Confidence is limited, so the adjustment range is intentionally conservative."
+    );
+  } else if (confidenceScore < 75) {
+    rationale.push(
+      "Confidence is moderate; the range reflects a practical buyer position."
+    );
+  } else {
+    rationale.push(
+      "Confidence is strong, which supports using a firmer price position."
+    );
+  }
+
+  if (completenessScore < 55) {
+    rationale.push(
+      "Evidence coverage is limited, so you should prioritise clarifying key items before committing."
+    );
+  }
+
+  rationale.push(
+    `This suggests aiming for roughly $${formatAud(adjustedLow)}–$${formatAud(
+      adjustedHigh
+    )} if the seller can’t provide strong evidence resolving the recorded concerns.`
+  );
+
+  return {
+    askingPriceAud,
+    adjustedPriceLowAud: adjustedLow,
+    adjustedPriceHighAud: adjustedHigh,
+    suggestedReductionLowAud: cappedRedLow,
+    suggestedReductionHighAud: cappedRedHigh,
+    disclaimer,
+    rationale,
+  };
+}
+
+/* =========================================================
    Main analysis
 ========================================================= */
 
 export function analyseInPersonInspection(progress: ScanProgress): AnalysisResult {
-  // ✅ Critical: normalise check IDs so recorded drive checks are not ignored
-  const checks = normaliseChecks(progress.checks);
+  const checks = progress.checks ?? {};
   const photos = progress.photos ?? [];
   const followUps = progress.followUpPhotos ?? [];
   const imperfections = progress.imperfections ?? [];
+  const askingPriceAud =
+    typeof progress.askingPrice === "number" && Number.isFinite(progress.askingPrice)
+      ? progress.askingPrice
+      : null;
 
   /* -----------------------------
      PHOTO COVERAGE
@@ -393,9 +486,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     if (i.severity === "major") {
       risks.push({
         id: `imp-${i.id}`,
-        label: i.label
-          ? `Major observation: ${i.label}`
-          : "Major observation recorded",
+        label: i.label ? `Major observation: ${i.label}` : "Major observation recorded",
         explanation:
           i.note ||
           "A major observation was recorded. Clarify details and pricing impact before proceeding.",
@@ -413,9 +504,6 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     }
   });
 
-  /* -----------------------------
-     SPECIFIC HIGH-SIGNAL CONCERNS
-  ----------------------------- */
   const pushConcern = (
     id: string,
     label: string,
@@ -490,7 +578,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
       : "Multiple high-impact concerns were recorded — walking away is a reasonable option unless evidence strongly improves the picture.";
 
   /* -----------------------------
-     NEGOTIATION LEVERAGE (legacy-friendly)
+     NEGOTIATION LEVERAGE (legacy)
   ----------------------------- */
   const negotiationLeverage: NegotiationLeverageGroup[] = [
     {
@@ -579,21 +667,18 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
   const evidenceSummary: EvidenceSummary = {
     photosCaptured: photos.length,
     photosExpected: REQUIRED_PHOTO_STEP_IDS.length,
-    checksCompleted: Object.values(checks).filter((v) => Boolean(v?.value))
-      .length,
+    checksCompleted: Object.values(checks).filter((v) => Boolean(v?.value)).length,
     keyChecksExpected: KEY_CHECK_IDS.length,
     imperfectionsNoted: imperfections.length,
     followUpPhotosCaptured: followUps.length,
     explicitlyUncertainItems,
   };
 
-  const uncertaintyFactors: UncertaintyFactor[] = explicitlyUncertainItems.map(
-    (label) => ({
-      label,
-      impact: "moderate",
-      source: "user_marked_unsure" as const,
-    })
-  );
+  const uncertaintyFactors: UncertaintyFactor[] = explicitlyUncertainItems.map((label) => ({
+    label,
+    impact: "moderate",
+    source: "user_marked_unsure",
+  }));
 
   const riskWeightingExplanation: string[] = [];
 
@@ -741,6 +826,16 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
   const adasPresentButDisabled =
     adas?.value === "concern" || adas?.value === "unsure";
 
+  // NEW: price guidance (asking price -> adjusted range)
+  const priceGuidance = computePriceGuidance({
+    askingPriceAud,
+    negotiationPositioning,
+    verdict,
+    risks,
+    confidenceScore: confidence,
+    completenessScore,
+  });
+
   return {
     verdict,
     verdictReason,
@@ -762,5 +857,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
       adasPresentButDisabled,
       confidence: adasPresentButDisabled ? 70 : 10,
     },
+
+    priceGuidance,
   };
 }
