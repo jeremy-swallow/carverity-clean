@@ -11,6 +11,7 @@ type PackOption = {
   title: string;
   price: string;
   context: string;
+  credits: number;
   note?: string;
   recommended?: boolean;
 };
@@ -20,12 +21,14 @@ const PACKS: PackOption[] = [
     key: "single",
     title: "Single inspection",
     price: "$14.99",
+    credits: 1,
     context: "For a one-off vehicle you want confidence on.",
   },
   {
     key: "three",
     title: "Inspection bundle",
     price: "$39",
+    credits: 3,
     context: "Ideal if you’re comparing a few vehicles.",
     note: "Most people choose this option",
     recommended: true,
@@ -34,6 +37,7 @@ const PACKS: PackOption[] = [
     key: "five",
     title: "Extended bundle",
     price: "$59",
+    credits: 5,
     context: "Best value if you’re actively shopping.",
   },
 ];
@@ -41,6 +45,11 @@ const PACKS: PackOption[] = [
 function formatCredits(n: number | null) {
   if (n == null) return "—";
   return String(Math.max(0, Math.floor(n)));
+}
+
+function plural(n: number, singular: string, pluralWord?: string) {
+  if (n === 1) return singular;
+  return pluralWord ?? `${singular}s`;
 }
 
 export default function Pricing() {
@@ -240,10 +249,7 @@ export default function Pricing() {
                   ) : null}
                 </>
               ) : (
-                <>
-                  You’re not currently signed in on this device. Sign in to see
-                  your credits.
-                </>
+                <>You’re not currently signed in on this device. Sign in to see your credits.</>
               )}
             </p>
           )}
@@ -314,11 +320,32 @@ export default function Pricing() {
               {pack.title}
             </h2>
 
-            <p className="text-sm text-slate-400 mb-6">{pack.context}</p>
+            <p className="text-sm text-slate-400 mb-4">{pack.context}</p>
+
+            {/* Credits clearly shown */}
+            <div className="mb-6">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                Includes
+              </p>
+              <p className="text-sm text-slate-200 mt-1">
+                <span className="font-semibold text-white tabular-nums">
+                  {pack.credits}
+                </span>{" "}
+                {plural(pack.credits, "inspection")}
+              </p>
+            </div>
 
             <div className="text-3xl font-semibold text-white mb-2">
               {pack.price}
             </div>
+
+            <p className="text-xs text-slate-500 mb-6">
+              Adds{" "}
+              <span className="text-slate-200 font-semibold tabular-nums">
+                {pack.credits}
+              </span>{" "}
+              {plural(pack.credits, "credit")} to your account
+            </p>
 
             {pack.note && (
               <p className="text-xs text-slate-400 mb-6">{pack.note}</p>
