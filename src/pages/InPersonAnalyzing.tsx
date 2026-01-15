@@ -1,16 +1,15 @@
 // src/pages/InPersonAnalyzing.tsx
 
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
-import { isScanUnlocked } from "../utils/scanUnlock";
+import { supabase } from "../supabaseClient";
 
 export default function InPersonAnalyzing() {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
+  const { scanId } = useParams<{ scanId: string }>();
 
-  const scanId = params.get("scanId") || "";
   const [status, setStatus] = useState<"loading" | "error">("loading");
 
   useEffect(() => {
@@ -19,43 +18,70 @@ export default function InPersonAnalyzing() {
       return;
     }
 
-    const progress: any = loadProgress();
+    let cancelled = false;
 
-    // Ensure scanId is hydrated into progress
-    if (!progress?.scanId || progress.scanId !== scanId) {
-      saveProgress({
-        ...(progress ?? {}),
-        scanId,
-      });
-    }
+    async function run() {
+      try {
+        const progress: any = loadProgress();
 
-    // If not unlocked yet, send back to preview (should be rare post-payment)
-    if (!isScanUnlocked(scanId)) {
-      navigate("/scan/in-person/preview?scanId=" + scanId, {
-        replace: true,
-      });
-      return;
-    }
+        // Ensure scanId is persisted
+        if (!progress?.scanId || progress.scanId !== scanId) {
+          saveProgress({
+            ...(progress ?? {}),
+            scanId,
+          });
+        }
 
-    try {
-      // Run analysis once to ensure everything is warm and valid
-      analyseInPersonInspection({
-        ...(progress ?? {}),
-        scanId,
-      });
+        // Auth required — server is source of truth
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      // Small intentional delay for perceived value + stability
-      const timer = setTimeout(() => {
-        navigate(`/scan/in-person/results?scanId=${scanId}`, {
-          replace: true,
+        if (!session) {
+          navigate("/sign-in", { replace: true });
+          return;
+        }
+
+        // 🔐 IRREVERSIBLE COMMITMENT POINT
+        // This permanently blocks refunds for scan:{scanId}
+        const res = await fetch("/api/mark-in-person-scan-completed", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ scanId }),
         });
-      }, 1800);
 
-      return () => clearTimeout(timer);
-    } catch (err) {
-      console.error("In-person analysis failed", err);
-      setStatus("error");
+        if (!res.ok) {
+          throw new Error("FAILED_TO_MARK_SCAN_COMPLETED");
+        }
+
+        // Warm analysis (pure function)
+        analyseInPersonInspection({
+          ...(progress ?? {}),
+          scanId,
+        });
+
+        // Designed delay for perceived seriousness
+        const timer = setTimeout(() => {
+          if (!cancelled) {
+            navigate(`/scan/in-person/results/${scanId}`, { replace: true });
+          }
+        }, 10000);
+
+        return () => clearTimeout(timer);
+      } catch (err) {
+        console.error("In-person analysis failed:", err);
+        if (!cancelled) setStatus("error");
+      }
     }
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
   }, [scanId, navigate]);
 
   if (status === "error") {
@@ -63,10 +89,11 @@ export default function InPersonAnalyzing() {
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100 px-6">
         <div className="max-w-md text-center space-y-4">
           <h1 className="text-xl font-semibold">
-            We hit a snag analysing this inspection
+            We couldn’t complete the analysis
           </h1>
           <p className="text-sm text-slate-400">
-            Your scan data is safe. Please return to your summary and try again.
+            Your inspection data is safe. Please return to the summary and try
+            again.
           </p>
           <button
             onClick={() => navigate("/scan/in-person/summary")}
@@ -82,32 +109,26 @@ export default function InPersonAnalyzing() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-6">
       <div className="max-w-md w-full text-center space-y-8">
-        {/* Logo */}
-        <div className="flex justify-center">
-          <div className="text-2xl font-semibold tracking-wide">
-            Car<span className="text-emerald-400">Verity</span>
-          </div>
+        <div className="text-2xl font-semibold tracking-wide">
+          Car<span className="text-emerald-400">Verity</span>
         </div>
 
-        {/* Spinner */}
         <div className="flex justify-center">
           <div className="h-10 w-10 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
         </div>
 
-        {/* Copy */}
         <div className="space-y-3">
           <h1 className="text-xl font-semibold">
-            Analysing your in-person inspection
+            Analysing your inspection
           </h1>
           <p className="text-sm text-slate-400">
-            We’re reviewing what you recorded, weighing risks, and preparing
-            your buyer-safe results.
+            We’re weighing observations, uncertainty, and risk signals to
+            prepare your buyer-safe report.
           </p>
         </div>
 
-        {/* Trust line */}
         <p className="text-xs text-slate-500">
-          This usually takes just a moment.
+          This usually takes around 10 seconds.
         </p>
       </div>
     </div>

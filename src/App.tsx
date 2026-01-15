@@ -1,12 +1,9 @@
 // src/App.tsx
 
 import { Routes, Route, Navigate } from "react-router-dom";
-
 import Layout from "./components/Layout";
 
-/* =======================
-   Core pages
-======================= */
+/* Core pages */
 import Home from "./pages/Home";
 import StartScan from "./pages/StartScan";
 import WhatToExpect from "./pages/WhatToExpect";
@@ -15,9 +12,7 @@ import Pricing from "./pages/Pricing";
 import SignIn from "./pages/SignIn";
 import Account from "./pages/Account";
 
-/* =======================
-   In-person scan flow
-======================= */
+/* In-person flow */
 import InPersonStart from "./pages/InPersonStart";
 import InPersonVehicleDetails from "./pages/InPersonVehicleDetails";
 import InPersonPhotos from "./pages/InPersonPhotos";
@@ -26,70 +21,49 @@ import InPersonChecksAroundCar from "./pages/InPersonChecksAroundCar";
 import InPersonChecksInsideCabin from "./pages/InPersonChecksInsideCabin";
 import InPersonChecksDrive from "./pages/InPersonChecksDrive";
 import InPersonSummary from "./pages/InPersonSummary";
-import InPersonResultsPreview from "./pages/InPersonResultsPreview";
-import InPersonUnlock from "./pages/InPersonUnlock";
-import InPersonUnlockSuccess from "./pages/InPersonUnlockSuccess";
+import InPersonAnalyzing from "./pages/InPersonAnalyzing";
 import InPersonResults from "./pages/InPersonResults";
 import InPersonNegotiation from "./pages/InPersonNegotiation";
 import InPersonReportPrint from "./pages/InPersonReportPrint";
+
+/* Legacy (unused) */
+import InPersonResultsPreview from "./pages/InPersonResultsPreview";
+import InPersonUnlock from "./pages/InPersonUnlock";
+import InPersonUnlockSuccess from "./pages/InPersonUnlockSuccess";
 
 export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
-
         <Route path="/start-scan" element={<StartScan />} />
         <Route path="/sign-in" element={<SignIn />} />
         <Route path="/account" element={<Account />} />
         <Route path="/my-scans" element={<MyScans />} />
-        <Route path="/what-to-expect" element={<WhatToExpect />} />
         <Route path="/pricing" element={<Pricing />} />
+        <Route path="/what-to-expect" element={<WhatToExpect />} />
 
+        {/* In-person flow */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
-        <Route
-          path="/scan/in-person/vehicle-details"
-          element={<InPersonVehicleDetails />}
-        />
+        <Route path="/scan/in-person/vehicle-details" element={<InPersonVehicleDetails />} />
         <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
-        <Route
-          path="/scan/in-person/checks/intro"
-          element={<InPersonChecksIntro />}
-        />
-        <Route
-          path="/scan/in-person/checks/around"
-          element={<InPersonChecksAroundCar />}
-        />
-        <Route
-          path="/scan/in-person/checks/inside"
-          element={<InPersonChecksInsideCabin />}
-        />
-        <Route
-          path="/scan/in-person/checks/drive"
-          element={<InPersonChecksDrive />}
-        />
+        <Route path="/scan/in-person/checks/intro" element={<InPersonChecksIntro />} />
+        <Route path="/scan/in-person/checks/around" element={<InPersonChecksAroundCar />} />
+        <Route path="/scan/in-person/checks/inside" element={<InPersonChecksInsideCabin />} />
+        <Route path="/scan/in-person/checks/drive" element={<InPersonChecksDrive />} />
         <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
-        <Route
-          path="/scan/in-person/preview"
-          element={<InPersonResultsPreview />}
-        />
 
-        {/* ✅ Unlock requires a scanId so we can consistently mark scan:{scanId} completed */}
-        <Route
-          path="/scan/in-person/unlock/:scanId"
-          element={<InPersonUnlock />}
-        />
-        <Route
-          path="/scan/in-person/unlock/success"
-          element={<InPersonUnlockSuccess />}
-        />
+        {/* New irreversible corridor */}
+        <Route path="/scan/in-person/analyzing/:scanId" element={<InPersonAnalyzing />} />
+        <Route path="/scan/in-person/results/:scanId" element={<InPersonResults />} />
 
-        <Route path="/scan/in-person/results" element={<InPersonResults />} />
-        <Route
-          path="/scan/in-person/negotiation"
-          element={<InPersonNegotiation />}
-        />
+        <Route path="/scan/in-person/negotiation" element={<InPersonNegotiation />} />
         <Route path="/scan/in-person/print" element={<InPersonReportPrint />} />
+
+        {/* Legacy (safe but unused) */}
+        <Route path="/scan/in-person/preview" element={<InPersonResultsPreview />} />
+        <Route path="/scan/in-person/unlock/:scanId" element={<InPersonUnlock />} />
+        <Route path="/scan/in-person/unlock/success" element={<InPersonUnlockSuccess />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

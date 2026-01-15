@@ -1,7 +1,7 @@
 // src/pages/InPersonResults.tsx
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, type ReactNode } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2,
   AlertTriangle,
@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
-import { supabase } from "../supabaseClient";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 
 /* =======================================================
@@ -76,8 +75,7 @@ function EvidenceBlock({ evidence }: { evidence: unknown }): ReactNode {
 
     for (const key of preferredKeys) {
       const v = evidence[key];
-      if (typeof v === "string" && v.trim())
-        return <Paragraph value={v} />;
+      if (typeof v === "string" && v.trim()) return <Paragraph value={v} />;
       if (Array.isArray(v)) {
         const strings = v.map(asCleanText).filter(Boolean);
         if (strings.length > 0) return <BulletList items={strings} />;
@@ -111,83 +109,21 @@ function UncertaintyText(u: unknown): string {
 ======================================================= */
 export default function InPersonResults() {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
+  const { scanId } = useParams<{ scanId: string }>();
 
   const progress: any = loadProgress();
-  const scanId = params.get("scanId") || progress?.scanId || "";
-
-  const [unlockChecked, setUnlockChecked] = useState(false);
 
   /* -------------------------------------------------------
-     Routing safety (server-authoritative unlock check)
+     Routing safety
   ------------------------------------------------------- */
   useEffect(() => {
-    let cancelled = false;
-
-    async function checkUnlock() {
-      if (!scanId) {
-        navigate("/scan/in-person/start", { replace: true });
-        return;
-      }
-
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session) {
-          navigate("/sign-in", { replace: true });
-          return;
-        }
-
-        const res = await fetch("/api/check-in-person-unlock", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ scanId }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          if (data?.error === "NOT_AUTHENTICATED") {
-            navigate("/sign-in", { replace: true });
-            return;
-          }
-          throw new Error(data?.error || "CHECK_FAILED");
-        }
-
-        if (!data?.unlocked) {
-          navigate(`/scan/in-person/unlock/${encodeURIComponent(scanId)}`, {
-            replace: true,
-          });
-          return;
-        }
-
-        if (!cancelled) {
-          setUnlockChecked(true);
-        }
-      } catch (err) {
-        console.error("Unlock check failed:", err);
-        if (!cancelled) {
-          navigate(`/scan/in-person/unlock/${encodeURIComponent(scanId)}`, {
-            replace: true,
-          });
-        }
-      }
+    if (!scanId) {
+      navigate("/scan/in-person/start", { replace: true });
+      return;
     }
-
-    checkUnlock();
-
-    return () => {
-      cancelled = true;
-    };
   }, [scanId, navigate]);
 
   if (!scanId) return null;
-  if (!unlockChecked) return null;
 
   /* -------------------------------------------------------
      Analysis
@@ -411,7 +347,7 @@ export default function InPersonResults() {
         </button>
 
         <button
-          onClick={() => navigate("/scan/in-person/report-print")}
+          onClick={() => navigate("/scan/in-person/print")}
           className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
         >
           <FileText className="h-4 w-4" />
