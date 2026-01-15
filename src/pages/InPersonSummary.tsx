@@ -1,14 +1,16 @@
+// src/pages/InPersonSummary.tsx
+
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { loadProgress, clearProgress } from "../utils/scanProgress";
+import { useNavigate } from "react-router-dom";
+import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
 
 export default function InPersonSummary() {
   const navigate = useNavigate();
-  const { scanId: routeScanId } = useParams<{ scanId?: string }>();
-
   const progress: any = loadProgress();
-  const activeScanId: string | null = progress?.scanId || routeScanId || null;
+
+  const activeScanId: string =
+    progress?.scanId ?? generateScanId();
 
   const imperfections = progress?.imperfections ?? [];
 
@@ -22,19 +24,19 @@ export default function InPersonSummary() {
 
   const [savedId, setSavedId] = useState<string | null>(null);
 
-  /* =========================================================
-     Actions
-  ========================================================== */
+  function proceedToAnalysis() {
+    saveProgress({
+      ...(progress ?? {}),
+      scanId: activeScanId,
+      step: "/scan/in-person/analyzing",
+    });
 
-  function continueToPreview() {
-    navigate("/scan/in-person/preview");
+    navigate(`/scan/in-person/analyzing/${activeScanId}`);
   }
 
   function saveToLibrary() {
-    const id = activeScanId ?? generateScanId();
-
     saveScan({
-      id,
+      id: activeScanId,
       type: "in-person",
       title: "In-person inspection",
       createdAt: new Date().toISOString(),
@@ -48,7 +50,7 @@ export default function InPersonSummary() {
       ],
     } as any);
 
-    setSavedId(id);
+    setSavedId(activeScanId);
   }
 
   function viewMyScans() {
@@ -61,14 +63,10 @@ export default function InPersonSummary() {
     navigate("/start-scan");
   }
 
-  /* =========================================================
-     UI
-  ========================================================== */
-
   return (
     <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
       <span className="text-[11px] uppercase tracking-wide text-slate-400">
-        In-person scan — Inspection summary
+        In-person scan — Summary
       </span>
 
       <h1 className="text-xl md:text-2xl font-semibold text-white">
@@ -76,8 +74,8 @@ export default function InPersonSummary() {
       </h1>
 
       <p className="text-sm text-slate-400">
-        Review what you captured. You can preview the inspection outcome or save
-        this inspection for later.
+        Review what you captured before we analyse the inspection and generate
+        your full report.
       </p>
 
       {/* VEHICLE */}
@@ -89,9 +87,6 @@ export default function InPersonSummary() {
         <p className="text-sm text-slate-400">
           Odometer: {vehicle.kms || "—"} km
         </p>
-        <p className="text-[11px] text-slate-500">
-          Details reflect what was visible at the time of inspection.
-        </p>
       </section>
 
       {/* OBSERVATIONS */}
@@ -99,11 +94,6 @@ export default function InPersonSummary() {
         <h2 className="text-sm font-semibold text-amber-200">
           Inspection observations
         </h2>
-
-        <p className="text-[11px] text-slate-400">
-          These are things that stood out during the inspection. They are not
-          diagnoses or confirmed faults.
-        </p>
 
         {imperfections.length === 0 ? (
           <p className="text-sm text-slate-300">
@@ -121,21 +111,22 @@ export default function InPersonSummary() {
         )}
       </section>
 
-      {/* NEXT STEP */}
+      {/* PRIMARY ACTION */}
       <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-3">
         <h2 className="text-sm font-semibold text-emerald-200">
-          Ready to review the outcome?
+          Generate full report
         </h2>
 
         <p className="text-sm text-slate-300">
-          You’ll see a preview first. Full analysis only runs after unlock.
+          We’ll analyse your inspection and prepare your buyer-safe report. This
+          step finalises the inspection.
         </p>
 
         <button
-          onClick={continueToPreview}
+          onClick={proceedToAnalysis}
           className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3"
         >
-          Preview inspection outcome
+          Analyse inspection
         </button>
       </section>
 
@@ -148,9 +139,6 @@ export default function InPersonSummary() {
           >
             Save inspection for later
           </button>
-          <p className="text-[11px] text-slate-400 text-center">
-            Saved locally to this device.
-          </p>
         </div>
       ) : (
         <>
@@ -168,11 +156,6 @@ export default function InPersonSummary() {
           </button>
         </>
       )}
-
-      <p className="text-[11px] text-slate-400 text-center">
-        CarVerity helps you interpret visible condition — it does not diagnose
-        mechanical faults.
-      </p>
     </div>
   );
 }

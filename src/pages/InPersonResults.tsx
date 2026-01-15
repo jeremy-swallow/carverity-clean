@@ -1,6 +1,6 @@
 // src/pages/InPersonResults.tsx
 
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2,
@@ -9,10 +9,7 @@ import {
   BarChart3,
   Eye,
   Camera,
-  ClipboardList,
   FileText,
-  HelpCircle,
-  Scale,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -33,7 +30,7 @@ function asCleanText(value: unknown): string {
   return "";
 }
 
-function Paragraph({ value }: { value: unknown }): ReactNode {
+function Paragraph({ value }: { value: unknown }) {
   const t = asCleanText(value);
   if (!t) return null;
   return (
@@ -43,7 +40,7 @@ function Paragraph({ value }: { value: unknown }): ReactNode {
   );
 }
 
-function BulletList({ items }: { items: string[] }): ReactNode {
+function BulletList({ items }: { items: string[] }) {
   if (items.length === 0) return null;
   return (
     <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
@@ -54,7 +51,7 @@ function BulletList({ items }: { items: string[] }): ReactNode {
   );
 }
 
-function EvidenceBlock({ evidence }: { evidence: unknown }): ReactNode {
+function EvidenceBlock({ evidence }: { evidence: unknown }) {
   if (typeof evidence === "string") return <Paragraph value={evidence} />;
 
   if (Array.isArray(evidence)) {
@@ -119,7 +116,6 @@ export default function InPersonResults() {
   useEffect(() => {
     if (!scanId) {
       navigate("/scan/in-person/start", { replace: true });
-      return;
     }
   }, [scanId, navigate]);
 
@@ -222,12 +218,9 @@ export default function InPersonResults() {
 
       {/* EVIDENCE BASIS */}
       <section className="space-y-6">
-        <div className="flex items-center gap-3 text-slate-300">
-          <ClipboardList className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold">
-            Evidence considered in this assessment
-          </h2>
-        </div>
+        <h2 className="text-lg font-semibold text-slate-200">
+          Evidence considered in this assessment
+        </h2>
 
         <EvidenceBlock evidence={(analysis as any).evidenceSummary} />
 
@@ -314,10 +307,9 @@ export default function InPersonResults() {
       {/* DECLARED UNCERTAINTY */}
       {uncertaintyFactors.length > 0 && (
         <section className="space-y-6">
-          <div className="flex items-center gap-3 text-slate-300">
-            <HelpCircle className="h-5 w-5 text-slate-400" />
-            <h2 className="text-lg font-semibold">Areas you marked as unsure</h2>
-          </div>
+          <h2 className="text-lg font-semibold text-slate-200">
+            Areas you marked as unsure
+          </h2>
 
           <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
             {uncertaintyFactors.map((u, i) => (
@@ -327,23 +319,13 @@ export default function InPersonResults() {
         </section>
       )}
 
-      {/* HOW RISK WAS WEIGHED */}
-      <section className="space-y-6">
-        <div className="flex items-center gap-3 text-slate-300">
-          <Scale className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold">How risk was weighed</h2>
-        </div>
-
-        <Paragraph value={(analysis as any).riskWeightingExplanation} />
-      </section>
-
       {/* ACTIONS */}
       <section className="space-y-4 pt-4">
         <button
           onClick={() => navigate("/scan/in-person/negotiation")}
           className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 text-base"
         >
-          View buyer-safe negotiation guidance
+          View negotiation guidance
         </button>
 
         <button
