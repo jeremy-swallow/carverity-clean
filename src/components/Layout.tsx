@@ -267,21 +267,35 @@ export default function Layout() {
             </NavLink>
           </nav>
 
-          {/* Account */}
-          {authReady && isLoggedIn && (
+          {/* Account / Sign in */}
+          {authReady && (
             <div className="pt-6 border-t border-slate-800 space-y-3 text-sm text-slate-400">
-              <button
-                onClick={() => {
-                  setMobileOpen(false);
-                  navigate("/account");
-                }}
-                className="block"
-              >
-                Account
-              </button>
-              <button onClick={handleLogout} className="block">
-                Log out
-              </button>
+              {isLoggedIn ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setMobileOpen(false);
+                      navigate("/account");
+                    }}
+                    className="block"
+                  >
+                    Account
+                  </button>
+                  <button onClick={handleLogout} className="block">
+                    Log out
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => {
+                    setMobileOpen(false);
+                    navigate("/sign-in");
+                  }}
+                  className="block"
+                >
+                  Sign in
+                </button>
+              )}
             </div>
           )}
         </div>
