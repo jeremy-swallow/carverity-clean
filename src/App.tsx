@@ -73,20 +73,23 @@ export default function App() {
           path="/scan/in-person/preview"
           element={<InPersonResultsPreview />}
         />
-        <Route path="/scan/in-person/unlock" element={<InPersonUnlock />} />
+
+        {/* ✅ Unlock requires a scanId so we can consistently mark scan:{scanId} completed */}
+        <Route
+          path="/scan/in-person/unlock/:scanId"
+          element={<InPersonUnlock />}
+        />
         <Route
           path="/scan/in-person/unlock/success"
           element={<InPersonUnlockSuccess />}
         />
+
         <Route path="/scan/in-person/results" element={<InPersonResults />} />
         <Route
           path="/scan/in-person/negotiation"
           element={<InPersonNegotiation />}
         />
-        <Route
-          path="/scan/in-person/print"
-          element={<InPersonReportPrint />}
-        />
+        <Route path="/scan/in-person/print" element={<InPersonReportPrint />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

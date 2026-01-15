@@ -1,10 +1,12 @@
+// src/pages/InPersonUnlock.tsx
+
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 
 export default function InPersonUnlock() {
   const navigate = useNavigate();
-  const { scanId } = useParams<{ scanId: string }>();
+  const { scanId } = useParams<{ scanId?: string }>();
 
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,18 +22,21 @@ export default function InPersonUnlock() {
     } = await supabase.auth.getSession();
 
     if (!session) {
+      setUnlocking(false);
       navigate("/sign-in");
       return;
     }
 
     try {
+      const reference = `scan:${scanId}`;
+
       const res = await fetch("/api/mark-in-person-scan-completed", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ scanId }),
+        body: JSON.stringify({ scanId, reference }),
       });
 
       if (!res.ok) {
@@ -56,6 +61,12 @@ export default function InPersonUnlock() {
         Once unlocked, this inspection is final and cannot be refunded.
       </p>
 
+      {!scanId && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-900/30 px-4 py-3 text-amber-200 text-sm">
+          Missing scan ID. Please return to your scan and try again.
+        </div>
+      )}
+
       {error && (
         <div className="rounded-xl border border-red-500/40 bg-red-900/30 px-4 py-3 text-red-300 text-sm">
           {error}
@@ -64,10 +75,10 @@ export default function InPersonUnlock() {
 
       <button
         onClick={unlockReport}
-        disabled={unlocking}
+        disabled={unlocking || !scanId}
         className={[
           "w-full rounded-xl px-4 py-3 font-semibold shadow transition",
-          unlocking
+          unlocking || !scanId
             ? "bg-emerald-500/60 text-black/70 cursor-not-allowed"
             : "bg-emerald-500 hover:bg-emerald-400 text-black",
         ].join(" ")}
