@@ -44,12 +44,12 @@ export default function InPersonChecksDrive() {
 
   const checks = [
     {
-      id: "drive-steering",
+      id: "steering",
       title: "Steering & handling",
       guidance: "Notice pulling, vibration, or looseness.",
     },
     {
-      id: "drive-noise",
+      id: "noise-hesitation",
       title: "Noise or hesitation",
       guidance: "Listen for unusual sounds or delays.",
     },
@@ -93,7 +93,6 @@ export default function InPersonChecksDrive() {
 
             <p className="text-xs text-slate-400">{c.guidance}</p>
 
-            {/* Segmented buttons */}
             <div className="flex gap-2">
               <button
                 type="button"
@@ -147,12 +146,9 @@ export default function InPersonChecksDrive() {
         );
       })}
 
-      {/* Navigation */}
       <div className="flex gap-2 pt-4">
         <button
-          onClick={() =>
-            navigate("/scan/in-person/checks/inside")
-          }
+          onClick={() => navigate("/scan/in-person/checks/inside")}
           className="flex-1 rounded-xl border border-white/25 px-4 py-3 text-slate-200"
         >
           Back

@@ -124,6 +124,58 @@ function titleFromId(id: string) {
 }
 
 /* =========================================================
+   Compatibility: normalise check IDs (CRITICAL FIX)
+   - Your UI uses ids like "drive-steering" and "drive-noise"
+   - Analysis expects "steering" and "noise-hesitation"
+   - This alias layer makes BOTH work without breaking old scans
+========================================================= */
+
+const CHECK_ID_ALIASES: Record<string, string> = {
+  // Drive checks (UI -> analysis canonical)
+  "drive-steering": "steering",
+  "drive-noise": "noise-hesitation",
+
+  // If any other screens used these variants historically
+  "drive-noise-hesitation": "noise-hesitation",
+  "steering-handling": "steering",
+};
+
+function normaliseChecks(
+  raw: Record<string, CheckAnswer> | undefined
+): Record<string, CheckAnswer> {
+  const checks = raw ?? {};
+  const out: Record<string, CheckAnswer> = { ...checks };
+
+  for (const [from, to] of Object.entries(CHECK_ID_ALIASES)) {
+    const fromVal = checks[from];
+    const toVal = checks[to];
+
+    // If canonical is missing, copy alias into canonical
+    if (fromVal && !toVal) {
+      out[to] = fromVal;
+    }
+
+    // If both exist, keep the more "severe" signal:
+    // concern > unsure > ok
+    if (fromVal && toVal) {
+      const rank = (v: AnswerValue) =>
+        v === "concern" ? 3 : v === "unsure" ? 2 : 1;
+
+      if (rank(fromVal.value) > rank(toVal.value)) {
+        out[to] = fromVal;
+      }
+
+      // If canonical has no note but alias does, keep the note
+      if (!out[to]?.note && fromVal.note) {
+        out[to] = { ...out[to], note: fromVal.note };
+      }
+    }
+  }
+
+  return out;
+}
+
+/* =========================================================
    Coverage definitions
 ========================================================= */
 
@@ -254,7 +306,8 @@ function bandRationale(
 ========================================================= */
 
 export function analyseInPersonInspection(progress: ScanProgress): AnalysisResult {
-  const checks = progress.checks ?? {};
+  // ✅ Critical: normalise check IDs so recorded drive checks are not ignored
+  const checks = normaliseChecks(progress.checks);
   const photos = progress.photos ?? [];
   const followUps = progress.followUpPhotos ?? [];
   const imperfections = progress.imperfections ?? [];
@@ -294,14 +347,11 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
 
   /* -----------------------------
      CONFIDENCE SCORE (buyer-safe)
-     IMPORTANT: We only reduce confidence based on explicit buyer uncertainty (“unsure”),
-     not because a user didn’t do advanced checks.
   ----------------------------- */
   const values = Object.values(checks);
   const concernCount = values.filter((v) => v?.value === "concern").length;
   const unsureCount = values.filter((v) => v?.value === "unsure").length;
 
-  // Notes improve interpretability when a concern exists, but we do NOT treat missing notes as “uncertainty”.
   const concernWithNotes = values.filter(
     (v) => v?.value === "concern" && hasNote(v.note)
   ).length;
@@ -319,7 +369,6 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
   ----------------------------- */
   const risks: RiskItem[] = [];
 
-  // Missing baseline photos reduces strength of evidence (not a “fault” claim).
   if (photosCaptured < REQUIRED_PHOTO_STEP_IDS.length) {
     risks.push({
       id: "missing-photos",
@@ -330,7 +379,6 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     });
   }
 
-  // Explicit buyer uncertainty
   if (unsureCount >= 3) {
     risks.push({
       id: "many-unknowns",
@@ -345,7 +393,9 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     if (i.severity === "major") {
       risks.push({
         id: `imp-${i.id}`,
-        label: i.label ? `Major observation: ${i.label}` : "Major observation recorded",
+        label: i.label
+          ? `Major observation: ${i.label}`
+          : "Major observation recorded",
         explanation:
           i.note ||
           "A major observation was recorded. Clarify details and pricing impact before proceeding.",
@@ -365,7 +415,6 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
 
   /* -----------------------------
      SPECIFIC HIGH-SIGNAL CONCERNS
-     (Only when buyer explicitly marked “concern”)
   ----------------------------- */
   const pushConcern = (
     id: string,
@@ -412,7 +461,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
   );
 
   /* -----------------------------
-     VERDICT (based on recorded observations)
+     VERDICT
   ----------------------------- */
   const criticalCount = risks.filter((r) => r.severity === "critical").length;
   const moderateCount = risks.filter((r) => r.severity === "moderate").length;
@@ -459,10 +508,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
   }
 
   /* -----------------------------
-     NEGOTIATION POSITIONING (AUD ranges, buyer-safe)
-     - Not a valuation
-     - Not a repair quote
-     - Derived from recorded concerns + explicit uncertainty + evidence strength
+     NEGOTIATION POSITIONING
   ----------------------------- */
   const uncertaintyPenalty = clamp(100 - confidence, 0, 100);
   const pressureScore =
@@ -520,9 +566,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
   };
 
   /* -----------------------------
-     EXPLICIT REASONING OUTPUTS (Option B)
-     - Only recorded observations + explicit “unsure”
-     - No inferred missing checks
+     EXPLICIT REASONING OUTPUTS
   ----------------------------- */
   const explicitlyUncertainItems: string[] = Object.entries(checks)
     .filter(([, v]) => v?.value === "unsure")
