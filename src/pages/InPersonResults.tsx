@@ -1,6 +1,6 @@
 // src/pages/InPersonResults.tsx
 
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CheckCircle2,
@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
-import { isScanUnlocked } from "../utils/scanUnlock";
+import { supabase } from "../supabaseClient";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 
 /* =======================================================
@@ -116,24 +116,78 @@ export default function InPersonResults() {
   const progress: any = loadProgress();
   const scanId = params.get("scanId") || progress?.scanId || "";
 
+  const [unlockChecked, setUnlockChecked] = useState(false);
+
   /* -------------------------------------------------------
-     Routing safety
+     Routing safety (server-authoritative unlock check)
   ------------------------------------------------------- */
   useEffect(() => {
-    if (!scanId) {
-      navigate("/scan/in-person/start", { replace: true });
-      return;
+    let cancelled = false;
+
+    async function checkUnlock() {
+      if (!scanId) {
+        navigate("/scan/in-person/start", { replace: true });
+        return;
+      }
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session) {
+          navigate("/sign-in", { replace: true });
+          return;
+        }
+
+        const res = await fetch("/api/check-in-person-unlock", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ scanId }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          if (data?.error === "NOT_AUTHENTICATED") {
+            navigate("/sign-in", { replace: true });
+            return;
+          }
+          throw new Error(data?.error || "CHECK_FAILED");
+        }
+
+        if (!data?.unlocked) {
+          navigate(`/scan/in-person/unlock/${encodeURIComponent(scanId)}`, {
+            replace: true,
+          });
+          return;
+        }
+
+        if (!cancelled) {
+          setUnlockChecked(true);
+        }
+      } catch (err) {
+        console.error("Unlock check failed:", err);
+        if (!cancelled) {
+          navigate(`/scan/in-person/unlock/${encodeURIComponent(scanId)}`, {
+            replace: true,
+          });
+        }
+      }
     }
 
-    if (!isScanUnlocked(scanId)) {
-      navigate(
-        `/scan/in-person/preview?scanId=${encodeURIComponent(scanId)}`,
-        { replace: true }
-      );
-    }
+    checkUnlock();
+
+    return () => {
+      cancelled = true;
+    };
   }, [scanId, navigate]);
 
-  if (!scanId || !isScanUnlocked(scanId)) return null;
+  if (!scanId) return null;
+  if (!unlockChecked) return null;
 
   /* -------------------------------------------------------
      Analysis
@@ -221,9 +275,7 @@ export default function InPersonResults() {
           <div>
             <div className="flex items-center gap-2 text-slate-400">
               <Eye className="h-4 w-4" />
-              <span className="text-xs uppercase tracking-wide">
-                Coverage
-              </span>
+              <span className="text-xs uppercase tracking-wide">Coverage</span>
             </div>
             <p className="mt-1 text-2xl font-semibold text-white">
               {analysis.completenessScore}%
@@ -288,9 +340,7 @@ export default function InPersonResults() {
                 key={r.id}
                 className="rounded-xl bg-slate-900/60 px-6 py-5"
               >
-                <p className="text-base font-semibold text-white">
-                  {r.label}
-                </p>
+                <p className="text-base font-semibold text-white">{r.label}</p>
                 <p className="mt-1 text-[15px] text-slate-300">
                   {r.explanation}
                 </p>
@@ -330,9 +380,7 @@ export default function InPersonResults() {
         <section className="space-y-6">
           <div className="flex items-center gap-3 text-slate-300">
             <HelpCircle className="h-5 w-5 text-slate-400" />
-            <h2 className="text-lg font-semibold">
-              Areas you marked as unsure
-            </h2>
+            <h2 className="text-lg font-semibold">Areas you marked as unsure</h2>
           </div>
 
           <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
