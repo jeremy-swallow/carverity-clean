@@ -1,154 +1,79 @@
-// src/pages/InPersonUnlock.tsx
-
-import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { loadProgress, saveProgress } from "../utils/scanProgress";
-import { isScanUnlocked, unlockScan } from "../utils/scanUnlock";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { supabase } from "../supabaseClient";
 
 export default function InPersonUnlock() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const { scanId } = useParams<{ scanId: string }>();
 
-  const [loading, setLoading] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const progress: any = loadProgress();
+  async function unlockReport() {
+    if (!scanId || unlocking) return;
 
-  const scanId =
-    searchParams.get("scanId") || progress?.scanId || "";
+    setUnlocking(true);
+    setError(null);
 
-  const isSuccessReturn =
-    window.location.pathname.endsWith("/unlock/success");
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-  /* -------------------------------------------------------
-     Safety: no scan → restart
-  ------------------------------------------------------- */
-  useEffect(() => {
-    if (!scanId) {
-      navigate("/scan/in-person/start", { replace: true });
+    if (!session) {
+      navigate("/sign-in");
       return;
     }
 
-    // Ensure scanId is persisted (important on fresh Stripe return)
-    if (!progress?.scanId || progress.scanId !== scanId) {
-      saveProgress({
-        ...(progress ?? {}),
-        scanId,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scanId, navigate]);
-
-  /* -------------------------------------------------------
-     Stripe success → unlock scan → analyzing
-  ------------------------------------------------------- */
-  useEffect(() => {
-    if (!scanId || !isSuccessReturn) return;
-
-    // ✅ Use the NEW unlock system (carverity_scan_unlocks_v1)
-    if (!isScanUnlocked(scanId)) {
-      unlockScan(scanId);
-    }
-
-    // Always route through analyzing for premium feel + stability
-    navigate(`/scan/in-person/analyzing?scanId=${encodeURIComponent(scanId)}`, {
-      replace: true,
-    });
-  }, [scanId, isSuccessReturn, navigate]);
-
-  /* -------------------------------------------------------
-     Stripe Checkout redirect
-  ------------------------------------------------------- */
-  async function handleUnlock() {
     try {
-      setLoading(true);
-      setError(null);
-
-      const res = await fetch("/api/create-checkout-session", {
+      const res = await fetch("/api/mark-in-person-scan-completed", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ scanId }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok || !data?.url) {
-        throw new Error(
-          data?.error || "Unable to start secure checkout"
-        );
+      if (!res.ok) {
+        throw new Error("FAILED_TO_MARK_COMPLETED");
       }
 
-      window.location.href = data.url;
-    } catch (err: any) {
-      setError(err?.message ?? "Something went wrong");
-      setLoading(false);
+      navigate("/scan/in-person/results");
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong unlocking the report.");
+      setUnlocking(false);
     }
   }
 
-  /* -------------------------------------------------------
-     UI
-  ------------------------------------------------------- */
-
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12 space-y-8">
-      <span className="text-[11px] uppercase tracking-wide text-slate-400">
-        In-person scan — Unlock
-      </span>
-
-      <h1 className="text-2xl md:text-3xl font-semibold text-white">
-        Unlock full inspection results
+    <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
+      <h1 className="text-xl md:text-2xl font-semibold text-white">
+        Unlock full report
       </h1>
 
-      <p className="text-sm text-slate-300 max-w-xl">
-        You’ve completed the inspection. Unlocking gives you the full
-        assessment, clear proceed / caution / walk-away guidance, and
-        buyer-safe negotiation points — for this vehicle only.
+      <p className="text-slate-300 text-sm">
+        Once unlocked, this inspection is final and cannot be refunded.
       </p>
 
-      <section className="rounded-2xl bg-slate-900/70 border border-white/10 px-6 py-5 space-y-4">
-        <div>
-          <p className="text-sm font-semibold text-white">
-            What you’ll unlock
-          </p>
-          <ul className="mt-2 text-sm text-slate-300 space-y-1">
-            <li>• Overall inspection verdict</li>
-            <li>• Confidence & completeness signals</li>
-            <li>• Key risks worth clarifying</li>
-            <li>• Buyer-safe negotiation guidance</li>
-          </ul>
+      {error && (
+        <div className="rounded-xl border border-red-500/40 bg-red-900/30 px-4 py-3 text-red-300 text-sm">
+          {error}
         </div>
-
-        <div className="pt-3 border-t border-white/10">
-          <p className="text-xs text-slate-400">
-            One-time payment • Applies only to this scan
-          </p>
-          <p className="text-lg font-semibold text-white mt-1">
-            $14.99 AUD
-          </p>
-        </div>
-      </section>
-
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      )}
 
       <button
-        onClick={handleUnlock}
-        disabled={loading}
-        className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-black font-semibold px-6 py-4"
+        onClick={unlockReport}
+        disabled={unlocking}
+        className={[
+          "w-full rounded-xl px-4 py-3 font-semibold shadow transition",
+          unlocking
+            ? "bg-emerald-500/60 text-black/70 cursor-not-allowed"
+            : "bg-emerald-500 hover:bg-emerald-400 text-black",
+        ].join(" ")}
       >
-        {loading ? "Redirecting to secure checkout…" : "Unlock for $14.99"}
+        {unlocking ? "Unlocking…" : "Unlock report"}
       </button>
-
-      <button
-        onClick={() => navigate("/scan/in-person/summary")}
-        className="w-full rounded-xl border border-white/25 text-slate-200 px-6 py-3"
-      >
-        Back to summary
-      </button>
-
-      <p className="text-[11px] text-slate-400 text-center max-w-xl mx-auto">
-        Payments are securely handled by Stripe. CarVerity never stores
-        your card details.
-      </p>
     </div>
   );
 }
