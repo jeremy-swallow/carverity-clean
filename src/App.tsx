@@ -45,17 +45,38 @@ export default function App() {
 
         {/* In-person flow */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
-        <Route path="/scan/in-person/vehicle-details" element={<InPersonVehicleDetails />} />
+        <Route
+          path="/scan/in-person/vehicle-details"
+          element={<InPersonVehicleDetails />}
+        />
         <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
-        <Route path="/scan/in-person/checks/intro" element={<InPersonChecksIntro />} />
-        <Route path="/scan/in-person/checks/around" element={<InPersonChecksAroundCar />} />
-        <Route path="/scan/in-person/checks/inside" element={<InPersonChecksInsideCabin />} />
-        <Route path="/scan/in-person/checks/drive" element={<InPersonChecksDrive />} />
+        <Route
+          path="/scan/in-person/checks/intro"
+          element={<InPersonChecksIntro />}
+        />
+        <Route
+          path="/scan/in-person/checks/around"
+          element={<InPersonChecksAroundCar />}
+        />
+        <Route
+          path="/scan/in-person/checks/inside"
+          element={<InPersonChecksInsideCabin />}
+        />
+        <Route
+          path="/scan/in-person/checks/drive"
+          element={<InPersonChecksDrive />}
+        />
         <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
 
         {/* New irreversible corridor */}
-        <Route path="/scan/in-person/analyzing/:scanId" element={<InPersonAnalyzing />} />
-        <Route path="/scan/in-person/results/:scanId" element={<InPersonResults />} />
+        <Route
+          path="/scan/in-person/analyzing/:scanId"
+          element={<InPersonAnalyzing />}
+        />
+        <Route
+          path="/scan/in-person/results/:scanId"
+          element={<InPersonResults />}
+        />
 
         <Route path="/scan/in-person/negotiation" element={<InPersonNegotiation />} />
         <Route path="/scan/in-person/print" element={<InPersonReportPrint />} />

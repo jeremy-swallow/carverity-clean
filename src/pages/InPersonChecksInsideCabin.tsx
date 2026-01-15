@@ -1,6 +1,6 @@
 // src/pages/InPersonChecksInsideCabin.tsx
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sofa } from "lucide-react";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
@@ -15,6 +15,21 @@ export default function InPersonChecksInsideCabin() {
   const [answers, setAnswers] = useState<Record<string, CheckAnswer>>(
     progress?.checks ?? {}
   );
+
+  /* -------------------------------------------------------
+     Progress indicator (checks corridor only)
+  ------------------------------------------------------- */
+  const steps = useMemo(
+    () => [
+      { key: "around", label: "Around" },
+      { key: "inside", label: "Inside" },
+      { key: "drive", label: "Drive" },
+    ],
+    []
+  );
+
+  const currentIndex = 1; // inside
+  const percent = Math.round(((currentIndex + 1) / steps.length) * 100);
 
   /* -------------------------------------------------------
      Persist progress
@@ -54,17 +69,45 @@ export default function InPersonChecksInsideCabin() {
     },
   ];
 
-  /* -------------------------------------------------------
-     UI
-  ------------------------------------------------------- */
-
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
-      <div className="flex items-center gap-3">
+      {/* Mini progress */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-slate-500">
+          <span>Checks</span>
+          <span>{percent}%</span>
+        </div>
+
+        <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-emerald-400 transition-all"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-slate-400">
+          {steps.map((s, i) => {
+            const active = i === currentIndex;
+            const done = i < currentIndex;
+            return (
+              <div
+                key={s.key}
+                className={[
+                  "flex-1 text-center",
+                  active ? "text-slate-200 font-medium" : "",
+                  done ? "text-slate-300" : "",
+                ].join(" ")}
+              >
+                {s.label}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 pt-2">
         <Sofa className="h-5 w-5 text-slate-400" />
-        <h1 className="text-2xl font-semibold text-white">
-          Inside the cabin
-        </h1>
+        <h1 className="text-2xl font-semibold text-white">Inside the cabin</h1>
       </div>
 
       {checks.map((c) => {
@@ -75,9 +118,7 @@ export default function InPersonChecksInsideCabin() {
             key={c.id}
             className="rounded-xl bg-slate-900/60 px-4 py-4 space-y-2"
           >
-            <div className="text-sm font-medium text-slate-200">
-              {c.title}
-            </div>
+            <div className="text-sm font-medium text-slate-200">{c.title}</div>
             <p className="text-xs text-slate-400">{c.guidance}</p>
 
             <div className="flex gap-2">
