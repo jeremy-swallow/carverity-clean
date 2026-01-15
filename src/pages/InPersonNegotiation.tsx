@@ -2,9 +2,7 @@
 
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  loadProgress,
-} from "../utils/scanProgress";
+import { loadProgress } from "../utils/scanProgress";
 import {
   analyseInPersonInspection,
   type AnalysisResult,
@@ -23,12 +21,31 @@ export default function InPersonNegotiation() {
     return analyseInPersonInspection((progress ?? {}) as any);
   }, [progress]);
 
-  const asking = analysis.priceGuidance.askingPriceAud;
-  const low = analysis.priceGuidance.adjustedPriceLowAud;
-  const high = analysis.priceGuidance.adjustedPriceHighAud;
+  const pg = analysis.priceGuidance;
 
-  const redLow = analysis.priceGuidance.suggestedReductionLowAud;
-  const redHigh = analysis.priceGuidance.suggestedReductionHighAud;
+  const asking = pg.askingPriceAud;
+  const low = pg.adjustedPriceLowAud;
+  const high = pg.adjustedPriceHighAud;
+
+  const redLow = pg.suggestedReductionLowAud;
+  const redHigh = pg.suggestedReductionHighAud;
+
+  const hasPriceGuidance =
+    typeof asking === "number" &&
+    typeof low === "number" &&
+    typeof high === "number" &&
+    typeof redLow === "number" &&
+    typeof redHigh === "number";
+
+  const reductionMin =
+    typeof redLow === "number" && typeof redHigh === "number"
+      ? Math.min(redLow, redHigh)
+      : null;
+
+  const reductionMax =
+    typeof redLow === "number" && typeof redHigh === "number"
+      ? Math.max(redLow, redHigh)
+      : null;
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-8">
@@ -42,7 +59,9 @@ export default function InPersonNegotiation() {
         </button>
 
         <button
-          onClick={() => navigate("/scan/in-person/results/" + (progress?.scanId ?? ""))}
+          onClick={() =>
+            navigate("/scan/in-person/results/" + (progress?.scanId ?? ""))
+          }
           className="text-xs text-slate-400 hover:text-slate-200"
         >
           View report
@@ -54,7 +73,8 @@ export default function InPersonNegotiation() {
           Negotiation positioning
         </h1>
         <p className="text-sm text-slate-400">
-          Buyer-safe guidance based only on what you recorded — no scripts, no hype.
+          Buyer-safe guidance based only on what you recorded — no scripts, no
+          hype.
         </p>
       </div>
 
@@ -65,7 +85,7 @@ export default function InPersonNegotiation() {
           <h2 className="text-sm font-semibold">Price guidance</h2>
         </div>
 
-        {asking && low !== null && high !== null ? (
+        {hasPriceGuidance ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="rounded-xl bg-slate-950/60 border border-white/10 px-4 py-3">
@@ -91,7 +111,7 @@ export default function InPersonNegotiation() {
                   Suggested reduction
                 </p>
                 <p className="text-lg font-semibold text-white">
-                  ${formatAud(redHigh ?? 0)} – ${formatAud(redLow ?? 0)}
+                  ${formatAud(reductionMin ?? 0)} – ${formatAud(reductionMax ?? 0)}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
                   (depends on how firm you want to be)
@@ -104,16 +124,16 @@ export default function InPersonNegotiation() {
                 <TrendingDown className="h-4 w-4 text-slate-400" />
                 <p className="text-sm font-semibold">Why this range?</p>
               </div>
+
               <ul className="mt-2 space-y-2 text-sm text-slate-300">
-                {analysis.priceGuidance.rationale.map((r, i) => (
+                {pg.rationale.map((r, i) => (
                   <li key={i} className="leading-relaxed">
                     • {r}
                   </li>
                 ))}
               </ul>
-              <p className="text-xs text-slate-500 mt-3">
-                {analysis.priceGuidance.disclaimer}
-              </p>
+
+              <p className="text-xs text-slate-500 mt-3">{pg.disclaimer}</p>
             </div>
           </>
         ) : (
@@ -125,7 +145,7 @@ export default function InPersonNegotiation() {
               Enter the advertised price to get a buyer-safe adjusted range.
             </p>
             <button
-              onClick={() => navigate("/scan/in-person/asking-price")}
+              onClick={() => navigate("/scan/in-person/summary")}
               className="mt-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-semibold px-4 py-2 text-sm"
             >
               Add asking price
@@ -166,7 +186,9 @@ export default function InPersonNegotiation() {
       </section>
 
       <button
-        onClick={() => navigate("/scan/in-person/results/" + (progress?.scanId ?? ""))}
+        onClick={() =>
+          navigate("/scan/in-person/results/" + (progress?.scanId ?? ""))
+        }
         className="w-full rounded-xl border border-white/25 text-slate-200 px-4 py-3 font-semibold"
       >
         Back to report

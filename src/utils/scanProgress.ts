@@ -1,4 +1,6 @@
-export type ScanJourneyType = "in-person";
+// src/utils/scanProgress.ts
+
+export type ScanJourneyType = "in-person" | "online";
 
 export type CheckAnswerValue = "ok" | "concern" | "unsure";
 
@@ -11,6 +13,20 @@ export type StepPhoto = {
   id: string;
   dataUrl: string;
   stepId: string;
+};
+
+export type FollowUpPhoto = {
+  id: string;
+  dataUrl: string;
+  note?: string;
+};
+
+export type Imperfection = {
+  id: string;
+  label?: string;
+  severity?: "minor" | "moderate" | "major";
+  location?: string;
+  note?: string;
 };
 
 export interface ScanProgress {
@@ -28,17 +44,30 @@ export interface ScanProgress {
   vehicleYear?: number;
   vehicleMake?: string;
   vehicleModel?: string;
+  vehicleVariant?: string;
+  vehicleKms?: number;
   kilometres?: number;
+
+  /* =====================
+     In-person: pricing context
+  ====================== */
+  askingPrice?: number | null;
 
   /* =====================
      Inspection evidence
   ====================== */
   photos?: StepPhoto[];
+  followUpPhotos?: FollowUpPhoto[];
   checks?: Record<string, CheckAnswer>;
+  imperfections?: Imperfection[];
+
+  /* =====================
+     Flow flags
+  ====================== */
+  fromOnlineScan?: boolean;
 
   /* =====================
      Future-safe extension
-     (kept intentionally narrow)
   ====================== */
   meta?: Record<string, unknown>;
 }

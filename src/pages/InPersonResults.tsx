@@ -10,6 +10,8 @@ import {
   Eye,
   Camera,
   FileText,
+  DollarSign,
+  TrendingDown,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -28,6 +30,14 @@ function asCleanText(value: unknown): string {
   if (typeof value === "number") return String(value);
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return "";
+}
+
+function formatAud(n: number) {
+  try {
+    return n.toLocaleString("en-AU");
+  } catch {
+    return String(n);
+  }
 }
 
 function Paragraph({ value }: { value: unknown }) {
@@ -160,6 +170,30 @@ export default function InPersonResults() {
     ? ((analysis as any).uncertaintyFactors as unknown[])
     : [];
 
+  const pg = analysis.priceGuidance;
+  const asking = pg?.askingPriceAud ?? null;
+  const low = pg?.adjustedPriceLowAud ?? null;
+  const high = pg?.adjustedPriceHighAud ?? null;
+  const redLow = pg?.suggestedReductionLowAud ?? null;
+  const redHigh = pg?.suggestedReductionHighAud ?? null;
+
+  const hasPriceGuidance =
+    typeof asking === "number" &&
+    typeof low === "number" &&
+    typeof high === "number" &&
+    typeof redLow === "number" &&
+    typeof redHigh === "number";
+
+  const reductionMin =
+    typeof redLow === "number" && typeof redHigh === "number"
+      ? Math.min(redLow, redHigh)
+      : null;
+
+  const reductionMax =
+    typeof redLow === "number" && typeof redHigh === "number"
+      ? Math.max(redLow, redHigh)
+      : null;
+
   /* =======================================================
      UI
   ======================================================= */
@@ -214,6 +248,95 @@ export default function InPersonResults() {
             </p>
           </div>
         </div>
+      </section>
+
+      {/* PRICE GUIDANCE (NEW) */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-3 text-slate-300">
+          <DollarSign className="h-5 w-5 text-slate-400" />
+          <h2 className="text-lg font-semibold">Price guidance (buyer-safe)</h2>
+        </div>
+
+        {hasPriceGuidance ? (
+          <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-xl bg-slate-950/60 border border-white/10 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Asking price
+                </p>
+                <p className="text-lg font-semibold text-white">
+                  ${formatAud(asking)}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-400/25 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-wide text-emerald-200">
+                  Buyer-safe adjusted range
+                </p>
+                <p className="text-lg font-semibold text-white">
+                  ${formatAud(low)} – ${formatAud(high)}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-950/60 border border-white/10 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Suggested reduction
+                </p>
+                <p className="text-lg font-semibold text-white">
+                  ${formatAud(reductionMin ?? 0)} – ${formatAud(reductionMax ?? 0)}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  (depends how firm you want to be)
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-4">
+              <div className="flex items-center gap-2 text-slate-200">
+                <TrendingDown className="h-4 w-4 text-slate-400" />
+                <p className="text-sm font-semibold">Why this range?</p>
+              </div>
+
+              <ul className="mt-2 space-y-2 text-sm text-slate-300">
+                {(pg?.rationale ?? []).map((r, i) => (
+                  <li key={i} className="leading-relaxed">
+                    • {r}
+                  </li>
+                ))}
+              </ul>
+
+              <p className="text-xs text-slate-500 mt-3">
+                {pg?.disclaimer ?? ""}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-6 py-5 space-y-3">
+            <p className="text-sm text-amber-200 font-semibold">
+              Asking price not provided
+            </p>
+            <p className="text-sm text-slate-300">
+              Add the advertised price to generate a buyer-safe adjusted range
+              based on your recorded findings.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => navigate("/scan/in-person/summary")}
+                className="rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-semibold px-4 py-2 text-sm"
+              >
+                Add asking price
+              </button>
+
+              <button
+                onClick={() => navigate("/scan/in-person/negotiation")}
+                className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
+              >
+                Continue without price guidance
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* EVIDENCE BASIS */}

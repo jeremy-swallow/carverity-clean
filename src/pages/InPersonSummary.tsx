@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
+import {
+  loadProgress,
+  clearProgress,
+  saveProgress,
+  type ScanProgress,
+} from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
 
 type AnswerValue = "ok" | "concern" | "unsure";
@@ -31,14 +36,49 @@ function labelForCheck(id: string) {
   return map[id] || id.replace(/[-_]/g, " ");
 }
 
+function formatAudCompact(n: number) {
+  try {
+    return n.toLocaleString("en-AU");
+  } catch {
+    return String(n);
+  }
+}
+
+/**
+ * Convert a user-entered string like:
+ * "14990", "14,990", "$14,990", "14 990"
+ * into a safe integer AUD number, or null if invalid.
+ */
+function parseAudInputToNumber(raw: string): number | null {
+  const cleaned = (raw ?? "")
+    .replace(/\$/g, "")
+    .replace(/,/g, "")
+    .replace(/\s+/g, "")
+    .trim();
+
+  if (!cleaned) return null;
+
+  // Allow digits only (no decimals for asking price)
+  if (!/^\d+$/.test(cleaned)) return null;
+
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return null;
+
+  // Safety bounds (avoid insane values / accidental extra zeros)
+  if (n < 0) return null;
+  if (n > 2_000_000) return null;
+
+  return Math.round(n);
+}
+
 export default function InPersonSummary() {
   const navigate = useNavigate();
-  const progress: any = loadProgress();
+  const progress = loadProgress() as ScanProgress | null;
 
   const activeScanId: string = progress?.scanId ?? generateScanId();
 
   const imperfections = progress?.imperfections ?? [];
-  const checks: Record<string, CheckAnswer> = progress?.checks ?? {};
+  const checks: Record<string, CheckAnswer> = (progress?.checks as any) ?? {};
   const photos = progress?.photos ?? [];
   const followUps = progress?.followUpPhotos ?? [];
 
@@ -46,11 +86,35 @@ export default function InPersonSummary() {
     year: progress?.vehicleYear ?? "",
     make: progress?.vehicleMake ?? "",
     model: progress?.vehicleModel ?? "",
-    variant: progress?.vehicleVariant ?? "",
-    kms: progress?.vehicleKms ?? progress?.kilometres ?? "",
+    variant: (progress as any)?.vehicleVariant ?? "",
+    kms: (progress as any)?.vehicleKms ?? progress?.kilometres ?? "",
   };
 
   const [savedId, setSavedId] = useState<string | null>(null);
+
+  // Asking price input state (string for UX, number stored in progress)
+  const initialAskingPrice = useMemo(() => {
+    const v = progress?.askingPrice;
+    if (typeof v === "number" && Number.isFinite(v) && v > 0) {
+      return formatAudCompact(v);
+    }
+    return "";
+  }, [progress?.askingPrice]);
+
+  const [askingPriceText, setAskingPriceText] = useState<string>(
+    initialAskingPrice
+  );
+
+  const parsedAskingPrice = useMemo(() => {
+    return parseAudInputToNumber(askingPriceText);
+  }, [askingPriceText]);
+
+  const askingPriceError = useMemo(() => {
+    if (!askingPriceText.trim()) return null; // optional
+    return parsedAskingPrice === null
+      ? "Enter a valid AUD amount (numbers only)."
+      : null;
+  }, [askingPriceText, parsedAskingPrice]);
 
   const checksAnsweredCount = useMemo(() => {
     return Object.values(checks).filter((v) => Boolean(v?.value)).length;
@@ -73,7 +137,9 @@ export default function InPersonSummary() {
 
   const notesOnly = useMemo(() => {
     return Object.entries(checks)
-      .filter(([, v]) => (v?.note ?? "").trim().length > 0 && v?.value !== "concern")
+      .filter(
+        ([, v]) => (v?.note ?? "").trim().length > 0 && v?.value !== "concern"
+      )
       .map(([id, v]) => ({
         id,
         label: labelForCheck(id),
@@ -82,10 +148,42 @@ export default function InPersonSummary() {
       }));
   }, [checks]);
 
-  function proceedToAnalysis() {
+  function persistAskingPrice(nextText: string) {
+    setAskingPriceText(nextText);
+
+    const nextParsed = parseAudInputToNumber(nextText);
+
     saveProgress({
       ...(progress ?? {}),
       scanId: activeScanId,
+      askingPrice: nextParsed,
+    });
+  }
+
+  function onAskingPriceBlur() {
+    // On blur, if valid, reformat nicely with commas.
+    if (parsedAskingPrice && parsedAskingPrice > 0) {
+      const formatted = formatAudCompact(parsedAskingPrice);
+      setAskingPriceText(formatted);
+
+      saveProgress({
+        ...(progress ?? {}),
+        scanId: activeScanId,
+        askingPrice: parsedAskingPrice,
+      });
+    }
+  }
+
+  function proceedToAnalysis() {
+    // If they typed something invalid, don’t block the flow,
+    // but also don’t store a broken number.
+    const safeAsking =
+      parsedAskingPrice && parsedAskingPrice > 0 ? parsedAskingPrice : null;
+
+    saveProgress({
+      ...(progress ?? {}),
+      scanId: activeScanId,
+      askingPrice: safeAsking,
       step: "/scan/in-person/analyzing",
     });
 
@@ -93,6 +191,16 @@ export default function InPersonSummary() {
   }
 
   function saveToLibrary() {
+    const safeAsking =
+      parsedAskingPrice && parsedAskingPrice > 0 ? parsedAskingPrice : null;
+
+    // Keep progress in sync before saving
+    saveProgress({
+      ...(progress ?? {}),
+      scanId: activeScanId,
+      askingPrice: safeAsking,
+    });
+
     saveScan({
       id: activeScanId,
       type: "in-person",
@@ -147,7 +255,63 @@ export default function InPersonSummary() {
         </p>
       </section>
 
-      {/* EVIDENCE COUNTS (this is what prevents “I did all that for nothing”) */}
+      {/* ASKING PRICE */}
+      <section className="rounded-2xl border border-white/12 bg-slate-900/60 px-5 py-4 space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-sm font-semibold text-slate-100">
+              Advertised asking price (AUD)
+            </h2>
+            <p className="text-xs text-slate-400">
+              Optional — but enables buyer-safe adjustment guidance.
+            </p>
+          </div>
+
+          {parsedAskingPrice && parsedAskingPrice > 0 ? (
+            <span className="text-[11px] px-2 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/25 text-emerald-200 tabular-nums">
+              Saved: ${formatAudCompact(parsedAskingPrice)}
+            </span>
+          ) : (
+            <span className="text-[11px] px-2 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400">
+              Not set
+            </span>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+              $
+            </span>
+
+            <input
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="e.g. 14,990"
+              value={askingPriceText}
+              onChange={(e) => persistAskingPrice(e.target.value)}
+              onBlur={onAskingPriceBlur}
+              className={[
+                "w-full rounded-xl bg-slate-950/60 border px-9 py-3 text-slate-100 placeholder:text-slate-500",
+                askingPriceError
+                  ? "border-rose-400/40 focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+                  : "border-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-500/25",
+              ].join(" ")}
+            />
+          </div>
+
+          {askingPriceError ? (
+            <p className="text-xs text-rose-200">{askingPriceError}</p>
+          ) : (
+            <p className="text-xs text-slate-500">
+              We’ll use this to compare your recorded findings against the price
+              and suggest a buyer-safe adjustment range.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* EVIDENCE COUNTS */}
       <section className="rounded-2xl border border-white/12 bg-slate-900/60 px-5 py-4">
         <div className="grid grid-cols-3 gap-4">
           <div>
@@ -181,7 +345,9 @@ export default function InPersonSummary() {
         {followUps.length > 0 && (
           <p className="text-xs text-slate-400 mt-3">
             Follow-up photos captured:{" "}
-            <span className="text-slate-200 tabular-nums">{followUps.length}</span>
+            <span className="text-slate-200 tabular-nums">
+              {followUps.length}
+            </span>
           </p>
         )}
       </section>
@@ -201,7 +367,8 @@ export default function InPersonSummary() {
             <ul className="text-sm text-slate-200 space-y-1">
               {imperfections.map((i: any) => (
                 <li key={i.id}>
-                  • {i.area || i.location || "Observation"}: {i.type || i.label || "Noted"}
+                  • {i.area || i.location || "Observation"}:{" "}
+                  {i.type || i.label || "Noted"}
                   {i.note ? ` — ${i.note}` : ""}
                 </li>
               ))}
@@ -248,13 +415,16 @@ export default function InPersonSummary() {
         )}
 
         {/* Empty state */}
-        {imperfections.length === 0 && concerns.length === 0 && notesOnly.length === 0 ? (
+        {imperfections.length === 0 &&
+        concerns.length === 0 &&
+        notesOnly.length === 0 ? (
           <p className="text-sm text-slate-300">
             No notable observations were recorded.
           </p>
         ) : (
           <p className="text-xs text-slate-400 pt-1">
-            These notes will be reflected in your report and negotiation guidance.
+            These notes will be reflected in your report and negotiation
+            guidance.
           </p>
         )}
       </section>
@@ -276,6 +446,12 @@ export default function InPersonSummary() {
         >
           Analyse inspection
         </button>
+
+        {askingPriceText.trim().length > 0 && askingPriceError ? (
+          <p className="text-xs text-rose-200">
+            Asking price looks invalid — we’ll ignore it unless you correct it.
+          </p>
+        ) : null}
       </section>
 
       {/* SAVE (SECONDARY) */}
