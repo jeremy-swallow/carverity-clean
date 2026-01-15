@@ -10,14 +10,7 @@ import { useEffect, useState } from "react";
 import { loadProgress } from "../utils/scanProgress";
 import { supabase } from "../supabaseClient";
 import { signOut } from "../supabaseAuth";
-import {
-  Menu,
-  X,
-  PlayCircle,
-  CreditCard,
-  User,
-  LogOut,
-} from "lucide-react";
+import { Menu, X } from "lucide-react";
 
 /* =========================================================
    Helpers
@@ -108,12 +101,17 @@ export default function Layout() {
     setHasActiveScan(Boolean(progress?.step));
   }, [location.pathname]);
 
-  function handleResume() {
-    const progress = loadProgress();
-    const safeRoute = getSafeResumeRoute(progress?.step);
-    if (!safeRoute) return;
+  function handlePrimaryAction() {
     setMobileOpen(false);
-    navigate(safeRoute);
+
+    if (hasActiveScan) {
+      const progress = loadProgress();
+      const safeRoute = getSafeResumeRoute(progress?.step);
+      if (safeRoute) navigate(safeRoute);
+      return;
+    }
+
+    navigate("/scan/in-person/start");
   }
 
   async function handleLogout() {
@@ -124,24 +122,6 @@ export default function Layout() {
       navigate("/", { replace: true });
     }
   }
-
-  /* -------------------------------------------------------
-     Nav config
-  ------------------------------------------------------- */
-  const navItems = [
-    { to: "/start-scan", label: "Start scan", icon: PlayCircle },
-    { to: "/my-scans", label: "My scans", icon: PlayCircle },
-    { to: "/pricing", label: "Pricing", icon: CreditCard },
-    { to: "/what-to-expect", label: "What to expect", icon: PlayCircle },
-  ];
-
-  const desktopLinkClass = ({ isActive }: { isActive: boolean }) =>
-    [
-      "text-sm transition-colors",
-      isActive
-        ? "text-white font-semibold"
-        : "text-slate-300 hover:text-white",
-    ].join(" ");
 
   /* -------------------------------------------------------
      Render
@@ -156,46 +136,34 @@ export default function Layout() {
               CarVerity
             </NavLink>
 
-            {/* Desktop nav */}
-            <nav className="hidden md:flex items-center gap-6">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={desktopLinkClass}
-                >
-                  {item.label}
-                </NavLink>
-              ))}
+            {/* Desktop nav unchanged */}
+            <nav className="hidden md:flex items-center gap-6 text-sm">
+              <NavLink to="/start-scan" className="text-slate-300 hover:text-white">
+                Start scan
+              </NavLink>
+              <NavLink to="/my-scans" className="text-slate-300 hover:text-white">
+                My scans
+              </NavLink>
+              <NavLink to="/pricing" className="text-slate-300 hover:text-white">
+                Pricing
+              </NavLink>
+              <NavLink to="/what-to-expect" className="text-slate-300 hover:text-white">
+                What to expect
+              </NavLink>
             </nav>
 
-            {/* Desktop actions */}
             <div className="hidden md:flex items-center gap-3">
               {!authReady ? null : isLoggedIn ? (
                 <>
-                  <button
-                    onClick={() => navigate("/account")}
-                    className="px-3 py-1 rounded-full border border-emerald-500/40 bg-emerald-900/40 text-emerald-300 text-xs"
-                  >
+                  <span className="text-xs text-slate-400">
                     Credits: {credits ?? "—"}
-                  </button>
-
+                  </span>
                   <NavLink
                     to="/account"
                     className="px-3 py-1 rounded-full bg-slate-800 text-slate-200 text-xs"
                   >
                     Account
                   </NavLink>
-
-                  {hasActiveScan && (
-                    <button
-                      onClick={handleResume}
-                      className="px-3 py-1 rounded-full bg-amber-400 text-slate-900 text-xs font-semibold"
-                    >
-                      Resume scan
-                    </button>
-                  )}
-
                   <button
                     onClick={handleLogout}
                     className="px-3 py-1 rounded-full bg-slate-800 text-slate-200 text-xs"
@@ -225,7 +193,7 @@ export default function Layout() {
         </div>
       </header>
 
-      {/* Mobile scrim */}
+      {/* Scrim */}
       {mobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50"
@@ -233,16 +201,17 @@ export default function Layout() {
         />
       )}
 
-      {/* Mobile drawer */}
+      {/* Mobile control surface */}
       <aside
         className={[
-          "fixed top-0 right-0 z-50 h-full w-[82%] max-w-sm bg-slate-950 border-l border-slate-800",
-          "transform transition-transform duration-300 ease-out",
+          "fixed top-0 right-0 z-50 h-full w-[88%] max-w-sm",
+          "bg-slate-950 border-l border-slate-800",
+          "transform transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
           mobileOpen ? "translate-x-0" : "translate-x-full",
         ].join(" ")}
       >
         <div className="h-14 px-4 flex items-center justify-between border-b border-slate-800">
-          <span className="font-semibold">Menu</span>
+          <span className="font-semibold">CarVerity</span>
           <button
             onClick={() => setMobileOpen(false)}
             className="p-2 rounded-lg hover:bg-slate-800"
@@ -251,56 +220,66 @@ export default function Layout() {
           </button>
         </div>
 
-        <div className="px-4 py-6 space-y-6">
-          <nav className="space-y-3">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-3 text-slate-200 text-sm py-2"
-                >
-                  <Icon size={18} className="text-slate-400" />
-                  {item.label}
-                </NavLink>
-              );
-            })}
+        <div className="px-5 py-8 space-y-10">
+          {/* Identity */}
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-wide text-slate-500">
+              Buyer inspection assistant
+            </p>
+            <p className="text-sm text-slate-300">
+              Credits available: {credits ?? "—"}
+            </p>
+            <p className="text-sm text-slate-300">
+              Inspection in progress: {hasActiveScan ? "Yes" : "No"}
+            </p>
+          </div>
+
+          {/* Primary action */}
+          <button
+            onClick={handlePrimaryAction}
+            className="w-full rounded-xl bg-emerald-500/90 hover:bg-emerald-500 text-black font-semibold py-4 text-base transition"
+          >
+            {hasActiveScan ? "Resume inspection" : "Start new inspection"}
+          </button>
+
+          {/* Secondary navigation */}
+          <nav className="space-y-3 text-sm text-slate-300">
+            <NavLink
+              to="/my-scans"
+              onClick={() => setMobileOpen(false)}
+              className="block py-1"
+            >
+              My scans
+            </NavLink>
+            <NavLink
+              to="/pricing"
+              onClick={() => setMobileOpen(false)}
+              className="block py-1"
+            >
+              Pricing
+            </NavLink>
+            <NavLink
+              to="/what-to-expect"
+              onClick={() => setMobileOpen(false)}
+              className="block py-1"
+            >
+              What to expect
+            </NavLink>
           </nav>
 
+          {/* Account */}
           {authReady && isLoggedIn && (
-            <div className="pt-4 border-t border-slate-800 space-y-3">
-              <div className="text-xs text-slate-400">
-                Credits: {credits ?? "—"}
-              </div>
-
+            <div className="pt-6 border-t border-slate-800 space-y-3 text-sm text-slate-400">
               <button
                 onClick={() => {
                   setMobileOpen(false);
                   navigate("/account");
                 }}
-                className="flex items-center gap-3 text-sm text-slate-200 py-2"
+                className="block"
               >
-                <User size={18} className="text-slate-400" />
                 Account
               </button>
-
-              {hasActiveScan && (
-                <button
-                  onClick={handleResume}
-                  className="flex items-center gap-3 text-sm text-amber-300 py-2"
-                >
-                  <PlayCircle size={18} />
-                  Resume scan
-                </button>
-              )}
-
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-3 text-sm text-slate-200 py-2"
-              >
-                <LogOut size={18} className="text-slate-400" />
+              <button onClick={handleLogout} className="block">
                 Log out
               </button>
             </div>
