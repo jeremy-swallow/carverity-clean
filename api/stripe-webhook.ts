@@ -12,15 +12,14 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 if (!STRIPE_SECRET_KEY) throw new Error("Missing STRIPE_SECRET_KEY");
 if (!STRIPE_WEBHOOK_SECRET) throw new Error("Missing STRIPE_WEBHOOK_SECRET");
 if (!SUPABASE_URL) throw new Error("Missing VITE_SUPABASE_URL");
-if (!SUPABASE_SERVICE_ROLE_KEY) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+if (!SUPABASE_SERVICE_ROLE_KEY)
+  throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
 
 const stripe = new Stripe(STRIPE_SECRET_KEY, {
   apiVersion: "2025-12-15.clover" as any,
 });
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-/* ========================================================= */
 
 type PackKey = "single" | "three" | "five";
 
@@ -63,21 +62,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // We only care about completed checkouts
+  // 🔎 DEBUG: respond with what we received (TEST MODE ONLY)
+  // This helps you instantly confirm the deployed code + event shape.
+  const livemode = Boolean((event as any).livemode);
+
   if (event.type !== "checkout.session.completed") {
-    res.status(200).json({ received: true });
+    res.status(200).json({
+      received: true,
+      handled: false,
+      reason: "not_checkout_session_completed",
+      eventType: event.type,
+      livemode,
+    });
     return;
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
 
-  // Only credit paid sessions
   if (session.payment_status !== "paid") {
-    res.status(200).json({ ignored: true, reason: "not_paid" });
+    res.status(200).json({
+      received: true,
+      handled: false,
+      reason: "not_paid",
+      eventType: event.type,
+      payment_status: session.payment_status,
+      livemode,
+    });
     return;
   }
 
-  // 🔥 IMPORTANT: match your checkout metadata keys
   const userId =
     session.metadata?.supabase_user_id ||
     session.metadata?.user_id ||
@@ -85,7 +98,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const pack = (session.metadata?.pack as PackKey | undefined) ?? undefined;
 
-  // Backwards compatible support if you ever used `credits` directly
   const creditsFromMetadata =
     typeof session.metadata?.credits === "string"
       ? Number(session.metadata?.credits)
@@ -96,20 +108,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const paymentIntent = session.payment_intent
     ? String(session.payment_intent)
-    : session.id; // fallback
+    : session.id;
 
   if (!userId || credits <= 0) {
     res.status(200).json({
-      ignored: true,
+      received: true,
+      handled: false,
       reason: "missing_user_or_credits",
+      eventType: event.type,
+      livemode,
       userId,
       pack,
       credits,
+      metadata: session.metadata ?? null,
     });
     return;
   }
 
-  // ✅ Idempotency guard: if we already credited this payment intent, do nothing
+  // Idempotency guard
   const { data: existingLedger } = await supabaseAdmin
     .from("credit_ledger")
     .select("id")
@@ -119,11 +135,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .maybeSingle();
 
   if (existingLedger?.id) {
-    res.status(200).json({ ok: true, alreadyCredited: true });
+    res.status(200).json({
+      received: true,
+      handled: true,
+      alreadyCredited: true,
+      eventType: event.type,
+      livemode,
+    });
     return;
   }
 
-  // Fetch current balance
+  // Load profile
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select("credits")
@@ -139,7 +161,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const current = typeof profile?.credits === "number" ? profile.credits : 0;
   const next = current + credits;
 
-  // Update profile balance
+  // Update credits
   const { error: updateError } = await supabaseAdmin
     .from("profiles")
     .update({ credits: next })
@@ -151,7 +173,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // Insert ledger entry
+  // Insert ledger
   const { error: ledgerError } = await supabaseAdmin.from("credit_ledger").insert({
     user_id: userId,
     event_type: "purchase",
@@ -162,10 +184,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (ledgerError) {
     console.error("[stripe-webhook] Failed to insert ledger:", ledgerError);
-    // We already updated credits, so we should still return 200 to prevent Stripe retry loops
-    res.status(200).json({ credited: credits, warning: "ledger_insert_failed" });
+    res.status(200).json({
+      received: true,
+      handled: true,
+      credited: credits,
+      balance_after: next,
+      warning: "ledger_insert_failed",
+      livemode,
+    });
     return;
   }
 
-  res.status(200).json({ credited: credits, balance_after: next });
+  res.status(200).json({
+    received: true,
+    handled: true,
+    credited: credits,
+    balance_after: next,
+    livemode,
+  });
 }
