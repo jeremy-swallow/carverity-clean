@@ -72,6 +72,11 @@ export default function Pricing() {
     return params.get("success") === "1";
   }, [location.search]);
 
+  const restore = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("restore") === "1";
+  }, [location.search]);
+
   const cancelled = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get("canceled") === "1" || params.get("cancelled") === "1";
@@ -156,6 +161,12 @@ export default function Pricing() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [success]);
 
+  // Extra “restore mode” behaviour:
+  // When restore=1, we bias the UI to show "Restoring session…" instead of
+  // making it look like the user got logged out.
+  const restoringSession =
+    success && restore && (!sessionReady || (sessionReady && !isLoggedIn));
+
   async function startCheckout(pack: PackKey) {
     try {
       setLoadingPack(pack);
@@ -218,7 +229,9 @@ export default function Pricing() {
           <p className="text-emerald-200 font-semibold">Purchase successful</p>
 
           <p className="text-sm text-slate-300">
-            Your credits should now be available on your account.
+            {restoringSession
+              ? "Restoring your session and syncing credits…"
+              : "Your credits should now be available on your account."}
           </p>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
@@ -234,6 +247,15 @@ export default function Pricing() {
             >
               View My Scans
             </button>
+
+            {restoringSession && (
+              <button
+                onClick={() => refreshAuthAndCredits()}
+                className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
+              >
+                Refresh
+              </button>
+            )}
           </div>
 
           {showCreditsLine && (
@@ -248,10 +270,28 @@ export default function Pricing() {
                     <span className="text-slate-500"> (updating…)</span>
                   ) : null}
                 </>
+              ) : restoringSession ? (
+                <>
+                  You may briefly appear signed out while we restore your
+                  session. If it doesn’t update within a few seconds, tap{" "}
+                  <span className="text-slate-200">Refresh</span> or{" "}
+                  <span className="text-slate-200">Sign in</span>.
+                </>
               ) : (
                 <>You’re not currently signed in on this device. Sign in to see your credits.</>
               )}
             </p>
+          )}
+
+          {success && sessionReady && !isLoggedIn && (
+            <div className="pt-2">
+              <button
+                onClick={() => navigate("/sign-in")}
+                className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-black font-semibold px-4 py-2 text-sm"
+              >
+                Sign in
+              </button>
+            </div>
           )}
         </section>
       )}
@@ -283,7 +323,9 @@ export default function Pricing() {
             </p>
           ) : (
             <p className="text-sm text-slate-300 mt-1">
-              Not signed in · Sign in to buy credits and unlock reports
+              {success && restore
+                ? "Restoring session… (this can take a moment after checkout)"
+                : "Not signed in · Sign in to buy credits and unlock reports"}
             </p>
           )}
         </div>
