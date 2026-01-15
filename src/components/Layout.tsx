@@ -1,12 +1,7 @@
 // src/components/Layout.tsx
 
-import {
-  Outlet,
-  NavLink,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { loadProgress } from "../utils/scanProgress";
 import { supabase } from "../supabaseClient";
 import { signOut } from "../supabaseAuth";
@@ -93,16 +88,26 @@ function getInPersonProgressMeta(pathname: string): ProgressMeta | null {
   };
 }
 
+function formatCredits(n: number | null) {
+  if (n == null) return "—";
+  const safe = Math.max(0, Math.floor(n));
+  return String(safe);
+}
+
 /* =========================================================
    Layout
 ========================================================= */
 
 export default function Layout() {
   const [hasActiveScan, setHasActiveScan] = useState(false);
+
   const [credits, setCredits] = useState<number | null>(null);
+  const [creditsLoading, setCreditsLoading] = useState(false);
+
   const [session, setSession] = useState<
     Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null
   >(null);
+
   const [authReady, setAuthReady] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -126,43 +131,105 @@ export default function Layout() {
   }, [progressMeta]);
 
   /* -------------------------------------------------------
-     Auth + credits
+     Auth + credits (best-practice, resilient)
+     - Keeps UI from "flashing logged out"
+     - Avoids stale credit writes if refresh races
   ------------------------------------------------------- */
-  useEffect(() => {
-    let mounted = true;
 
-    async function refresh() {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
+  const refreshCounter = useRef(0);
 
-      setSession(data.session ?? null);
+  async function refreshAuthAndCredits() {
+    const callId = ++refreshCounter.current;
 
-      if (data.session) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("credits")
-          .eq("id", data.session.user.id)
-          .single();
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (callId !== refreshCounter.current) return;
 
-        setCredits(profile?.credits ?? 0);
-      } else {
-        setCredits(null);
+      if (error) {
+        console.warn("[Layout] getSession error:", error);
       }
 
+      const nextSession = data.session ?? null;
+      setSession(nextSession);
+      setAuthReady(true);
+
+      if (!nextSession) {
+        setCredits(null);
+        setCreditsLoading(false);
+        return;
+      }
+
+      setCreditsLoading(true);
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("credits")
+        .eq("id", nextSession.user.id)
+        .single();
+
+      if (callId !== refreshCounter.current) return;
+
+      if (profileError) {
+        console.warn("[Layout] Failed to fetch credits:", profileError);
+        setCredits(null);
+        setCreditsLoading(false);
+        return;
+      }
+
+      setCredits(typeof profile?.credits === "number" ? profile.credits : 0);
+      setCreditsLoading(false);
+    } catch (e) {
+      if (callId !== refreshCounter.current) return;
+      console.warn("[Layout] refreshAuthAndCredits error:", e);
+      setCreditsLoading(false);
       setAuthReady(true);
     }
+  }
 
-    refresh();
+  useEffect(() => {
+    refreshAuthAndCredits();
 
     const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      refresh();
+      refreshAuthAndCredits();
     });
 
     return () => {
-      mounted = false;
       listener.subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // If Stripe returns you to /pricing?success=1&restore=1
+  // do an extra refresh loop so it never "feels logged out".
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const restore = params.get("restore") === "1";
+
+    if (!restore) return;
+
+    let cancelled = false;
+
+    async function restoreLoop() {
+      const delays = [0, 250, 600, 1100, 1700, 2400];
+
+      for (const ms of delays) {
+        if (cancelled) return;
+
+        if (ms > 0) {
+          await new Promise((r) => setTimeout(r, ms));
+        }
+
+        await refreshAuthAndCredits();
+      }
+    }
+
+    restoreLoop();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, location.search]);
 
   /* -------------------------------------------------------
      Resume pill
@@ -207,7 +274,7 @@ export default function Layout() {
               CarVerity
             </NavLink>
 
-            {/* Desktop nav unchanged */}
+            {/* Desktop nav */}
             <nav className="hidden md:flex items-center gap-6 text-sm">
               <NavLink
                 to="/start-scan"
@@ -239,14 +306,19 @@ export default function Layout() {
               {!authReady ? null : isLoggedIn ? (
                 <>
                   <span className="text-xs text-slate-400">
-                    Credits: {credits ?? "—"}
+                    Credits:{" "}
+                    <span className="tabular-nums">
+                      {creditsLoading ? "…" : formatCredits(credits)}
+                    </span>
                   </span>
+
                   <NavLink
                     to="/account"
                     className="px-3 py-1 rounded-full bg-slate-800 text-slate-200 text-xs"
                   >
                     Account
                   </NavLink>
+
                   <button
                     onClick={handleLogout}
                     className="px-3 py-1 rounded-full bg-slate-800 text-slate-200 text-xs"
@@ -340,9 +412,14 @@ export default function Layout() {
             <p className="text-xs uppercase tracking-wide text-slate-500">
               Buyer inspection assistant
             </p>
+
             <p className="text-sm text-slate-300">
-              Credits available: {credits ?? "—"}
+              Credits available:{" "}
+              <span className="tabular-nums">
+                {!authReady ? "…" : creditsLoading ? "…" : formatCredits(credits)}
+              </span>
             </p>
+
             <p className="text-sm text-slate-300">
               Inspection in progress: {hasActiveScan ? "Yes" : "No"}
             </p>
