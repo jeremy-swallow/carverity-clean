@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { loadProgress } from "../utils/scanProgress";
 import { supabase } from "../supabaseClient";
 import { signOut } from "../supabaseAuth";
+import { Menu, X } from "lucide-react";
 
 /* =========================================================
    Helpers
@@ -46,6 +47,7 @@ export default function Layout() {
     Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"] | null
   >(null);
   const [authReady, setAuthReady] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -103,6 +105,7 @@ export default function Layout() {
     const progress = loadProgress();
     const safeRoute = getSafeResumeRoute(progress?.step);
     if (!safeRoute) return;
+    setMobileOpen(false);
     navigate(safeRoute);
   }
 
@@ -110,6 +113,7 @@ export default function Layout() {
     try {
       await signOut();
     } finally {
+      setMobileOpen(false);
       navigate("/", { replace: true });
     }
   }
@@ -132,6 +136,8 @@ export default function Layout() {
         : "text-slate-300 hover:text-white",
     ].join(" ");
 
+  const mobileLinkClass = "text-slate-200 text-sm py-2";
+
   /* -------------------------------------------------------
      Render
   ------------------------------------------------------- */
@@ -145,6 +151,7 @@ export default function Layout() {
               CarVerity
             </NavLink>
 
+            {/* Desktop nav */}
             <nav className="hidden md:flex items-center gap-6">
               {navItems.map((item) => (
                 <NavLink
@@ -157,6 +164,7 @@ export default function Layout() {
               ))}
             </nav>
 
+            {/* Desktop actions */}
             <div className="hidden md:flex items-center gap-3">
               {!authReady ? null : isLoggedIn ? (
                 <>
@@ -199,7 +207,76 @@ export default function Layout() {
                 </NavLink>
               )}
             </div>
+
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setMobileOpen((v) => !v)}
+              className="md:hidden p-2 rounded-lg hover:bg-slate-800"
+              aria-label="Open menu"
+            >
+              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
+
+          {/* Mobile menu */}
+          {mobileOpen && (
+            <div className="md:hidden border-t border-slate-800 bg-slate-950 px-4 py-4 space-y-3">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMobileOpen(false)}
+                  className={mobileLinkClass}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+
+              <div className="pt-3 border-t border-slate-800 space-y-2">
+                {!authReady ? null : isLoggedIn ? (
+                  <>
+                    <div className="text-xs text-slate-400">
+                      Credits: {credits ?? "—"}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setMobileOpen(false);
+                        navigate("/account");
+                      }}
+                      className={mobileLinkClass}
+                    >
+                      Account
+                    </button>
+
+                    {hasActiveScan && (
+                      <button
+                        onClick={handleResume}
+                        className="w-full text-left text-amber-300 text-sm py-2"
+                      >
+                        Resume scan
+                      </button>
+                    )}
+
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left text-slate-200 text-sm py-2"
+                    >
+                      Log out
+                    </button>
+                  </>
+                ) : (
+                  <NavLink
+                    to="/sign-in"
+                    onClick={() => setMobileOpen(false)}
+                    className="text-emerald-400 text-sm py-2 block"
+                  >
+                    Sign in
+                  </NavLink>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
