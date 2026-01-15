@@ -21,14 +21,9 @@ const stripe = new Stripe(STRIPE_SECRET_KEY, {
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-type PackKey = "single" | "three" | "five";
-
-function creditsForPack(pack: string | null | undefined): number {
-  if (pack === "single") return 1;
-  if (pack === "three") return 3;
-  if (pack === "five") return 5;
-  return 0;
-}
+/* =========================================================
+   Helpers
+========================================================= */
 
 async function readRawBody(req: VercelRequest): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -38,6 +33,53 @@ async function readRawBody(req: VercelRequest): Promise<Buffer> {
     req.on("error", reject);
   });
 }
+
+type PackKey = "single" | "three" | "five";
+
+function packToCredits(pack: string | null | undefined): number {
+  if (pack === "single") return 1;
+  if (pack === "three") return 3;
+  if (pack === "five") return 5;
+  return 0;
+}
+
+async function getCurrentCredits(userId: string): Promise<number> {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("credits")
+    .eq("id", userId)
+    .single();
+
+  if (error) {
+    // If the profile row doesn't exist yet, treat as 0
+    return 0;
+  }
+
+  const current = (data as any)?.credits;
+  return typeof current === "number" && Number.isFinite(current) ? current : 0;
+}
+
+async function ensureLedgerNotCredited(reference: string): Promise<boolean> {
+  // Returns true if we can proceed (not already credited)
+  const { data, error } = await supabaseAdmin
+    .from("credit_ledger")
+    .select("id")
+    .eq("event_type", "purchase")
+    .eq("reference", reference)
+    .limit(1);
+
+  if (error) {
+    // If ledger query fails, fail safe by allowing crediting
+    // (better than blocking purchases due to a temporary DB issue)
+    return true;
+  }
+
+  return !(data && data.length > 0);
+}
+
+/* =========================================================
+   Handler
+========================================================= */
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -62,144 +104,94 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // 🔎 DEBUG: respond with what we received (TEST MODE ONLY)
-  // This helps you instantly confirm the deployed code + event shape.
-  const livemode = Boolean((event as any).livemode);
-
+  // We only care about completed checkout sessions for credit packs
   if (event.type !== "checkout.session.completed") {
-    res.status(200).json({
-      received: true,
-      handled: false,
-      reason: "not_checkout_session_completed",
-      eventType: event.type,
-      livemode,
-    });
+    res.status(200).json({ received: true });
     return;
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
 
   if (session.payment_status !== "paid") {
-    res.status(200).json({
-      received: true,
-      handled: false,
-      reason: "not_paid",
-      eventType: event.type,
-      payment_status: session.payment_status,
-      livemode,
-    });
+    res.status(200).json({ ignored: true, reason: "not_paid" });
     return;
   }
 
-  const userId =
-    session.metadata?.supabase_user_id ||
-    session.metadata?.user_id ||
-    null;
+  // Your create-checkout-session.ts uses:
+  // metadata: { purchase_type: "credit_pack", supabase_user_id: user.id, pack }
+  const purchaseType = session.metadata?.purchase_type ?? null;
+  const userId = session.metadata?.supabase_user_id ?? null;
+  const pack = (session.metadata?.pack ?? null) as PackKey | null;
 
-  const pack = (session.metadata?.pack as PackKey | undefined) ?? undefined;
-
-  const creditsFromMetadata =
-    typeof session.metadata?.credits === "string"
-      ? Number(session.metadata?.credits)
-      : 0;
-
-  const credits =
-    creditsFromMetadata > 0 ? creditsFromMetadata : creditsForPack(pack);
-
-  const paymentIntent = session.payment_intent
-    ? String(session.payment_intent)
-    : session.id;
-
-  if (!userId || credits <= 0) {
-    res.status(200).json({
-      received: true,
-      handled: false,
-      reason: "missing_user_or_credits",
-      eventType: event.type,
-      livemode,
-      userId,
-      pack,
-      credits,
-      metadata: session.metadata ?? null,
-    });
+  if (purchaseType !== "credit_pack") {
+    res.status(200).json({ ignored: true, reason: "not_credit_pack" });
     return;
   }
 
-  // Idempotency guard
-  const { data: existingLedger } = await supabaseAdmin
-    .from("credit_ledger")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("event_type", "purchase")
-    .eq("reference", paymentIntent)
-    .maybeSingle();
-
-  if (existingLedger?.id) {
-    res.status(200).json({
-      received: true,
-      handled: true,
-      alreadyCredited: true,
-      eventType: event.type,
-      livemode,
-    });
+  if (!userId) {
+    res.status(200).json({ ignored: true, reason: "missing_user_id" });
     return;
   }
 
-  // Load profile
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from("profiles")
-    .select("credits")
-    .eq("id", userId)
-    .single();
-
-  if (profileError) {
-    console.error("[stripe-webhook] Failed to load profile:", profileError);
-    res.status(500).json({ error: "Failed to load profile" });
+  const creditsToAdd = packToCredits(pack);
+  if (creditsToAdd <= 0) {
+    res.status(200).json({ ignored: true, reason: "invalid_pack" });
     return;
   }
 
-  const current = typeof profile?.credits === "number" ? profile.credits : 0;
-  const next = current + credits;
+  // Use a stable reference for idempotency (payment_intent preferred)
+  const reference =
+    typeof session.payment_intent === "string" && session.payment_intent
+      ? session.payment_intent
+      : session.id;
 
-  // Update credits
+  // Prevent double-crediting if Stripe retries delivery
+  const canProceed = await ensureLedgerNotCredited(reference);
+  if (!canProceed) {
+    res.status(200).json({ ok: true, already_credited: true });
+    return;
+  }
+
+  // Fetch current balance
+  const current = await getCurrentCredits(userId);
+  const next = current + creditsToAdd;
+
+  // Update profile balance
   const { error: updateError } = await supabaseAdmin
     .from("profiles")
     .update({ credits: next })
     .eq("id", userId);
 
   if (updateError) {
-    console.error("[stripe-webhook] Failed to update credits:", updateError);
+    console.error("[stripe-webhook] Failed to update profile credits:", updateError);
     res.status(500).json({ error: "Failed to update credits" });
     return;
   }
 
-  // Insert ledger
+  // Insert ledger entry (best effort)
   const { error: ledgerError } = await supabaseAdmin.from("credit_ledger").insert({
     user_id: userId,
     event_type: "purchase",
-    credits_delta: credits,
+    credits_delta: creditsToAdd,
     balance_after: next,
-    reference: paymentIntent,
+    reference,
+    meta: {
+      pack,
+      session_id: session.id,
+      amount_total: session.amount_total ?? null,
+      currency: session.currency ?? null,
+    },
   });
 
   if (ledgerError) {
-    console.error("[stripe-webhook] Failed to insert ledger:", ledgerError);
-    res.status(200).json({
-      received: true,
-      handled: true,
-      credited: credits,
-      balance_after: next,
-      warning: "ledger_insert_failed",
-      livemode,
-    });
-    return;
+    // Not fatal — credits already updated
+    console.warn("[stripe-webhook] Ledger insert failed:", ledgerError);
   }
 
   res.status(200).json({
-    received: true,
-    handled: true,
-    credited: credits,
+    ok: true,
+    credited: creditsToAdd,
     balance_after: next,
-    livemode,
+    reference,
   });
 }
