@@ -1,485 +1,439 @@
-// src/pages/InPersonSummary.tsx
-
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  loadProgress,
-  clearProgress,
-  saveProgress,
-  type ScanProgress,
-} from "../utils/scanProgress";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { supabase } from "../supabaseClient";
+import { loadProgress, clearProgress } from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
 
-type AnswerValue = "ok" | "concern" | "unsure";
-type CheckAnswer = { value: AnswerValue; note?: string };
+type PricingVerdict = "missing" | "info" | "room" | "concern";
 
-function labelForCheck(id: string) {
-  const map: Record<string, string> = {
-    // Around car
-    "body-panels": "Body panels & alignment",
-    paint: "Paint condition",
-    "glass-lights": "Glass & lights",
-    tyres: "Tyres condition",
-    "underbody-leaks": "Visible fluid leaks (if noticed)",
-
-    // Cabin
-    "interior-smell": "Smell or moisture",
-    "interior-condition": "General interior condition",
-    aircon: "Air-conditioning",
-
-    // Drive
-    steering: "Steering & handling",
-    "noise-hesitation": "Noise or hesitation",
-    "adas-systems": "Driver-assist safety systems (if fitted)",
-  };
-
-  return map[id] || id.replace(/[-_]/g, " ");
-}
-
-function formatAudCompact(n: number) {
+function formatMoney(n: number | null | undefined) {
+  if (n == null || Number.isNaN(n)) return "—";
   try {
-    return n.toLocaleString("en-AU");
+    return new Intl.NumberFormat("en-AU", {
+      style: "currency",
+      currency: "AUD",
+      maximumFractionDigits: 0,
+    }).format(n);
   } catch {
-    return String(n);
+    return `$${Math.round(n)}`;
   }
 }
 
-/**
- * Convert a user-entered string like:
- * "14990", "14,990", "$14,990", "14 990"
- * into a safe integer AUD number, or null if invalid.
- */
-function parseAudInputToNumber(raw: string): number | null {
-  const cleaned = (raw ?? "")
-    .replace(/\$/g, "")
-    .replace(/,/g, "")
-    .replace(/\s+/g, "")
-    .trim();
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
 
-  if (!cleaned) return null;
+function scoreFromChecks(checks: Record<string, any>) {
+  const values = Object.values(checks || {});
+  if (!values.length) return 0;
 
-  // Allow digits only (no decimals for asking price)
-  if (!/^\d+$/.test(cleaned)) return null;
+  let score = 100;
 
-  const n = Number(cleaned);
-  if (!Number.isFinite(n)) return null;
+  for (const a of values) {
+    const v = a?.value;
+    if (v === "ok") score -= 0;
+    if (v === "unsure") score -= 6;
+    if (v === "concern") score -= 12;
+  }
 
-  // Safety bounds (avoid insane values / accidental extra zeros)
-  if (n < 0) return null;
-  if (n > 2_000_000) return null;
+  return clamp(Math.round(score), 0, 100);
+}
 
-  return Math.round(n);
+function countConcerns(checks: Record<string, any>) {
+  return Object.values(checks || {}).filter((a: any) => a?.value === "concern")
+    .length;
+}
+
+function countUnsure(checks: Record<string, any>) {
+  return Object.values(checks || {}).filter((a: any) => a?.value === "unsure")
+    .length;
+}
+
+function severityWeight(s?: string) {
+  if (s === "major") return 3;
+  if (s === "moderate") return 2;
+  return 1;
+}
+
+function sumImperfectionWeight(imps: any[]) {
+  return (imps || []).reduce((acc, it) => acc + severityWeight(it?.severity), 0);
+}
+
+function getPricingVerdict(args: {
+  askingPrice?: number | null;
+  concerns: number;
+  unsure: number;
+  imperfectionWeight: number;
+}): PricingVerdict {
+  const { askingPrice, concerns, unsure, imperfectionWeight } = args;
+
+  if (!askingPrice || askingPrice <= 0) return "missing";
+
+  const issueScore = concerns * 2 + unsure * 1 + imperfectionWeight * 0.75;
+
+  if (issueScore >= 12) return "concern";
+  if (issueScore >= 6) return "room";
+  return "info";
+}
+
+function pricingCopy(verdict: PricingVerdict) {
+  if (verdict === "missing") {
+    return {
+      title: "Add the asking price",
+      body: "To assess value, we need the seller’s asking price.",
+    };
+  }
+  if (verdict === "concern") {
+    return {
+      title: "Price looks high for what you’ve recorded",
+      body: "Based on your concerns and imperfections, this looks like a strong negotiation candidate.",
+    };
+  }
+  if (verdict === "room") {
+    return {
+      title: "There may be negotiation room",
+      body: "Your inspection suggests some leverage. A small reduction is realistic if the seller confirms your concerns.",
+    };
+  }
+  return {
+    title: "Price looks roughly in the fair range",
+    body: "Nothing you recorded strongly suggests the price is inflated — still confirm the key items before committing.",
+  };
+}
+
+function buildTitleFromVehicle(progress: any): string {
+  const v =
+    progress?.vehicle ||
+    progress?.vehicleDetails ||
+    progress?.vehicleInfo ||
+    progress?.onlineVehicle ||
+    null;
+
+  const year = typeof v?.year === "string" ? v.year : undefined;
+  const make = typeof v?.make === "string" ? v.make : undefined;
+  const model = typeof v?.model === "string" ? v.model : undefined;
+  const variant = typeof v?.variant === "string" ? v.variant : undefined;
+
+  const parts = [year, make, model, variant].filter(Boolean);
+  if (parts.length) return parts.join(" ");
+  return "In-person inspection";
+}
+
+function buildVehicleFromProgress(progress: any) {
+  const v =
+    progress?.vehicle ||
+    progress?.vehicleDetails ||
+    progress?.vehicleInfo ||
+    progress?.onlineVehicle ||
+    null;
+
+  if (!v || typeof v !== "object") return undefined;
+
+  return {
+    make: typeof v.make === "string" ? v.make : undefined,
+    model: typeof v.model === "string" ? v.model : undefined,
+    year: typeof v.year === "string" ? v.year : undefined,
+    variant: typeof v.variant === "string" ? v.variant : undefined,
+  };
 }
 
 export default function InPersonSummary() {
   const navigate = useNavigate();
-  const progress = loadProgress() as ScanProgress | null;
+  const { scanId: routeScanId } = useParams<{ scanId?: string }>();
 
-  const activeScanId: string = progress?.scanId ?? generateScanId();
+  const progress: any = loadProgress();
+  const activeScanId: string | null = progress?.scanId || routeScanId || null;
 
   const imperfections = progress?.imperfections ?? [];
-  const checks: Record<string, CheckAnswer> = (progress?.checks as any) ?? {};
-  const photos = progress?.photos ?? [];
   const followUps = progress?.followUpPhotos ?? [];
+  const checks = progress?.checks ?? {};
+  const photos = progress?.photos ?? [];
+  const fromOnlineScan = Boolean(progress?.fromOnlineScan);
 
-  const vehicle = {
-    year: progress?.vehicleYear ?? "",
-    make: progress?.vehicleMake ?? "",
-    model: progress?.vehicleModel ?? "",
-    variant: (progress as any)?.vehicleVariant ?? "",
-    kms: (progress as any)?.vehicleKms ?? progress?.kilometres ?? "",
-  };
+  const askingPrice: number | null =
+    typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
 
-  const [savedId, setSavedId] = useState<string | null>(null);
+  const concerns = useMemo(() => countConcerns(checks), [checks]);
+  const unsure = useMemo(() => countUnsure(checks), [checks]);
+  const score = useMemo(() => scoreFromChecks(checks), [checks]);
 
-  // Asking price input state (string for UX, number stored in progress)
-  const initialAskingPrice = useMemo(() => {
-    const v = progress?.askingPrice;
-    if (typeof v === "number" && Number.isFinite(v) && v > 0) {
-      return formatAudCompact(v);
-    }
-    return "";
-  }, [progress?.askingPrice]);
-
-  const [askingPriceText, setAskingPriceText] = useState<string>(
-    initialAskingPrice
+  const imperfectionWeight = useMemo(
+    () => sumImperfectionWeight(imperfections),
+    [imperfections]
   );
 
-  const parsedAskingPrice = useMemo(() => {
-    return parseAudInputToNumber(askingPriceText);
-  }, [askingPriceText]);
-
-  const askingPriceError = useMemo(() => {
-    if (!askingPriceText.trim()) return null; // optional
-    return parsedAskingPrice === null
-      ? "Enter a valid AUD amount (numbers only)."
-      : null;
-  }, [askingPriceText, parsedAskingPrice]);
-
-  const checksAnsweredCount = useMemo(() => {
-    return Object.values(checks).filter((v) => Boolean(v?.value)).length;
-  }, [checks]);
-
-  const notesCount = useMemo(() => {
-    return Object.values(checks).filter((v) => (v?.note ?? "").trim().length > 0)
-      .length;
-  }, [checks]);
-
-  const concerns = useMemo(() => {
-    return Object.entries(checks)
-      .filter(([, v]) => v?.value === "concern")
-      .map(([id, v]) => ({
-        id,
-        label: labelForCheck(id),
-        note: (v?.note ?? "").trim(),
-      }));
-  }, [checks]);
-
-  const notesOnly = useMemo(() => {
-    return Object.entries(checks)
-      .filter(
-        ([, v]) => (v?.note ?? "").trim().length > 0 && v?.value !== "concern"
-      )
-      .map(([id, v]) => ({
-        id,
-        label: labelForCheck(id),
-        note: (v?.note ?? "").trim(),
-        value: v?.value,
-      }));
-  }, [checks]);
-
-  function persistAskingPrice(nextText: string) {
-    setAskingPriceText(nextText);
-
-    const nextParsed = parseAudInputToNumber(nextText);
-
-    saveProgress({
-      ...(progress ?? {}),
-      scanId: activeScanId,
-      askingPrice: nextParsed,
+  const verdict = useMemo(() => {
+    return getPricingVerdict({
+      askingPrice,
+      concerns,
+      unsure,
+      imperfectionWeight,
     });
-  }
+  }, [askingPrice, concerns, unsure, imperfectionWeight]);
 
-  function onAskingPriceBlur() {
-    // On blur, if valid, reformat nicely with commas.
-    if (parsedAskingPrice && parsedAskingPrice > 0) {
-      const formatted = formatAudCompact(parsedAskingPrice);
-      setAskingPriceText(formatted);
+  const verdictCopy = useMemo(() => pricingCopy(verdict), [verdict]);
 
-      saveProgress({
-        ...(progress ?? {}),
-        scanId: activeScanId,
-        askingPrice: parsedAskingPrice,
+  const [saving, setSaving] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function init() {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setIsLoggedIn(Boolean(data.session));
+      setAuthReady(true);
+    }
+
+    init();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+      init();
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  async function handleSaveAndContinue() {
+    if (!activeScanId) {
+      alert("Missing scan id — please restart the inspection.");
+      navigate("/scan/in-person/start");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
+
+      if (!session) {
+        alert("Please sign in to save this scan.");
+        navigate("/sign-in");
+        return;
+      }
+
+      const finalScanId = activeScanId || generateScanId();
+
+      const title = buildTitleFromVehicle(progress);
+      const vehicle = buildVehicleFromProgress(progress);
+
+      await saveScan({
+        id: finalScanId,
+        type: "in-person",
+        title,
+        createdAt: new Date().toISOString(),
+
+        vehicle,
+
+        askingPrice,
+        score,
+        concerns,
+        unsure,
+        imperfectionsCount: imperfections.length,
+        photosCount: photos.length,
+        fromOnlineScan,
       });
+
+      navigate(`/scan/in-person/preview/${finalScanId}`);
+    } catch (e) {
+      console.error("[InPersonSummary] save failed:", e);
+      alert("Failed to save scan. Please try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
-  function proceedToAnalysis() {
-    // If they typed something invalid, don’t block the flow,
-    // but also don’t store a broken number.
-    const safeAsking =
-      parsedAskingPrice && parsedAskingPrice > 0 ? parsedAskingPrice : null;
-
-    saveProgress({
-      ...(progress ?? {}),
-      scanId: activeScanId,
-      askingPrice: safeAsking,
-      step: "/scan/in-person/analyzing",
-    });
-
-    navigate(`/scan/in-person/analyzing/${activeScanId}`);
-  }
-
-  function saveToLibrary() {
-    const safeAsking =
-      parsedAskingPrice && parsedAskingPrice > 0 ? parsedAskingPrice : null;
-
-    // Keep progress in sync before saving
-    saveProgress({
-      ...(progress ?? {}),
-      scanId: activeScanId,
-      askingPrice: safeAsking,
-    });
-
-    saveScan({
-      id: activeScanId,
-      type: "in-person",
-      title: "In-person inspection",
-      createdAt: new Date().toISOString(),
-      completed: false,
-      vehicle,
-      history: [
-        {
-          at: new Date().toISOString(),
-          event: "Inspection summary saved",
-        },
-      ],
-    } as any);
-
-    setSavedId(activeScanId);
-  }
-
-  function viewMyScans() {
+  function handleStartOver() {
+    if (!confirm("Start over? This will clear your current inspection.")) return;
     clearProgress();
-    navigate("/my-scans");
+    navigate("/scan/in-person/start");
   }
 
-  function startNewScan() {
-    clearProgress();
-    navigate("/start-scan");
-  }
+  const canContinue = Boolean(activeScanId);
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
-      <span className="text-[11px] uppercase tracking-wide text-slate-400">
-        In-person scan — Summary
-      </span>
-
-      <h1 className="text-xl md:text-2xl font-semibold text-white">
-        Inspection summary
-      </h1>
-
-      <p className="text-sm text-slate-400">
-        Review what you captured before we analyse the inspection and generate
-        your full report.
-      </p>
-
-      {/* VEHICLE */}
-      <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-4 space-y-1">
-        <p className="font-semibold text-slate-100">
-          {vehicle.year} {vehicle.make} {vehicle.model}
-          {vehicle.variant ? ` — ${vehicle.variant}` : ""}
+    <div className="max-w-5xl mx-auto px-4 py-16">
+      <header className="mb-10">
+        <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+          In-person inspection
         </p>
-        <p className="text-sm text-slate-400">
-          Odometer: {vehicle.kms || "—"} km
+        <h1 className="text-3xl md:text-4xl font-semibold text-white mt-2">
+          Summary
+        </h1>
+        <p className="text-slate-400 mt-3 max-w-2xl">
+          This is your quick pre-report snapshot. Next you’ll unlock the full
+          report and negotiation advice.
         </p>
-      </section>
+      </header>
 
-      {/* ASKING PRICE */}
-      <section className="rounded-2xl border border-white/12 bg-slate-900/60 px-5 py-4 space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <h2 className="text-sm font-semibold text-slate-100">
-              Advertised asking price (AUD)
-            </h2>
-            <p className="text-xs text-slate-400">
-              Optional — but enables buyer-safe adjustment guidance.
+      <div className="grid gap-8 lg:grid-cols-3">
+        <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-6">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+            Overall score
+          </p>
+
+          <div className="mt-4 flex items-end justify-between gap-4">
+            <div>
+              <div className="text-5xl font-semibold text-white tabular-nums">
+                {score}
+              </div>
+              <p className="text-sm text-slate-400 mt-1">out of 100</p>
+            </div>
+
+            <div className="w-28 h-2 rounded-full bg-slate-800 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+                style={{ width: `${clamp(score, 0, 100)}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                Concerns
+              </p>
+              <p className="text-lg font-semibold text-white tabular-nums mt-1">
+                {concerns}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                Unsure
+              </p>
+              <p className="text-lg font-semibold text-white tabular-nums mt-1">
+                {unsure}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                Notes
+              </p>
+              <p className="text-lg font-semibold text-white tabular-nums mt-1">
+                {followUps.length}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-6 lg:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                Asking price
+              </p>
+              <p className="text-2xl font-semibold text-white mt-2">
+                {formatMoney(askingPrice)}
+              </p>
+              <p className="text-sm text-slate-500 mt-1">
+                This is used later to estimate negotiation range.
+              </p>
+            </div>
+
+            <button
+              onClick={() => navigate("/scan/in-person/asking-price")}
+              className="rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
+            >
+              Edit asking price
+            </button>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/40 p-5">
+            <p className="text-sm font-semibold text-white">
+              {verdictCopy.title}
+            </p>
+            <p className="text-sm text-slate-400 mt-2">{verdictCopy.body}</p>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span className="text-xs text-slate-500">
+                Photos captured:{" "}
+                <span className="text-slate-200 tabular-nums font-semibold">
+                  {photos.length}
+                </span>
+              </span>
+
+              <span className="text-xs text-slate-500">
+                Imperfections recorded:{" "}
+                <span className="text-slate-200 tabular-nums font-semibold">
+                  {imperfections.length}
+                </span>
+              </span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section className="mt-10 rounded-2xl border border-white/10 bg-slate-900/40 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-white">
+              Ready to generate your report?
+            </p>
+            <p className="text-sm text-slate-400 mt-1">
+              You’ll unlock the full report next. Credits are only used when you
+              unlock.
             </p>
           </div>
 
-          {parsedAskingPrice && parsedAskingPrice > 0 ? (
-            <span className="text-[11px] px-2 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/25 text-emerald-200 tabular-nums">
-              Saved: ${formatAudCompact(parsedAskingPrice)}
-            </span>
-          ) : (
-            <span className="text-[11px] px-2 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400">
-              Not set
-            </span>
-          )}
-        </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={handleStartOver}
+              className="rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
+            >
+              Start over
+            </button>
 
-        <div className="space-y-2">
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-              $
-            </span>
+            <button
+              onClick={() => navigate("/scan/in-person/checks/around")}
+              className="rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
+            >
+              Review checks
+            </button>
 
-            <input
-              inputMode="numeric"
-              autoComplete="off"
-              placeholder="e.g. 14,990"
-              value={askingPriceText}
-              onChange={(e) => persistAskingPrice(e.target.value)}
-              onBlur={onAskingPriceBlur}
+            <button
+              onClick={handleSaveAndContinue}
+              disabled={!canContinue || saving || (authReady && !isLoggedIn)}
               className={[
-                "w-full rounded-xl bg-slate-950/60 border px-9 py-3 text-slate-100 placeholder:text-slate-500",
-                askingPriceError
-                  ? "border-rose-400/40 focus:outline-none focus:ring-2 focus:ring-rose-500/30"
-                  : "border-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-500/25",
+                "rounded-xl px-4 py-2 text-sm font-semibold transition",
+                "bg-emerald-500 hover:bg-emerald-400 text-black",
+                !canContinue || saving || (authReady && !isLoggedIn)
+                  ? "opacity-60 cursor-not-allowed"
+                  : "",
               ].join(" ")}
-            />
-          </div>
-
-          {askingPriceError ? (
-            <p className="text-xs text-rose-200">{askingPriceError}</p>
-          ) : (
-            <p className="text-xs text-slate-500">
-              We’ll use this to compare your recorded findings against the price
-              and suggest a buyer-safe adjustment range.
-            </p>
-          )}
-        </div>
-      </section>
-
-      {/* EVIDENCE COUNTS */}
-      <section className="rounded-2xl border border-white/12 bg-slate-900/60 px-5 py-4">
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">
-              Photos
-            </p>
-            <p className="text-lg font-semibold text-white tabular-nums">
-              {photos.length}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">
-              Checks
-            </p>
-            <p className="text-lg font-semibold text-white tabular-nums">
-              {checksAnsweredCount}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">
-              Notes
-            </p>
-            <p className="text-lg font-semibold text-white tabular-nums">
-              {notesCount}
-            </p>
+            >
+              {saving ? "Saving…" : "Continue"}
+            </button>
           </div>
         </div>
 
-        {followUps.length > 0 && (
-          <p className="text-xs text-slate-400 mt-3">
-            Follow-up photos captured:{" "}
-            <span className="text-slate-200 tabular-nums">
-              {followUps.length}
-            </span>
-          </p>
-        )}
-      </section>
-
-      {/* OBSERVATIONS */}
-      <section className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-3">
-        <h2 className="text-sm font-semibold text-amber-200">
-          Inspection observations
-        </h2>
-
-        {/* Imperfections */}
-        {imperfections.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-wide text-amber-200/80">
-              Visual observations
+        {authReady && !isLoggedIn && (
+          <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3">
+            <p className="text-sm text-amber-200 font-semibold">
+              Sign in required to save this scan
             </p>
-            <ul className="text-sm text-slate-200 space-y-1">
-              {imperfections.map((i: any) => (
-                <li key={i.id}>
-                  • {i.area || i.location || "Observation"}:{" "}
-                  {i.type || i.label || "Noted"}
-                  {i.note ? ` — ${i.note}` : ""}
-                </li>
-              ))}
-            </ul>
+            <p className="text-sm text-slate-300 mt-1">
+              You can still complete an inspection, but to unlock and store your
+              report you’ll need to sign in.
+            </p>
+            <div className="mt-3">
+              <button
+                onClick={() => navigate("/sign-in")}
+                className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-black font-semibold px-4 py-2 text-sm"
+              >
+                Sign in
+              </button>
+            </div>
           </div>
         )}
-
-        {/* Concerns */}
-        {concerns.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-wide text-amber-200/80">
-              Things that stood out
-            </p>
-            <ul className="text-sm text-slate-200 space-y-2">
-              {concerns.map((c) => (
-                <li key={c.id} className="leading-relaxed">
-                  • <span className="font-semibold">{c.label}</span>
-                  {c.note ? (
-                    <span className="text-slate-300"> — {c.note}</span>
-                  ) : (
-                    <span className="text-slate-400"> — (no note)</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Notes that aren’t “concern” */}
-        {notesOnly.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-wide text-amber-200/80">
-              Notes you recorded
-            </p>
-            <ul className="text-sm text-slate-200 space-y-2">
-              {notesOnly.map((n) => (
-                <li key={n.id} className="leading-relaxed">
-                  • <span className="font-semibold">{n.label}</span>
-                  <span className="text-slate-300"> — {n.note}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Empty state */}
-        {imperfections.length === 0 &&
-        concerns.length === 0 &&
-        notesOnly.length === 0 ? (
-          <p className="text-sm text-slate-300">
-            No notable observations were recorded.
-          </p>
-        ) : (
-          <p className="text-xs text-slate-400 pt-1">
-            These notes will be reflected in your report and negotiation
-            guidance.
-          </p>
-        )}
       </section>
-
-      {/* PRIMARY ACTION */}
-      <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-3">
-        <h2 className="text-sm font-semibold text-emerald-200">
-          Generate full report
-        </h2>
-
-        <p className="text-sm text-slate-300">
-          We’ll analyse your inspection and prepare your buyer-safe report. This
-          step finalises the inspection.
-        </p>
-
-        <button
-          onClick={proceedToAnalysis}
-          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3"
-        >
-          Analyse inspection
-        </button>
-
-        {askingPriceText.trim().length > 0 && askingPriceError ? (
-          <p className="text-xs text-rose-200">
-            Asking price looks invalid — we’ll ignore it unless you correct it.
-          </p>
-        ) : null}
-      </section>
-
-      {/* SAVE (SECONDARY) */}
-      {!savedId ? (
-        <div className="space-y-2">
-          <button
-            onClick={saveToLibrary}
-            className="w-full rounded-xl border border-white/25 text-slate-200 px-4 py-2"
-          >
-            Save inspection for later
-          </button>
-        </div>
-      ) : (
-        <>
-          <button
-            onClick={viewMyScans}
-            className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-3"
-          >
-            View in My Scans
-          </button>
-          <button
-            onClick={startNewScan}
-            className="w-full mt-2 rounded-xl border border-white/25 text-slate-200 px-4 py-2"
-          >
-            Start a new inspection
-          </button>
-        </>
-      )}
     </div>
   );
 }

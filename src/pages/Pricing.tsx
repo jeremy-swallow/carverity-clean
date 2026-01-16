@@ -61,26 +61,19 @@ export default function Pricing() {
   const [credits, setCredits] = useState<number | null>(null);
   const [loadingCredits, setLoadingCredits] = useState(false);
 
-  const [justReturnedFromCheckout, setJustReturnedFromCheckout] =
-    useState(false);
+  const [justReturnedFromCheckout, setJustReturnedFromCheckout] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
 
-  const success = useMemo(() => {
-    const params = new URLSearchParams(location.search);
-    return params.get("success") === "1";
-  }, [location.search]);
+  const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
 
-  const restore = useMemo(() => {
-    const params = new URLSearchParams(location.search);
-    return params.get("restore") === "1";
-  }, [location.search]);
-
-  const cancelled = useMemo(() => {
-    const params = new URLSearchParams(location.search);
-    return params.get("canceled") === "1" || params.get("cancelled") === "1";
-  }, [location.search]);
+  const success = useMemo(() => params.get("success") === "1", [params]);
+  const restore = useMemo(() => params.get("restore") === "1", [params]);
+  const cancelled = useMemo(
+    () => params.get("canceled") === "1" || params.get("cancelled") === "1",
+    [params]
+  );
 
   async function refreshAuthAndCredits() {
     setLoadingCredits(true);
@@ -136,18 +129,15 @@ export default function Pricing() {
 
     setJustReturnedFromCheckout(true);
 
-    let cancelled = false;
+    let cancelledFlag = false;
 
     async function refreshLoop() {
-      // Run a few times over ~2.5s to allow auth + DB write to settle
       const delays = [0, 350, 700, 1200, 1800, 2500];
 
       for (const ms of delays) {
-        if (cancelled) return;
+        if (cancelledFlag) return;
 
-        if (ms > 0) {
-          await new Promise((r) => setTimeout(r, ms));
-        }
+        if (ms > 0) await new Promise((r) => setTimeout(r, ms));
 
         await refreshAuthAndCredits();
       }
@@ -156,15 +146,15 @@ export default function Pricing() {
     refreshLoop();
 
     return () => {
-      cancelled = true;
+      cancelledFlag = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [success]);
 
-  // Extra “restore mode” behaviour:
-  // When restore=1, we bias the UI to show "Restoring session…" instead of
-  // making it look like the user got logged out.
-  const restoringSession =
+  // “Restore” UI:
+  // This should now almost never show once create-checkout-session returns to the SAME origin.
+  // Keep it as a gentle fallback (no “bullshit” vibes: we don’t pretend we can restore auth from Stripe).
+  const inRestoreWindow =
     success && restore && (!sessionReady || (sessionReady && !isLoggedIn));
 
   async function startCheckout(pack: PackKey) {
@@ -199,7 +189,7 @@ export default function Pricing() {
         return;
       }
 
-      window.location.href = data.url;
+      window.location.href = data.url as string;
     } catch (err) {
       console.error("[Pricing] startCheckout error:", err);
       alert("Unexpected error starting checkout.");
@@ -229,8 +219,8 @@ export default function Pricing() {
           <p className="text-emerald-200 font-semibold">Purchase successful</p>
 
           <p className="text-sm text-slate-300">
-            {restoringSession
-              ? "Restoring your session and syncing credits…"
+            {inRestoreWindow
+              ? "Finalising your purchase… (if this doesn’t update in a few seconds, tap Refresh)"
               : "Your credits should now be available on your account."}
           </p>
 
@@ -248,7 +238,7 @@ export default function Pricing() {
               View My Scans
             </button>
 
-            {restoringSession && (
+            {inRestoreWindow && (
               <button
                 onClick={() => refreshAuthAndCredits()}
                 className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
@@ -270,20 +260,17 @@ export default function Pricing() {
                     <span className="text-slate-500"> (updating…)</span>
                   ) : null}
                 </>
-              ) : restoringSession ? (
+              ) : (
                 <>
-                  You may briefly appear signed out while we restore your
-                  session. If it doesn’t update within a few seconds, tap{" "}
-                  <span className="text-slate-200">Refresh</span> or{" "}
+                  You’re not currently signed in on this device. If you used a
+                  different domain (www vs non-www), it can look signed out. Tap{" "}
                   <span className="text-slate-200">Sign in</span>.
                 </>
-              ) : (
-                <>You’re not currently signed in on this device. Sign in to see your credits.</>
               )}
             </p>
           )}
 
-          {success && sessionReady && !isLoggedIn && (
+          {sessionReady && !isLoggedIn && (
             <div className="pt-2">
               <button
                 onClick={() => navigate("/sign-in")}
@@ -323,9 +310,7 @@ export default function Pricing() {
             </p>
           ) : (
             <p className="text-sm text-slate-300 mt-1">
-              {success && restore
-                ? "Restoring session… (this can take a moment after checkout)"
-                : "Not signed in · Sign in to buy credits and unlock reports"}
+              Not signed in · Sign in to buy credits and unlock reports
             </p>
           )}
         </div>
@@ -364,7 +349,6 @@ export default function Pricing() {
 
             <p className="text-sm text-slate-400 mb-4">{pack.context}</p>
 
-            {/* Credits clearly shown */}
             <div className="mb-6">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
                 Includes
@@ -418,7 +402,6 @@ export default function Pricing() {
         ))}
       </div>
 
-      {/* Footer reassurance */}
       <p className="mt-16 text-sm text-slate-500 max-w-2xl">
         Credits never expire. You only use a credit when you unlock a completed
         inspection report.

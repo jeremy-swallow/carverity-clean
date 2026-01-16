@@ -7,17 +7,16 @@ import { createClient } from "@supabase/supabase-js";
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const APP_URL = process.env.APP_URL || "https://www.carverity.com.au";
 
-if (!STRIPE_SECRET_KEY) {
-  throw new Error("Missing STRIPE_SECRET_KEY");
-}
-if (!SUPABASE_URL) {
-  throw new Error("Missing VITE_SUPABASE_URL");
-}
-if (!SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
-}
+// NOTE:
+// Do NOT hardcode www/non-www here.
+// We MUST redirect back to the SAME origin the user started on,
+// otherwise Supabase localStorage session won’t exist (looks “logged out”).
+const APP_URL_FALLBACK = process.env.APP_URL || "https://www.carverity.com.au";
+
+if (!STRIPE_SECRET_KEY) throw new Error("Missing STRIPE_SECRET_KEY");
+if (!SUPABASE_URL) throw new Error("Missing VITE_SUPABASE_URL");
+if (!SUPABASE_SERVICE_ROLE_KEY) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
 
 const stripe = new Stripe(STRIPE_SECRET_KEY, {
   apiVersion: "2025-11-17.clover" as any,
@@ -38,6 +37,15 @@ const PRICE_MAP: Record<PackKey, string> = {
   three: "price_1SoppbE9gXaXx1nSfp5Xex9O",
   five: "price_1SoprRE9gXaXx1nSnlKEnh0U",
 };
+
+function getRequestOrigin(req: VercelRequest): string {
+  const proto =
+    (req.headers["x-forwarded-proto"] as string | undefined) || "https";
+  const host = (req.headers["x-forwarded-host"] as string | undefined) || req.headers.host;
+
+  if (host) return `${proto}://${host}`;
+  return APP_URL_FALLBACK;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
@@ -85,11 +93,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    const origin = getRequestOrigin(req);
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [{ price: PRICE_MAP[pack], quantity: 1 }],
-      success_url: `${APP_URL}/pricing?success=1&restore=1`,
-      cancel_url: `${APP_URL}/pricing?cancelled=1`,
+
+      // IMPORTANT:
+      // 1) Use SAME origin as the current app session (prevents “logged out” look)
+      // 2) Include CHECKOUT_SESSION_ID for debugging / future reconciliation
+      success_url: `${origin}/pricing?success=1&restore=1&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/pricing?cancelled=1`,
+
       metadata: {
         purchase_type: "credit_pack",
         supabase_user_id: user.id,
