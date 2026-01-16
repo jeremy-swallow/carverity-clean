@@ -1,5 +1,3 @@
-// src/pages/InPersonSummary.tsx
-
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -636,7 +634,7 @@ export default function InPersonSummary() {
             </button>
 
             <button
-              onClick={() => navigate("/scan/in-person/checks/around")}
+              onClick={() => navigate("/scan/in-person/checks/intro")}
               className="rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200 inline-flex items-center gap-2"
             >
               <ClipboardCheck className="h-4 w-4 text-slate-300" />

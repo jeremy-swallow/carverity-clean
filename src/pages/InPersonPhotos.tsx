@@ -21,7 +21,8 @@ type PhotoStep = {
 const MAX_PHOTOS = 15;
 
 // ✅ IMPORTANT: this must match your real first checks route
-const FIRST_CHECKS_ROUTE = "/scan/in-person/checks/around";
+// We now route to the intro so the user sees the guided flow start.
+const FIRST_CHECKS_ROUTE = "/scan/in-person/checks/intro";
 
 export default function InPersonPhotos() {
   const navigate = useNavigate();
@@ -224,8 +225,7 @@ export default function InPersonPhotos() {
     }
 
     // ✅ CRITICAL FIX:
-    // Your real checks routes are /checks/around, /checks/inside, /checks/drive
-    // Navigating to /scan/in-person/checks (non-existent) triggers the app fallback → "/"
+    // Route to the checks INTRO so the user sees the guided flow start.
     saveProgress({
       ...(existingProgress ?? {}),
       type: "in-person",

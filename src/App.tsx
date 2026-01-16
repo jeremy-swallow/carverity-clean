@@ -51,10 +51,17 @@ export default function App() {
           element={<InPersonVehicleDetails />}
         />
         <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
+
+        {/* Checks intro (default entry) */}
+        <Route
+          path="/scan/in-person/checks"
+          element={<InPersonChecksIntro />}
+        />
         <Route
           path="/scan/in-person/checks/intro"
           element={<InPersonChecksIntro />}
         />
+
         <Route
           path="/scan/in-person/checks/around"
           element={<InPersonChecksAroundCar />}
@@ -84,11 +91,8 @@ export default function App() {
           element={<InPersonResults />}
         />
 
-        {/* NEW: Buyer-safe decision page */}
-        <Route
-          path="/scan/in-person/decision"
-          element={<InPersonDecision />}
-        />
+        {/* Buyer-safe decision page */}
+        <Route path="/scan/in-person/decision" element={<InPersonDecision />} />
 
         <Route path="/scan/in-person/print" element={<InPersonReportPrint />} />
 
