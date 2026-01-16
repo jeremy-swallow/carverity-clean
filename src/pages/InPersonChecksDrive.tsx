@@ -68,7 +68,24 @@ export default function InPersonChecksDrive() {
   }, [answers]);
 
   function setAnswer(id: string, value: AnswerValue) {
-    setAnswers((p) => ({ ...p, [id]: { ...p[id], value } }));
+    setAnswers((p) => {
+      const prev = p[id];
+      const prevValue = prev?.value;
+
+      // If switching between answer types, wipe note so old chips don't carry over
+      // This prevents "Couldn't check" text sticking around when they later say they DID drive.
+      const switchingType =
+        prevValue && prevValue !== value && (prev?.note?.trim()?.length ?? 0) > 0;
+
+      return {
+        ...p,
+        [id]: {
+          ...prev,
+          value,
+          note: switchingType ? "" : prev?.note,
+        },
+      };
+    });
   }
 
   function setNote(id: string, note: string) {
@@ -274,7 +291,7 @@ export default function InPersonChecksDrive() {
       <div className="flex gap-3 pt-4">
         <button
           type="button"
-          onClick={() => navigate("/scan/in-person/checks/inside")}
+          onClick={() => navigate("/scan/in-person/checks/drive-intro")}
           className="flex-1 rounded-xl border border-white/25 px-4 py-3 text-slate-200"
         >
           Back
