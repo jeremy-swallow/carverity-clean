@@ -64,8 +64,10 @@ function normaliseInspections(records: any[]): SavedInspection[] {
 ========================================================= */
 
 export function loadScans(): SavedInspection[] {
+  if (typeof window === "undefined") return [];
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
 
     const parsed = JSON.parse(raw);
@@ -78,6 +80,8 @@ export function loadScans(): SavedInspection[] {
 }
 
 export function saveScan(inspection: SavedInspection) {
+  if (typeof window === "undefined") return;
+
   const existing = loadScans().filter((i) => i.id !== inspection.id);
 
   const updated: SavedInspection[] = [
@@ -92,28 +96,31 @@ export function saveScan(inspection: SavedInspection) {
     ...existing,
   ];
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
 
 export function updateScanTitle(inspectionId: string, title: string) {
+  if (typeof window === "undefined") return;
+
   const updated = loadScans().map((inspection) =>
     inspection.id === inspectionId ? { ...inspection, title } : inspection
   );
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
 
 export function deleteScan(inspectionId: string) {
+  if (typeof window === "undefined") return;
+
   const filtered = loadScans().filter((i) => i.id !== inspectionId);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
 }
 
 export function clearAllScans() {
-  localStorage.removeItem(STORAGE_KEY);
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(STORAGE_KEY);
 }
 
 export function generateScanId() {
-  return `inspection_${Date.now()}_${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
+  return `inspection_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
