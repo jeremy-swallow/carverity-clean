@@ -10,8 +10,9 @@ import {
   Eye,
   Camera,
   FileText,
-  DollarSign,
-  TrendingDown,
+  ClipboardCheck,
+  HelpCircle,
+  ArrowRight,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -30,14 +31,6 @@ function asCleanText(value: unknown): string {
   if (typeof value === "number") return String(value);
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return "";
-}
-
-function formatAud(n: number) {
-  try {
-    return n.toLocaleString("en-AU");
-  } catch {
-    return String(n);
-  }
 }
 
 function Paragraph({ value }: { value: unknown }) {
@@ -61,12 +54,12 @@ function BulletList({ items }: { items: string[] }) {
   );
 }
 
-function EvidenceBlock({ evidence }: { evidence: unknown }) {
-  if (typeof evidence === "string") return <Paragraph value={evidence} />;
+function pickFirstUsefulText(evidence: unknown): string {
+  if (typeof evidence === "string" && evidence.trim()) return evidence.trim();
 
   if (Array.isArray(evidence)) {
     const strings = evidence.map(asCleanText).filter(Boolean);
-    return <BulletList items={strings} />;
+    if (strings.length > 0) return strings.join("\n");
   }
 
   if (isRecord(evidence)) {
@@ -82,19 +75,15 @@ function EvidenceBlock({ evidence }: { evidence: unknown }) {
 
     for (const key of preferredKeys) {
       const v = evidence[key];
-      if (typeof v === "string" && v.trim()) return <Paragraph value={v} />;
+      if (typeof v === "string" && v.trim()) return v.trim();
       if (Array.isArray(v)) {
         const strings = v.map(asCleanText).filter(Boolean);
-        if (strings.length > 0) return <BulletList items={strings} />;
+        if (strings.length > 0) return strings.join("\n");
       }
     }
   }
 
-  return (
-    <p className="text-[14px] text-slate-400">
-      Evidence was recorded but could not be summarised into text.
-    </p>
-  );
+  return "";
 }
 
 function UncertaintyText(u: unknown): string {
@@ -109,6 +98,10 @@ function UncertaintyText(u: unknown): string {
     );
   }
   return "An item was marked as unsure by the buyer.";
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
 }
 
 /* =======================================================
@@ -140,27 +133,6 @@ export default function InPersonResults() {
 
   const photos: string[] = (progress?.photos ?? []).map((p: any) => p.dataUrl);
 
-  /* -------------------------------------------------------
-     Verdict meta
-  ------------------------------------------------------- */
-  const verdictMeta = {
-    proceed: {
-      icon: <CheckCircle2 className="h-6 w-6 text-emerald-400" />,
-      title: "Proceed with confidence",
-      tone: "border-emerald-500/40 bg-emerald-500/10",
-    },
-    caution: {
-      icon: <AlertTriangle className="h-6 w-6 text-amber-400" />,
-      title: "Proceed — with targeted clarification",
-      tone: "border-amber-500/40 bg-amber-500/10",
-    },
-    "walk-away": {
-      icon: <XCircle className="h-6 w-6 text-red-400" />,
-      title: "Risk appears elevated — walking away is reasonable",
-      tone: "border-red-500/40 bg-red-500/10",
-    },
-  }[analysis.verdict];
-
   const criticalRisks = analysis.risks.filter((r) => r.severity === "critical");
   const moderateRisks = analysis.risks.filter((r) => r.severity === "moderate");
 
@@ -170,39 +142,109 @@ export default function InPersonResults() {
     ? ((analysis as any).uncertaintyFactors as unknown[])
     : [];
 
-  const pg = analysis.priceGuidance;
-  const asking = pg?.askingPriceAud ?? null;
-  const low = pg?.adjustedPriceLowAud ?? null;
-  const high = pg?.adjustedPriceHighAud ?? null;
-  const redLow = pg?.suggestedReductionLowAud ?? null;
-  const redHigh = pg?.suggestedReductionHighAud ?? null;
+  const evidenceText = pickFirstUsefulText((analysis as any).evidenceSummary);
 
-  const hasPriceGuidance =
-    typeof asking === "number" &&
-    typeof low === "number" &&
-    typeof high === "number" &&
-    typeof redLow === "number" &&
-    typeof redHigh === "number";
+  /* -------------------------------------------------------
+     Verdict meta (tone + positioning)
+  ------------------------------------------------------- */
+  const verdictMeta = {
+    proceed: {
+      icon: <CheckCircle2 className="h-6 w-6 text-emerald-400" />,
+      title: "Buyer-safe: proceed (with normal checks)",
+      tone: "border-emerald-500/40 bg-emerald-500/10",
+      posture:
+        "Nothing you recorded strongly suggests elevated risk. Confirm the basics, then proceed normally.",
+    },
+    caution: {
+      icon: <AlertTriangle className="h-6 w-6 text-amber-400" />,
+      title: "Buyer-safe: proceed only after clarification",
+      tone: "border-amber-500/40 bg-amber-500/10",
+      posture:
+        "You recorded at least one meaningful concern or uncertainty. Clarify those items before committing.",
+    },
+    "walk-away": {
+      icon: <XCircle className="h-6 w-6 text-red-400" />,
+      title: "Buyer-safe: pause or walk away is reasonable",
+      tone: "border-red-500/40 bg-red-500/10",
+      posture:
+        "Your recorded evidence suggests elevated risk. If the seller can’t resolve key items, walking away is sensible.",
+    },
+  }[analysis.verdict];
 
-  const reductionMin =
-    typeof redLow === "number" && typeof redHigh === "number"
-      ? Math.min(redLow, redHigh)
-      : null;
+  /* -------------------------------------------------------
+     Guided “next steps” generation (no scripts)
+  ------------------------------------------------------- */
+  const nextSteps = useMemo(() => {
+    const steps: string[] = [];
 
-  const reductionMax =
-    typeof redLow === "number" && typeof redHigh === "number"
-      ? Math.max(redLow, redHigh)
-      : null;
+    if (criticalRisks.length > 0) {
+      steps.push(
+        "Do not pay a deposit until the high-impact items are clearly resolved with evidence."
+      );
+    }
+
+    if (moderateRisks.length > 0) {
+      steps.push(
+        "Ask the seller to clarify the items you flagged before you commit."
+      );
+    }
+
+    if (uncertaintyFactors.length > 0) {
+      steps.push(
+        "Treat unsure items as unknowns — request proof or arrange an independent inspection if needed."
+      );
+    }
+
+    if (steps.length === 0) {
+      steps.push(
+        "You recorded a clean inspection. Confirm service history and paperwork, then proceed normally."
+      );
+    }
+
+    return steps.slice(0, 4);
+  }, [criticalRisks.length, moderateRisks.length, uncertaintyFactors.length]);
+
+  const clarifyQuestions = useMemo(() => {
+    const qs: string[] = [];
+
+    // Use risk labels to build “buyer-safe” clarification prompts
+    for (const r of [...criticalRisks, ...moderateRisks]) {
+      const label = (r.label || "").trim();
+      if (!label) continue;
+
+      qs.push(
+        `Can you show evidence that the "${label}" concern has been addressed or explained (invoice, inspection note, photos, or written confirmation)?`
+      );
+    }
+
+    // If no risks but uncertainties exist
+    if (qs.length === 0 && uncertaintyFactors.length > 0) {
+      qs.push(
+        "Can you confirm the items I couldn’t verify today (service proof, repairs, warnings, or faults) in writing?"
+      );
+    }
+
+    // Fallback
+    if (qs.length === 0) {
+      qs.push("Can you show the most recent service invoice and any repair history?");
+      qs.push("Are there any known faults, warnings, or upcoming maintenance due soon?");
+    }
+
+    return qs.slice(0, 4);
+  }, [criticalRisks, moderateRisks, uncertaintyFactors.length]);
+
+  const confidence = clamp(Number(analysis.confidenceScore ?? 0), 0, 100);
+  const coverage = clamp(Number(analysis.completenessScore ?? 0), 0, 100);
 
   /* =======================================================
      UI
   ======================================================= */
   return (
-    <div className="max-w-5xl mx-auto px-6 py-16 space-y-20">
+    <div className="max-w-5xl mx-auto px-6 py-16 space-y-16">
       {/* HEADER */}
       <header className="space-y-4">
         <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-          CarVerity · Buyer Inspection Report
+          CarVerity · Buyer-safe inspection summary
         </span>
 
         <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-slate-400">
@@ -221,6 +263,11 @@ export default function InPersonResults() {
             <h1 className="text-3xl font-semibold text-white leading-tight">
               {verdictMeta.title}
             </h1>
+
+            <p className="text-[15px] leading-relaxed text-slate-200 max-w-3xl">
+              {verdictMeta.posture}
+            </p>
+
             <Paragraph value={(analysis as any).whyThisVerdict} />
           </div>
         </div>
@@ -234,7 +281,7 @@ export default function InPersonResults() {
               </span>
             </div>
             <p className="mt-1 text-2xl font-semibold text-white">
-              {analysis.confidenceScore}%
+              {confidence}%
             </p>
           </div>
 
@@ -244,121 +291,172 @@ export default function InPersonResults() {
               <span className="text-xs uppercase tracking-wide">Coverage</span>
             </div>
             <p className="mt-1 text-2xl font-semibold text-white">
-              {analysis.completenessScore}%
+              {coverage}%
+            </p>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 text-slate-400">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="text-xs uppercase tracking-wide">Concerns</span>
+            </div>
+            <p className="mt-1 text-2xl font-semibold text-white">
+              {analysis.risks.filter((r) => r.severity !== "info").length}
+            </p>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 text-slate-400">
+              <HelpCircle className="h-4 w-4" />
+              <span className="text-xs uppercase tracking-wide">Unsure</span>
+            </div>
+            <p className="mt-1 text-2xl font-semibold text-white">
+              {uncertaintyFactors.length}
             </p>
           </div>
         </div>
       </section>
 
-      {/* PRICE GUIDANCE (NEW) */}
+      {/* GUIDED NEXT STEPS */}
       <section className="space-y-6">
         <div className="flex items-center gap-3 text-slate-300">
-          <DollarSign className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold">Price guidance (buyer-safe)</h2>
+          <ClipboardCheck className="h-5 w-5 text-slate-400" />
+          <h2 className="text-lg font-semibold">What to do next (buyer-safe)</h2>
         </div>
 
-        {hasPriceGuidance ? (
-          <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="rounded-xl bg-slate-950/60 border border-white/10 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">
-                  Asking price
-                </p>
-                <p className="text-lg font-semibold text-white">
-                  ${formatAud(asking)}
-                </p>
-              </div>
+        <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6 space-y-4">
+          <p className="text-sm text-slate-400">
+            This guidance is based only on what you recorded. It avoids hype and
+            avoids assumptions.
+          </p>
 
-              <div className="rounded-xl bg-emerald-500/10 border border-emerald-400/25 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wide text-emerald-200">
-                  Buyer-safe adjusted range
-                </p>
-                <p className="text-lg font-semibold text-white">
-                  ${formatAud(low)} – ${formatAud(high)}
-                </p>
-              </div>
+          <BulletList items={nextSteps} />
 
-              <div className="rounded-xl bg-slate-950/60 border border-white/10 px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">
-                  Suggested reduction
-                </p>
-                <p className="text-lg font-semibold text-white">
-                  ${formatAud(reductionMin ?? 0)} – ${formatAud(reductionMax ?? 0)}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  (depends how firm you want to be)
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-4">
-              <div className="flex items-center gap-2 text-slate-200">
-                <TrendingDown className="h-4 w-4 text-slate-400" />
-                <p className="text-sm font-semibold">Why this range?</p>
-              </div>
-
-              <ul className="mt-2 space-y-2 text-sm text-slate-300">
-                {(pg?.rationale ?? []).map((r, i) => (
-                  <li key={i} className="leading-relaxed">
-                    • {r}
-                  </li>
-                ))}
-              </ul>
-
-              <p className="text-xs text-slate-500 mt-3">
-                {pg?.disclaimer ?? ""}
-              </p>
-            </div>
+          <div className="pt-2">
+            <button
+              onClick={() => navigate("/scan/in-person/decision")}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
+            >
+              Open decision guide
+              <ArrowRight className="h-4 w-4" />
+            </button>
           </div>
-        ) : (
-          <div className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-6 py-5 space-y-3">
-            <p className="text-sm text-amber-200 font-semibold">
-              Asking price not provided
-            </p>
-            <p className="text-sm text-slate-300">
-              Add the advertised price to generate a buyer-safe adjusted range
-              based on your recorded findings.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => navigate("/scan/in-person/summary")}
-                className="rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-semibold px-4 py-2 text-sm"
-              >
-                Add asking price
-              </button>
-
-              <button
-                onClick={() => navigate("/scan/in-person/negotiation")}
-                className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
-              >
-                Continue without price guidance
-              </button>
-            </div>
-          </div>
-        )}
+        </div>
       </section>
+
+      {/* CLARIFY WITH SELLER */}
+      <section className="space-y-6">
+        <h2 className="text-lg font-semibold text-slate-200">
+          What to clarify before you commit
+        </h2>
+
+        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-4">
+          <p className="text-sm text-slate-400">
+            Use these as a checklist. The goal is clarity — not confrontation.
+          </p>
+
+          <BulletList items={clarifyQuestions} />
+        </div>
+      </section>
+
+      {/* PRIORITY FINDINGS */}
+      {criticalRisks.length > 0 && (
+        <section className="space-y-6">
+          <h2 className="text-lg font-semibold text-slate-200">
+            High-impact items (resolve these first)
+          </h2>
+
+          <div className="space-y-4">
+            {criticalRisks.map((r) => (
+              <div
+                key={r.id}
+                className="rounded-2xl border border-white/10 bg-slate-900/60 px-6 py-5"
+              >
+                <p className="text-base font-semibold text-white">{r.label}</p>
+                <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
+                  {r.explanation}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {moderateRisks.length > 0 && (
+        <section className="space-y-6">
+          <h2 className="text-lg font-semibold text-slate-200">
+            Items worth clarifying
+          </h2>
+
+          <div className="space-y-4">
+            {moderateRisks.map((r) => (
+              <div
+                key={r.id}
+                className="rounded-2xl border border-white/10 bg-slate-900/50 px-6 py-5"
+              >
+                <p className="text-base font-medium text-slate-100">
+                  {r.label}
+                </p>
+                <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
+                  {r.explanation}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* DECLARED UNCERTAINTY */}
+      {uncertaintyFactors.length > 0 && (
+        <section className="space-y-6">
+          <h2 className="text-lg font-semibold text-slate-200">
+            Items you marked as unsure
+          </h2>
+
+          <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6">
+            <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
+              {uncertaintyFactors.map((u, i) => (
+                <li key={i}>{UncertaintyText(u)}</li>
+              ))}
+            </ul>
+
+            <p className="text-xs text-slate-500 mt-4">
+              Unsure means unknown — not “safe” and not “dangerous”. Treat it as
+              a prompt to verify.
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* EVIDENCE BASIS */}
       <section className="space-y-6">
         <h2 className="text-lg font-semibold text-slate-200">
-          Evidence considered in this assessment
+          Evidence you recorded
         </h2>
 
-        <EvidenceBlock evidence={(analysis as any).evidenceSummary} />
+        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-4">
+          {evidenceText ? (
+            <Paragraph value={evidenceText} />
+          ) : (
+            <p className="text-[14px] text-slate-400">
+              No written evidence summary was generated — your selections and
+              photos were still used to form the result.
+            </p>
+          )}
 
-        <p className="text-xs text-slate-400 max-w-3xl">
-          This assessment only uses what you recorded and what you explicitly
-          marked as unsure. Missing items are treated as not recorded, not as
-          risk.
-        </p>
+          <p className="text-xs text-slate-500 max-w-3xl">
+            This assessment uses only what you recorded and what you explicitly
+            marked as unsure. Missing items are treated as “not recorded”, not
+            as risk.
+          </p>
+        </div>
       </section>
 
       {/* PHOTO EVIDENCE */}
       <section className="space-y-6">
         <div className="flex items-center gap-3 text-slate-300">
           <Camera className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold">Photo evidence</h2>
+          <h2 className="text-lg font-semibold">Photos captured</h2>
         </div>
 
         {photos.length > 0 ? (
@@ -379,76 +477,13 @@ export default function InPersonResults() {
         )}
       </section>
 
-      {/* PRIORITY FINDINGS */}
-      {criticalRisks.length > 0 && (
-        <section className="space-y-6">
-          <h2 className="text-lg font-semibold text-slate-200">
-            High-impact items identified
-          </h2>
-
-          <div className="space-y-4">
-            {criticalRisks.map((r) => (
-              <div
-                key={r.id}
-                className="rounded-xl bg-slate-900/60 px-6 py-5"
-              >
-                <p className="text-base font-semibold text-white">{r.label}</p>
-                <p className="mt-1 text-[15px] text-slate-300">
-                  {r.explanation}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ITEMS WORTH CLARIFYING */}
-      {moderateRisks.length > 0 && (
-        <section className="space-y-6">
-          <h2 className="text-lg font-semibold text-slate-200">
-            Items worth clarifying
-          </h2>
-
-          <div className="space-y-4">
-            {moderateRisks.map((r) => (
-              <div
-                key={r.id}
-                className="rounded-xl bg-slate-900/50 px-6 py-5"
-              >
-                <p className="text-base font-medium text-slate-100">
-                  {r.label}
-                </p>
-                <p className="mt-1 text-[15px] text-slate-300">
-                  {r.explanation}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* DECLARED UNCERTAINTY */}
-      {uncertaintyFactors.length > 0 && (
-        <section className="space-y-6">
-          <h2 className="text-lg font-semibold text-slate-200">
-            Areas you marked as unsure
-          </h2>
-
-          <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
-            {uncertaintyFactors.map((u, i) => (
-              <li key={i}>{UncertaintyText(u)}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       {/* ACTIONS */}
       <section className="space-y-4 pt-4">
         <button
-          onClick={() => navigate("/scan/in-person/negotiation")}
+          onClick={() => navigate("/scan/in-person/decision")}
           className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 text-base"
         >
-          View negotiation guidance
+          Decision & next steps
         </button>
 
         <button

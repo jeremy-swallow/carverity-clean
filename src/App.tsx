@@ -24,10 +24,10 @@ import InPersonAskingPrice from "./pages/InPersonAskingPrice";
 import InPersonSummary from "./pages/InPersonSummary";
 import InPersonAnalyzing from "./pages/InPersonAnalyzing";
 import InPersonResults from "./pages/InPersonResults";
-import InPersonNegotiation from "./pages/InPersonNegotiation";
+import InPersonDecision from "./pages/InPersonDecision";
 import InPersonReportPrint from "./pages/InPersonReportPrint";
 
-/* Legacy (unused) */
+/* Legacy (safe but unused) */
 import InPersonResultsPreview from "./pages/InPersonResultsPreview";
 import InPersonUnlock from "./pages/InPersonUnlock";
 import InPersonUnlockSuccess from "./pages/InPersonUnlockSuccess";
@@ -68,7 +68,6 @@ export default function App() {
           element={<InPersonChecksDrive />}
         />
 
-        {/* NEW: Asking price */}
         <Route
           path="/scan/in-person/asking-price"
           element={<InPersonAskingPrice />}
@@ -76,7 +75,6 @@ export default function App() {
 
         <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
 
-        {/* New irreversible corridor */}
         <Route
           path="/scan/in-person/analyzing/:scanId"
           element={<InPersonAnalyzing />}
@@ -86,16 +84,27 @@ export default function App() {
           element={<InPersonResults />}
         />
 
+        {/* NEW: Buyer-safe decision page */}
         <Route
-          path="/scan/in-person/negotiation"
-          element={<InPersonNegotiation />}
+          path="/scan/in-person/decision"
+          element={<InPersonDecision />}
         />
+
         <Route path="/scan/in-person/print" element={<InPersonReportPrint />} />
 
         {/* Legacy (safe but unused) */}
-        <Route path="/scan/in-person/preview" element={<InPersonResultsPreview />} />
-        <Route path="/scan/in-person/unlock/:scanId" element={<InPersonUnlock />} />
-        <Route path="/scan/in-person/unlock/success" element={<InPersonUnlockSuccess />} />
+        <Route
+          path="/scan/in-person/preview"
+          element={<InPersonResultsPreview />}
+        />
+        <Route
+          path="/scan/in-person/unlock/:scanId"
+          element={<InPersonUnlock />}
+        />
+        <Route
+          path="/scan/in-person/unlock/success"
+          element={<InPersonUnlockSuccess />}
+        />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
