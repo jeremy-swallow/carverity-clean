@@ -12,6 +12,7 @@ interface SavedInspection {
     make?: string;
     model?: string;
   };
+  thumbnail?: string | null;
 }
 
 export default function MyScans() {
@@ -80,19 +81,53 @@ export default function MyScans() {
       </div>
 
       <div className="flex flex-col gap-3">
-        {sorted.map((i) => (
-          <div
-            key={i.id}
-            className="rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-4 space-y-2"
-          >
-            <h3 className="text-lg font-semibold text-white">
-              {vehicleLabel(i)}
-            </h3>
-            <p className="text-sm text-slate-400">
-              {new Date(i.createdAt).toLocaleDateString()}
-            </p>
-          </div>
-        ))}
+        {sorted.map((i) => {
+          const label = vehicleLabel(i);
+          const date = new Date(i.createdAt).toLocaleDateString();
+          const hasThumb = Boolean(i.thumbnail);
+
+          return (
+            <div
+              key={i.id}
+              className="rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-4"
+            >
+              <div className="flex items-center gap-4">
+                {/* Thumbnail */}
+                <div className="h-14 w-14 shrink-0 rounded-xl border border-white/10 bg-slate-950/40 overflow-hidden">
+                  {hasThumb ? (
+                    <img
+                      src={i.thumbnail as string}
+                      alt={label}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-[10px] text-slate-500">
+                      No photo
+                    </div>
+                  )}
+                </div>
+
+                {/* Text */}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <h3 className="text-lg font-semibold text-white truncate">
+                    {label}
+                  </h3>
+                  <p className="text-sm text-slate-400">{date}</p>
+                </div>
+
+                {/* Open */}
+                <button
+                  type="button"
+                  onClick={() => navigate(`/scan/in-person/results/${i.id}`)}
+                  className="px-3 py-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 text-sm"
+                >
+                  Open
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

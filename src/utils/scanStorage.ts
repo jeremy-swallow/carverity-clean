@@ -24,6 +24,10 @@ export interface SavedInspection {
     variant?: string;
   };
 
+  // ✅ NEW: Thumbnail image (base64 dataUrl)
+  // Stored as the first photo taken during the inspection (if available)
+  thumbnail?: string | null;
+
   // Optional summary metrics (used for MyScans + previews)
   askingPrice?: number | null;
   score?: number | null;
@@ -56,6 +60,7 @@ function normaliseInspections(records: any[]): SavedInspection[] {
     title: record.title || "In-person inspection",
     completed: record.completed ?? false,
     history: record.history ?? [],
+    thumbnail: record.thumbnail ?? null,
   })) as SavedInspection[];
 }
 
@@ -92,6 +97,7 @@ export function saveScan(inspection: SavedInspection) {
       createdAt: inspection.createdAt || new Date().toISOString(),
       completed: inspection.completed ?? false,
       history: inspection.history ?? [],
+      thumbnail: inspection.thumbnail ?? null,
     },
     ...existing,
   ];
