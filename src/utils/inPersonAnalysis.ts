@@ -12,7 +12,6 @@ export type ScanProgress = {
   scanId?: string;
   step?: string;
 
-  // NEW
   askingPrice?: number | null;
 
   checks?: Record<string, CheckAnswer>;
@@ -52,7 +51,19 @@ export type NegotiationPositioning = {
   aggressive: NegotiationBand;
 };
 
+/**
+ * IMPORTANT:
+ * Your UI (InPersonResults.tsx) expects evidenceSummary to contain
+ * a human-readable string or an object with keys like: summary / bullets.
+ *
+ * So we keep all the metric fields AND add summary/bullets for rendering.
+ */
 export type EvidenceSummary = {
+  // Human-readable (what the UI can render)
+  summary?: string;
+  bullets?: string[];
+
+  // Metrics (useful for scoring/debug)
   photosCaptured: number;
   photosExpected: number;
   checksCompleted: number;
@@ -76,12 +87,9 @@ export type BuyerContextInterpretation = {
 export type PriceGuidance = {
   askingPriceAud: number | null;
 
-  // The app’s buyer-safe estimate of a “fairer” price window given what was recorded.
-  // This is NOT a valuation and NOT a repair quote.
   adjustedPriceLowAud: number | null;
   adjustedPriceHighAud: number | null;
 
-  // How much to push down from asking price (AUD)
   suggestedReductionLowAud: number | null;
   suggestedReductionHighAud: number | null;
 
@@ -101,7 +109,15 @@ export type AnalysisResult = {
   negotiationLeverage: NegotiationLeverageGroup[];
 
   negotiationPositioning: NegotiationPositioning;
-  whyThisVerdict: string[];
+
+  /**
+   * NOTE:
+   * InPersonResults.tsx currently renders `whyThisVerdict` as a paragraph.
+   * Previously this was string[] (which rendered blank).
+   * We now provide a clean single string AND keep bullets for other uses.
+   */
+  whyThisVerdict: string;
+  whyThisVerdictBullets: string[];
 
   evidenceSummary: EvidenceSummary;
   riskWeightingExplanation: string[];
@@ -114,7 +130,6 @@ export type AnalysisResult = {
     confidence: number;
   };
 
-  // NEW
   priceGuidance: PriceGuidance;
 };
 
@@ -140,6 +155,10 @@ function titleFromId(id: string) {
   return id
     .replace(/[-_]/g, " ")
     .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function asOneLine(s: string) {
+  return s.replace(/\s+/g, " ").trim();
 }
 
 /* =========================================================
@@ -392,6 +411,145 @@ function computePriceGuidance(args: {
 }
 
 /* =========================================================
+   Evidence text generation (guidance-led)
+========================================================= */
+
+function buildEvidenceBullets(args: {
+  checks: Record<string, CheckAnswer>;
+  imperfections: NonNullable<ScanProgress["imperfections"]>;
+  photos: NonNullable<ScanProgress["photos"]>;
+  followUps: NonNullable<ScanProgress["followUpPhotos"]>;
+}) {
+  const { checks, imperfections, photos, followUps } = args;
+
+  const bullets: string[] = [];
+
+  // Checks (only include ones user touched)
+  const answered = Object.entries(checks)
+    .filter(([, v]) => Boolean(v?.value))
+    .map(([id, v]) => ({ id, v }));
+
+  // Put concerns first, then unsure, then ok
+  const rank = (val: AnswerValue) =>
+    val === "concern" ? 0 : val === "unsure" ? 1 : 2;
+
+  answered.sort((a, b) => rank(a.v.value) - rank(b.v.value));
+
+  for (const { id, v } of answered) {
+    const label = labelForCheckId(id);
+    const note = (v.note ?? "").trim();
+
+    if (v.value === "concern") {
+      bullets.push(
+        note
+          ? `${label}: something stood out — ${asOneLine(note)}.`
+          : `${label}: something stood out.`
+      );
+    } else if (v.value === "unsure") {
+      bullets.push(
+        note
+          ? `${label}: couldn't confirm — ${asOneLine(note)}.`
+          : `${label}: couldn't confirm.`
+      );
+    } else {
+      // keep "ok" lighter to avoid noise; only include if there are very few bullets overall
+      // (we’ll decide later)
+    }
+  }
+
+  // Imperfections (explicit user-recorded)
+  const impSorted = [...(imperfections ?? [])].sort((a, b) => {
+    const wA = severityWeight(a.severity);
+    const wB = severityWeight(b.severity);
+    return wB - wA;
+  });
+
+  for (const imp of impSorted) {
+    const sev = imp.severity ?? "minor";
+    const label = (imp.label ?? "Imperfection").trim();
+    const loc = (imp.location ?? "").trim();
+    const note = (imp.note ?? "").trim();
+
+    const locPart = loc ? ` (${loc})` : "";
+    const sevPart =
+      sev === "major" ? "Major" : sev === "moderate" ? "Moderate" : "Minor";
+
+    bullets.push(
+      note
+        ? `${sevPart} note: ${label}${locPart} — ${asOneLine(note)}.`
+        : `${sevPart} note: ${label}${locPart}.`
+    );
+  }
+
+  // Photos / follow-ups
+  if (photos.length > 0) bullets.push(`Photos captured: ${photos.length}.`);
+  if (followUps.length > 0)
+    bullets.push(`Follow-up notes/photos: ${followUps.length}.`);
+
+  // If we ended up with nothing meaningful, include a minimal "ok" snapshot so the user
+  // still feels guided (not empty).
+  if (bullets.length === 0) {
+    const okItems = Object.entries(checks)
+      .filter(([, v]) => v?.value === "ok")
+      .slice(0, 3)
+      .map(([id]) => labelForCheckId(id));
+
+    if (okItems.length > 0) {
+      bullets.push(`Checks marked normal: ${okItems.join(", ")}.`);
+    }
+    if (photos.length > 0) bullets.push(`Photos captured: ${photos.length}.`);
+  }
+
+  // Cap to avoid huge walls of text
+  return bullets.slice(0, 14);
+}
+
+function buildEvidenceSummaryText(args: {
+  concernCount: number;
+  unsureCount: number;
+  imperfectionsCount: number;
+  photosCount: number;
+  followUpsCount: number;
+}) {
+  const { concernCount, unsureCount, imperfectionsCount, photosCount, followUpsCount } =
+    args;
+
+  const parts: string[] = [];
+
+  if (concernCount > 0) {
+    parts.push(
+      concernCount === 1
+        ? "You recorded 1 item that stood out."
+        : `You recorded ${concernCount} items that stood out.`
+    );
+  } else {
+    parts.push("You didn’t mark any items as ‘stood out’ in the checks you completed.");
+  }
+
+  if (unsureCount > 0) {
+    parts.push(
+      unsureCount === 1
+        ? "1 item couldn’t be confirmed."
+        : `${unsureCount} items couldn’t be confirmed.`
+    );
+  }
+
+  if (imperfectionsCount > 0) {
+    parts.push(
+      imperfectionsCount === 1
+        ? "You recorded 1 imperfection."
+        : `You recorded ${imperfectionsCount} imperfections.`
+    );
+  }
+
+  if (photosCount > 0) parts.push(`You captured ${photosCount} photo${photosCount === 1 ? "" : "s"}.`);
+  if (followUpsCount > 0)
+    parts.push(`You added ${followUpsCount} follow-up note${followUpsCount === 1 ? "" : "s"}.`);
+
+  return parts.join(" ");
+}
+
+/* =========================================================
    Main analysis
 ========================================================= */
 
@@ -400,6 +558,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
   const photos = progress.photos ?? [];
   const followUps = progress.followUpPhotos ?? [];
   const imperfections = progress.imperfections ?? [];
+
   const askingPriceAud =
     typeof progress.askingPrice === "number" && Number.isFinite(progress.askingPrice)
       ? progress.askingPrice
@@ -409,20 +568,19 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
      PHOTO COVERAGE
   ----------------------------- */
   const photoSteps = new Set(photos.map((p) => p.stepId));
-  const photosCaptured = REQUIRED_PHOTO_STEP_IDS.filter((id) =>
+  const photosCapturedBaseline = REQUIRED_PHOTO_STEP_IDS.filter((id) =>
     photoSteps.has(id)
   ).length;
 
   const photoCoverage =
     REQUIRED_PHOTO_STEP_IDS.length > 0
-      ? photosCaptured / REQUIRED_PHOTO_STEP_IDS.length
+      ? photosCapturedBaseline / REQUIRED_PHOTO_STEP_IDS.length
       : 0;
 
   /* -----------------------------
      CHECK COVERAGE
   ----------------------------- */
-  const answeredKeyChecks = KEY_CHECK_IDS.filter((id) => checks[id]?.value)
-    .length;
+  const answeredKeyChecks = KEY_CHECK_IDS.filter((id) => checks[id]?.value).length;
 
   const checkCoverage =
     KEY_CHECK_IDS.length > 0 ? answeredKeyChecks / KEY_CHECK_IDS.length : 0;
@@ -462,7 +620,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
   ----------------------------- */
   const risks: RiskItem[] = [];
 
-  if (photosCaptured < REQUIRED_PHOTO_STEP_IDS.length) {
+  if (photosCapturedBaseline < REQUIRED_PHOTO_STEP_IDS.length) {
     risks.push({
       id: "missing-photos",
       label: "Some baseline exterior photos are missing",
@@ -664,21 +822,13 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
       return note ? `${baseLabel} — ${note}` : baseLabel;
     });
 
-  const evidenceSummary: EvidenceSummary = {
-    photosCaptured: photos.length,
-    photosExpected: REQUIRED_PHOTO_STEP_IDS.length,
-    checksCompleted: Object.values(checks).filter((v) => Boolean(v?.value)).length,
-    keyChecksExpected: KEY_CHECK_IDS.length,
-    imperfectionsNoted: imperfections.length,
-    followUpPhotosCaptured: followUps.length,
-    explicitlyUncertainItems,
-  };
-
-  const uncertaintyFactors: UncertaintyFactor[] = explicitlyUncertainItems.map((label) => ({
-    label,
-    impact: "moderate",
-    source: "user_marked_unsure",
-  }));
+  const uncertaintyFactors: UncertaintyFactor[] = explicitlyUncertainItems.map(
+    (label) => ({
+      label,
+      impact: "moderate",
+      source: "user_marked_unsure",
+    })
+  );
 
   const riskWeightingExplanation: string[] = [];
 
@@ -722,7 +872,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     );
   }
 
-  const whyThisVerdict: string[] = [
+  const whyThisVerdictBullets: string[] = [
     verdict === "proceed"
       ? "No recorded findings were assessed as high impact."
       : verdict === "caution"
@@ -737,6 +887,8 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
       ? "Coverage was moderate; confidence reflects that."
       : "Coverage was limited; confidence reflects that.",
   ];
+
+  const whyThisVerdict = whyThisVerdictBullets.join(" ");
 
   const counterfactuals: string[] = [];
 
@@ -823,8 +975,40 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
      ADAS INFERENCE (kept)
   ----------------------------- */
   const adas = checks["adas-systems"];
-  const adasPresentButDisabled =
-    adas?.value === "concern" || adas?.value === "unsure";
+  const adasPresentButDisabled = adas?.value === "concern" || adas?.value === "unsure";
+
+  /* -----------------------------
+     Evidence summary (NOW RENDERS)
+  ----------------------------- */
+  const evidenceBullets = buildEvidenceBullets({
+    checks,
+    imperfections,
+    photos,
+    followUps,
+  });
+
+  const evidenceSummaryText = buildEvidenceSummaryText({
+    concernCount,
+    unsureCount,
+    imperfectionsCount: imperfections.length,
+    photosCount: photos.length,
+    followUpsCount: followUps.length,
+  });
+
+  const evidenceSummary: EvidenceSummary = {
+    // UI-friendly
+    summary: evidenceSummaryText,
+    bullets: evidenceBullets,
+
+    // Metrics
+    photosCaptured: photos.length,
+    photosExpected: REQUIRED_PHOTO_STEP_IDS.length,
+    checksCompleted: Object.values(checks).filter((v) => Boolean(v?.value)).length,
+    keyChecksExpected: KEY_CHECK_IDS.length,
+    imperfectionsNoted: imperfections.length,
+    followUpPhotosCaptured: followUps.length,
+    explicitlyUncertainItems,
+  };
 
   // NEW: price guidance (asking price -> adjusted range)
   const priceGuidance = computePriceGuidance({
@@ -847,6 +1031,8 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     negotiationPositioning,
 
     whyThisVerdict,
+    whyThisVerdictBullets,
+
     evidenceSummary,
     riskWeightingExplanation,
     uncertaintyFactors,
