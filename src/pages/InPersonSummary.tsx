@@ -3,11 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import {
-  loadProgress,
-  clearProgress,
-  saveProgress,
-} from "../utils/scanProgress";
+import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
 
 type PricingVerdict = "missing" | "info" | "room" | "concern";
@@ -122,9 +118,11 @@ function parseAskingPrice(raw: string): number | null {
 }
 
 function buildTitleFromProgress(progress: any): string {
-  const make = progress?.vehicle?.make || progress?.make;
-  const model = progress?.vehicle?.model || progress?.model;
-  const year = progress?.vehicle?.year || progress?.year;
+  const make = progress?.vehicle?.make || progress?.make || progress?.vehicleMake;
+  const model =
+    progress?.vehicle?.model || progress?.model || progress?.vehicleModel;
+  const year =
+    progress?.vehicle?.year || progress?.year || progress?.vehicleYear;
 
   const parts = [year, make, model].filter(Boolean);
   if (parts.length) return parts.join(" ");
@@ -255,7 +253,8 @@ export default function InPersonSummary() {
         fromOnlineScan,
       });
 
-      navigate(`/scan/in-person/preview/${finalScanId}`);
+      // ✅ Correct route: go into the analyzing corridor (not legacy preview)
+      navigate(`/scan/in-person/analyzing/${finalScanId}`);
     } catch (e) {
       console.error("[InPersonSummary] save failed:", e);
       alert("Failed to save scan. Please try again.");
@@ -275,7 +274,9 @@ export default function InPersonSummary() {
   const canContinue = Boolean(activeScanId);
 
   const showAskingPriceError =
-    askingPriceTouched && askingPriceInput.trim().length > 0 && !parsedAskingPrice;
+    askingPriceTouched &&
+    askingPriceInput.trim().length > 0 &&
+    !parsedAskingPrice;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-16">
