@@ -69,13 +69,40 @@ export default function Terms() {
 
       <section className="space-y-4">
         <h2 className="text-sm font-semibold text-slate-200">
-          Data and testing status
+          Data storage (important)
         </h2>
 
         <p className="text-sm text-slate-300 max-w-xl">
-          Inspections are stored locally on your device unless otherwise stated.
+          Unless otherwise stated, CarVerity stores saved inspections locally on
+          your device (for example, in your browser storage). This means:
+        </p>
+
+        <ul className="text-sm text-slate-300 space-y-2">
+          <li>
+            • Saved inspections may not be available if you change devices,
+            switch browsers, or clear site data
+          </li>
+          <li>
+            • CarVerity may not be able to restore saved scans if your device is
+            lost, reset, or wiped
+          </li>
+        </ul>
+
+        <p className="text-sm text-slate-300 max-w-xl">
+          If you want to keep a long-term copy of your results, you should
+          export or print your report when available.
+        </p>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-sm font-semibold text-slate-200">
+          Testing status
+        </h2>
+
+        <p className="text-sm text-slate-300 max-w-xl">
           CarVerity is currently in active testing and may evolve over time as
-          feedback is incorporated.
+          feedback is incorporated. Features, scoring logic, and report outputs
+          may change.
         </p>
       </section>
 

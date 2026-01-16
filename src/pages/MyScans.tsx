@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { loadScans } from "../utils/scanStorage";
 import { loadProgress } from "../utils/scanProgress";
+import { Image as ImageIcon, Info } from "lucide-react";
 
 interface SavedInspection {
   id: string;
@@ -32,7 +33,8 @@ export default function MyScans() {
   const sorted = useMemo(
     () =>
       [...inspections].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ),
     [inspections]
   );
@@ -45,25 +47,45 @@ export default function MyScans() {
   if (!sorted.length) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-16 text-center">
-        <h1 className="text-2xl font-semibold mb-2">My inspections</h1>
+        <h1 className="text-2xl font-semibold mb-2 text-white">
+          My inspections
+        </h1>
         <p className="text-slate-400 mb-6">
           You haven’t saved any inspections yet.
         </p>
 
-        <Link
-          to="/start-scan"
-          className="px-4 py-2 rounded-xl bg-emerald-400 text-black font-medium"
-        >
-          Start a new inspection
-        </Link>
+        <div className="inline-flex flex-col items-center gap-3">
+          <Link
+            to="/start-scan"
+            className="px-4 py-2 rounded-xl bg-emerald-400 text-black font-medium"
+          >
+            Start a new inspection
+          </Link>
+
+          <div className="max-w-md mx-auto rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3 text-left">
+            <div className="flex items-start gap-3">
+              <Info className="h-4 w-4 text-slate-300 mt-0.5" />
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Saved inspections are stored locally on this device. If you
+                change devices or clear browser data, your saved scans may not
+                be available.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-white">My inspections</h1>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold text-white">My inspections</h1>
+          <p className="text-xs text-slate-400">
+            Stored locally on this device.
+          </p>
+        </div>
 
         {progress?.step && (
           <div className="flex flex-col items-end gap-1">
@@ -78,6 +100,17 @@ export default function MyScans() {
             </span>
           </div>
         )}
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3">
+        <div className="flex items-start gap-3">
+          <Info className="h-4 w-4 text-slate-300 mt-0.5" />
+          <p className="text-xs text-slate-400 leading-relaxed">
+            These inspections are saved to your current device only. If you want
+            to keep a copy long-term, use the print/export option after your
+            report is generated.
+          </p>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -102,7 +135,8 @@ export default function MyScans() {
                       loading="lazy"
                     />
                   ) : (
-                    <div className="h-full w-full flex items-center justify-center text-[10px] text-slate-500">
+                    <div className="h-full w-full flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
+                      <ImageIcon className="h-4 w-4 text-slate-600" />
                       No photo
                     </div>
                   )}
@@ -128,6 +162,12 @@ export default function MyScans() {
             </div>
           );
         })}
+      </div>
+
+      <div className="pt-4">
+        <Link to="/" className="text-slate-300 underline text-sm">
+          ← Back to home
+        </Link>
       </div>
     </div>
   );
