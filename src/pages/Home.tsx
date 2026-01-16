@@ -1,3 +1,4 @@
+// src/pages/Home.tsx
 import { Link, useNavigate } from "react-router-dom";
 import { loadProgress } from "../utils/scanProgress";
 
@@ -40,7 +41,7 @@ export default function Home() {
 
             <div className="flex flex-wrap gap-3 mt-2">
               <button
-                onClick={() => navigate("/scan/in-person/start")}
+                onClick={() => navigate("/start-scan")}
                 className="px-4 py-2 rounded-xl bg-emerald-400 text-black font-semibold"
               >
                 Start in-person inspection
@@ -70,10 +71,7 @@ export default function Home() {
             </Link>
 
             {/* Utility link */}
-            <Link
-              to="/my-scans"
-              className="text-slate-300 underline text-sm mt-1"
-            >
+            <Link to="/my-scans" className="text-slate-300 underline text-sm mt-1">
               View My Scans
             </Link>
           </div>
@@ -91,10 +89,7 @@ export default function Home() {
             capture what matters, and build confidence before you decide to
             proceed.
           </p>
-          <Link
-            to="/scan/in-person/start"
-            className="text-emerald-400 text-sm underline"
-          >
+          <Link to="/start-scan" className="text-emerald-400 text-sm underline">
             Start inspection →
           </Link>
         </div>

@@ -24,13 +24,15 @@ export interface SavedInspection {
     variant?: string;
   };
 
-  // Summary metrics (used for lists / quick previews)
+  // Optional summary metrics (used for MyScans + previews)
   askingPrice?: number | null;
-  score?: number;
-  concerns?: number;
-  unsure?: number;
-  imperfectionsCount?: number;
-  photosCount?: number;
+  score?: number | null;
+  concerns?: number | null;
+  unsure?: number | null;
+  imperfectionsCount?: number | null;
+  photosCount?: number | null;
+
+  // Helpful flags
   fromOnlineScan?: boolean;
 
   // Timeline of user actions (save, export, follow-ups, notes)
@@ -46,72 +48,15 @@ const STORAGE_KEY = "carverity_saved_inspections";
    Normalisation — keeps older saved records safe
 ========================================================= */
 
-function normaliseInspection(record: any): SavedInspection {
-  // Back-compat: some earlier code used created_at (snake) instead of createdAt
-  const createdAt =
-    typeof record?.createdAt === "string"
-      ? record.createdAt
-      : typeof record?.created_at === "string"
-      ? record.created_at
-      : new Date().toISOString();
-
-  const title =
-    typeof record?.title === "string" && record.title.trim()
-      ? record.title
-      : "In-person inspection";
-
-  const vehicle =
-    record?.vehicle && typeof record.vehicle === "object"
-      ? {
-          make:
-            typeof record.vehicle.make === "string"
-              ? record.vehicle.make
-              : undefined,
-          model:
-            typeof record.vehicle.model === "string"
-              ? record.vehicle.model
-              : undefined,
-          year:
-            typeof record.vehicle.year === "string"
-              ? record.vehicle.year
-              : undefined,
-          variant:
-            typeof record.vehicle.variant === "string"
-              ? record.vehicle.variant
-              : undefined,
-        }
-      : undefined;
-
-  return {
-    id: String(record?.id ?? ""),
-    type: "in-person",
-    title,
-    createdAt,
-    vehicle,
-
-    askingPrice:
-      typeof record?.askingPrice === "number" ? record.askingPrice : null,
-    score: typeof record?.score === "number" ? record.score : undefined,
-    concerns: typeof record?.concerns === "number" ? record.concerns : undefined,
-    unsure: typeof record?.unsure === "number" ? record.unsure : undefined,
-    imperfectionsCount:
-      typeof record?.imperfectionsCount === "number"
-        ? record.imperfectionsCount
-        : undefined,
-    photosCount:
-      typeof record?.photosCount === "number" ? record.photosCount : undefined,
-    fromOnlineScan: Boolean(record?.fromOnlineScan),
-
-    completed: Boolean(record?.completed),
-    history: Array.isArray(record?.history) ? record.history : [],
-  };
-}
-
 function normaliseInspections(records: any[]): SavedInspection[] {
-  return records
-    .filter((r) => r && typeof r === "object")
-    .map((r) => normaliseInspection(r))
-    .filter((r) => r.id);
+  return records.map((record) => ({
+    ...record,
+    type: "in-person",
+    createdAt: record.createdAt || record.created_at || new Date().toISOString(),
+    title: record.title || "In-person inspection",
+    completed: record.completed ?? false,
+    history: record.history ?? [],
+  })) as SavedInspection[];
 }
 
 /* =========================================================
@@ -136,10 +81,14 @@ export function saveScan(inspection: SavedInspection) {
   const existing = loadScans().filter((i) => i.id !== inspection.id);
 
   const updated: SavedInspection[] = [
-    normaliseInspection({
+    {
       ...inspection,
       type: "in-person",
-    }),
+      title: inspection.title || "In-person inspection",
+      createdAt: inspection.createdAt || new Date().toISOString(),
+      completed: inspection.completed ?? false,
+      history: inspection.history ?? [],
+    },
     ...existing,
   ];
 
@@ -164,5 +113,7 @@ export function clearAllScans() {
 }
 
 export function generateScanId() {
-  return `inspection_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  return `inspection_${Date.now()}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }

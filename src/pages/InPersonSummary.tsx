@@ -1,7 +1,13 @@
+// src/pages/InPersonSummary.tsx
+
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import { loadProgress, clearProgress } from "../utils/scanProgress";
+import {
+  loadProgress,
+  clearProgress,
+  saveProgress,
+} from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
 
 type PricingVerdict = "missing" | "info" | "room" | "concern";
@@ -52,7 +58,7 @@ function countUnsure(checks: Record<string, any>) {
 function severityWeight(s?: string) {
   if (s === "major") return 3;
   if (s === "moderate") return 2;
-  return 1;
+  return 1; // minor/default
 }
 
 function sumImperfectionWeight(imps: any[]) {
@@ -69,18 +75,19 @@ function getPricingVerdict(args: {
 
   if (!askingPrice || askingPrice <= 0) return "missing";
 
+  // Heuristic: more issues => more negotiation room
   const issueScore = concerns * 2 + unsure * 1 + imperfectionWeight * 0.75;
 
-  if (issueScore >= 12) return "concern";
-  if (issueScore >= 6) return "room";
-  return "info";
+  if (issueScore >= 12) return "concern"; // price risk / strong negotiation
+  if (issueScore >= 6) return "room"; // likely some room
+  return "info"; // likely fair-ish
 }
 
 function pricingCopy(verdict: PricingVerdict) {
   if (verdict === "missing") {
     return {
       title: "Add the asking price",
-      body: "To assess value, we need the seller’s asking price.",
+      body: "To estimate value and negotiation range, enter the seller’s advertised asking price.",
     };
   }
   if (verdict === "concern") {
@@ -101,40 +108,27 @@ function pricingCopy(verdict: PricingVerdict) {
   };
 }
 
-function buildTitleFromVehicle(progress: any): string {
-  const v =
-    progress?.vehicle ||
-    progress?.vehicleDetails ||
-    progress?.vehicleInfo ||
-    progress?.onlineVehicle ||
-    null;
+function parseAskingPrice(raw: string): number | null {
+  const cleaned = raw.replace(/[^0-9.]/g, "");
+  if (!cleaned) return null;
 
-  const year = typeof v?.year === "string" ? v.year : undefined;
-  const make = typeof v?.make === "string" ? v.make : undefined;
-  const model = typeof v?.model === "string" ? v.model : undefined;
-  const variant = typeof v?.variant === "string" ? v.variant : undefined;
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return null;
 
-  const parts = [year, make, model, variant].filter(Boolean);
-  if (parts.length) return parts.join(" ");
-  return "In-person inspection";
+  const rounded = Math.round(n);
+  if (rounded <= 0) return null;
+
+  return clamp(rounded, 1, 5_000_000);
 }
 
-function buildVehicleFromProgress(progress: any) {
-  const v =
-    progress?.vehicle ||
-    progress?.vehicleDetails ||
-    progress?.vehicleInfo ||
-    progress?.onlineVehicle ||
-    null;
+function buildTitleFromProgress(progress: any): string {
+  const make = progress?.vehicle?.make || progress?.make;
+  const model = progress?.vehicle?.model || progress?.model;
+  const year = progress?.vehicle?.year || progress?.year;
 
-  if (!v || typeof v !== "object") return undefined;
-
-  return {
-    make: typeof v.make === "string" ? v.make : undefined,
-    model: typeof v.model === "string" ? v.model : undefined,
-    year: typeof v.year === "string" ? v.year : undefined,
-    variant: typeof v.variant === "string" ? v.variant : undefined,
-  };
+  const parts = [year, make, model].filter(Boolean);
+  if (parts.length) return parts.join(" ");
+  return "In-person inspection";
 }
 
 export default function InPersonSummary() {
@@ -153,6 +147,31 @@ export default function InPersonSummary() {
   const askingPrice: number | null =
     typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
 
+  const [askingPriceInput, setAskingPriceInput] = useState<string>(() => {
+    if (askingPrice && askingPrice > 0) return String(Math.round(askingPrice));
+    return "";
+  });
+
+  const [askingPriceTouched, setAskingPriceTouched] = useState(false);
+
+  const parsedAskingPrice = useMemo(() => {
+    return parseAskingPrice(askingPriceInput);
+  }, [askingPriceInput]);
+
+  // Persist asking price into progress as user types
+  useEffect(() => {
+    const current =
+      typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
+
+    if (parsedAskingPrice === current) return;
+
+    saveProgress({
+      ...progress,
+      askingPrice: parsedAskingPrice,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parsedAskingPrice]);
+
   const concerns = useMemo(() => countConcerns(checks), [checks]);
   const unsure = useMemo(() => countUnsure(checks), [checks]);
   const score = useMemo(() => scoreFromChecks(checks), [checks]);
@@ -164,12 +183,12 @@ export default function InPersonSummary() {
 
   const verdict = useMemo(() => {
     return getPricingVerdict({
-      askingPrice,
+      askingPrice: parsedAskingPrice,
       concerns,
       unsure,
       imperfectionWeight,
     });
-  }, [askingPrice, concerns, unsure, imperfectionWeight]);
+  }, [parsedAskingPrice, concerns, unsure, imperfectionWeight]);
 
   const verdictCopy = useMemo(() => pricingCopy(verdict), [verdict]);
 
@@ -219,9 +238,7 @@ export default function InPersonSummary() {
       }
 
       const finalScanId = activeScanId || generateScanId();
-
-      const title = buildTitleFromVehicle(progress);
-      const vehicle = buildVehicleFromProgress(progress);
+      const title = buildTitleFromProgress(progress);
 
       await saveScan({
         id: finalScanId,
@@ -229,9 +246,7 @@ export default function InPersonSummary() {
         title,
         createdAt: new Date().toISOString(),
 
-        vehicle,
-
-        askingPrice,
+        askingPrice: parsedAskingPrice,
         score,
         concerns,
         unsure,
@@ -250,12 +265,17 @@ export default function InPersonSummary() {
   }
 
   function handleStartOver() {
-    if (!confirm("Start over? This will clear your current inspection.")) return;
+    if (!confirm("Start over? This will clear your current inspection.")) {
+      return;
+    }
     clearProgress();
     navigate("/scan/in-person/start");
   }
 
   const canContinue = Boolean(activeScanId);
+
+  const showAskingPriceError =
+    askingPriceTouched && askingPriceInput.trim().length > 0 && !parsedAskingPrice;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-16">
@@ -325,25 +345,64 @@ export default function InPersonSummary() {
         </section>
 
         <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-6 lg:col-span-2">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
+          <div className="flex flex-wrap items-start justify-between gap-6">
+            <div className="min-w-[240px] flex-1">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                Asking price
+                Advertised asking price (AUD)
               </p>
-              <p className="text-2xl font-semibold text-white mt-2">
-                {formatMoney(askingPrice)}
-              </p>
-              <p className="text-sm text-slate-500 mt-1">
-                This is used later to estimate negotiation range.
-              </p>
+
+              <div className="mt-3">
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                    $
+                  </span>
+                  <input
+                    value={askingPriceInput}
+                    onChange={(e) => setAskingPriceInput(e.target.value)}
+                    onBlur={() => setAskingPriceTouched(true)}
+                    inputMode="numeric"
+                    placeholder="e.g. 18,990"
+                    className={[
+                      "w-full rounded-xl border bg-slate-950/40 px-9 py-3 text-white",
+                      "placeholder:text-slate-600 outline-none",
+                      showAskingPriceError
+                        ? "border-amber-400/50 focus:border-amber-400/70"
+                        : "border-white/10 focus:border-emerald-400/40",
+                    ].join(" ")}
+                  />
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs text-slate-500">
+                    Used to estimate a buyer-safe adjustment range.
+                  </p>
+
+                  <p className="text-xs text-slate-400">
+                    Saved as:{" "}
+                    <span className="text-slate-200 font-semibold tabular-nums">
+                      {formatMoney(parsedAskingPrice)}
+                    </span>
+                  </p>
+                </div>
+
+                {showAskingPriceError && (
+                  <p className="text-xs text-amber-200 mt-2">
+                    Enter a valid price (numbers only).
+                  </p>
+                )}
+              </div>
             </div>
 
-            <button
-              onClick={() => navigate("/scan/in-person/asking-price")}
-              className="rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
-            >
-              Edit asking price
-            </button>
+            <div className="shrink-0">
+              <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Current
+                </p>
+                <p className="text-lg font-semibold text-white tabular-nums mt-1">
+                  {formatMoney(parsedAskingPrice)}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/40 p-5">
