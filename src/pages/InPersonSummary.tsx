@@ -1,3 +1,5 @@
+// src/pages/InPersonSummary.tsx
+
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -11,11 +13,7 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import {
-  loadProgress,
-  clearProgress,
-  saveProgress,
-} from "../utils/scanProgress";
+import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
 
 type PricingVerdict = "missing" | "info" | "room" | "concern";
@@ -138,7 +136,8 @@ function parseAskingPrice(raw: string): number | null {
 }
 
 function buildTitleFromProgress(progress: any): string {
-  const make = progress?.vehicle?.make || progress?.make || progress?.vehicleMake;
+  const make =
+    progress?.vehicle?.make || progress?.make || progress?.vehicleMake;
   const model =
     progress?.vehicle?.model || progress?.model || progress?.vehicleModel;
   const year =
@@ -185,6 +184,11 @@ function toneClasses(tone: "good" | "info" | "warn" | "danger") {
   };
 }
 
+function hasAnyDriveAnswers(checks: Record<string, any>) {
+  const driveIds = ["steering", "noise-hesitation", "adas-systems"];
+  return driveIds.some((id) => Boolean(checks?.[id]?.value || checks?.[id]?.note));
+}
+
 export default function InPersonSummary() {
   const navigate = useNavigate();
   const { scanId: routeScanId } = useParams<{ scanId?: string }>();
@@ -214,13 +218,14 @@ export default function InPersonSummary() {
 
   // Persist asking price into progress as user types
   useEffect(() => {
+    const latest: any = loadProgress();
     const current =
-      typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
+      typeof latest?.askingPrice === "number" ? latest.askingPrice : null;
 
     if (parsedAskingPrice === current) return;
 
     saveProgress({
-      ...progress,
+      ...(latest ?? {}),
       askingPrice: parsedAskingPrice,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -330,12 +335,20 @@ export default function InPersonSummary() {
     navigate("/scan/in-person/start");
   }
 
+  function handleDoDriveNow() {
+    // If they skipped earlier, we route them into the drive intro,
+    // which clears stale drive answers and prevents highlighted buttons.
+    navigate("/scan/in-person/checks/drive-intro");
+  }
+
   const canContinue = Boolean(activeScanId);
 
   const showAskingPriceError =
     askingPriceTouched &&
     askingPriceInput.trim().length > 0 &&
     !parsedAskingPrice;
+
+  const driveWasSkippedOrMissing = !hasAnyDriveAnswers(checks);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-16">
@@ -368,6 +381,42 @@ export default function InPersonSummary() {
           </div>
         </div>
       </header>
+
+      {/* If drive checks were skipped, give them a way back */}
+      {driveWasSkippedOrMissing && (
+        <div className="mb-8 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-4 w-4 text-amber-300 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-white">
+                Skipped test drive earlier — you can still do it now
+              </p>
+              <p className="text-sm text-slate-300 mt-1 leading-relaxed">
+                If the situation changed (or you tapped skip by accident), you
+                can run the quick drive checks before generating the report.
+              </p>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleDoDriveNow}
+                  className="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
+                >
+                  Do drive checks now
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("/scan/in-person/checks/inside")}
+                  className="rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
+                >
+                  Go back
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-3">
         {/* Score card */}
