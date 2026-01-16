@@ -28,11 +28,13 @@ export default function InPersonChecksDriveIntro() {
   }, []);
 
   function startDriveChecks() {
-    // ✅ IMPORTANT:
-    // User may have previously tapped "Couldn't check" in Drive checks,
-    // then changed their mind and came back here.
-    // When they now proceed, we want a clean slate (no highlighted buttons).
-    const nextChecks = { ...(progress?.checks ?? {}) };
+    // 🔥 IMPORTANT:
+    // Always re-load progress at click time to avoid stale state.
+    // If user previously tapped "Couldn't check" (or chips added notes),
+    // we want a clean slate when they proceed.
+    const latest: any = loadProgress();
+
+    const nextChecks = { ...(latest?.checks ?? {}) };
 
     for (const id of DRIVE_CHECK_IDS) {
       if (nextChecks[id]) {
@@ -41,7 +43,7 @@ export default function InPersonChecksDriveIntro() {
     }
 
     saveProgress({
-      ...(progress ?? {}),
+      ...(latest ?? {}),
       step: "/scan/in-person/checks/drive",
       checks: nextChecks,
     });
