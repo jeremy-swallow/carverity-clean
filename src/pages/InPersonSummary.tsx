@@ -2,8 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowRight,
+  CheckCircle2,
+  AlertTriangle,
+  Info,
+  Camera,
+  Sparkles,
+  RefreshCcw,
+  ClipboardCheck,
+} from "lucide-react";
 import { supabase } from "../supabaseClient";
-import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
+import {
+  loadProgress,
+  clearProgress,
+  saveProgress,
+} from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
 
 type PricingVerdict = "missing" | "info" | "room" | "concern";
@@ -71,36 +85,44 @@ function getPricingVerdict(args: {
 
   if (!askingPrice || askingPrice <= 0) return "missing";
 
-  // Heuristic: more issues => more negotiation room
+  // Heuristic: more issues => price sensitivity increases
   const issueScore = concerns * 2 + unsure * 1 + imperfectionWeight * 0.75;
 
-  if (issueScore >= 12) return "concern"; // price risk / strong negotiation
-  if (issueScore >= 6) return "room"; // likely some room
-  return "info"; // likely fair-ish
+  if (issueScore >= 12) return "concern";
+  if (issueScore >= 6) return "room";
+  return "info";
 }
 
 function pricingCopy(verdict: PricingVerdict) {
   if (verdict === "missing") {
     return {
+      tone: "info" as const,
       title: "Add the asking price",
-      body: "To estimate value and negotiation range, enter the seller’s advertised asking price.",
+      body:
+        "This helps CarVerity assess whether the asking price looks aligned with what you recorded — and what to verify before you commit.",
     };
   }
   if (verdict === "concern") {
     return {
-      title: "Price looks high for what you’ve recorded",
-      body: "Based on your concerns and imperfections, this looks like a strong negotiation candidate.",
+      tone: "warn" as const,
+      title: "Asking price looks optimistic for what you recorded",
+      body:
+        "You captured multiple risk signals. The report will focus on what they mean, what to clarify, and what would make walking away reasonable.",
     };
   }
   if (verdict === "room") {
     return {
-      title: "There may be negotiation room",
-      body: "Your inspection suggests some leverage. A small reduction is realistic if the seller confirms your concerns.",
+      tone: "info" as const,
+      title: "Price sensitivity is elevated",
+      body:
+        "You recorded a few meaningful signals. The report will convert them into clear follow-ups and a buyer-safe decision guide.",
     };
   }
   return {
-    title: "Price looks roughly in the fair range",
-    body: "Nothing you recorded strongly suggests the price is inflated — still confirm the key items before committing.",
+    tone: "good" as const,
+    title: "Nothing you recorded strongly contradicts the asking price",
+    body:
+      "That’s a good sign — but the report will still highlight the few checks that matter most before you decide.",
   };
 }
 
@@ -127,6 +149,42 @@ function buildTitleFromProgress(progress: any): string {
   const parts = [year, make, model].filter(Boolean);
   if (parts.length) return parts.join(" ");
   return "In-person inspection";
+}
+
+function scoreBand(score: number) {
+  if (score >= 85) return { label: "Low risk", tone: "good" as const };
+  if (score >= 70) return { label: "Mixed", tone: "info" as const };
+  if (score >= 55) return { label: "Higher risk", tone: "warn" as const };
+  return { label: "High risk", tone: "danger" as const };
+}
+
+function toneClasses(tone: "good" | "info" | "warn" | "danger") {
+  if (tone === "good") {
+    return {
+      pill: "bg-emerald-500/10 text-emerald-200 border-emerald-500/20",
+      bar: "bg-emerald-500",
+      icon: "text-emerald-300",
+    };
+  }
+  if (tone === "warn") {
+    return {
+      pill: "bg-amber-500/10 text-amber-200 border-amber-500/20",
+      bar: "bg-amber-400",
+      icon: "text-amber-300",
+    };
+  }
+  if (tone === "danger") {
+    return {
+      pill: "bg-rose-500/10 text-rose-200 border-rose-500/20",
+      bar: "bg-rose-400",
+      icon: "text-rose-300",
+    };
+  }
+  return {
+    pill: "bg-sky-500/10 text-sky-200 border-sky-500/20",
+    bar: "bg-sky-400",
+    icon: "text-sky-300",
+  };
 }
 
 export default function InPersonSummary() {
@@ -189,6 +247,10 @@ export default function InPersonSummary() {
   }, [parsedAskingPrice, concerns, unsure, imperfectionWeight]);
 
   const verdictCopy = useMemo(() => pricingCopy(verdict), [verdict]);
+
+  const band = useMemo(() => scoreBand(score), [score]);
+  const bandTone = toneClasses(band.tone);
+  const verdictTone = toneClasses(verdictCopy.tone);
 
   const [saving, setSaving] = useState(false);
   const [authReady, setAuthReady] = useState(false);
@@ -253,7 +315,6 @@ export default function InPersonSummary() {
         fromOnlineScan,
       });
 
-      // ✅ Correct route: go into the analyzing corridor (not legacy preview)
       navigate(`/scan/in-person/analyzing/${finalScanId}`);
     } catch (e) {
       console.error("[InPersonSummary] save failed:", e);
@@ -284,67 +345,116 @@ export default function InPersonSummary() {
         <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
           In-person inspection
         </p>
-        <h1 className="text-3xl md:text-4xl font-semibold text-white mt-2">
-          Summary
-        </h1>
-        <p className="text-slate-400 mt-3 max-w-2xl">
-          This is your quick pre-report snapshot. Next you’ll unlock the full
-          report and negotiation advice.
-        </p>
+
+        <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-[240px]">
+            <h1 className="text-3xl md:text-4xl font-semibold text-white">
+              Summary
+            </h1>
+            <p className="text-slate-400 mt-3 max-w-2xl leading-relaxed">
+              This is a calm snapshot of what you recorded. Next, CarVerity will
+              turn it into a buyer-safe report with clear reasoning and next
+              steps — without hype or pressure.
+            </p>
+          </div>
+
+          <div
+            className={[
+              "inline-flex items-center gap-2 rounded-full border px-3 py-1.5",
+              "text-xs font-semibold",
+              bandTone.pill,
+            ].join(" ")}
+          >
+            <CheckCircle2 className={["h-4 w-4", bandTone.icon].join(" ")} />
+            {band.label}
+          </div>
+        </div>
       </header>
 
       <div className="grid gap-8 lg:grid-cols-3">
+        {/* Score card */}
         <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-6">
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-            Overall score
-          </p>
-
-          <div className="mt-4 flex items-end justify-between gap-4">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-5xl font-semibold text-white tabular-nums">
-                {score}
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                Overall score
+              </p>
+              <div className="mt-4 flex items-end gap-3">
+                <div className="text-5xl font-semibold text-white tabular-nums">
+                  {score}
+                </div>
+                <div className="pb-1">
+                  <p className="text-sm text-slate-400">out of 100</p>
+                </div>
               </div>
-              <p className="text-sm text-slate-400 mt-1">out of 100</p>
             </div>
 
-            <div className="w-28 h-2 rounded-full bg-slate-800 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-emerald-500 transition-[width] duration-300"
-                style={{ width: `${clamp(score, 0, 100)}%` }}
-              />
+            <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                Snapshot
+              </p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                This score reflects your recorded answers only.
+              </p>
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">
-                Concerns
-              </p>
-              <p className="text-lg font-semibold text-white tabular-nums mt-1">
-                {concerns}
-              </p>
+          <div className="mt-5">
+            <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+              <div
+                className={["h-full rounded-full", bandTone.bar].join(" ")}
+                style={{ width: `${clamp(score, 0, 100)}%` }}
+              />
             </div>
 
-            <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">
-                Unsure
-              </p>
-              <p className="text-lg font-semibold text-white tabular-nums mt-1">
-                {unsure}
-              </p>
-            </div>
+            <div className="mt-6 grid grid-cols-3 gap-3">
+              <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Concerns
+                </p>
+                <p className="text-lg font-semibold text-white tabular-nums mt-1">
+                  {concerns}
+                </p>
+              </div>
 
-            <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">
-                Notes
-              </p>
-              <p className="text-lg font-semibold text-white tabular-nums mt-1">
-                {followUps.length}
-              </p>
+              <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Unsure
+                </p>
+                <p className="text-lg font-semibold text-white tabular-nums mt-1">
+                  {unsure}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Notes
+                </p>
+                <p className="text-lg font-semibold text-white tabular-nums mt-1">
+                  {followUps.length}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+            <div className="flex items-start gap-3">
+              <ClipboardCheck className="h-4 w-4 text-slate-300 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  What this snapshot is for
+                </p>
+                <p className="text-sm text-slate-400 mt-1 leading-relaxed">
+                  It helps you sanity-check the inspection before you generate
+                  the report. If something feels missing, review checks now —
+                  it’s faster than fixing it later.
+                </p>
+              </div>
             </div>
           </div>
         </section>
 
+        {/* Asking price + verdict */}
         <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-6 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="min-w-[240px] flex-1">
@@ -375,7 +485,7 @@ export default function InPersonSummary() {
 
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs text-slate-500">
-                    Used to estimate a buyer-safe adjustment range.
+                    Used to assess price alignment with your recorded evidence.
                   </p>
 
                   <p className="text-xs text-slate-400">
@@ -407,54 +517,129 @@ export default function InPersonSummary() {
           </div>
 
           <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/40 p-5">
-            <p className="text-sm font-semibold text-white">
-              {verdictCopy.title}
-            </p>
-            <p className="text-sm text-slate-400 mt-2">{verdictCopy.body}</p>
+            <div className="flex items-start gap-3">
+              {verdictCopy.tone === "warn" ? (
+                <AlertTriangle
+                  className={["h-4 w-4 mt-0.5", verdictTone.icon].join(" ")}
+                />
+              ) : verdictCopy.tone === "good" ? (
+                <CheckCircle2
+                  className={["h-4 w-4 mt-0.5", verdictTone.icon].join(" ")}
+                />
+              ) : (
+                <Info
+                  className={["h-4 w-4 mt-0.5", verdictTone.icon].join(" ")}
+                />
+              )}
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <span className="text-xs text-slate-500">
-                Photos captured:{" "}
-                <span className="text-slate-200 tabular-nums font-semibold">
-                  {photos.length}
-                </span>
-              </span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-white">
+                  {verdictCopy.title}
+                </p>
+                <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+                  {verdictCopy.body}
+                </p>
 
-              <span className="text-xs text-slate-500">
-                Imperfections recorded:{" "}
-                <span className="text-slate-200 tabular-nums font-semibold">
-                  {imperfections.length}
-                </span>
-              </span>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <span className="text-xs text-slate-500 inline-flex items-center gap-2">
+                    <Camera className="h-3.5 w-3.5 text-slate-400" />
+                    Photos captured:{" "}
+                    <span className="text-slate-200 tabular-nums font-semibold">
+                      {photos.length}
+                    </span>
+                  </span>
+
+                  <span className="text-xs text-slate-500 inline-flex items-center gap-2">
+                    <Sparkles className="h-3.5 w-3.5 text-slate-400" />
+                    Imperfections recorded:{" "}
+                    <span className="text-slate-200 tabular-nums font-semibold">
+                      {imperfections.length}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    <span className="text-slate-200 font-semibold">
+                      Buyer-safe logic:
+                    </span>{" "}
+                    CarVerity won’t “fill in gaps”. If you marked items as
+                    unsure, the report treats them as questions to clarify — not
+                    automatic negatives.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Calm expectations (premium feel) */}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                What you’ll get
+              </p>
+              <p className="text-sm text-slate-200 font-semibold mt-2">
+                Clear reasoning
+              </p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                “Why this matters” explanations tied to what you recorded.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                What to do next
+              </p>
+              <p className="text-sm text-slate-200 font-semibold mt-2">
+                Practical follow-ups
+              </p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                The few questions that reduce buyer regret the most.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Price alignment
+              </p>
+              <p className="text-sm text-slate-200 font-semibold mt-2">
+                Sanity-check signal
+              </p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                A calm read on whether the asking price fits what you recorded.
+              </p>
             </div>
           </div>
         </section>
       </div>
 
+      {/* Actions */}
       <section className="mt-10 rounded-2xl border border-white/10 bg-slate-900/40 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-white">
               Ready to generate your report?
             </p>
-            <p className="text-sm text-slate-400 mt-1">
-              You’ll unlock the full report next. Credits are only used when you
-              unlock.
+            <p className="text-sm text-slate-400 mt-1 leading-relaxed">
+              Credits are only used when you unlock. If you want to change
+              anything, review checks first.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <button
               onClick={handleStartOver}
-              className="rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
+              className="rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200 inline-flex items-center gap-2"
             >
+              <RefreshCcw className="h-4 w-4 text-slate-300" />
               Start over
             </button>
 
             <button
               onClick={() => navigate("/scan/in-person/checks/around")}
-              className="rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
+              className="rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200 inline-flex items-center gap-2"
             >
+              <ClipboardCheck className="h-4 w-4 text-slate-300" />
               Review checks
             </button>
 
@@ -462,13 +647,14 @@ export default function InPersonSummary() {
               onClick={handleSaveAndContinue}
               disabled={!canContinue || saving || (authReady && !isLoggedIn)}
               className={[
-                "rounded-xl px-4 py-2 text-sm font-semibold transition",
+                "rounded-xl px-4 py-2 text-sm font-semibold transition inline-flex items-center gap-2",
                 "bg-emerald-500 hover:bg-emerald-400 text-black",
                 !canContinue || saving || (authReady && !isLoggedIn)
                   ? "opacity-60 cursor-not-allowed"
                   : "",
               ].join(" ")}
             >
+              <ArrowRight className="h-4 w-4" />
               {saving ? "Saving…" : "Continue"}
             </button>
           </div>
@@ -479,7 +665,7 @@ export default function InPersonSummary() {
             <p className="text-sm text-amber-200 font-semibold">
               Sign in required to save this scan
             </p>
-            <p className="text-sm text-slate-300 mt-1">
+            <p className="text-sm text-slate-300 mt-1 leading-relaxed">
               You can still complete an inspection, but to unlock and store your
               report you’ll need to sign in.
             </p>
@@ -494,6 +680,23 @@ export default function InPersonSummary() {
           </div>
         )}
       </section>
+
+      {/* Subtle footer reassurance */}
+      <div className="mt-8 rounded-2xl border border-white/10 bg-slate-900/30 p-5">
+        <div className="flex items-start gap-3">
+          <Info className="h-4 w-4 text-slate-300 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-white">
+              Calm guidance, not car-yard hype
+            </p>
+            <p className="text-sm text-slate-400 mt-1 leading-relaxed">
+              CarVerity is designed to reduce buyer regret. The report focuses
+              on what your inspection means, what to clarify, and when to walk
+              away — without scripts or pressure.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

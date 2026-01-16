@@ -74,8 +74,7 @@ function renderEvidenceSummary(evidenceSummary: unknown): ReactNode {
 
     for (const key of candidateKeys) {
       const v = evidenceSummary[key];
-      if (typeof v === "string" && v.trim())
-        return <Paragraph value={v} />;
+      if (typeof v === "string" && v.trim()) return <Paragraph value={v} />;
       if (Array.isArray(v)) {
         const strings = v.map(asCleanText).filter(Boolean);
         if (strings.length > 0) return <BulletList items={strings} />;
@@ -107,55 +106,30 @@ function uncertaintyToText(u: unknown): string {
   return "An item was marked as unsure by the buyer.";
 }
 
-function rangeToText(value: unknown): string {
+function formatMoney(n: unknown): string {
+  if (typeof n !== "number" || !Number.isFinite(n)) return "—";
+  try {
+    return new Intl.NumberFormat("en-AU", {
+      style: "currency",
+      currency: "AUD",
+      maximumFractionDigits: 0,
+    }).format(n);
+  } catch {
+    return `$${Math.round(n)}`;
+  }
+}
+
+function safeDateLabel(value: unknown): string {
   if (typeof value === "string" && value.trim()) return value.trim();
-  if (typeof value === "number")
-    return `$${value.toLocaleString("en-AU")}`;
-
-  if (Array.isArray(value)) {
-    const nums = value.filter(
-      (x): x is number => typeof x === "number"
-    );
-    if (nums.length >= 2) {
-      const lo = Math.min(nums[0], nums[1]);
-      const hi = Math.max(nums[0], nums[1]);
-      return `$${lo.toLocaleString("en-AU")}–$${hi.toLocaleString(
-        "en-AU"
-      )}`;
-    }
+  try {
+    return new Date().toLocaleDateString("en-AU", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    });
+  } catch {
+    return new Date().toLocaleDateString();
   }
-
-  if (isRecord(value)) {
-    const min =
-      (typeof value.min === "number" && value.min) ||
-      (typeof value.low === "number" && value.low) ||
-      (typeof value.from === "number" && value.from) ||
-      null;
-
-    const max =
-      (typeof value.max === "number" && value.max) ||
-      (typeof value.high === "number" && value.high) ||
-      (typeof value.to === "number" && value.to) ||
-      null;
-
-    if (min != null && max != null) {
-      const lo = Math.min(min, max);
-      const hi = Math.max(min, max);
-      return `$${lo.toLocaleString("en-AU")}–$${hi.toLocaleString(
-        "en-AU"
-      )}`;
-    }
-
-    const text =
-      asCleanText(value.text) ||
-      asCleanText(value.summary) ||
-      asCleanText(value.display) ||
-      "";
-
-    if (text) return text;
-  }
-
-  return "";
 }
 
 /* -------------------------------------------------------
@@ -169,19 +143,31 @@ export default function InPersonReportPrint() {
     return analyseInPersonInspection(progress);
   }, [progress]);
 
-  const photos: string[] = (progress?.photos ?? []).map(
-    (p: any) => p.dataUrl
-  );
+  const photos: string[] = (progress?.photos ?? []).map((p: any) => p.dataUrl);
 
   const scanId = progress?.scanId ?? "—";
+  const reportDate = safeDateLabel(progress?.createdAt ?? progress?.date);
 
-  const priorityRisks = analysis.risks.filter(
-    (r) => r.severity === "critical"
-  );
+  const vehicleTitle = (() => {
+    const year =
+      progress?.vehicle?.year || progress?.year || progress?.vehicleYear || "";
+    const make =
+      progress?.vehicle?.make || progress?.make || progress?.vehicleMake || "";
+    const model =
+      progress?.vehicle?.model ||
+      progress?.model ||
+      progress?.vehicleModel ||
+      "";
 
-  const moderateRisks = analysis.risks.filter(
-    (r) => r.severity === "moderate"
-  );
+    const parts = [year, make, model].filter(Boolean);
+    return parts.length ? parts.join(" ") : "Vehicle";
+  })();
+
+  const askingPrice =
+    typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
+
+  const priorityRisks = analysis.risks.filter((r) => r.severity === "critical");
+  const moderateRisks = analysis.risks.filter((r) => r.severity === "moderate");
 
   const uncertaintyFactors: unknown[] = Array.isArray(
     (analysis as any).uncertaintyFactors
@@ -189,14 +175,12 @@ export default function InPersonReportPrint() {
     ? ((analysis as any).uncertaintyFactors as unknown[])
     : [];
 
-  const negotiation = (analysis as any).negotiationPositioning ?? {};
-  const conservativeRange = rangeToText(negotiation.conservative);
-  const assertiveRange = rangeToText(
-    negotiation.assertive ??
-      negotiation.aggressive ??
-      negotiation.strong ??
-      negotiation.firm
-  );
+  // Print report must NOT include negotiation scripts or negotiation ranges.
+  const buyerPositioningText =
+    (analysis as any)?.buyerPositioning ??
+    (analysis as any)?.positioning ??
+    (analysis as any)?.buyerPosture ??
+    null;
 
   function triggerPrint() {
     window.print();
@@ -208,23 +192,34 @@ export default function InPersonReportPrint() {
 
   return (
     <div className="print-body bg-white text-black min-h-screen">
-      <div className="max-w-3xl mx-auto px-10 py-14 space-y-12">
+      <div className="max-w-3xl mx-auto px-10 py-14 space-y-10">
         {/* =====================================================
             HEADER
         ===================================================== */}
         <header className="space-y-4 border-b border-black/20 pb-6">
-          <h1 className="text-3xl font-bold">
-            CarVerity — In-Person Buyer Inspection Report
-          </h1>
+          <div className="flex items-start justify-between gap-6">
+            <div className="min-w-[240px]">
+              <p className="text-xs uppercase tracking-[0.18em] text-black/50">
+                CarVerity — In-person report
+              </p>
+              <h1 className="text-3xl font-bold mt-2">{vehicleTitle}</h1>
+              <p className="text-sm text-black/60 mt-2 leading-relaxed">
+                A buyer-recorded inspection summary with clear reasoning — based
+                only on what was observed and marked during the scan.
+              </p>
+            </div>
 
-          <div className="flex flex-wrap gap-6 text-sm text-black/70">
-            <span>
-              <strong>Scan ID:</strong> {scanId}
-            </span>
-            <span>
-              <strong>Date:</strong>{" "}
-              {new Date().toLocaleDateString()}
-            </span>
+            <div className="text-right text-sm text-black/70 space-y-1">
+              <div>
+                <strong>Scan ID:</strong> {scanId}
+              </div>
+              <div>
+                <strong>Date:</strong> {reportDate}
+              </div>
+              <div>
+                <strong>Asking price:</strong> {formatMoney(askingPrice)}
+              </div>
+            </div>
           </div>
 
           <Paragraph
@@ -243,26 +238,36 @@ export default function InPersonReportPrint() {
 
           <p className="text-xl font-semibold">
             {analysis.verdict === "proceed"
-              ? "Proceed with confidence"
+              ? "Proceed normally"
               : analysis.verdict === "caution"
-              ? "Proceed — with targeted clarification"
-              : "Risk appears elevated — walking away is reasonable"}
+              ? "Proceed — after targeted clarification"
+              : "Risk appears elevated — pausing / walking away is reasonable"}
           </p>
 
           <Paragraph
             value={
               (analysis as any).whyThisVerdict ||
-              (analysis as any).verdictReason
+              (analysis as any).verdictReason ||
+              (analysis as any).summary
             }
           />
 
-          <div className="flex gap-8 pt-2 text-sm">
+          <div className="flex flex-wrap gap-6 pt-2 text-sm">
             <span>
               <strong>Confidence:</strong> {analysis.confidenceScore}%
             </span>
             <span>
               <strong>Coverage:</strong> {analysis.completenessScore}%
             </span>
+          </div>
+
+          <div className="border border-black/15 bg-black/5 px-5 py-4 text-sm">
+            <p className="font-semibold">How to read this</p>
+            <p className="text-black/70 mt-1 leading-relaxed">
+              Priority findings are the items most likely to change your
+              decision. “Uncertainty” is not treated as a fault — it’s a list of
+              questions to verify.
+            </p>
           </div>
         </section>
 
@@ -280,6 +285,130 @@ export default function InPersonReportPrint() {
             Only evidence you recorded and items you explicitly marked as unsure
             are used. Missing checks are treated as not recorded, not as risk.
           </p>
+        </section>
+
+        {/* =====================================================
+            PRIORITY FINDINGS
+        ===================================================== */}
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
+            Priority findings
+          </h2>
+
+          {priorityRisks.length > 0 ? (
+            <ul className="space-y-3">
+              {priorityRisks.map((r) => (
+                <li key={r.id} className="border border-black/15 px-5 py-4">
+                  <p className="text-sm font-semibold">
+                    {r.label}{" "}
+                    <span className="text-xs font-normal text-black/60">
+                      (high impact)
+                    </span>
+                  </p>
+                  <p className="text-sm text-black/70 mt-1 leading-relaxed">
+                    {r.explanation}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-black/70">
+              No high-impact findings were recorded during this inspection.
+            </p>
+          )}
+        </section>
+
+        {/* =====================================================
+            ITEMS WORTH CLARIFYING
+        ===================================================== */}
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
+            Items worth clarifying
+          </h2>
+
+          {moderateRisks.length > 0 ? (
+            <ul className="space-y-3">
+              {moderateRisks.map((r) => (
+                <li key={r.id} className="border border-black/15 px-5 py-4">
+                  <p className="text-sm font-semibold">
+                    {r.label}{" "}
+                    <span className="text-xs font-normal text-black/60">
+                      (medium impact)
+                    </span>
+                  </p>
+                  <p className="text-sm text-black/70 mt-1 leading-relaxed">
+                    {r.explanation}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-black/70">
+              No medium-impact clarifications were recorded.
+            </p>
+          )}
+        </section>
+
+        {/* =====================================================
+            DECLARED UNCERTAINTY
+        ===================================================== */}
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
+            Buyer-declared uncertainty
+          </h2>
+
+          {uncertaintyFactors.length > 0 ? (
+            <>
+              <ul className="list-disc list-inside space-y-1 text-sm text-black/80">
+                {uncertaintyFactors.map((u, i) => (
+                  <li key={i}>{uncertaintyToText(u)}</li>
+                ))}
+              </ul>
+
+              <p className="text-xs text-black/60">
+                These are treated as unknowns to verify — not automatic faults.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-black/70">
+              No buyer-declared uncertainty was recorded.
+            </p>
+          )}
+        </section>
+
+        {/* =====================================================
+            HOW RISK WAS WEIGHED
+        ===================================================== */}
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
+            How risk was weighed
+          </h2>
+
+          <Paragraph value={(analysis as any).riskWeightingExplanation} />
+        </section>
+
+        {/* =====================================================
+            BUYER POSITIONING (NO NEGOTIATION)
+        ===================================================== */}
+        <section className="space-y-3">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
+            Buyer-safe posture
+          </h2>
+
+          <Paragraph
+            value={
+              buyerPositioningText ||
+              "This report is designed to reduce buyer regret. It highlights the few checks that matter most, what they mean, and what to verify before you commit."
+            }
+          />
+
+          <div className="border border-black/15 bg-black/5 px-5 py-4 text-sm">
+            <p className="font-semibold">Reminder</p>
+            <p className="text-black/70 mt-1 leading-relaxed">
+              This report does not include negotiation scripts. It focuses on
+              clarity, evidence, and decision confidence.
+            </p>
+          </div>
         </section>
 
         {/* =====================================================
@@ -313,111 +442,6 @@ export default function InPersonReportPrint() {
         </section>
 
         {/* =====================================================
-            PRIORITY FINDINGS
-        ===================================================== */}
-        {priorityRisks.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
-              Priority findings
-            </h2>
-
-            <ul className="list-disc list-inside space-y-1 text-sm">
-              {priorityRisks.map((r) => (
-                <li key={r.id}>
-                  <strong>{r.label}:</strong> {r.explanation}
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {/* =====================================================
-            ITEMS WORTH CLARIFYING
-        ===================================================== */}
-        {moderateRisks.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
-              Items worth clarifying
-            </h2>
-
-            <ul className="list-disc list-inside space-y-1 text-sm">
-              {moderateRisks.map((r) => (
-                <li key={r.id}>
-                  <strong>{r.label}:</strong> {r.explanation}
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {/* =====================================================
-            DECLARED UNCERTAINTY
-        ===================================================== */}
-        {uncertaintyFactors.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
-              Buyer-declared uncertainty
-            </h2>
-
-            <ul className="list-disc list-inside space-y-1 text-sm">
-              {uncertaintyFactors.map((u, i) => (
-                <li key={i}>{uncertaintyToText(u)}</li>
-              ))}
-            </ul>
-
-            <p className="text-xs text-black/60">
-              These are the only sources of uncertainty considered in this
-              report.
-            </p>
-          </section>
-        )}
-
-        {/* =====================================================
-            RISK WEIGHTING
-        ===================================================== */}
-        <section className="space-y-3">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
-            How risk was weighed
-          </h2>
-
-          <Paragraph
-            value={(analysis as any).riskWeightingExplanation}
-          />
-        </section>
-
-        {/* =====================================================
-            NEGOTIATION POSITION
-        ===================================================== */}
-        <section className="space-y-3">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
-            Buyer positioning
-          </h2>
-
-          <Paragraph
-            value={
-              negotiation.summary ??
-              negotiation.message ??
-              negotiation.text
-            }
-          />
-
-          <div className="flex gap-8 text-sm">
-            {conservativeRange && (
-              <span>
-                <strong>Conservative adjustment:</strong>{" "}
-                {conservativeRange}
-              </span>
-            )}
-            {assertiveRange && (
-              <span>
-                <strong>Assertive adjustment:</strong>{" "}
-                {assertiveRange}
-              </span>
-            )}
-          </div>
-        </section>
-
-        {/* =====================================================
             DISCLAIMER
         ===================================================== */}
         <div className="border border-black/20 bg-black/5 px-6 py-4 text-xs leading-relaxed">
@@ -429,7 +453,7 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             ACTIONS (NO PRINT)
         ===================================================== */}
-        <div className="no-print flex gap-3 pt-6">
+        <div className="no-print flex gap-3 pt-2">
           <button
             onClick={triggerPrint}
             className="px-4 py-2 rounded bg-black text-white font-semibold"

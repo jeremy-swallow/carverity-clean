@@ -14,10 +14,51 @@ import {
   FileCheck,
   HelpCircle,
   CheckCircle2,
+  Info,
+  ClipboardList,
+  Eye,
 } from "lucide-react";
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
+}
+
+type Tone = "good" | "info" | "warn" | "danger";
+
+function toneClasses(tone: Tone) {
+  if (tone === "good") {
+    return {
+      wrap: "border-emerald-500/25 bg-emerald-500/10",
+      icon: "text-emerald-300",
+      pill: "border-emerald-500/20 bg-emerald-500/10 text-emerald-200",
+    };
+  }
+  if (tone === "warn") {
+    return {
+      wrap: "border-amber-500/25 bg-amber-500/10",
+      icon: "text-amber-300",
+      pill: "border-amber-500/20 bg-amber-500/10 text-amber-200",
+    };
+  }
+  if (tone === "danger") {
+    return {
+      wrap: "border-rose-500/25 bg-rose-500/10",
+      icon: "text-rose-300",
+      pill: "border-rose-500/20 bg-rose-500/10 text-rose-200",
+    };
+  }
+  return {
+    wrap: "border-sky-500/25 bg-sky-500/10",
+    icon: "text-sky-300",
+    pill: "border-sky-500/20 bg-sky-500/10 text-sky-200",
+  };
+}
+
+function confidenceLabel(score: number) {
+  if (score >= 80) return "High";
+  if (score >= 60) return "Medium";
+  if (score >= 35) return "Low";
+  return "Very low";
 }
 
 export default function InPersonDecision() {
@@ -40,46 +81,52 @@ export default function InPersonDecision() {
   const posture = useMemo(() => {
     if (analysis.verdict === "walk-away") {
       return {
-        title: "Buyer-safe decision posture: pause / walk away is reasonable",
+        title: "Decision posture: pause / walk-away is reasonable",
         body:
-          "Based on what you recorded, risk looks elevated. If the seller can’t clearly resolve the key items with evidence, walking away is a sensible choice.",
-        tone: "border-red-500/30 bg-red-500/10",
-        icon: <AlertTriangle className="h-5 w-5 text-red-300" />,
+          "Based on what you recorded, risk looks elevated. If the seller can’t resolve the key items with evidence, walking away is a buyer-safe choice.",
+        tone: "danger" as Tone,
+        icon: AlertTriangle,
       };
     }
 
     if (analysis.verdict === "caution") {
       return {
-        title: "Buyer-safe decision posture: proceed only after clarification",
+        title: "Decision posture: proceed only after clarification",
         body:
           "You recorded at least one meaningful concern or uncertainty. Clarify those items first — then decide with confidence.",
-        tone: "border-amber-500/30 bg-amber-500/10",
-        icon: <HelpCircle className="h-5 w-5 text-amber-300" />,
+        tone: "warn" as Tone,
+        icon: HelpCircle,
       };
     }
 
     return {
-      title: "Buyer-safe decision posture: proceed normally",
+      title: "Decision posture: proceed normally",
       body:
         "Nothing you recorded strongly suggests elevated risk. Confirm the basics and proceed with normal buyer checks.",
-      tone: "border-emerald-500/30 bg-emerald-500/10",
-      icon: <CheckCircle2 className="h-5 w-5 text-emerald-300" />,
+      tone: "good" as Tone,
+      icon: CheckCircle2,
     };
   }, [analysis.verdict]);
 
   const beforeYouCommit = useMemo(() => {
     const items: string[] = [];
 
-    items.push("Confirm the seller’s identity and that the paperwork matches the vehicle.");
+    items.push(
+      "Confirm the seller’s identity and that the paperwork matches the vehicle."
+    );
     items.push("Verify service history with invoices (not just a stamp book).");
     items.push("Check for finance owing / written-off status (where applicable).");
 
     if (critical.length > 0) {
-      items.push("Do not pay a deposit until the high-impact items are resolved with evidence.");
+      items.push(
+        "Do not pay a deposit until the high-impact items are resolved with evidence."
+      );
     }
 
     if (moderate.length > 0) {
-      items.push("Ask the seller to clarify the items you flagged before committing.");
+      items.push(
+        "Ask the seller to clarify the items you flagged before committing."
+      );
     }
 
     if (unsure.length > 0) {
@@ -97,7 +144,7 @@ export default function InPersonDecision() {
       if (!label) continue;
 
       req.push(
-        `Ask for evidence resolving: “${label}” (invoice, inspection note, photos, or written confirmation).`
+        `Request evidence resolving: “${label}” (invoice, inspection note, photos, or written confirmation).`
       );
     }
 
@@ -141,6 +188,46 @@ export default function InPersonDecision() {
     return bad.slice(0, 6);
   }, [critical.length, unsure.length]);
 
+  const postureTone = toneClasses(posture.tone);
+
+  const topTakeaways = useMemo(() => {
+    const lines: string[] = [];
+
+    if (critical.length > 0) {
+      lines.push(
+        `${critical.length} high-impact item${
+          critical.length === 1 ? "" : "s"
+        } to resolve before you commit.`
+      );
+    } else {
+      lines.push("No high-impact red flags were recorded.");
+    }
+
+    if (moderate.length > 0) {
+      lines.push(
+        `${moderate.length} medium-risk item${
+          moderate.length === 1 ? "" : "s"
+        } worth clarifying.`
+      );
+    } else {
+      lines.push("No medium-risk items were recorded.");
+    }
+
+    if (unsure.length > 0) {
+      lines.push(
+        `${unsure.length} unknown${
+          unsure.length === 1 ? "" : "s"
+        } — treat these as questions, not negatives.`
+      );
+    } else {
+      lines.push("No key unknowns were recorded.");
+    }
+
+    return lines.slice(0, 3);
+  }, [critical.length, moderate.length, unsure.length]);
+
+  const scanId = progress?.scanId ?? "";
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-8">
       <div className="flex items-center justify-between gap-4">
@@ -153,9 +240,7 @@ export default function InPersonDecision() {
         </button>
 
         <button
-          onClick={() =>
-            navigate("/scan/in-person/results/" + (progress?.scanId ?? ""))
-          }
+          onClick={() => navigate("/scan/in-person/results/" + scanId)}
           className="text-xs text-slate-400 hover:text-slate-200"
         >
           View report
@@ -166,18 +251,25 @@ export default function InPersonDecision() {
         <h1 className="text-xl md:text-2xl font-semibold text-white">
           Decision & next steps
         </h1>
-        <p className="text-sm text-slate-400">
-          Calm, buyer-safe guidance based only on what you recorded — no scripts,
-          no hype.
+        <p className="text-sm text-slate-400 leading-relaxed">
+          Calm, buyer-safe guidance based only on what you recorded. No scripts.
+          No pressure. Just a clear posture and the next few actions that reduce regret.
         </p>
       </div>
 
+      {/* Posture */}
       <section
-        className={`rounded-2xl border px-5 py-5 space-y-3 ${posture.tone}`}
+        className={[
+          "rounded-2xl border px-5 py-5 space-y-4",
+          postureTone.wrap,
+        ].join(" ")}
       >
         <div className="flex items-start gap-3">
-          {posture.icon}
-          <div>
+          <div className="mt-0.5">
+            <posture.icon className={["h-5 w-5", postureTone.icon].join(" ")} />
+          </div>
+
+          <div className="flex-1">
             <p className="text-sm font-semibold text-white">{posture.title}</p>
             <p className="text-sm text-slate-200 mt-1 leading-relaxed">
               {posture.body}
@@ -185,10 +277,47 @@ export default function InPersonDecision() {
           </div>
         </div>
 
-        <div className="text-xs text-slate-300">
-          Confidence score:{" "}
-          <span className="font-semibold text-white">{confidence}%</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <span
+            className={[
+              "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold",
+              postureTone.pill,
+            ].join(" ")}
+          >
+            <Eye className={["h-4 w-4", postureTone.icon].join(" ")} />
+            Confidence: {confidenceLabel(confidence)} ({confidence}%)
+          </span>
+
+          <span className="text-xs text-slate-300">
+            Confidence reflects how complete your recorded inputs were.
+          </span>
         </div>
+
+        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+          <div className="flex items-start gap-3">
+            <Info className="h-4 w-4 text-slate-300 mt-0.5" />
+            <p className="text-xs text-slate-400 leading-relaxed">
+              CarVerity doesn’t “fill gaps”. If you couldn’t check something, we keep it as an
+              unknown and treat it as a question to verify.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Top takeaways */}
+      <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
+        <div className="flex items-center gap-2 text-slate-200">
+          <ClipboardList className="h-4 w-4 text-slate-300" />
+          <h2 className="text-sm font-semibold">Your key takeaways</h2>
+        </div>
+
+        <ul className="text-sm text-slate-300 space-y-2">
+          {topTakeaways.map((t, i) => (
+            <li key={i} className="leading-relaxed">
+              • {t}
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
@@ -239,7 +368,9 @@ export default function InPersonDecision() {
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
         <div className="flex items-center gap-2 text-slate-200">
           <AlertTriangle className="h-4 w-4 text-amber-300" />
-          <h2 className="text-sm font-semibold">When walking away is reasonable</h2>
+          <h2 className="text-sm font-semibold">
+            When walking away is reasonable
+          </h2>
         </div>
 
         <ul className="text-sm text-slate-300 space-y-2">
@@ -256,9 +387,7 @@ export default function InPersonDecision() {
       </section>
 
       <button
-        onClick={() =>
-          navigate("/scan/in-person/results/" + (progress?.scanId ?? ""))
-        }
+        onClick={() => navigate("/scan/in-person/results/" + scanId)}
         className="w-full rounded-xl border border-white/25 text-slate-200 px-4 py-3 font-semibold"
       >
         Back to report

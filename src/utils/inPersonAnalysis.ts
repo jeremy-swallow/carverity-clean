@@ -120,7 +120,14 @@ export type AnalysisResult = {
   whyThisVerdictBullets: string[];
 
   evidenceSummary: EvidenceSummary;
-  riskWeightingExplanation: string[];
+
+  /**
+   * UI expects a string (print + results page render this).
+   * Keep the bullets for optional “expand” UI later.
+   */
+  riskWeightingExplanation: string;
+  riskWeightingBullets: string[];
+
   uncertaintyFactors: UncertaintyFactor[];
   counterfactuals: string[];
   buyerContextInterpretation: BuyerContextInterpretation[];
@@ -511,8 +518,13 @@ function buildEvidenceSummaryText(args: {
   photosCount: number;
   followUpsCount: number;
 }) {
-  const { concernCount, unsureCount, imperfectionsCount, photosCount, followUpsCount } =
-    args;
+  const {
+    concernCount,
+    unsureCount,
+    imperfectionsCount,
+    photosCount,
+    followUpsCount,
+  } = args;
 
   const parts: string[] = [];
 
@@ -523,7 +535,9 @@ function buildEvidenceSummaryText(args: {
         : `You recorded ${concernCount} items that stood out.`
     );
   } else {
-    parts.push("You didn’t mark any items as ‘stood out’ in the checks you completed.");
+    parts.push(
+      "You didn’t mark any items as ‘stood out’ in the checks you completed."
+    );
   }
 
   if (unsureCount > 0) {
@@ -542,11 +556,121 @@ function buildEvidenceSummaryText(args: {
     );
   }
 
-  if (photosCount > 0) parts.push(`You captured ${photosCount} photo${photosCount === 1 ? "" : "s"}.`);
+  if (photosCount > 0)
+    parts.push(
+      `You captured ${photosCount} photo${photosCount === 1 ? "" : "s"}.`
+    );
+
   if (followUpsCount > 0)
-    parts.push(`You added ${followUpsCount} follow-up note${followUpsCount === 1 ? "" : "s"}.`);
+    parts.push(
+      `You added ${followUpsCount} follow-up note${
+        followUpsCount === 1 ? "" : "s"
+      }.`
+    );
 
   return parts.join(" ");
+}
+
+/* =========================================================
+   Guided reasoning text (premium + calm)
+========================================================= */
+
+function explainConfidence(confidenceScore: number) {
+  if (confidenceScore >= 80) {
+    return "High confidence means you captured strong coverage and recorded enough evidence for the posture to be reliable.";
+  }
+  if (confidenceScore >= 60) {
+    return "Moderate confidence means the posture is reasonable, but there are a few unknowns or gaps worth verifying.";
+  }
+  if (confidenceScore >= 40) {
+    return "Lower confidence means there are gaps or unknowns that reduce certainty. Clarifying key items will improve the outcome.";
+  }
+  return "Very low confidence means too much is unknown. Treat this as a prompt to verify key items before deciding.";
+}
+
+function explainCoverage(completenessScore: number) {
+  if (completenessScore >= 80) {
+    return "Coverage is strong — you captured most of the key checks and baseline photos.";
+  }
+  if (completenessScore >= 60) {
+    return "Coverage is moderate — enough to guide a decision posture, but not enough to be definitive.";
+  }
+  if (completenessScore >= 40) {
+    return "Coverage is limited — the result is still useful, but it should be treated as provisional until more is recorded.";
+  }
+  return "Coverage is very limited — capture a few more checks/photos to make the report meaningfully stronger.";
+}
+
+function buildRiskWeightingText(args: {
+  verdict: AnalysisResult["verdict"];
+  criticalCount: number;
+  moderateCount: number;
+  unsureCount: number;
+  completenessScore: number;
+  confidenceScore: number;
+}) {
+  const {
+    verdict,
+    criticalCount,
+    moderateCount,
+    unsureCount,
+    completenessScore,
+    confidenceScore,
+  } = args;
+
+  const bullets: string[] = [];
+
+  if (criticalCount > 0) {
+    bullets.push(
+      criticalCount === 1
+        ? "A high-impact concern was recorded and weighted heavily."
+        : `${criticalCount} high-impact concerns were recorded and weighted heavily.`
+    );
+  } else if (moderateCount > 0) {
+    bullets.push(
+      moderateCount === 1
+        ? "A meaningful concern was recorded and weighted moderately."
+        : `${moderateCount} meaningful concerns were recorded and weighted moderately.`
+    );
+  } else {
+    bullets.push(
+      "No major concerns were recorded in the inspection you captured."
+    );
+  }
+
+  if (unsureCount > 0) {
+    bullets.push(
+      unsureCount === 1
+        ? "One item was explicitly marked ‘unsure’, which lowers certainty."
+        : `${unsureCount} items were explicitly marked ‘unsure’, which lowers certainty.`
+    );
+  } else {
+    bullets.push(
+      "No items were marked ‘unsure’, so certainty is based on recorded observations."
+    );
+  }
+
+  bullets.push(explainCoverage(completenessScore));
+  bullets.push(explainConfidence(confidenceScore));
+
+  if (verdict === "walk-away") {
+    bullets.push(
+      "This posture is intentionally buyer-safe: unresolved high-impact items can create expensive regret."
+    );
+  } else if (verdict === "caution") {
+    bullets.push(
+      "This posture is buyer-safe: clarify the recorded items first, then decide with confidence."
+    );
+  } else {
+    bullets.push(
+      "This posture is buyer-safe: proceed normally, but still confirm paperwork and service history."
+    );
+  }
+
+  return {
+    bullets,
+    text: bullets.join(" "),
+  };
 }
 
 /* =========================================================
@@ -560,7 +684,8 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
   const imperfections = progress.imperfections ?? [];
 
   const askingPriceAud =
-    typeof progress.askingPrice === "number" && Number.isFinite(progress.askingPrice)
+    typeof progress.askingPrice === "number" &&
+    Number.isFinite(progress.askingPrice)
       ? progress.askingPrice
       : null;
 
@@ -580,7 +705,8 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
   /* -----------------------------
      CHECK COVERAGE
   ----------------------------- */
-  const answeredKeyChecks = KEY_CHECK_IDS.filter((id) => checks[id]?.value).length;
+  const answeredKeyChecks = KEY_CHECK_IDS.filter((id) => checks[id]?.value)
+    .length;
 
   const checkCoverage =
     KEY_CHECK_IDS.length > 0 ? answeredKeyChecks / KEY_CHECK_IDS.length : 0;
@@ -644,7 +770,9 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     if (i.severity === "major") {
       risks.push({
         id: `imp-${i.id}`,
-        label: i.label ? `Major observation: ${i.label}` : "Major observation recorded",
+        label: i.label
+          ? `Major observation: ${i.label}`
+          : "Major observation recorded",
         explanation:
           i.note ||
           "A major observation was recorded. Clarify details and pricing impact before proceeding.",
@@ -830,48 +958,6 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     })
   );
 
-  const riskWeightingExplanation: string[] = [];
-
-  if (criticalCount > 0) {
-    riskWeightingExplanation.push(
-      criticalCount === 1
-        ? "A high-impact concern was recorded and weighted heavily."
-        : `${criticalCount} high-impact concerns were recorded and weighted heavily.`
-    );
-  } else if (moderateCount > 0) {
-    riskWeightingExplanation.push(
-      moderateCount === 1
-        ? "A meaningful concern was recorded and weighted moderately."
-        : `${moderateCount} meaningful concerns were recorded and weighted moderately.`
-    );
-  } else {
-    riskWeightingExplanation.push(
-      "No major concerns were recorded in the inspection you captured."
-    );
-  }
-
-  if (unsureCount > 0) {
-    riskWeightingExplanation.push(
-      unsureCount === 1
-        ? "One item was explicitly marked ‘unsure’, which lowers certainty."
-        : `${unsureCount} items were explicitly marked ‘unsure’, which lowers certainty.`
-    );
-  }
-
-  if (completenessScore >= 78) {
-    riskWeightingExplanation.push(
-      "Evidence coverage is strong, which supports higher confidence in the outcome."
-    );
-  } else if (completenessScore >= 55) {
-    riskWeightingExplanation.push(
-      "Evidence coverage is moderate, which supports a reasonable—but not absolute—confidence level."
-    );
-  } else {
-    riskWeightingExplanation.push(
-      "Evidence coverage is limited, which reduces how confidently the report can reflect what was observed."
-    );
-  }
-
   const whyThisVerdictBullets: string[] = [
     verdict === "proceed"
       ? "No recorded findings were assessed as high impact."
@@ -975,7 +1061,8 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
      ADAS INFERENCE (kept)
   ----------------------------- */
   const adas = checks["adas-systems"];
-  const adasPresentButDisabled = adas?.value === "concern" || adas?.value === "unsure";
+  const adasPresentButDisabled =
+    adas?.value === "concern" || adas?.value === "unsure";
 
   /* -----------------------------
      Evidence summary (NOW RENDERS)
@@ -1003,12 +1090,25 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     // Metrics
     photosCaptured: photos.length,
     photosExpected: REQUIRED_PHOTO_STEP_IDS.length,
-    checksCompleted: Object.values(checks).filter((v) => Boolean(v?.value)).length,
+    checksCompleted: Object.values(checks).filter((v) => Boolean(v?.value))
+      .length,
     keyChecksExpected: KEY_CHECK_IDS.length,
     imperfectionsNoted: imperfections.length,
     followUpPhotosCaptured: followUps.length,
     explicitlyUncertainItems,
   };
+
+  /* -----------------------------
+     Risk weighting explanation (string + bullets)
+  ----------------------------- */
+  const weighting = buildRiskWeightingText({
+    verdict,
+    criticalCount,
+    moderateCount,
+    unsureCount,
+    completenessScore,
+    confidenceScore: confidence,
+  });
 
   // NEW: price guidance (asking price -> adjusted range)
   const priceGuidance = computePriceGuidance({
@@ -1034,7 +1134,10 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     whyThisVerdictBullets,
 
     evidenceSummary,
-    riskWeightingExplanation,
+
+    riskWeightingExplanation: weighting.text,
+    riskWeightingBullets: weighting.bullets,
+
     uncertaintyFactors,
     counterfactuals,
     buyerContextInterpretation,

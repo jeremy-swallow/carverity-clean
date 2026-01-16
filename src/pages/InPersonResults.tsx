@@ -13,6 +13,7 @@ import {
   ClipboardCheck,
   HelpCircle,
   ArrowRight,
+  ShieldCheck,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -129,6 +130,19 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+function formatMoney(n: unknown): string {
+  if (typeof n !== "number" || !Number.isFinite(n)) return "—";
+  try {
+    return new Intl.NumberFormat("en-AU", {
+      style: "currency",
+      currency: "AUD",
+      maximumFractionDigits: 0,
+    }).format(n);
+  } catch {
+    return `$${Math.round(n)}`;
+  }
+}
+
 /* =======================================================
    Page
 ======================================================= */
@@ -171,6 +185,12 @@ export default function InPersonResults() {
   const evidenceText = pickFirstUsefulText(evidenceSummary);
   const evidenceBullets = extractEvidenceBullets(evidenceSummary);
 
+  const askingPrice =
+    typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
+
+  const confidence = clamp(Number(analysis.confidenceScore ?? 0), 0, 100);
+  const coverage = clamp(Number(analysis.completenessScore ?? 0), 0, 100);
+
   /* -------------------------------------------------------
      Verdict meta (tone + positioning)
   ------------------------------------------------------- */
@@ -181,6 +201,7 @@ export default function InPersonResults() {
       tone: "border-emerald-500/40 bg-emerald-500/10",
       posture:
         "Nothing you recorded strongly suggests elevated risk. Confirm the basics, then proceed normally.",
+      short: "Proceed normally",
     },
     caution: {
       icon: <AlertTriangle className="h-6 w-6 text-amber-400" />,
@@ -188,6 +209,7 @@ export default function InPersonResults() {
       tone: "border-amber-500/40 bg-amber-500/10",
       posture:
         "You recorded at least one meaningful concern or uncertainty. Clarify those items before committing.",
+      short: "Clarify first",
     },
     "walk-away": {
       icon: <XCircle className="h-6 w-6 text-red-400" />,
@@ -195,6 +217,7 @@ export default function InPersonResults() {
       tone: "border-red-500/40 bg-red-500/10",
       posture:
         "Your recorded evidence suggests elevated risk. If the seller can’t resolve key items, walking away is sensible.",
+      short: "Pause / walk away",
     },
   }[analysis.verdict];
 
@@ -206,27 +229,25 @@ export default function InPersonResults() {
 
     if (criticalRisks.length > 0) {
       steps.push(
-        "Do not pay a deposit until the high-impact items are clearly resolved with evidence."
+        "Resolve the high-impact items first. If they can’t be verified with evidence, pausing is sensible."
       );
     }
 
     if (moderateRisks.length > 0) {
       steps.push(
-        "Ask the seller to clarify the items you flagged before you commit."
+        "Clarify the items you flagged before committing (invoices, written confirmation, or independent inspection)."
       );
     }
 
     if (uncertaintyFactors.length > 0) {
       steps.push(
-        "Treat unsure items as unknowns — request proof or arrange an independent inspection if needed."
+        "Treat unsure items as unknowns — verify them before you decide."
       );
     }
 
-    if (steps.length === 0) {
-      steps.push(
-        "You recorded a clean inspection. Confirm service history and paperwork, then proceed normally."
-      );
-    }
+    steps.push(
+      "Re-check the basics: identity + paperwork match, service proof, and any warning lights."
+    );
 
     return steps.slice(0, 4);
   }, [criticalRisks.length, moderateRisks.length, uncertaintyFactors.length]);
@@ -234,24 +255,21 @@ export default function InPersonResults() {
   const clarifyQuestions = useMemo(() => {
     const qs: string[] = [];
 
-    // Use risk labels to build “buyer-safe” clarification prompts
     for (const r of [...criticalRisks, ...moderateRisks]) {
       const label = (r.label || "").trim();
       if (!label) continue;
 
       qs.push(
-        `Can you show evidence that the "${label}" concern has been addressed or explained (invoice, inspection note, photos, or written confirmation)?`
+        `Can you show evidence that “${label}” is explained or resolved (invoice, inspection note, photos, or written confirmation)?`
       );
     }
 
-    // If no risks but uncertainties exist
     if (qs.length === 0 && uncertaintyFactors.length > 0) {
       qs.push(
         "Can you confirm the items I couldn’t verify today (service proof, repairs, warnings, or faults) in writing?"
       );
     }
 
-    // Fallback
     if (qs.length === 0) {
       qs.push("Can you show the most recent service invoice and any repair history?");
       qs.push("Are there any known faults, warnings, or upcoming maintenance due soon?");
@@ -260,23 +278,53 @@ export default function InPersonResults() {
     return qs.slice(0, 4);
   }, [criticalRisks, moderateRisks, uncertaintyFactors.length]);
 
-  const confidence = clamp(Number(analysis.confidenceScore ?? 0), 0, 100);
-  const coverage = clamp(Number(analysis.completenessScore ?? 0), 0, 100);
+  const whyThisVerdict =
+    (analysis as any).whyThisVerdict ||
+    (analysis as any).verdictReason ||
+    "";
+
+  const topSignals = useMemo(() => {
+    const signals: Array<{ label: string; tone: "critical" | "moderate" | "unknown" }> = [];
+
+    for (const r of criticalRisks.slice(0, 2)) {
+      signals.push({ label: r.label, tone: "critical" });
+    }
+    for (const r of moderateRisks.slice(0, 2)) {
+      signals.push({ label: r.label, tone: "moderate" });
+    }
+
+    if (signals.length < 3 && uncertaintyFactors.length > 0) {
+      signals.push({ label: "Some items were marked as unsure", tone: "unknown" });
+    }
+
+    return signals.slice(0, 4);
+  }, [criticalRisks, moderateRisks, uncertaintyFactors.length]);
+
+  const scoreBlurb = useMemo(() => {
+    if (coverage < 40) {
+      return "Low coverage means this result is cautious by design. It’s still useful — but verify more before committing.";
+    }
+    if (confidence < 45) {
+      return "Confidence is moderate because one or more items need verification. Use the checklist below to reduce uncertainty.";
+    }
+    return "Confidence reflects how consistent your recorded evidence was. It doesn’t assume anything you didn’t check.";
+  }, [coverage, confidence]);
 
   /* =======================================================
      UI
   ======================================================= */
   return (
-    <div className="max-w-5xl mx-auto px-6 py-16 space-y-16">
+    <div className="max-w-5xl mx-auto px-6 py-16 space-y-14">
       {/* HEADER */}
       <header className="space-y-4">
         <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-          CarVerity · Buyer-safe inspection summary
+          CarVerity · In-person report
         </span>
 
-        <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-slate-400">
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-slate-400">
           <span>Scan ID: {scanId}</span>
           <span>Generated: {new Date().toLocaleDateString()}</span>
+          <span>Asking price: {formatMoney(askingPrice)}</span>
         </div>
       </header>
 
@@ -295,21 +343,50 @@ export default function InPersonResults() {
               {verdictMeta.posture}
             </p>
 
-            <Paragraph value={(analysis as any).whyThisVerdict} />
+            <Paragraph value={whyThisVerdict} />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-4">
+        {/* TOP SIGNALS */}
+        {topSignals.length > 0 && (
+          <div className="rounded-2xl border border-white/12 bg-slate-950/30 px-5 py-4">
+            <div className="flex items-center gap-2 text-slate-200">
+              <ShieldCheck className="h-4 w-4 text-slate-300" />
+              <p className="text-sm font-semibold">Key signals (from your inspection)</p>
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {topSignals.map((s, i) => {
+                const pill =
+                  s.tone === "critical"
+                    ? "border-red-400/30 bg-red-500/10 text-red-200"
+                    : s.tone === "moderate"
+                    ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                    : "border-white/15 bg-white/5 text-slate-200";
+
+                return (
+                  <span
+                    key={i}
+                    className={[
+                      "inline-flex items-center rounded-full border px-3 py-1 text-xs",
+                      pill,
+                    ].join(" ")}
+                  >
+                    {s.label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-2">
           <div>
             <div className="flex items-center gap-2 text-slate-400">
               <BarChart3 className="h-4 w-4" />
-              <span className="text-xs uppercase tracking-wide">
-                Confidence
-              </span>
+              <span className="text-xs uppercase tracking-wide">Confidence</span>
             </div>
-            <p className="mt-1 text-2xl font-semibold text-white">
-              {confidence}%
-            </p>
+            <p className="mt-1 text-2xl font-semibold text-white">{confidence}%</p>
           </div>
 
           <div>
@@ -317,9 +394,7 @@ export default function InPersonResults() {
               <Eye className="h-4 w-4" />
               <span className="text-xs uppercase tracking-wide">Coverage</span>
             </div>
-            <p className="mt-1 text-2xl font-semibold text-white">
-              {coverage}%
-            </p>
+            <p className="mt-1 text-2xl font-semibold text-white">{coverage}%</p>
           </div>
 
           <div>
@@ -342,6 +417,8 @@ export default function InPersonResults() {
             </p>
           </div>
         </div>
+
+        <p className="text-xs text-slate-400">{scoreBlurb}</p>
       </section>
 
       {/* GUIDED NEXT STEPS */}
@@ -353,19 +430,25 @@ export default function InPersonResults() {
 
         <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6 space-y-4">
           <p className="text-sm text-slate-400">
-            This guidance is based only on what you recorded. It avoids hype and
-            avoids assumptions.
+            This is calm guidance based only on what you recorded. It avoids hype and avoids assumptions.
           </p>
 
           <BulletList items={nextSteps} />
 
-          <div className="pt-2">
+          <div className="pt-2 flex flex-wrap gap-3">
             <button
               onClick={() => navigate("/scan/in-person/decision")}
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
             >
               Open decision guide
               <ArrowRight className="h-4 w-4" />
+            </button>
+
+            <button
+              onClick={() => navigate("/scan/in-person/summary")}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
+            >
+              Back to summary
             </button>
           </div>
         </div>
@@ -421,9 +504,7 @@ export default function InPersonResults() {
                 key={r.id}
                 className="rounded-2xl border border-white/10 bg-slate-900/50 px-6 py-5"
               >
-                <p className="text-base font-medium text-slate-100">
-                  {r.label}
-                </p>
+                <p className="text-base font-medium text-slate-100">{r.label}</p>
                 <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
                   {r.explanation}
                 </p>
@@ -448,8 +529,7 @@ export default function InPersonResults() {
             </ul>
 
             <p className="text-xs text-slate-500 mt-4">
-              Unsure means unknown — not “safe” and not “dangerous”. Treat it as
-              a prompt to verify.
+              Unsure means unknown — not “safe” and not “dangerous”. Treat it as a prompt to verify.
             </p>
           </div>
         </section>
@@ -466,8 +546,7 @@ export default function InPersonResults() {
             <Paragraph value={evidenceText} />
           ) : (
             <p className="text-[14px] text-slate-400">
-              No written evidence summary was generated — your selections and
-              photos were still used to form the result.
+              No written evidence summary was generated — your selections and photos were still used to form the result.
             </p>
           )}
 
@@ -497,9 +576,7 @@ export default function InPersonResults() {
               </div>
               <div>
                 <div className="text-slate-500 text-xs">Unsure</div>
-                <div className="text-white font-semibold">
-                  {uncertaintyFactors.length}
-                </div>
+                <div className="text-white font-semibold">{uncertaintyFactors.length}</div>
               </div>
               <div>
                 <div className="text-slate-500 text-xs">Coverage</div>
@@ -509,9 +586,7 @@ export default function InPersonResults() {
           </div>
 
           <p className="text-xs text-slate-500 max-w-3xl">
-            This assessment uses only what you recorded and what you explicitly
-            marked as unsure. Missing items are treated as “not recorded”, not
-            as risk.
+            This assessment uses only what you recorded and what you explicitly marked as unsure. Missing items are treated as “not recorded”, not as risk.
           </p>
         </div>
       </section>
@@ -542,7 +617,7 @@ export default function InPersonResults() {
       </section>
 
       {/* ACTIONS */}
-      <section className="space-y-4 pt-4">
+      <section className="space-y-4 pt-2">
         <button
           onClick={() => navigate("/scan/in-person/decision")}
           className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 text-base"
