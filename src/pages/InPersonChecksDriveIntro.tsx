@@ -15,6 +15,21 @@ import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 const DRIVE_CHECK_IDS = ["steering", "noise-hesitation", "adas-systems"];
 
+function removeDriveChecksFromProgress(progress: any) {
+  const nextChecks = { ...(progress?.checks ?? {}) };
+
+  for (const id of DRIVE_CHECK_IDS) {
+    if (nextChecks[id]) {
+      delete nextChecks[id];
+    }
+  }
+
+  return {
+    ...(progress ?? {}),
+    checks: nextChecks,
+  };
+}
+
 export default function InPersonChecksDriveIntro() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
@@ -34,21 +49,29 @@ export default function InPersonChecksDriveIntro() {
     // we want a clean slate when they proceed.
     const latest: any = loadProgress();
 
-    const nextChecks = { ...(latest?.checks ?? {}) };
-
-    for (const id of DRIVE_CHECK_IDS) {
-      if (nextChecks[id]) {
-        delete nextChecks[id];
-      }
-    }
+    const cleaned = removeDriveChecksFromProgress(latest);
 
     saveProgress({
-      ...(latest ?? {}),
+      ...cleaned,
       step: "/scan/in-person/checks/drive",
-      checks: nextChecks,
     });
 
     navigate("/scan/in-person/checks/drive");
+  }
+
+  function skipDriveChecks() {
+    // If user can't / won't drive, we should NOT force them into drive checks.
+    // Also clear any previous drive answers so nothing stays highlighted.
+    const latest: any = loadProgress();
+
+    const cleaned = removeDriveChecksFromProgress(latest);
+
+    saveProgress({
+      ...cleaned,
+      step: "/scan/in-person/summary",
+    });
+
+    navigate("/scan/in-person/summary");
   }
 
   return (
@@ -62,9 +85,7 @@ export default function InPersonChecksDriveIntro() {
           Back
         </button>
 
-        <div className="text-xs text-slate-500">
-          Step 3 of 3 — Drive (optional)
-        </div>
+        <div className="text-xs text-slate-500">Step 3 of 3 — Drive (optional)</div>
       </div>
 
       <div className="space-y-3">
@@ -78,11 +99,9 @@ export default function InPersonChecksDriveIntro() {
               Drive check (optional)
             </h1>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Only do this if the seller allows it and it feels safe. This step
-              is about spotting{" "}
-              <span className="text-slate-200 font-medium">
-                big decision signals
-              </span>{" "}
+              Only do this if the seller allows it and it feels safe. This step is
+              about spotting{" "}
+              <span className="text-slate-200 font-medium">big decision signals</span>{" "}
               — not chasing perfection.
             </p>
           </div>
@@ -96,8 +115,7 @@ export default function InPersonChecksDriveIntro() {
                 Safety first (non-negotiable)
               </p>
               <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-                If anything feels unsafe — stop. You don’t owe anyone a test
-                drive.
+                If anything feels unsafe — stop. You don’t owe anyone a test drive.
               </p>
             </div>
           </div>
@@ -137,8 +155,8 @@ export default function InPersonChecksDriveIntro() {
                 If the seller won’t allow a drive
               </p>
               <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-                That’s not automatically “bad”, but it becomes an unknown. Mark
-                “Couldn’t check” on the drive items and continue.
+                That’s not automatically “bad”, but it becomes an unknown. You can
+                skip this step and continue.
               </p>
             </div>
           </div>
@@ -155,13 +173,21 @@ export default function InPersonChecksDriveIntro() {
         </div>
       </div>
 
-      <div className="flex gap-3 pt-2">
+      <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <button
           type="button"
           onClick={() => navigate("/scan/in-person/checks/inside")}
           className="flex-1 rounded-xl border border-white/25 px-4 py-3 text-slate-200"
         >
           Back to inside checks
+        </button>
+
+        <button
+          type="button"
+          onClick={skipDriveChecks}
+          className="flex-1 rounded-xl border border-white/25 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-slate-200"
+        >
+          Skip drive checks
         </button>
 
         <button
