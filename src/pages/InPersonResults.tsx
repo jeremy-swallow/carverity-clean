@@ -9,7 +9,6 @@ import {
   BarChart3,
   Eye,
   Camera,
-  FileText,
   ClipboardCheck,
   HelpCircle,
   ArrowRight,
@@ -284,7 +283,10 @@ export default function InPersonResults() {
     "";
 
   const topSignals = useMemo(() => {
-    const signals: Array<{ label: string; tone: "critical" | "moderate" | "unknown" }> = [];
+    const signals: Array<{
+      label: string;
+      tone: "critical" | "moderate" | "unknown";
+    }> = [];
 
     for (const r of criticalRisks.slice(0, 2)) {
       signals.push({ label: r.label, tone: "critical" });
@@ -352,7 +354,9 @@ export default function InPersonResults() {
           <div className="rounded-2xl border border-white/12 bg-slate-950/30 px-5 py-4">
             <div className="flex items-center gap-2 text-slate-200">
               <ShieldCheck className="h-4 w-4 text-slate-300" />
-              <p className="text-sm font-semibold">Key signals (from your inspection)</p>
+              <p className="text-sm font-semibold">
+                Key signals (from your inspection)
+              </p>
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
@@ -430,7 +434,8 @@ export default function InPersonResults() {
 
         <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6 space-y-4">
           <p className="text-sm text-slate-400">
-            This is calm guidance based only on what you recorded. It avoids hype and avoids assumptions.
+            This is calm guidance based only on what you recorded. It avoids hype and
+            avoids assumptions.
           </p>
 
           <BulletList items={nextSteps} />
@@ -529,7 +534,8 @@ export default function InPersonResults() {
             </ul>
 
             <p className="text-xs text-slate-500 mt-4">
-              Unsure means unknown — not “safe” and not “dangerous”. Treat it as a prompt to verify.
+              Unsure means unknown — not “safe” and not “dangerous”. Treat it as a
+              prompt to verify.
             </p>
           </div>
         </section>
@@ -537,16 +543,15 @@ export default function InPersonResults() {
 
       {/* EVIDENCE BASIS */}
       <section className="space-y-6">
-        <h2 className="text-lg font-semibold text-slate-200">
-          Evidence you recorded
-        </h2>
+        <h2 className="text-lg font-semibold text-slate-200">Evidence you recorded</h2>
 
         <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-5">
           {evidenceText ? (
             <Paragraph value={evidenceText} />
           ) : (
             <p className="text-[14px] text-slate-400">
-              No written evidence summary was generated — your selections and photos were still used to form the result.
+              No written evidence summary was generated — your selections and photos
+              were still used to form the result.
             </p>
           )}
 
@@ -586,7 +591,8 @@ export default function InPersonResults() {
           </div>
 
           <p className="text-xs text-slate-500 max-w-3xl">
-            This assessment uses only what you recorded and what you explicitly marked as unsure. Missing items are treated as “not recorded”, not as risk.
+            This assessment uses only what you recorded and what you explicitly marked
+            as unsure. Missing items are treated as “not recorded”, not as risk.
           </p>
         </div>
       </section>
@@ -629,7 +635,6 @@ export default function InPersonResults() {
           onClick={() => navigate("/scan/in-person/print")}
           className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
         >
-          <FileText className="h-4 w-4" />
           Print / save report
         </button>
       </section>

@@ -189,6 +189,18 @@ function hasAnyDriveAnswers(checks: Record<string, any>) {
   return driveIds.some((id) => Boolean(checks?.[id]?.value || checks?.[id]?.note));
 }
 
+function getThumbnailFromPhotos(photos: any[]): string | null {
+  if (!Array.isArray(photos) || photos.length === 0) return null;
+
+  // Prefer first photo in the flow (should be front/hero)
+  const first = photos[0];
+  if (first?.dataUrl && typeof first.dataUrl === "string") return first.dataUrl;
+
+  // Fallback: find any photo with a usable dataUrl
+  const any = photos.find((p) => typeof p?.dataUrl === "string" && p.dataUrl.length > 0);
+  return any?.dataUrl ?? null;
+}
+
 export default function InPersonSummary() {
   const navigate = useNavigate();
   const { scanId: routeScanId } = useParams<{ scanId?: string }>();
@@ -303,11 +315,26 @@ export default function InPersonSummary() {
       const finalScanId = activeScanId || generateScanId();
       const title = buildTitleFromProgress(progress);
 
+      const thumbnail = getThumbnailFromPhotos(photos);
+
       await saveScan({
         id: finalScanId,
         type: "in-person",
         title,
         createdAt: new Date().toISOString(),
+
+        vehicle: {
+          make: progress?.vehicle?.make || progress?.make || progress?.vehicleMake,
+          model: progress?.vehicle?.model || progress?.model || progress?.vehicleModel,
+          year: progress?.vehicle?.year || progress?.year || progress?.vehicleYear,
+          variant:
+            progress?.vehicle?.variant ||
+            progress?.variant ||
+            progress?.vehicleVariant ||
+            undefined,
+        },
+
+        thumbnail,
 
         askingPrice: parsedAskingPrice,
         score,

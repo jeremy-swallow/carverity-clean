@@ -1,6 +1,6 @@
 // src/pages/InPersonReportPrint.tsx
 
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
@@ -139,6 +139,14 @@ export default function InPersonReportPrint() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
 
+  // Guard: if user refreshes this page without progress, bounce safely.
+  useEffect(() => {
+    if (!progress?.scanId) {
+      navigate("/my-scans", { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const analysis = useMemo(() => {
     return analyseInPersonInspection(progress);
   }, [progress]);
@@ -186,9 +194,26 @@ export default function InPersonReportPrint() {
     window.print();
   }
 
-  function backToSummary() {
-    navigate("/scan/in-person/summary");
+  function backToReport() {
+    if (scanId && scanId !== "—") {
+      navigate(`/scan/in-person/results/${scanId}`);
+      return;
+    }
+    navigate("/my-scans");
   }
+
+  // Auto-trigger print dialog (feels like "Download PDF")
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      try {
+        window.print();
+      } catch {
+        // ignore
+      }
+    }, 350);
+
+    return () => window.clearTimeout(t);
+  }, []);
 
   return (
     <div className="print-body bg-white text-black min-h-screen">
@@ -262,11 +287,10 @@ export default function InPersonReportPrint() {
           </div>
 
           <div className="border border-black/15 bg-black/5 px-5 py-4 text-sm">
-            <p className="font-semibold">How to read this</p>
+            <p className="font-semibold">How to save this report</p>
             <p className="text-black/70 mt-1 leading-relaxed">
-              Priority findings are the items most likely to change your
-              decision. “Uncertainty” is not treated as a fault — it’s a list of
-              questions to verify.
+              In the print dialog, choose <strong>Save as PDF</strong> (desktop)
+              or <strong>Share → Save to Files</strong> (iPhone).
             </p>
           </div>
         </section>
@@ -453,7 +477,7 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             ACTIONS (NO PRINT)
         ===================================================== */}
-        <div className="no-print flex gap-3 pt-2">
+        <div className="no-print flex flex-wrap gap-3 pt-2">
           <button
             onClick={triggerPrint}
             className="px-4 py-2 rounded bg-black text-white font-semibold"
@@ -462,10 +486,10 @@ export default function InPersonReportPrint() {
           </button>
 
           <button
-            onClick={backToSummary}
+            onClick={backToReport}
             className="px-4 py-2 rounded border border-black/30"
           >
-            Back to summary
+            Back to report
           </button>
         </div>
       </div>
