@@ -86,6 +86,31 @@ function pickFirstUsefulText(evidence: unknown): string {
   return "";
 }
 
+function extractEvidenceBullets(evidence: unknown): string[] {
+  if (!evidence) return [];
+
+  // If analysis.evidenceSummary is a string, we can’t safely bullet it.
+  if (typeof evidence === "string") return [];
+
+  if (Array.isArray(evidence)) {
+    return evidence.map(asCleanText).filter(Boolean);
+  }
+
+  if (isRecord(evidence)) {
+    const v = evidence["bullets"];
+    if (Array.isArray(v)) return v.map(asCleanText).filter(Boolean);
+
+    // fallback keys
+    const fallbackKeys = ["bulletPoints", "points", "items"];
+    for (const k of fallbackKeys) {
+      const vv = evidence[k];
+      if (Array.isArray(vv)) return vv.map(asCleanText).filter(Boolean);
+    }
+  }
+
+  return [];
+}
+
 function UncertaintyText(u: unknown): string {
   if (typeof u === "string") return u;
   if (isRecord(u)) {
@@ -142,7 +167,9 @@ export default function InPersonResults() {
     ? ((analysis as any).uncertaintyFactors as unknown[])
     : [];
 
-  const evidenceText = pickFirstUsefulText((analysis as any).evidenceSummary);
+  const evidenceSummary = (analysis as any).evidenceSummary;
+  const evidenceText = pickFirstUsefulText(evidenceSummary);
+  const evidenceBullets = extractEvidenceBullets(evidenceSummary);
 
   /* -------------------------------------------------------
      Verdict meta (tone + positioning)
@@ -434,7 +461,7 @@ export default function InPersonResults() {
           Evidence you recorded
         </h2>
 
-        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-4">
+        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-5">
           {evidenceText ? (
             <Paragraph value={evidenceText} />
           ) : (
@@ -443,6 +470,43 @@ export default function InPersonResults() {
               photos were still used to form the result.
             </p>
           )}
+
+          {evidenceBullets.length > 0 && (
+            <div className="pt-1">
+              <div className="text-xs uppercase tracking-[0.18em] text-slate-500 mb-2">
+                What you captured (quick log)
+              </div>
+              <BulletList items={evidenceBullets} />
+            </div>
+          )}
+
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+              Coverage snapshot
+            </div>
+            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm text-slate-300">
+              <div>
+                <div className="text-slate-500 text-xs">Photos</div>
+                <div className="text-white font-semibold">{photos.length}</div>
+              </div>
+              <div>
+                <div className="text-slate-500 text-xs">Concerns</div>
+                <div className="text-white font-semibold">
+                  {analysis.risks.filter((r) => r.severity !== "info").length}
+                </div>
+              </div>
+              <div>
+                <div className="text-slate-500 text-xs">Unsure</div>
+                <div className="text-white font-semibold">
+                  {uncertaintyFactors.length}
+                </div>
+              </div>
+              <div>
+                <div className="text-slate-500 text-xs">Coverage</div>
+                <div className="text-white font-semibold">{coverage}%</div>
+              </div>
+            </div>
+          </div>
 
           <p className="text-xs text-slate-500 max-w-3xl">
             This assessment uses only what you recorded and what you explicitly
