@@ -19,6 +19,7 @@ import InPersonPhotos from "./pages/InPersonPhotos";
 import InPersonChecksIntro from "./pages/InPersonChecksIntro";
 import InPersonChecksAroundCar from "./pages/InPersonChecksAroundCar";
 import InPersonChecksInsideCabin from "./pages/InPersonChecksInsideCabin";
+import InPersonChecksDriveIntro from "./pages/InPersonChecksDriveIntro";
 import InPersonChecksDrive from "./pages/InPersonChecksDrive";
 import InPersonAskingPrice from "./pages/InPersonAskingPrice";
 import InPersonSummary from "./pages/InPersonSummary";
@@ -52,16 +53,10 @@ export default function App() {
         />
         <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
 
-        {/* Checks intro (default entry) */}
-        <Route
-          path="/scan/in-person/checks"
-          element={<InPersonChecksIntro />}
-        />
         <Route
           path="/scan/in-person/checks/intro"
           element={<InPersonChecksIntro />}
         />
-
         <Route
           path="/scan/in-person/checks/around"
           element={<InPersonChecksAroundCar />}
@@ -70,6 +65,13 @@ export default function App() {
           path="/scan/in-person/checks/inside"
           element={<InPersonChecksInsideCabin />}
         />
+
+        {/* NEW: Drive intro (safety + summary) */}
+        <Route
+          path="/scan/in-person/checks/drive-intro"
+          element={<InPersonChecksDriveIntro />}
+        />
+
         <Route
           path="/scan/in-person/checks/drive"
           element={<InPersonChecksDrive />}

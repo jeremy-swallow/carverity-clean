@@ -114,7 +114,11 @@ export default function InPersonChecksInsideCabin() {
             "Strong smoke smell",
             "Aircon smell",
           ],
-          unsure: ["Couldn’t check boot area", "Raining / wet day", "Short inspection"],
+          unsure: [
+            "Couldn’t check boot area",
+            "Raining / wet day",
+            "Short inspection",
+          ],
         },
       },
       {
@@ -205,7 +209,11 @@ export default function InPersonChecksInsideCabin() {
         const isOpen = Boolean(noteOpen[c.id] || note.trim().length > 0);
 
         const chipSet =
-          value === "concern" ? c.chips.concern : value === "unsure" ? c.chips.unsure : [];
+          value === "concern"
+            ? c.chips.concern
+            : value === "unsure"
+            ? c.chips.unsure
+            : [];
 
         return (
           <section
@@ -287,7 +295,9 @@ export default function InPersonChecksInsideCabin() {
                 <div className="flex items-center gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={() => setNoteOpen((p) => ({ ...p, [c.id]: !isOpen }))}
+                    onClick={() =>
+                      setNoteOpen((p) => ({ ...p, [c.id]: !isOpen }))
+                    }
                     className="inline-flex items-center gap-2 text-xs text-slate-300 hover:text-white"
                   >
                     <MessageSquarePlus className="h-4 w-4" />
@@ -333,7 +343,7 @@ export default function InPersonChecksInsideCabin() {
 
         <button
           type="button"
-          onClick={() => navigate("/scan/in-person/checks/drive")}
+          onClick={() => navigate("/scan/in-person/checks/drive-intro")}
           className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3"
         >
           Continue
