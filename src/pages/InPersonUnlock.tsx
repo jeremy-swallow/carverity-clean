@@ -79,6 +79,7 @@ export default function InPersonUnlock() {
 
     const safeCredits = typeof credits === "number" ? credits : 0;
 
+    // Fast client-side gate (nice UX)
     if (!loadingCredits && safeCredits <= 0) {
       setUnlocking(false);
       navigate(`/pricing?reason=no_credits&scanId=${encodeURIComponent(scanId)}`);
@@ -86,20 +87,36 @@ export default function InPersonUnlock() {
     }
 
     try {
-      const reference = `scan:${scanId}`;
-
       const res = await fetch("/api/mark-in-person-scan-completed", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ scanId, reference }),
+        body: JSON.stringify({ scanId }),
       });
 
+      // If server says NO_CREDITS, route to pricing
       if (!res.ok) {
         const data = await res.json().catch(() => null);
+        const serverError = data?.error as string | undefined;
+
         console.error("[Unlock] API error:", data);
+
+        if (res.status === 402 || serverError === "NO_CREDITS") {
+          setUnlocking(false);
+          navigate(
+            `/pricing?reason=no_credits&scanId=${encodeURIComponent(scanId)}`
+          );
+          return;
+        }
+
+        if (res.status === 401 || serverError === "NOT_AUTHENTICATED") {
+          setUnlocking(false);
+          navigate("/sign-in");
+          return;
+        }
+
         throw new Error("FAILED_TO_UNLOCK");
       }
 
