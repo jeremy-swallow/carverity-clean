@@ -15,6 +15,9 @@ import AuthLinkExpired from "./pages/AuthLinkExpired";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 
+/* Admin */
+import Admin from "./pages/Admin";
+
 /* In-person flow */
 import InPersonStart from "./pages/InPersonStart";
 import InPersonVehicleDetails from "./pages/InPersonVehicleDetails";
@@ -53,6 +56,9 @@ export default function App() {
 
         {/* Auth helpers */}
         <Route path="/auth/link-expired" element={<AuthLinkExpired />} />
+
+        {/* Admin */}
+        <Route path="/admin" element={<Admin />} />
 
         {/* In-person flow */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
