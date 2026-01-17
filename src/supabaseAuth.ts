@@ -4,6 +4,13 @@ import { supabase } from "./supabaseClient";
 
 const CANONICAL_APP_ORIGIN = "https://carverity.com.au";
 
+function buildAuthCallbackUrl(nextPath: string) {
+  const safeNext = nextPath.startsWith("/") ? nextPath : `/${nextPath}`;
+  return `${CANONICAL_APP_ORIGIN}/auth/callback?next=${encodeURIComponent(
+    safeNext
+  )}`;
+}
+
 /**
  * Get the currently logged-in Supabase user.
  */
@@ -37,10 +44,13 @@ export async function signInWithMagicLink(
   email: string,
   redirectTo?: string
 ): Promise<void> {
+  const finalRedirect =
+    redirectTo || buildAuthCallbackUrl("/my-scans");
+
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: redirectTo || `${CANONICAL_APP_ORIGIN}/my-scans`,
+      emailRedirectTo: finalRedirect,
     },
   });
 
@@ -80,7 +90,7 @@ export async function signUpWithPassword(
     email,
     password,
     options: {
-      emailRedirectTo: `${CANONICAL_APP_ORIGIN}/my-scans`,
+      emailRedirectTo: buildAuthCallbackUrl("/my-scans"),
     },
   });
 
@@ -98,7 +108,7 @@ export async function signInWithGoogle(): Promise<void> {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${CANONICAL_APP_ORIGIN}/my-scans`,
+      redirectTo: buildAuthCallbackUrl("/my-scans"),
     },
   });
 
@@ -111,6 +121,9 @@ export async function signInWithGoogle(): Promise<void> {
 /**
  * Completes magic-link login AFTER the user clicks the email link
  * and safely restores the Supabase session.
+ *
+ * NOTE: You don't need this if you use /auth/callback + detectSessionInUrl,
+ * but keeping it doesn't hurt if you reference it elsewhere.
  */
 export async function handleMagicLinkCallback(): Promise<User | null> {
   try {

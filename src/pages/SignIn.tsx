@@ -1,6 +1,6 @@
 // src/pages/SignIn.tsx
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   signInWithGoogle,
@@ -8,6 +8,7 @@ import {
   signInWithPassword,
   signUpWithPassword,
 } from "../supabaseAuth";
+import { supabase } from "../supabaseClient";
 
 const CANONICAL_APP_ORIGIN = "https://carverity.com.au";
 
@@ -28,6 +29,24 @@ export default function SignIn() {
 
   const cleanEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
+  const [alreadySignedIn, setAlreadySignedIn] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function check() {
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) return;
+      setAlreadySignedIn(Boolean(data.session));
+    }
+
+    check();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -40,13 +59,19 @@ export default function SignIn() {
     try {
       setSending(true);
 
-      await signInWithMagicLink(cleanEmail, `${CANONICAL_APP_ORIGIN}/my-scans`);
+      // Always route through callback for reliability
+      await signInWithMagicLink(
+        cleanEmail,
+        `${CANONICAL_APP_ORIGIN}/auth/callback?next=${encodeURIComponent(
+          "/my-scans"
+        )}`
+      );
 
       setSent(true);
     } catch (err) {
       console.error("Magic link error:", err);
       setError(
-        "We couldn’t send the sign-in link. If you’re using Outlook/Hotmail, use password sign-in instead."
+        "We couldn’t send the sign-in link. If you’re using Outlook/Hotmail, use Google or password sign-in instead."
       );
     } finally {
       setSending(false);
@@ -71,11 +96,10 @@ export default function SignIn() {
 
       await signInWithPassword(cleanEmail, password);
 
-      navigate("/account");
+      navigate("/my-scans", { replace: true });
     } catch (err: any) {
       console.error("Password sign-in error:", err);
 
-      // Common Supabase auth error message for wrong password:
       const msg = String(err?.message || "");
 
       if (msg.toLowerCase().includes("invalid login credentials")) {
@@ -111,7 +135,7 @@ export default function SignIn() {
 
       await signUpWithPassword(cleanEmail, password);
 
-      navigate("/account");
+      navigate("/my-scans", { replace: true });
     } catch (err: any) {
       console.error("Password sign-up error:", err);
 
@@ -134,7 +158,7 @@ export default function SignIn() {
     try {
       setSending(true);
       await signInWithGoogle();
-      // Redirect happens automatically
+      // Redirect happens automatically via Supabase
     } catch (err) {
       console.error("Google sign-in error:", err);
       setError("Google sign-in is not available right now.");
@@ -151,9 +175,22 @@ export default function SignIn() {
       <p className="text-slate-400 mb-8">
         Use a secure sign-in method below.
         <br />
-        If your email provider is blocking links, password or Google is the most
-        reliable option.
+        If your email provider blocks sign-in links, Google is the most reliable
+        option.
       </p>
+
+      {alreadySignedIn && (
+        <div className="mb-5 rounded-2xl border border-emerald-500/30 bg-emerald-900/20 p-4">
+          <p className="text-emerald-300 font-medium">You’re already signed in</p>
+          <button
+            type="button"
+            onClick={() => navigate("/my-scans")}
+            className="mt-3 w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 text-black font-semibold px-4 py-3 transition"
+          >
+            Continue to My scans
+          </button>
+        </div>
+      )}
 
       {/* Google */}
       <button
@@ -162,7 +199,7 @@ export default function SignIn() {
         disabled={sending}
         className="w-full rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition mb-4"
       >
-        Continue with Google
+        {sending ? "Opening Google…" : "Continue with Google"}
       </button>
 
       {/* Mode toggle */}

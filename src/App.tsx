@@ -12,6 +12,7 @@ import Pricing from "./pages/Pricing";
 import SignIn from "./pages/SignIn";
 import Account from "./pages/Account";
 import AuthLinkExpired from "./pages/AuthLinkExpired";
+import AuthCallback from "./pages/AuthCallback";
 
 /* In-person flow */
 import InPersonStart from "./pages/InPersonStart";
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/what-to-expect" element={<WhatToExpect />} />
 
         {/* Auth helpers */}
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/auth/link-expired" element={<AuthLinkExpired />} />
 
         {/* In-person flow */}
