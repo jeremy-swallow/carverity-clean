@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { signInWithMagicLink } from "../supabaseAuth";
 
+const CANONICAL_APP_ORIGIN = "https://carverity.com.au";
+
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
@@ -21,8 +23,12 @@ export default function SignIn() {
     try {
       setSending(true);
 
-      // Force magic link redirect to your real domain (helps Outlook deliverability)
-      await signInWithMagicLink(email.trim(), `https://carverity.com.au/my-scans`);
+      // ✅ IMPORTANT:
+      // Force the redirect domain to your real domain (helps deliverability + avoids preview URLs)
+      await signInWithMagicLink(
+        email.trim(),
+        `${CANONICAL_APP_ORIGIN}/my-scans`
+      );
 
       setSent(true);
     } catch (err) {
