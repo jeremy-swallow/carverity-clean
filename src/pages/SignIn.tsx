@@ -21,7 +21,8 @@ export default function SignIn() {
     try {
       setSending(true);
 
-      await signInWithMagicLink(email.trim(), `${window.location.origin}/my-scans`);
+      // Force magic link redirect to your real domain (helps Outlook deliverability)
+      await signInWithMagicLink(email.trim(), `https://carverity.com.au/my-scans`);
 
       setSent(true);
     } catch (err) {
@@ -46,12 +47,10 @@ export default function SignIn() {
 
       {sent ? (
         <div className="rounded-xl border border-emerald-500/40 bg-emerald-900/30 p-5">
-          <p className="text-emerald-300 font-medium">
-            Check your email
-          </p>
+          <p className="text-emerald-300 font-medium">Check your email</p>
           <p className="text-slate-300 text-sm mt-2">
-            We’ve sent a secure sign-in link to <strong>{email}</strong>.
-            Open it on this device to continue.
+            We’ve sent a secure sign-in link to <strong>{email}</strong>. Open it
+            on this device to continue.
           </p>
         </div>
       ) : (
@@ -70,11 +69,7 @@ export default function SignIn() {
             />
           </div>
 
-          {error && (
-            <p className="text-red-400 text-sm">
-              {error}
-            </p>
-          )}
+          {error && <p className="text-red-400 text-sm">{error}</p>}
 
           <button
             type="submit"
