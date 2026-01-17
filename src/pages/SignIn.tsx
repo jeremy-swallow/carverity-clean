@@ -59,7 +59,6 @@ export default function SignIn() {
     try {
       setSending(true);
 
-      // Always route through callback for reliability
       await signInWithMagicLink(
         cleanEmail,
         `${CANONICAL_APP_ORIGIN}/auth/callback?next=${encodeURIComponent(
@@ -71,7 +70,7 @@ export default function SignIn() {
     } catch (err) {
       console.error("Magic link error:", err);
       setError(
-        "We couldn’t send the sign-in link. If you’re using Outlook/Hotmail, use Google or password sign-in instead."
+        "We couldn’t send the sign-in link. If you’re using Outlook/Hotmail, use Google or password instead."
       );
     } finally {
       setSending(false);
@@ -104,7 +103,7 @@ export default function SignIn() {
 
       if (msg.toLowerCase().includes("invalid login credentials")) {
         setError(
-          "That email/password combination didn’t work. If you don’t have a password yet, create one below."
+          "That email/password didn’t work. If you don’t have an account yet, create one below."
         );
       } else {
         setError("Could not sign in with password. Please try again.");
@@ -142,7 +141,7 @@ export default function SignIn() {
       const msg = String(err?.message || "");
       if (msg.toLowerCase().includes("user already registered")) {
         setError(
-          "This email already has an account. Use “Sign in with password” instead."
+          "This email already has an account. Use “Sign in with password” above."
         );
       } else {
         setError("Could not create your account. Please try again.");
@@ -158,7 +157,7 @@ export default function SignIn() {
     try {
       setSending(true);
       await signInWithGoogle();
-      // Redirect happens automatically via Supabase
+      // Redirect happens automatically
     } catch (err) {
       console.error("Google sign-in error:", err);
       setError("Google sign-in is not available right now.");
@@ -173,10 +172,10 @@ export default function SignIn() {
       </h1>
 
       <p className="text-slate-400 mb-8">
-        Use a secure sign-in method below.
+        Choose a secure sign-in method.
         <br />
-        If your email provider blocks sign-in links, Google is the most reliable
-        option.
+        Outlook/Hotmail often blocks sign-in links — Google or password is the
+        most reliable option.
       </p>
 
       {alreadySignedIn && (
@@ -218,7 +217,7 @@ export default function SignIn() {
               : "bg-slate-900/50 text-slate-200 hover:bg-slate-900",
           ].join(" ")}
         >
-          Magic link
+          Email link
         </button>
 
         <button
@@ -246,7 +245,7 @@ export default function SignIn() {
             <div className="rounded-2xl border border-emerald-500/40 bg-emerald-900/30 p-5">
               <p className="text-emerald-300 font-medium">Check your email</p>
               <p className="text-slate-300 text-sm mt-2">
-                We sent a secure sign-in link to <strong>{cleanEmail}</strong>.
+                We sent a sign-in link to <strong>{cleanEmail}</strong>.
                 <br />
                 Open it on this device to continue.
               </p>
@@ -297,6 +296,14 @@ export default function SignIn() {
               >
                 {sending ? "Sending link…" : "Send sign-in link"}
               </button>
+
+              <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Note: Outlook/Hotmail may delay or block sign-in links.
+                  <br />
+                  If it doesn’t arrive, use Google or password.
+                </p>
+              </div>
             </form>
           )}
         </>
@@ -320,9 +327,7 @@ export default function SignIn() {
           </div>
 
           <div>
-            <label className="block text-sm text-slate-300 mb-1">
-              Password
-            </label>
+            <label className="block text-sm text-slate-300 mb-1">Password</label>
             <input
               type="password"
               value={password}
@@ -332,7 +337,7 @@ export default function SignIn() {
               required
             />
             <p className="text-xs text-slate-500 mt-2">
-              Tip: If you don’t want passwords, use Google or magic link.
+              Create a password once, then use it on any device.
             </p>
           </div>
 
@@ -346,20 +351,29 @@ export default function SignIn() {
             {sending ? "Signing in…" : "Sign in with password"}
           </button>
 
-          <button
-            type="button"
-            disabled={sending}
-            onClick={handleCreatePasswordAccount}
-            className="w-full rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
-          >
-            Create password account
-          </button>
+          <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4 space-y-3">
+            <p className="text-sm text-slate-300 font-medium">
+              Don’t have an account yet?
+            </p>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Enter your email + choose a password, then create your account.
+            </p>
+
+            <button
+              type="button"
+              disabled={sending}
+              onClick={handleCreatePasswordAccount}
+              className="w-full rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
+            >
+              Create account
+            </button>
+          </div>
         </form>
       )}
 
       <div className="mt-8 text-xs text-slate-500 leading-relaxed">
         By signing in, you’ll be able to manage credits and access your saved
-        reports on this device.
+        reports.
       </div>
     </div>
   );
