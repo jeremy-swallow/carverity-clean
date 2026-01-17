@@ -73,14 +73,9 @@ export default function StartScan() {
       return;
     }
 
-    const safeCredits = typeof credits === "number" ? credits : 0;
-
-    // Hard gate: must have at least 1 credit to start a scan
-    if (safeCredits <= 0) {
-      navigate("/pricing?reason=no_credits");
-      return;
-    }
-
+    // IMPORTANT:
+    // Starting a scan does NOT consume credits.
+    // Credits are only used when unlocking the final report.
     navigate("/scan/in-person/start");
   }
 
@@ -103,14 +98,13 @@ export default function StartScan() {
       </p>
 
       <p className="text-sm text-slate-400">
-        This process focuses on observations and confidence — not pricing or
-        diagnosis.
+        You only use a credit when you unlock the final report.
       </p>
 
       {/* Status line (premium, calm, not “form-like”) */}
       <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-4">
         <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-          Access check
+          Account status
         </p>
 
         {!authReady ? (
@@ -121,7 +115,7 @@ export default function StartScan() {
           </p>
         ) : (
           <p className="text-sm text-slate-300 mt-2">
-            Credits available:{" "}
+            Signed in · Credits available:{" "}
             <span className="text-white font-semibold tabular-nums">
               {loadingCredits ? "…" : formatCredits(credits)}
             </span>
@@ -130,7 +124,8 @@ export default function StartScan() {
 
         {authReady && isLoggedIn && !loadingCredits && (credits ?? 0) <= 0 && (
           <p className="text-xs text-slate-500 mt-2">
-            You need at least 1 credit to start a scan.
+            You can still complete a scan with 0 credits. You’ll be asked to buy
+            credits when unlocking the report.
           </p>
         )}
       </div>

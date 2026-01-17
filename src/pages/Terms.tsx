@@ -106,6 +106,21 @@ export default function Terms() {
         </p>
       </section>
 
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-slate-200">Contact</h2>
+
+        <p className="text-sm text-slate-300 max-w-xl">
+          If you have questions about these terms, contact{" "}
+          <a
+            href="mailto:support@carverity.com.au"
+            className="underline text-slate-200 hover:text-white"
+          >
+            support@carverity.com.au
+          </a>
+          .
+        </p>
+      </section>
+
       <p className="text-xs text-slate-400 max-w-xl">
         By using CarVerity, you acknowledge and accept these terms.
       </p>

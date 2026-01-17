@@ -1,8 +1,16 @@
 // src/pages/Pricing.tsx
 
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, NavLink } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import {
+  Lock,
+  ShieldCheck,
+  CreditCard,
+  Receipt,
+  RefreshCw,
+  CheckCircle2,
+} from "lucide-react";
 
 type PackKey = "single" | "three" | "five";
 
@@ -61,12 +69,16 @@ export default function Pricing() {
   const [credits, setCredits] = useState<number | null>(null);
   const [loadingCredits, setLoadingCredits] = useState(false);
 
-  const [justReturnedFromCheckout, setJustReturnedFromCheckout] = useState(false);
+  const [justReturnedFromCheckout, setJustReturnedFromCheckout] =
+    useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
 
-  const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const params = useMemo(
+    () => new URLSearchParams(location.search),
+    [location.search]
+  );
 
   const success = useMemo(() => params.get("success") === "1", [params]);
   const restore = useMemo(() => params.get("restore") === "1", [params]);
@@ -213,16 +225,90 @@ export default function Pricing() {
         </p>
       </header>
 
+      {/* Trust strip (premium + credible) */}
+      <section className="mb-10 rounded-2xl border border-white/10 bg-slate-900/40 px-6 py-5">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-white">
+              Secure checkout, buyer-safe product
+            </p>
+            <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
+              Payments are processed by Stripe. Credits are added to your
+              account instantly after purchase.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
+              <ShieldCheck className="h-4 w-4 text-slate-300" />
+              Stripe secured
+            </span>
+
+            <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
+              <CreditCard className="h-4 w-4 text-slate-300" />
+              No card storage
+            </span>
+
+            <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
+              <Lock className="h-4 w-4 text-slate-300" />
+              Sign-in required
+            </span>
+
+            <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
+              <Receipt className="h-4 w-4 text-slate-300" />
+              Tax invoice via Stripe
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-xs text-slate-500">
+            By purchasing, you agree to our{" "}
+            <NavLink
+              to="/terms"
+              className="text-slate-300 underline underline-offset-4 decoration-white/10 hover:decoration-white/30 hover:text-white"
+            >
+              Terms
+            </NavLink>{" "}
+            and{" "}
+            <NavLink
+              to="/privacy"
+              className="text-slate-300 underline underline-offset-4 decoration-white/10 hover:decoration-white/30 hover:text-white"
+            >
+              Privacy Policy
+            </NavLink>
+            .
+          </p>
+
+          <p className="text-xs text-slate-600">
+            Need help?{" "}
+            <a
+              href="mailto:support@carverity.com.au"
+              className="text-slate-300 underline underline-offset-4 decoration-white/10 hover:decoration-white/30 hover:text-white"
+            >
+              support@carverity.com.au
+            </a>
+          </p>
+        </div>
+      </section>
+
       {/* Success / Cancel banners */}
       {success && (
         <section className="mb-10 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-6 py-5 space-y-2">
-          <p className="text-emerald-200 font-semibold">Purchase successful</p>
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-300 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-emerald-200 font-semibold">
+                Purchase successful
+              </p>
 
-          <p className="text-sm text-slate-300">
-            {inRestoreWindow
-              ? "Finalising your purchase… (if this doesn’t update in a few seconds, tap Refresh)"
-              : "Your credits should now be available on your account."}
-          </p>
+              <p className="text-sm text-slate-300 mt-1">
+                {inRestoreWindow
+                  ? "Finalising your purchase… (if this doesn’t update in a few seconds, tap Refresh)"
+                  : "Your credits should now be available on your account."}
+              </p>
+            </div>
+          </div>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <button
@@ -241,8 +327,9 @@ export default function Pricing() {
             {inRestoreWindow && (
               <button
                 onClick={() => refreshAuthAndCredits()}
-                className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
+                className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm inline-flex items-center gap-2"
               >
+                <RefreshCw className="h-4 w-4" />
                 Refresh
               </button>
             )}

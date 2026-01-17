@@ -489,6 +489,37 @@ export default function Layout() {
               )}
             </div>
           )}
+
+          {/* Mobile footer links */}
+          <div className="pt-6 border-t border-slate-800 space-y-3 text-xs text-slate-500">
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              <NavLink
+                to="/terms"
+                onClick={() => setMobileOpen(false)}
+                className="hover:text-slate-200 underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
+              >
+                Terms
+              </NavLink>
+              <NavLink
+                to="/privacy"
+                onClick={() => setMobileOpen(false)}
+                className="hover:text-slate-200 underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
+              >
+                Privacy
+              </NavLink>
+              <a
+                href="mailto:support@carverity.com.au"
+                className="hover:text-slate-200 underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
+              >
+                support@carverity.com.au
+              </a>
+            </div>
+
+            <p className="leading-relaxed">
+              CarVerity is a buyer decision-support tool — not a diagnostic
+              service.
+            </p>
+          </div>
         </div>
       </aside>
 
@@ -498,6 +529,53 @@ export default function Layout() {
       <main className="flex-1">
         <Outlet />
       </main>
+
+      {/* Site footer (premium + trust-building) */}
+      <footer className="border-t border-white/10 bg-slate-950/80">
+        <div className="max-w-6xl mx-auto px-6 py-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-white">CarVerity</p>
+              <p className="text-xs text-slate-500 max-w-md leading-relaxed">
+                Buyer decision-support tool for documenting visible observations
+                during an in-person inspection.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-300">
+              <NavLink
+                to="/terms"
+                className="hover:text-white underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
+              >
+                Terms
+              </NavLink>
+              <NavLink
+                to="/privacy"
+                className="hover:text-white underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
+              >
+                Privacy
+              </NavLink>
+              <a
+                href="mailto:support@carverity.com.au"
+                className="hover:text-white underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
+              >
+                support@carverity.com.au
+              </a>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p className="text-xs text-slate-500">
+              © {new Date().getFullYear()} CarVerity. All rights reserved.
+            </p>
+
+            <p className="text-xs text-slate-600">
+              Not affiliated with any dealer, manufacturer, or inspection
+              service.
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

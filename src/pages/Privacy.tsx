@@ -5,13 +5,11 @@ export default function Privacy() {
         Legal
       </span>
 
-      <h1 className="text-2xl font-semibold text-white">
-        Privacy Policy
-      </h1>
+      <h1 className="text-2xl font-semibold text-white">Privacy Policy</h1>
 
       <p className="text-sm text-slate-300">
-        CarVerity is designed to be simple, respectful, and privacy-first.
-        This page explains what information is collected and how it is used.
+        CarVerity is designed to be simple, respectful, and privacy-first. This
+        page explains what information is collected and how it is used.
       </p>
 
       <section className="space-y-3">
@@ -26,9 +24,7 @@ export default function Privacy() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-200">
-          Payments
-        </h2>
+        <h2 className="text-sm font-semibold text-slate-200">Payments</h2>
         <p className="text-sm text-slate-300">
           Payments are processed securely by Stripe. CarVerity does not store
           your card details. Stripe may collect and process payment information
@@ -37,13 +33,10 @@ export default function Privacy() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-200">
-          Email (optional)
-        </h2>
+        <h2 className="text-sm font-semibold text-slate-200">Email (optional)</h2>
         <p className="text-sm text-slate-300">
-          If you choose to link an email address (for example, to restore
-          inspections across devices), your email is used only for that purpose.
-          We do not sell or share email addresses.
+          If you choose to link an email address, it is used only for sign-in
+          and account access. We do not sell or share email addresses.
         </p>
       </section>
 
@@ -58,12 +51,24 @@ export default function Privacy() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-200">
-          Changes
-        </h2>
+        <h2 className="text-sm font-semibold text-slate-200">Changes</h2>
         <p className="text-sm text-slate-300">
           This policy may be updated as CarVerity evolves. Any changes will be
           reflected on this page.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-slate-200">Contact</h2>
+        <p className="text-sm text-slate-300">
+          If you have questions about privacy or data handling, contact{" "}
+          <a
+            href="mailto:support@carverity.com.au"
+            className="underline text-slate-200 hover:text-white"
+          >
+            support@carverity.com.au
+          </a>
+          .
         </p>
       </section>
 
