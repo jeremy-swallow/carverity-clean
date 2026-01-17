@@ -16,7 +16,7 @@ export default function SignIn() {
     try {
       setSending(true);
       await signInWithGoogle();
-      // Supabase will redirect automatically for OAuth
+      // Redirect happens automatically
     } catch (err) {
       console.error("Google sign-in error:", err);
       setError("Google sign-in is not available right now.");
@@ -26,22 +26,22 @@ export default function SignIn() {
 
   return (
     <div className="max-w-md mx-auto px-4 py-24">
-      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+      <span className="text-[11px] uppercase tracking-[0.18em] text-slate-500 block text-center mb-4">
         CarVerity · Sign in
       </span>
 
-      <h1 className="text-3xl font-semibold text-white mt-3 mb-3">
+      <h1 className="text-3xl font-semibold text-white mb-3 text-center">
         Sign in to CarVerity
       </h1>
 
-      <p className="text-slate-400 mb-6">
-        Sign in is used for credits and purchases.
+      <p className="text-slate-400 mb-6 text-center">
+        Sign in is only used for purchases and credits.
         <br />
-        Google is the most reliable option for most people.
+        Continue with Google to keep things fast and reliable.
       </p>
 
       {/* Trust strip */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <div className="flex flex-wrap justify-center gap-2 mb-6">
         <span className="text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-900/40 text-slate-300">
           Secure sign-in
         </span>
@@ -53,7 +53,7 @@ export default function SignIn() {
         </span>
       </div>
 
-      {/* Google (recommended) */}
+      {/* Google sign-in */}
       <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div className="min-w-0">
@@ -70,6 +70,8 @@ export default function SignIn() {
           </span>
         </div>
 
+        {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
+
         <button
           type="button"
           onClick={handleGoogle}
@@ -79,22 +81,20 @@ export default function SignIn() {
           {sending ? "Opening Google…" : "Continue with Google"}
         </button>
 
-        <p className="text-xs text-slate-500 mt-4 leading-relaxed">
+        <p className="text-xs text-slate-500 mt-4 leading-relaxed text-center">
           Don’t have a Google account? Google will let you create one during
           sign-in.
         </p>
-
-        {error && <p className="text-red-400 text-sm mt-4">{error}</p>}
       </div>
 
-      <div className="mt-8 text-xs text-slate-500 leading-relaxed">
+      <div className="mt-10 text-xs text-slate-500 leading-relaxed text-center">
         Your saved inspections are still stored on this device for now.
       </div>
 
       <button
         type="button"
         onClick={() => navigate("/start-scan")}
-        className="mt-6 w-full rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 text-slate-200 font-semibold px-4 py-3 transition"
+        className="w-full mt-6 rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 text-slate-200 font-semibold px-4 py-3 transition"
       >
         Back to start scan
       </button>
