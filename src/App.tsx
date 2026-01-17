@@ -11,6 +11,7 @@ import MyScans from "./pages/MyScans";
 import Pricing from "./pages/Pricing";
 import SignIn from "./pages/SignIn";
 import Account from "./pages/Account";
+import AuthLinkExpired from "./pages/AuthLinkExpired";
 
 /* In-person flow */
 import InPersonStart from "./pages/InPersonStart";
@@ -45,6 +46,9 @@ export default function App() {
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/what-to-expect" element={<WhatToExpect />} />
 
+        {/* Auth helpers */}
+        <Route path="/auth/link-expired" element={<AuthLinkExpired />} />
+
         {/* In-person flow */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
         <Route
@@ -66,7 +70,6 @@ export default function App() {
           element={<InPersonChecksInsideCabin />}
         />
 
-        {/* NEW: Drive intro (safety + summary) */}
         <Route
           path="/scan/in-person/checks/drive-intro"
           element={<InPersonChecksDriveIntro />}
