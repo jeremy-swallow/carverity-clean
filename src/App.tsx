@@ -31,8 +31,7 @@ import InPersonResults from "./pages/InPersonResults";
 import InPersonDecision from "./pages/InPersonDecision";
 import InPersonReportPrint from "./pages/InPersonReportPrint";
 
-/* Legacy (safe but unused) */
-import InPersonResultsPreview from "./pages/InPersonResultsPreview";
+/* Unlock flow */
 import InPersonUnlock from "./pages/InPersonUnlock";
 import InPersonUnlockSuccess from "./pages/InPersonUnlockSuccess";
 
@@ -107,11 +106,7 @@ export default function App() {
 
         <Route path="/scan/in-person/print" element={<InPersonReportPrint />} />
 
-        {/* Legacy (safe but unused) */}
-        <Route
-          path="/scan/in-person/preview"
-          element={<InPersonResultsPreview />}
-        />
+        {/* Unlock flow */}
         <Route
           path="/scan/in-person/unlock/:scanId"
           element={<InPersonUnlock />}
