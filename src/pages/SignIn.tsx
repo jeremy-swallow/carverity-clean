@@ -61,13 +61,9 @@ export default function SignIn() {
               Continue with Google
             </p>
             <p className="text-xs text-slate-400 mt-0.5">
-              Recommended — fastest sign-in, no email deliverability issues.
+              Fastest sign-in, no email deliverability issues.
             </p>
           </div>
-
-          <span className="shrink-0 text-[11px] px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-            Recommended
-          </span>
         </div>
 
         {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
@@ -81,10 +77,16 @@ export default function SignIn() {
           {sending ? "Opening Google…" : "Continue with Google"}
         </button>
 
-        <p className="text-xs text-slate-500 mt-4 leading-relaxed text-center">
-          Don’t have a Google account? Google will let you create one during
-          sign-in.
-        </p>
+        <div className="mt-4 space-y-2">
+          <p className="text-xs text-slate-500 leading-relaxed text-center">
+            Don’t have a Google account? Google will let you create one during
+            sign-in.
+          </p>
+
+          <p className="text-xs text-slate-500 leading-relaxed text-center">
+            More sign-in options will be added in a future update.
+          </p>
+        </div>
       </div>
 
       <div className="mt-10 text-xs text-slate-500 leading-relaxed text-center">
