@@ -48,10 +48,11 @@ export default function MyScans() {
     return (
       <div className="max-w-3xl mx-auto px-6 py-16 text-center">
         <h1 className="text-2xl font-semibold mb-2 text-white">
-          My inspections
+          Saved inspections (this device)
         </h1>
+
         <p className="text-slate-400 mb-6">
-          You haven’t saved any inspections yet.
+          You don’t have any saved inspections on this device yet.
         </p>
 
         <div className="inline-flex flex-col items-center gap-3">
@@ -66,9 +67,10 @@ export default function MyScans() {
             <div className="flex items-start gap-3">
               <Info className="h-4 w-4 text-slate-300 mt-0.5" />
               <p className="text-xs text-slate-400 leading-relaxed">
-                Saved inspections are stored locally on this device. If you
-                change devices or clear browser data, your saved scans may not
-                be available.
+                These saved inspections live in your browser on this device.
+                <br />
+                Signing in is for credits and purchases — it does not sync your
+                saved inspections between devices yet.
               </p>
             </div>
           </div>
@@ -81,9 +83,11 @@ export default function MyScans() {
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-white">My inspections</h1>
+          <h1 className="text-2xl font-semibold text-white">
+            Saved inspections (this device)
+          </h1>
           <p className="text-xs text-slate-400">
-            Stored locally on this device.
+            Stored in your browser — not synced between devices.
           </p>
         </div>
 
@@ -106,9 +110,11 @@ export default function MyScans() {
         <div className="flex items-start gap-3">
           <Info className="h-4 w-4 text-slate-300 mt-0.5" />
           <p className="text-xs text-slate-400 leading-relaxed">
-            These inspections are saved to your current device only. If you want
-            to keep a copy long-term, use the print/export option after your
-            report is generated.
+            Tip: If you want to keep a copy long-term, use the print/export
+            option after your report is generated.
+            <br />
+            If you clear browser data or change devices, these saved inspections
+            may disappear.
           </p>
         </div>
       </div>

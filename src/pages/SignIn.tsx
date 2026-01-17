@@ -1,6 +1,6 @@
 // src/pages/SignIn.tsx
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   signInWithGoogle,
@@ -8,7 +8,6 @@ import {
   signInWithPassword,
   signUpWithPassword,
 } from "../supabaseAuth";
-import { supabase } from "../supabaseClient";
 
 const CANONICAL_APP_ORIGIN = "https://carverity.com.au";
 
@@ -29,24 +28,6 @@ export default function SignIn() {
 
   const cleanEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
-  const [alreadySignedIn, setAlreadySignedIn] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function check() {
-      const { data } = await supabase.auth.getSession();
-      if (cancelled) return;
-      setAlreadySignedIn(Boolean(data.session));
-    }
-
-    check();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -59,12 +40,7 @@ export default function SignIn() {
     try {
       setSending(true);
 
-      await signInWithMagicLink(
-        cleanEmail,
-        `${CANONICAL_APP_ORIGIN}/auth/callback?next=${encodeURIComponent(
-          "/my-scans"
-        )}`
-      );
+      await signInWithMagicLink(cleanEmail, `${CANONICAL_APP_ORIGIN}/my-scans`);
 
       setSent(true);
     } catch (err) {
@@ -95,7 +71,7 @@ export default function SignIn() {
 
       await signInWithPassword(cleanEmail, password);
 
-      navigate("/my-scans", { replace: true });
+      navigate("/account");
     } catch (err: any) {
       console.error("Password sign-in error:", err);
 
@@ -103,7 +79,7 @@ export default function SignIn() {
 
       if (msg.toLowerCase().includes("invalid login credentials")) {
         setError(
-          "That email/password didn’t work. If you don’t have an account yet, create one below."
+          "That email/password combination didn’t work. If you don’t have a password yet, create one below."
         );
       } else {
         setError("Could not sign in with password. Please try again.");
@@ -134,14 +110,17 @@ export default function SignIn() {
 
       await signUpWithPassword(cleanEmail, password);
 
-      navigate("/my-scans", { replace: true });
+      // NOTE: With Supabase, signUp may or may not immediately create a session
+      // depending on your email confirmation settings.
+      // We send the user to Account because it's the "logged-in home" for credits.
+      navigate("/account");
     } catch (err: any) {
       console.error("Password sign-up error:", err);
 
       const msg = String(err?.message || "");
       if (msg.toLowerCase().includes("user already registered")) {
         setError(
-          "This email already has an account. Use “Sign in with password” above."
+          "This email already has an account. Use “Sign in with password” instead."
         );
       } else {
         setError("Could not create your account. Please try again.");
@@ -171,35 +150,58 @@ export default function SignIn() {
         Sign in to CarVerity
       </h1>
 
-      <p className="text-slate-400 mb-8">
-        Choose a secure sign-in method.
+      <p className="text-slate-400 mb-6">
+        Choose a secure sign-in method below.
         <br />
-        Outlook/Hotmail often blocks sign-in links — Google or password is the
-        most reliable option.
+        Google is the most reliable option for most people.
       </p>
 
-      {alreadySignedIn && (
-        <div className="mb-5 rounded-2xl border border-emerald-500/30 bg-emerald-900/20 p-4">
-          <p className="text-emerald-300 font-medium">You’re already signed in</p>
-          <button
-            type="button"
-            onClick={() => navigate("/my-scans")}
-            className="mt-3 w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 text-black font-semibold px-4 py-3 transition"
-          >
-            Continue to My scans
-          </button>
-        </div>
-      )}
+      {/* Trust strip */}
+      <div className="flex flex-wrap gap-2 mb-6">
+        <span className="text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-900/40 text-slate-300">
+          Secure sign-in
+        </span>
+        <span className="text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-900/40 text-slate-300">
+          No spam
+        </span>
+        <span className="text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-900/40 text-slate-300">
+          Works best with Google
+        </span>
+      </div>
 
-      {/* Google */}
-      <button
-        type="button"
-        onClick={handleGoogle}
-        disabled={sending}
-        className="w-full rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition mb-4"
-      >
-        {sending ? "Opening Google…" : "Continue with Google"}
-      </button>
+      {/* Google (recommended) */}
+      <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4 mb-6">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white">Continue with Google</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Recommended — fastest sign-in, no email deliverability issues.
+            </p>
+          </div>
+
+          <span className="shrink-0 text-[11px] px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+            Recommended
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogle}
+          disabled={sending}
+          className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-4 py-3 transition"
+        >
+          {sending ? "Opening Google…" : "Continue with Google"}
+        </button>
+      </div>
+
+      {/* Divider */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="h-px flex-1 bg-white/10" />
+        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+          Or use email
+        </span>
+        <div className="h-px flex-1 bg-white/10" />
+      </div>
 
       {/* Mode toggle */}
       <div className="grid grid-cols-2 gap-2 mb-6">
@@ -213,11 +215,11 @@ export default function SignIn() {
           className={[
             "rounded-xl px-4 py-3 text-sm font-semibold transition",
             mode === "magic"
-              ? "bg-emerald-600 text-black"
+              ? "bg-slate-200 text-black"
               : "bg-slate-900/50 text-slate-200 hover:bg-slate-900",
           ].join(" ")}
         >
-          Email link
+          Magic link
         </button>
 
         <button
@@ -230,7 +232,7 @@ export default function SignIn() {
           className={[
             "rounded-xl px-4 py-3 text-sm font-semibold transition",
             mode === "password"
-              ? "bg-emerald-600 text-black"
+              ? "bg-slate-200 text-black"
               : "bg-slate-900/50 text-slate-200 hover:bg-slate-900",
           ].join(" ")}
         >
@@ -245,7 +247,7 @@ export default function SignIn() {
             <div className="rounded-2xl border border-emerald-500/40 bg-emerald-900/30 p-5">
               <p className="text-emerald-300 font-medium">Check your email</p>
               <p className="text-slate-300 text-sm mt-2">
-                We sent a sign-in link to <strong>{cleanEmail}</strong>.
+                We sent a secure sign-in link to <strong>{cleanEmail}</strong>.
                 <br />
                 Open it on this device to continue.
               </p>
@@ -270,6 +272,11 @@ export default function SignIn() {
                   Use password instead
                 </button>
               </div>
+
+              <p className="text-xs text-slate-400 mt-4 leading-relaxed">
+                Note: Outlook/Hotmail sometimes blocks sign-in links entirely.
+                If you don’t receive it, use Google or password.
+              </p>
             </div>
           ) : (
             <form onSubmit={handleMagicLink} className="space-y-5">
@@ -292,18 +299,14 @@ export default function SignIn() {
               <button
                 type="submit"
                 disabled={sending}
-                className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-4 py-3 transition"
+                className="w-full rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
               >
                 {sending ? "Sending link…" : "Send sign-in link"}
               </button>
 
-              <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Note: Outlook/Hotmail may delay or block sign-in links.
-                  <br />
-                  If it doesn’t arrive, use Google or password.
-                </p>
-              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Magic links are single-use and device-specific.
+              </p>
             </form>
           )}
         </>
@@ -327,7 +330,9 @@ export default function SignIn() {
           </div>
 
           <div>
-            <label className="block text-sm text-slate-300 mb-1">Password</label>
+            <label className="block text-sm text-slate-300 mb-1">
+              Password
+            </label>
             <input
               type="password"
               value={password}
@@ -337,7 +342,8 @@ export default function SignIn() {
               required
             />
             <p className="text-xs text-slate-500 mt-2">
-              Create a password once, then use it on any device.
+              If this is your first time, choose a password then tap “Create
+              account”.
             </p>
           </div>
 
@@ -348,32 +354,28 @@ export default function SignIn() {
             disabled={sending}
             className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-4 py-3 transition"
           >
-            {sending ? "Signing in…" : "Sign in with password"}
+            {sending ? "Signing in…" : "Sign in"}
           </button>
 
-          <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4 space-y-3">
-            <p className="text-sm text-slate-300 font-medium">
-              Don’t have an account yet?
-            </p>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Enter your email + choose a password, then create your account.
-            </p>
+          <button
+            type="button"
+            disabled={sending}
+            onClick={handleCreatePasswordAccount}
+            className="w-full rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
+          >
+            {sending ? "Creating account…" : "Create account"}
+          </button>
 
-            <button
-              type="button"
-              disabled={sending}
-              onClick={handleCreatePasswordAccount}
-              className="w-full rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
-            >
-              Create account
-            </button>
-          </div>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Password sign-in is a reliable backup if your email provider blocks
+            magic links.
+          </p>
         </form>
       )}
 
       <div className="mt-8 text-xs text-slate-500 leading-relaxed">
-        By signing in, you’ll be able to manage credits and access your saved
-        reports.
+        Signing in is for credits and purchases. Your saved inspections are still
+        stored on this device for now.
       </div>
     </div>
   );
