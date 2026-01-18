@@ -98,6 +98,9 @@ export default function Admin() {
 
   const [whitelistWorking, setWhitelistWorking] = useState(false);
 
+  const [refundWorking, setRefundWorking] = useState(false);
+  const [refundReason, setRefundReason] = useState("");
+
   useEffect(() => {
     async function guard() {
       setChecking(true);
@@ -256,7 +259,6 @@ export default function Admin() {
         )}`
       );
 
-      // Refresh lookup so ledger + balance update
       await handleLookup();
     } catch (err) {
       console.error("[Admin] adjust credits error:", err);
@@ -320,6 +322,80 @@ export default function Admin() {
     }
   }
 
+  async function handleRefundLastUnlock() {
+    setMsg(null);
+
+    if (!cleanTargetEmail) {
+      setMsg("Enter an email address first.");
+      return;
+    }
+
+    setRefundWorking(true);
+
+    try {
+      const jwt = await getJwtOrThrow();
+
+      const res = await fetch("/api/admin-refund-last-unlock", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({
+          email: cleanTargetEmail,
+          reason: refundReason.trim(),
+        }),
+      });
+
+      const data = (await res.json().catch(() => null)) as any;
+
+      if (!res.ok) {
+        const code = data?.error || "REFUND_FAILED";
+
+        if (code === "NOT_AUTHENTICATED") {
+          navigate("/sign-in");
+          return;
+        }
+
+        if (code === "FORBIDDEN" || code === "NOT_AUTHORIZED") {
+          navigate("/account");
+          return;
+        }
+
+        if (code === "USER_NOT_FOUND") {
+          setMsg("No user found with that email.");
+          return;
+        }
+
+        if (code === "NO_UNLOCKS_TO_REFUND") {
+          setMsg("No in-person unlocks found to refund for this user.");
+          return;
+        }
+
+        if (code === "ALREADY_REFUNDED") {
+          setMsg("That last unlock has already been refunded.");
+          return;
+        }
+
+        setMsg("Refund failed. Please try again.");
+        return;
+      }
+
+      setMsg(
+        `Refunded last unlock (+1 credit). Credits: ${formatCredits(
+          data?.credits_before
+        )} → ${formatCredits(data?.credits_after)}`
+      );
+
+      await handleLookup();
+    } catch (err) {
+      console.error("[Admin] refund last unlock error:", err);
+      setMsg("Refund failed. Please try again.");
+    } finally {
+      setRefundWorking(false);
+    }
+  }
+
   if (checking) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-16 text-slate-300">
@@ -332,6 +408,9 @@ export default function Admin() {
 
   const currentCredits = lookup?.profile?.credits ?? null;
   const isWhitelisted = Boolean(lookup?.access?.unlimited);
+
+  const disableAllActions =
+    lookupLoading || working || whitelistWorking || refundWorking;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-14 space-y-10">
@@ -388,7 +467,7 @@ export default function Admin() {
           <div className="flex items-end">
             <button
               onClick={handleLookup}
-              disabled={lookupLoading || working || whitelistWorking}
+              disabled={disableAllActions}
               className="w-full rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
             >
               {lookupLoading ? "Looking up…" : "Lookup"}
@@ -442,14 +521,14 @@ export default function Admin() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleToggleWhitelist(true)}
-                      disabled={whitelistWorking || isWhitelisted}
+                      disabled={whitelistWorking || isWhitelisted || disableAllActions}
                       className="rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-4 py-2 transition"
                     >
                       Enable
                     </button>
                     <button
                       onClick={() => handleToggleWhitelist(false)}
-                      disabled={whitelistWorking || !isWhitelisted}
+                      disabled={whitelistWorking || !isWhitelisted || disableAllActions}
                       className="rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-2 transition"
                     >
                       Remove
@@ -497,18 +576,63 @@ export default function Admin() {
 
                 <button
                   onClick={handleAdjustCredits}
-                  disabled={working || whitelistWorking || lookupLoading}
+                  disabled={working || whitelistWorking || lookupLoading || refundWorking}
                   className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-4 py-3 transition"
                 >
                   {working ? "Applying…" : "Apply credit change"}
                 </button>
 
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Tip: use <span className="text-slate-300 font-semibold">-1</span>{" "}
-                  to remove a credit, or{" "}
-                  <span className="text-slate-300 font-semibold">+5</span> to grant a pack.
+                  Tip: use{" "}
+                  <span className="text-slate-300 font-semibold">-1</span> to
+                  remove a credit, or{" "}
+                  <span className="text-slate-300 font-semibold">+5</span> to
+                  grant a pack.
                 </p>
               </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-slate-400 text-xs uppercase tracking-[0.18em]">
+                    Refund last unlock
+                  </div>
+                  <div className="mt-2 text-slate-300 text-sm">
+                    Adds <span className="text-slate-200 font-semibold">+1</span>{" "}
+                    credit and logs an{" "}
+                    <span className="text-slate-200 font-semibold">
+                      admin_refund
+                    </span>{" "}
+                    entry.
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleRefundLastUnlock}
+                  disabled={disableAllActions}
+                  className="rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-2 transition"
+                >
+                  {refundWorking ? "Refunding…" : "Refund last unlock"}
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-sm text-slate-300 mb-1">
+                  Refund reason (optional)
+                </label>
+                <input
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                  className="w-full rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="e.g. User paid but app crashed"
+                />
+              </div>
+
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Safety: this action is idempotent per unlock reference (can’t be
+                refunded twice).
+              </p>
             </div>
 
             <div className="rounded-2xl border border-white/10 overflow-hidden">
