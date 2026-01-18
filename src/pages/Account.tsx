@@ -5,6 +5,8 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { signOut } from "../supabaseAuth";
 
+const ADMIN_EMAIL = "jeremy.swallow@gmail.com";
+
 type Profile = {
   credits: number;
   email: string | null;
@@ -18,19 +20,8 @@ type LedgerRow = {
   created_at: string;
 };
 
-const ADMIN_EMAIL_ALLOWLIST = [
-  "carverity.au@outlook.com",
-  "jeremy_swallow@outlook.com",
-];
-
-function normaliseEmail(email: string | null | undefined) {
-  return (email ?? "").trim().toLowerCase();
-}
-
 function isAdminEmail(email: string | null | undefined) {
-  const e = normaliseEmail(email);
-  if (!e) return false;
-  return ADMIN_EMAIL_ALLOWLIST.includes(e);
+  return String(email ?? "").trim().toLowerCase() === ADMIN_EMAIL;
 }
 
 export default function Account() {
@@ -43,13 +34,14 @@ export default function Account() {
   const [pwSaving, setPwSaving] = useState(false);
   const [pwMsg, setPwMsg] = useState<string | null>(null);
 
+  const [isAdmin, setIsAdmin] = useState(false);
+
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const showSuccess = searchParams.get("success") === "1";
 
   const niceEmail = useMemo(() => profile?.email ?? "—", [profile?.email]);
-  const showAdmin = useMemo(() => isAdminEmail(profile?.email), [profile?.email]);
 
   useEffect(() => {
     async function loadAccount() {
@@ -63,6 +55,8 @@ export default function Account() {
         navigate("/sign-in");
         return;
       }
+
+      setIsAdmin(isAdminEmail(user.email));
 
       const [{ data: profileData, error: profileError }, { data: ledgerData }] =
         await Promise.all([
@@ -169,11 +163,11 @@ export default function Account() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {showAdmin && (
+        <div className="flex flex-col items-end gap-2">
+          {isAdmin && (
             <button
               onClick={() => navigate("/admin")}
-              className="px-4 py-2 rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 text-slate-200 text-sm font-semibold"
+              className="px-4 py-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-200 text-sm font-semibold"
             >
               Admin
             </button>
