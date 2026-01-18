@@ -101,6 +101,10 @@ export default function Admin() {
   const [refundWorking, setRefundWorking] = useState(false);
   const [refundReason, setRefundReason] = useState("");
 
+  const [forceUnlockWorking, setForceUnlockWorking] = useState(false);
+  const [forceScanId, setForceScanId] = useState("");
+  const [forceReason, setForceReason] = useState("");
+
   useEffect(() => {
     async function guard() {
       setChecking(true);
@@ -396,6 +400,70 @@ export default function Admin() {
     }
   }
 
+  async function handleForceUnlockScan() {
+    setMsg(null);
+
+    const scanId = forceScanId.trim();
+    if (!scanId) {
+      setMsg("Enter a scanId first.");
+      return;
+    }
+
+    setForceUnlockWorking(true);
+
+    try {
+      const jwt = await getJwtOrThrow();
+
+      const res = await fetch("/api/admin-force-unlock-scan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({
+          scanId,
+          reason: forceReason.trim(),
+        }),
+      });
+
+      const data = (await res.json().catch(() => null)) as any;
+
+      if (!res.ok) {
+        const code = data?.error || "FORCE_UNLOCK_FAILED";
+
+        if (code === "NOT_AUTHENTICATED") {
+          navigate("/sign-in");
+          return;
+        }
+
+        if (code === "NOT_AUTHORIZED" || code === "FORBIDDEN") {
+          navigate("/account");
+          return;
+        }
+
+        if (code === "SCAN_NOT_FOUND") {
+          setMsg("Scan not found. Check the scanId and try again.");
+          return;
+        }
+
+        setMsg("Force unlock failed. Please try again.");
+        return;
+      }
+
+      if (data?.alreadyUnlocked) {
+        setMsg("That scan is already unlocked (ledger entry already exists).");
+        return;
+      }
+
+      setMsg("Scan force-unlocked (no credit spend).");
+    } catch (err) {
+      console.error("[Admin] force unlock error:", err);
+      setMsg("Force unlock failed. Please try again.");
+    } finally {
+      setForceUnlockWorking(false);
+    }
+  }
+
   if (checking) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-16 text-slate-300">
@@ -410,7 +478,7 @@ export default function Admin() {
   const isWhitelisted = Boolean(lookup?.access?.unlimited);
 
   const disableAllActions =
-    lookupLoading || working || whitelistWorking || refundWorking;
+    lookupLoading || working || whitelistWorking || refundWorking || forceUnlockWorking;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-14 space-y-10">
@@ -576,7 +644,7 @@ export default function Admin() {
 
                 <button
                   onClick={handleAdjustCredits}
-                  disabled={working || whitelistWorking || lookupLoading || refundWorking}
+                  disabled={working || whitelistWorking || lookupLoading || refundWorking || forceUnlockWorking}
                   className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-4 py-3 transition"
                 >
                   {working ? "Applying…" : "Apply credit change"}
@@ -632,6 +700,61 @@ export default function Admin() {
               <p className="text-xs text-slate-500 leading-relaxed">
                 Safety: this action is idempotent per unlock reference (can’t be
                 refunded twice).
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-slate-400 text-xs uppercase tracking-[0.18em]">
+                    Force unlock scan (no credit spend)
+                  </div>
+                  <div className="mt-2 text-slate-300 text-sm">
+                    Inserts an unlock marker in{" "}
+                    <span className="text-slate-200 font-semibold">
+                      credit_ledger
+                    </span>{" "}
+                    so the scan counts as unlocked.
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleForceUnlockScan}
+                  disabled={disableAllActions}
+                  className="rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-4 py-2 transition"
+                >
+                  {forceUnlockWorking ? "Unlocking…" : "Force unlock"}
+                </button>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">
+                    Scan ID
+                  </label>
+                  <input
+                    value={forceScanId}
+                    onChange={(e) => setForceScanId(e.target.value)}
+                    className="w-full rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="e.g. inspection_1737... or uuid"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">
+                    Reason (optional)
+                  </label>
+                  <input
+                    value={forceReason}
+                    onChange={(e) => setForceReason(e.target.value)}
+                    className="w-full rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="e.g. Support override"
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-500 leading-relaxed">
+                This does not change the user’s credit balance.
               </p>
             </div>
 
