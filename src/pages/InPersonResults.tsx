@@ -6,11 +6,15 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
+  BarChart3,
+  Eye,
   Camera,
   ClipboardCheck,
+  HelpCircle,
   ArrowRight,
   ShieldCheck,
-  Info,
+  Mail,
+  RotateCcw,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -31,24 +35,14 @@ function asCleanText(value: unknown): string {
   return "";
 }
 
-function Paragraph({
-  value,
-  tone = "muted",
-}: {
-  value: unknown;
-  tone?: "muted" | "normal" | "strong";
-}) {
+function Paragraph({ value }: { value: unknown }) {
   const t = asCleanText(value);
   if (!t) return null;
-
-  const cls =
-    tone === "strong"
-      ? "text-[15px] leading-relaxed text-slate-200 max-w-3xl whitespace-pre-line"
-      : tone === "normal"
-      ? "text-[15px] leading-relaxed text-slate-300 max-w-3xl whitespace-pre-line"
-      : "text-[14px] leading-relaxed text-slate-400 max-w-3xl whitespace-pre-line";
-
-  return <p className={cls}>{t}</p>;
+  return (
+    <p className="text-[15px] leading-relaxed text-slate-300 max-w-3xl whitespace-pre-line">
+      {t}
+    </p>
+  );
 }
 
 function BulletList({ items }: { items: string[] }) {
@@ -108,6 +102,7 @@ function extractEvidenceBullets(evidence: unknown): string[] {
     const v = evidence["bullets"];
     if (Array.isArray(v)) return v.map(asCleanText).filter(Boolean);
 
+    // fallback keys
     const fallbackKeys = ["bulletPoints", "points", "items"];
     for (const k of fallbackKeys) {
       const vv = evidence[k];
@@ -150,160 +145,6 @@ function formatMoney(n: unknown): string {
 }
 
 /* =======================================================
-   Guided meaning helpers (no extra user steps)
-======================================================= */
-
-type SignalTone = "critical" | "moderate" | "unknown";
-
-function severityPillClasses(tone: SignalTone) {
-  if (tone === "critical") {
-    return "border-rose-400/30 bg-rose-500/10 text-rose-200";
-  }
-  if (tone === "moderate") {
-    return "border-amber-400/30 bg-amber-500/10 text-amber-200";
-  }
-  return "border-white/15 bg-white/5 text-slate-200";
-}
-
-function outcomeOneLiner(verdict: "proceed" | "caution" | "walk-away") {
-  if (verdict === "proceed") {
-    return "Based on what you recorded, nothing strongly suggests elevated risk. Proceed normally — but still confirm the basics.";
-  }
-  if (verdict === "caution") {
-    return "You recorded a few signals worth clarifying. If the seller can’t explain them with evidence, pausing is reasonable.";
-  }
-  return "Your recorded signals suggest elevated risk. If key items can’t be verified, walking away is a sensible outcome.";
-}
-
-function buyerMeaningFromLabel(labelRaw: string) {
-  const label = (labelRaw || "").toLowerCase();
-
-  // Keep this calm + general; don’t diagnose.
-  if (label.includes("tyre")) {
-    return {
-      meaning:
-        "Uneven or low tread can signal alignment/suspension wear or neglected maintenance.",
-      ask:
-        "Ask for recent tyre replacement/alignment history and check if wear is even across all tyres.",
-      hint: "If wear is uneven or tyres are due soon, it can justify a price adjustment.",
-    };
-  }
-
-  if (
-    label.includes("brake") ||
-    label.includes("disc") ||
-    label.includes("rotor")
-  ) {
-    return {
-      meaning:
-        "Heavy scoring or worn discs can mean brakes are due sooner than expected.",
-      ask: "Ask when brakes were last replaced and whether there’s an invoice.",
-      hint: "Brake work can be a near-term cost — useful leverage if evidence is missing.",
-    };
-  }
-
-  if (label.includes("air") || label.includes("a/c") || label.includes("aircon")) {
-    return {
-      meaning:
-        "Weak or slow cooling often indicates a service need. It may be minor or may require parts.",
-      ask:
-        "Ask to run the AC for a few minutes and confirm it gets cold quickly at idle and while driving.",
-      hint: "If it doesn’t cool properly, treat it as a real cost item.",
-    };
-  }
-
-  if (
-    label.includes("smell") ||
-    label.includes("moisture") ||
-    label.includes("mould")
-  ) {
-    return {
-      meaning:
-        "Musty/damp smells can point to water entry, leaks, or previous flood/wet storage.",
-      ask:
-        "Ask about water entry/repairs and check footwells/boot for dampness if possible.",
-      hint: "Persistent moisture issues can be hard to fix — higher caution if strong.",
-    };
-  }
-
-  if (
-    label.includes("steering") ||
-    label.includes("handling") ||
-    label.includes("vibration") ||
-    label.includes("pull")
-  ) {
-    return {
-      meaning:
-        "Pulling/vibration can signal alignment, tyre issues, or suspension wear. It’s worth clarifying.",
-      ask:
-        "Ask if there’s been any suspension/steering work and whether it’s been aligned recently.",
-      hint: "If it pulls or vibrates clearly, treat it as a meaningful risk signal.",
-    };
-  }
-
-  if (
-    label.includes("noise") ||
-    label.includes("engine") ||
-    label.includes("hesitation") ||
-    label.includes("gear") ||
-    label.includes("shift")
-  ) {
-    return {
-      meaning:
-        "Unusual noises or hesitation can indicate maintenance needs. Don’t assume the cause — verify with evidence.",
-      ask:
-        "Ask for service history and whether any warnings/noises were inspected recently (invoice helps).",
-      hint: "Noises under load are worth treating as higher caution until proven otherwise.",
-    };
-  }
-
-  if (
-    label.includes("seat") ||
-    label.includes("interior") ||
-    label.includes("trim") ||
-    label.includes("belt") ||
-    label.includes("airbag")
-  ) {
-    return {
-      meaning:
-        "Interior wear is common, but disturbed trims/seatbelt issues can matter for safety or resale.",
-      ask:
-        "Ask if any airbags/seatbelts were repaired or replaced and whether there’s documentation.",
-      hint: "Safety-related trim disturbances warrant stronger verification.",
-    };
-  }
-
-  if (
-    label.includes("adas") ||
-    label.includes("lane") ||
-    label.includes("sensor") ||
-    label.includes("parking")
-  ) {
-    return {
-      meaning:
-        "Driver-assist warnings can be a simple sensor issue or something that needs diagnosis.",
-      ask:
-        "Ask what the warning was and whether it’s been scanned/diagnosed (report helps).",
-      hint: "Intermittent warnings are worth verifying before committing.",
-    };
-  }
-
-  // Default: calm, generic guidance.
-  return {
-    meaning:
-      "This can be benign or meaningful depending on evidence. Treat it as a prompt to verify.",
-    ask:
-      "Ask for evidence (invoice, inspection note, written confirmation) that explains or resolves it.",
-    hint:
-      "If the seller can’t show evidence, it’s reasonable to pause or negotiate based on uncertainty.",
-  };
-}
-
-function safeKey(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-/* =======================================================
    Page
 ======================================================= */
 export default function InPersonResults() {
@@ -343,7 +184,7 @@ export default function InPersonResults() {
 
   const evidenceSummary = (analysis as any).evidenceSummary;
   const evidenceText = pickFirstUsefulText(evidenceSummary);
-  const evidenceBulletsRaw = extractEvidenceBullets(evidenceSummary);
+  const evidenceBullets = extractEvidenceBullets(evidenceSummary);
 
   const askingPrice =
     typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
@@ -351,102 +192,66 @@ export default function InPersonResults() {
   const confidence = clamp(Number(analysis.confidenceScore ?? 0), 0, 100);
   const coverage = clamp(Number(analysis.completenessScore ?? 0), 0, 100);
 
-  const concernsCount = criticalRisks.length + moderateRisks.length;
-
-  const imperfectionsCount = Array.isArray(progress?.imperfections)
-    ? progress.imperfections.length
-    : 0;
-
   /* -------------------------------------------------------
      Verdict meta (tone + positioning)
   ------------------------------------------------------- */
   const verdictMeta = {
     proceed: {
       icon: <CheckCircle2 className="h-6 w-6 text-emerald-400" />,
-      title: "Proceed (with normal checks)",
+      title: "Buyer-safe: proceed (with normal checks)",
       tone: "border-emerald-500/40 bg-emerald-500/10",
+      posture:
+        "Nothing you recorded strongly suggests elevated risk. Confirm the basics, then proceed normally.",
       short: "Proceed normally",
     },
     caution: {
       icon: <AlertTriangle className="h-6 w-6 text-amber-400" />,
-      title: "Proceed after clarification",
+      title: "Buyer-safe: proceed only after clarification",
       tone: "border-amber-500/40 bg-amber-500/10",
+      posture:
+        "You recorded at least one meaningful concern or uncertainty. Clarify those items before committing.",
       short: "Clarify first",
     },
     "walk-away": {
-      icon: <XCircle className="h-6 w-6 text-rose-400" />,
-      title: "Pause / walk away is reasonable",
-      tone: "border-rose-500/40 bg-rose-500/10",
+      icon: <XCircle className="h-6 w-6 text-red-400" />,
+      title: "Buyer-safe: pause or walk away is reasonable",
+      tone: "border-red-500/40 bg-red-500/10",
+      posture:
+        "Your recorded evidence suggests elevated risk. If the seller can’t resolve key items, walking away is sensible.",
       short: "Pause / walk away",
     },
   }[analysis.verdict];
 
   /* -------------------------------------------------------
-     Curated signals (no duplicates / no “minor note” spam)
-  ------------------------------------------------------- */
-  const topSignals = useMemo(() => {
-    const out: Array<{ label: string; tone: SignalTone }> = [];
-
-    for (const r of criticalRisks.slice(0, 3)) {
-      if ((r.label || "").trim()) out.push({ label: r.label, tone: "critical" });
-    }
-    for (const r of moderateRisks.slice(0, 3)) {
-      if ((r.label || "").trim()) out.push({ label: r.label, tone: "moderate" });
-    }
-
-    if (out.length === 0 && uncertaintyFactors.length > 0) {
-      out.push({ label: "Some items were marked as unsure", tone: "unknown" });
-    }
-
-    const seen = new Set<string>();
-    const deduped: Array<{ label: string; tone: SignalTone }> = [];
-    for (const s of out) {
-      const key = (s.label || "").trim().toLowerCase();
-      if (!key) continue;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      deduped.push(s);
-    }
-
-    return deduped.slice(0, 6);
-  }, [criticalRisks, moderateRisks, uncertaintyFactors.length]);
-
-  /* -------------------------------------------------------
-     Buyer-first “what to do next” + “top priorities”
+     Guided “next steps” generation (no scripts)
   ------------------------------------------------------- */
   const nextSteps = useMemo(() => {
     const steps: string[] = [];
 
-    if (analysis.verdict === "walk-away") {
+    if (criticalRisks.length > 0) {
       steps.push(
-        "Start with the highest-impact items. If the seller can’t show evidence, pausing is sensible."
+        "Resolve the high-impact items first. If they can’t be verified with evidence, pausing is sensible."
       );
-    } else if (analysis.verdict === "caution") {
+    }
+
+    if (moderateRisks.length > 0) {
       steps.push(
-        "Clarify the items you flagged before committing. Evidence beats reassurance."
-      );
-    } else {
-      steps.push(
-        "Proceed normally, but still verify the basics: paperwork match, service proof, and warning lights."
+        "Clarify the items you flagged before committing (invoices, written confirmation, or independent inspection)."
       );
     }
 
     if (uncertaintyFactors.length > 0) {
-      steps.push("Treat unsure items as unknowns — verify them before you decide.");
-    }
-
-    if (!askingPrice) {
       steps.push(
-        "Add the asking price (optional) to help with price alignment on the summary page."
+        "Treat unsure items as unknowns — verify them before you decide."
       );
     }
 
     steps.push(
-      "If you’re short on time, prioritise evidence: service history, invoices, and written confirmation."
+      "Re-check the basics: identity + paperwork match, service proof, and any warning lights."
     );
 
     return steps.slice(0, 4);
-  }, [analysis.verdict, uncertaintyFactors.length, askingPrice]);
+  }, [criticalRisks.length, moderateRisks.length, uncertaintyFactors.length]);
 
   const clarifyQuestions = useMemo(() => {
     const qs: string[] = [];
@@ -454,6 +259,7 @@ export default function InPersonResults() {
     for (const r of [...criticalRisks, ...moderateRisks]) {
       const label = (r.label || "").trim();
       if (!label) continue;
+
       qs.push(
         `Can you show evidence that “${label}” is explained or resolved (invoice, inspection note, photos, or written confirmation)?`
       );
@@ -474,68 +280,65 @@ export default function InPersonResults() {
   }, [criticalRisks, moderateRisks, uncertaintyFactors.length]);
 
   const whyThisVerdict =
-    (analysis as any).whyThisVerdict || (analysis as any).verdictReason || "";
+    (analysis as any).whyThisVerdict ||
+    (analysis as any).verdictReason ||
+    "";
+
+  const topSignals = useMemo(() => {
+    const signals: Array<{
+      label: string;
+      tone: "critical" | "moderate" | "unknown";
+    }> = [];
+
+    for (const r of criticalRisks.slice(0, 2)) {
+      signals.push({ label: r.label, tone: "critical" });
+    }
+    for (const r of moderateRisks.slice(0, 2)) {
+      signals.push({ label: r.label, tone: "moderate" });
+    }
+
+    if (signals.length < 3 && uncertaintyFactors.length > 0) {
+      signals.push({ label: "Some items were marked as unsure", tone: "unknown" });
+    }
+
+    return signals.slice(0, 4);
+  }, [criticalRisks, moderateRisks, uncertaintyFactors.length]);
 
   const scoreBlurb = useMemo(() => {
     if (coverage < 40) {
-      return "You didn’t capture much coverage. This result is cautious by design — verify more before committing.";
+      return "Low coverage means this result is cautious by design. It’s still useful — but verify more before committing.";
     }
     if (confidence < 45) {
-      return "Confidence is moderate because at least one item needs verification. Use the checklist below to reduce uncertainty.";
+      return "Confidence is moderate because one or more items need verification. Use the checklist below to reduce uncertainty.";
     }
-    return "Confidence is based only on what you recorded. It doesn’t assume anything you didn’t check.";
+    return "Confidence reflects how consistent your recorded evidence was. It doesn’t assume anything you didn’t check.";
   }, [coverage, confidence]);
 
   /* -------------------------------------------------------
-     Guided meaning cards for each captured signal
+     Email report (simple + safe)
   ------------------------------------------------------- */
-  const guidedCards = useMemo(() => {
-    const items = [...criticalRisks, ...moderateRisks].slice(0, 8);
+  const emailSubject = `CarVerity in-person report — ${scanId}`;
+  const emailBodyLines: string[] = [
+    "Hi,",
+    "",
+    "Here’s my CarVerity in-person scan summary:",
+    "",
+    `Scan ID: ${scanId}`,
+    `Asking price: ${formatMoney(askingPrice)}`,
+    `Verdict: ${verdictMeta.short}`,
+    `Confidence: ${confidence}%`,
+    `Coverage: ${coverage}%`,
+    `Concerns flagged: ${analysis.risks.filter((r) => r.severity !== "info").length}`,
+    `Unsure items: ${uncertaintyFactors.length}`,
+    "",
+    "Tip: If you want the full report, open the scan and use “Print / save report”, then attach it to this email.",
+    "",
+    "— Sent from CarVerity",
+  ];
 
-    return items.map((r) => {
-      const label = (r.label || "").trim() || "Recorded item";
-      const tone: SignalTone = r.severity === "critical" ? "critical" : "moderate";
-      const meaning = buyerMeaningFromLabel(label);
-      const explanation = (r.explanation || "").trim();
-
-      return {
-        id: r.id || safeKey(label),
-        label,
-        tone,
-        meaning,
-        explanation,
-      };
-    });
-  }, [criticalRisks, moderateRisks]);
-
-  /* -------------------------------------------------------
-     Clean quick log (dedupe, remove “minor note” duplicates)
-  ------------------------------------------------------- */
-  const evidenceBullets = useMemo(() => {
-    const raw = evidenceBulletsRaw
-      .map((s) => s.replace(/\s+/g, " ").trim())
-      .filter(Boolean);
-
-    const cleaned = raw
-      .map((s) => s.replace(/^minor note:\s*/i, "").trim())
-      .map((s) =>
-        s
-          .replace(/\s*\(during the drive\)\s*/i, " ")
-          .replace(/\s+/g, " ")
-          .trim()
-      );
-
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const s of cleaned) {
-      const key = s.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(s);
-    }
-
-    return out;
-  }, [evidenceBulletsRaw]);
+  const mailtoHref = `mailto:?subject=${encodeURIComponent(
+    emailSubject
+  )}&body=${encodeURIComponent(emailBodyLines.join("\n"))}`;
 
   /* =======================================================
      UI
@@ -555,69 +358,22 @@ export default function InPersonResults() {
         </div>
       </header>
 
-      {/* EXECUTIVE OUTCOME */}
-      <section className={`rounded-2xl border px-8 py-8 space-y-6 ${verdictMeta.tone}`}>
+      {/* EXECUTIVE VERDICT */}
+      <section
+        className={`rounded-2xl border px-8 py-8 space-y-6 ${verdictMeta.tone}`}
+      >
         <div className="flex items-start gap-4">
           {verdictMeta.icon}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <h1 className="text-3xl font-semibold text-white leading-tight">
               {verdictMeta.title}
             </h1>
 
             <p className="text-[15px] leading-relaxed text-slate-200 max-w-3xl">
-              {outcomeOneLiner(analysis.verdict)}
+              {verdictMeta.posture}
             </p>
 
-            <Paragraph value={whyThisVerdict} tone="normal" />
-          </div>
-        </div>
-
-        {/* Buyer snapshot */}
-        <div className="rounded-2xl border border-white/12 bg-slate-950/30 px-5 py-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                Things to clarify
-              </div>
-              <div className="mt-1 text-2xl font-semibold text-white tabular-nums">
-                {concernsCount}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                Marked unsure
-              </div>
-              <div className="mt-1 text-2xl font-semibold text-white tabular-nums">
-                {uncertaintyFactors.length}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                Photos captured
-              </div>
-              <div className="mt-1 text-2xl font-semibold text-white tabular-nums">
-                {photos.length}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                Imperfections
-              </div>
-              <div className="mt-1 text-2xl font-semibold text-white tabular-nums">
-                {imperfectionsCount}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 flex items-start gap-2 text-slate-400">
-            <Info className="h-4 w-4 mt-0.5 text-slate-400" />
-            <p className="text-xs leading-relaxed">
-              These counts reflect what the report is acting on (things to clarify + unsure).
-              “Coverage” and “confidence” are still used internally, but this is the buyer-facing snapshot.
-            </p>
+            <Paragraph value={whyThisVerdict} />
           </div>
         </div>
 
@@ -626,24 +382,73 @@ export default function InPersonResults() {
           <div className="rounded-2xl border border-white/12 bg-slate-950/30 px-5 py-4">
             <div className="flex items-center gap-2 text-slate-200">
               <ShieldCheck className="h-4 w-4 text-slate-300" />
-              <p className="text-sm font-semibold">Key signals (from your inspection)</p>
+              <p className="text-sm font-semibold">
+                Key signals (from your inspection)
+              </p>
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              {topSignals.map((s, i) => (
-                <span
-                  key={i}
-                  className={[
-                    "inline-flex items-center rounded-full border px-3 py-1 text-xs",
-                    severityPillClasses(s.tone),
-                  ].join(" ")}
-                >
-                  {s.label}
-                </span>
-              ))}
+              {topSignals.map((s, i) => {
+                const pill =
+                  s.tone === "critical"
+                    ? "border-red-400/30 bg-red-500/10 text-red-200"
+                    : s.tone === "moderate"
+                    ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                    : "border-white/15 bg-white/5 text-slate-200";
+
+                return (
+                  <span
+                    key={i}
+                    className={[
+                      "inline-flex items-center rounded-full border px-3 py-1 text-xs",
+                      pill,
+                    ].join(" ")}
+                  >
+                    {s.label}
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-2">
+          <div>
+            <div className="flex items-center gap-2 text-slate-400">
+              <BarChart3 className="h-4 w-4" />
+              <span className="text-xs uppercase tracking-wide">Confidence</span>
+            </div>
+            <p className="mt-1 text-2xl font-semibold text-white">{confidence}%</p>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 text-slate-400">
+              <Eye className="h-4 w-4" />
+              <span className="text-xs uppercase tracking-wide">Coverage</span>
+            </div>
+            <p className="mt-1 text-2xl font-semibold text-white">{coverage}%</p>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 text-slate-400">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="text-xs uppercase tracking-wide">Concerns</span>
+            </div>
+            <p className="mt-1 text-2xl font-semibold text-white">
+              {analysis.risks.filter((r) => r.severity !== "info").length}
+            </p>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 text-slate-400">
+              <HelpCircle className="h-4 w-4" />
+              <span className="text-xs uppercase tracking-wide">Unsure</span>
+            </div>
+            <p className="mt-1 text-2xl font-semibold text-white">
+              {uncertaintyFactors.length}
+            </p>
+          </div>
+        </div>
 
         <p className="text-xs text-slate-400">{scoreBlurb}</p>
       </section>
@@ -657,7 +462,8 @@ export default function InPersonResults() {
 
         <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6 space-y-4">
           <p className="text-sm text-slate-400">
-            This is calm guidance based only on what you recorded. It avoids hype and avoids assumptions.
+            This is calm guidance based only on what you recorded. It avoids hype and
+            avoids assumptions.
           </p>
 
           <BulletList items={nextSteps} />
@@ -681,83 +487,6 @@ export default function InPersonResults() {
         </div>
       </section>
 
-      {/* “WHAT THIS MEANS” */}
-      {guidedCards.length > 0 && (
-        <section className="space-y-6">
-          <h2 className="text-lg font-semibold text-slate-200">
-            What your signals most likely mean (plain English)
-          </h2>
-
-          <div className="space-y-4">
-            {guidedCards.map((c) => {
-              const pill = severityPillClasses(c.tone);
-
-              return (
-                <div
-                  key={c.id}
-                  className="rounded-2xl border border-white/12 bg-slate-900/55 px-6 py-6 space-y-3"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-base font-semibold text-white">{c.label}</p>
-                    <span
-                      className={[
-                        "inline-flex items-center rounded-full border px-3 py-1 text-xs",
-                        pill,
-                      ].join(" ")}
-                    >
-                      {c.tone === "critical"
-                        ? "Higher impact"
-                        : c.tone === "moderate"
-                        ? "Worth clarifying"
-                        : "Unknown"}
-                    </span>
-                  </div>
-
-                  {c.explanation ? (
-                    <Paragraph value={c.explanation} tone="normal" />
-                  ) : (
-                    <Paragraph value={c.meaning.meaning} tone="normal" />
-                  )}
-
-                  <div className="grid gap-3 md:grid-cols-3 pt-1">
-                    <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                        What it could mean
-                      </div>
-                      <p className="mt-2 text-sm text-slate-200 leading-relaxed">
-                        {c.meaning.meaning}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                        What to ask
-                      </div>
-                      <p className="mt-2 text-sm text-slate-200 leading-relaxed">
-                        {c.meaning.ask}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                      <div className="text-[11px] uppercase tracking-wide text-slate-500">
-                        Price impact hint
-                      </div>
-                      <p className="mt-2 text-sm text-slate-200 leading-relaxed">
-                        {c.meaning.hint}
-                      </p>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-slate-500">
-                    Buyer-safe note: this does not diagnose the car — it highlights what to verify.
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {/* CLARIFY WITH SELLER */}
       <section className="space-y-6">
         <h2 className="text-lg font-semibold text-slate-200">
@@ -772,6 +501,51 @@ export default function InPersonResults() {
           <BulletList items={clarifyQuestions} />
         </div>
       </section>
+
+      {/* PRIORITY FINDINGS */}
+      {criticalRisks.length > 0 && (
+        <section className="space-y-6">
+          <h2 className="text-lg font-semibold text-slate-200">
+            High-impact items (resolve these first)
+          </h2>
+
+          <div className="space-y-4">
+            {criticalRisks.map((r) => (
+              <div
+                key={r.id}
+                className="rounded-2xl border border-white/10 bg-slate-900/60 px-6 py-5"
+              >
+                <p className="text-base font-semibold text-white">{r.label}</p>
+                <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
+                  {r.explanation}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {moderateRisks.length > 0 && (
+        <section className="space-y-6">
+          <h2 className="text-lg font-semibold text-slate-200">
+            Items worth clarifying
+          </h2>
+
+          <div className="space-y-4">
+            {moderateRisks.map((r) => (
+              <div
+                key={r.id}
+                className="rounded-2xl border border-white/10 bg-slate-900/50 px-6 py-5"
+              >
+                <p className="text-base font-medium text-slate-100">{r.label}</p>
+                <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
+                  {r.explanation}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* DECLARED UNCERTAINTY */}
       {uncertaintyFactors.length > 0 && (
@@ -788,7 +562,8 @@ export default function InPersonResults() {
             </ul>
 
             <p className="text-xs text-slate-500 mt-4">
-              Unsure means unknown — not “safe” and not “dangerous”. Treat it as a prompt to verify.
+              Unsure means unknown — not “safe” and not “dangerous”. Treat it as a
+              prompt to verify.
             </p>
           </div>
         </section>
@@ -800,10 +575,11 @@ export default function InPersonResults() {
 
         <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-5">
           {evidenceText ? (
-            <Paragraph value={evidenceText} tone="normal" />
+            <Paragraph value={evidenceText} />
           ) : (
             <p className="text-[14px] text-slate-400">
-              No written evidence summary was generated — your selections and photos were still used to form the result.
+              No written evidence summary was generated — your selections and photos
+              were still used to form the result.
             </p>
           )}
 
@@ -818,27 +594,33 @@ export default function InPersonResults() {
 
           <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
             <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-              Confidence (how cautious this is)
+              Coverage snapshot
             </div>
-            <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm text-slate-300">
+            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm text-slate-300">
               <div>
-                <div className="text-slate-500 text-xs">Confidence</div>
-                <div className="text-white font-semibold">{confidence}%</div>
+                <div className="text-slate-500 text-xs">Photos</div>
+                <div className="text-white font-semibold">{photos.length}</div>
+              </div>
+              <div>
+                <div className="text-slate-500 text-xs">Concerns</div>
+                <div className="text-white font-semibold">
+                  {analysis.risks.filter((r) => r.severity !== "info").length}
+                </div>
+              </div>
+              <div>
+                <div className="text-slate-500 text-xs">Unsure</div>
+                <div className="text-white font-semibold">{uncertaintyFactors.length}</div>
               </div>
               <div>
                 <div className="text-slate-500 text-xs">Coverage</div>
                 <div className="text-white font-semibold">{coverage}%</div>
               </div>
-              <div>
-                <div className="text-slate-500 text-xs">Items to clarify</div>
-                <div className="text-white font-semibold">{concernsCount}</div>
-              </div>
             </div>
           </div>
 
           <p className="text-xs text-slate-500 max-w-3xl">
-            This assessment uses only what you recorded and what you explicitly marked as unsure.
-            Missing items are treated as “not recorded”, not as risk.
+            This assessment uses only what you recorded and what you explicitly marked
+            as unsure. Missing items are treated as “not recorded”, not as risk.
           </p>
         </div>
       </section>
@@ -854,7 +636,7 @@ export default function InPersonResults() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {photos.map((src, i) => (
               <img
-                key={`${safeKey(src)}-${i}`}
+                key={i}
                 src={src}
                 alt={`Inspection photo ${i + 1}`}
                 className="rounded-xl border border-white/10 object-cover aspect-square"
@@ -868,21 +650,75 @@ export default function InPersonResults() {
         )}
       </section>
 
-      {/* ACTIONS */}
-      <section className="space-y-4 pt-2">
-        <button
-          onClick={() => navigate("/scan/in-person/decision")}
-          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 text-base"
-        >
-          Decision & next steps
-        </button>
+      {/* =======================================================
+          THE ENDING (closure panel)
+      ======================================================= */}
+      <section className="space-y-5 pt-2">
+        <div className="rounded-2xl border border-white/12 bg-slate-950/35 px-7 py-7">
+          <div className="flex flex-wrap items-start justify-between gap-6">
+            <div className="space-y-2">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
+                Your next move
+              </p>
+              <h3 className="text-xl font-semibold text-white leading-tight">
+                You’re done — now decide with confidence
+              </h3>
+              <p className="text-sm text-slate-400 max-w-2xl">
+                CarVerity doesn’t “fill in gaps”. It only reflects what you recorded.
+                If something feels unclear, it’s okay to pause and verify before committing.
+              </p>
+            </div>
 
-        <button
-          onClick={() => navigate("/scan/in-person/print")}
-          className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
-        >
-          Print / save report
-        </button>
+            <div className="rounded-xl border border-white/10 bg-slate-900/50 px-4 py-3">
+              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                Outcome
+              </div>
+              <div className="mt-1 text-sm font-semibold text-slate-100">
+                {verdictMeta.short}
+              </div>
+              <div className="mt-1 text-xs text-slate-400">
+                Confidence {confidence}% · Coverage {coverage}%
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <button
+              onClick={() => navigate("/scan/in-person/decision")}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 text-sm"
+            >
+              Open decision guide
+              <ArrowRight className="h-4 w-4" />
+            </button>
+
+            <button
+              onClick={() => navigate("/scan/in-person/print")}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-3 text-sm"
+            >
+              Print / save report
+            </button>
+
+            <a
+              href={mailtoHref}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 px-4 py-3 text-sm"
+            >
+              <Mail className="h-4 w-4" />
+              Email report
+            </a>
+
+            <button
+              onClick={() => navigate("/start")}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 px-4 py-3 text-sm"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Start a new scan
+            </button>
+          </div>
+
+          <div className="mt-5 text-xs text-slate-500">
+            Tip: If the seller pressures you to rush, treat that as a signal to slow down.
+          </div>
+        </div>
       </section>
     </div>
   );
