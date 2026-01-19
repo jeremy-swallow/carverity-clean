@@ -35,6 +35,42 @@ function appendChip(existing: string | undefined, chip: string) {
   return `${current}${current.endsWith(".") ? " " : ". "}${clean}`;
 }
 
+/**
+ * Build progress.imperfections[] from existing progress.checks
+ * WITHOUT asking the user to enter anything twice.
+ *
+ * Rule:
+ * - Only "concern" answers become imperfections
+ * - label = check title
+ * - note = check note (if any)
+ * - severity = minor (default)
+ */
+function buildImperfectionsFromChecks(
+  checks: Record<string, CheckAnswer>,
+  checkConfigs: CheckItem[],
+  locationLabel: string
+) {
+  const byId = new Map<string, CheckItem>();
+  for (const c of checkConfigs) byId.set(c.id, c);
+
+  const imperfections = Object.entries(checks || [])
+    .filter(([_, a]) => a?.value === "concern")
+    .map(([id, a]) => {
+      const cfg = byId.get(id);
+      const label = cfg?.title || id;
+
+      return {
+        id: `imp:${id}`,
+        label,
+        severity: "minor" as const,
+        location: locationLabel,
+        note: (a?.note ?? "").trim() || undefined,
+      };
+    });
+
+  return imperfections;
+}
+
 export default function InPersonChecksInsideCabin() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
@@ -61,45 +97,6 @@ export default function InPersonChecksInsideCabin() {
   const currentIndex = 1; // inside
   const percent = Math.round(((currentIndex + 1) / steps.length) * 100);
 
-  /* -------------------------------------------------------
-     Persist progress
-  ------------------------------------------------------- */
-  useEffect(() => {
-    saveProgress({
-      ...(progress ?? {}),
-      step: "/scan/in-person/checks/inside",
-      checks: answers,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answers]);
-
-  function setAnswer(id: string, value: AnswerValue) {
-    setAnswers((p) => ({ ...p, [id]: { ...p[id], value } }));
-
-    // If OK, collapse note UI to reduce clutter
-    if (value === "ok") {
-      setNoteOpen((p) => ({ ...p, [id]: false }));
-    }
-  }
-
-  function setNote(id: string, note: string) {
-    setAnswers((p) => ({ ...p, [id]: { ...p[id], note } }));
-  }
-
-  function addChip(id: string, chip: string) {
-    setAnswers((p) => {
-      const existing = p[id]?.note ?? "";
-      const next = appendChip(existing, chip);
-      return { ...p, [id]: { ...p[id], note: next } };
-    });
-    setNoteOpen((p) => ({ ...p, [id]: true }));
-  }
-
-  function clearNote(id: string) {
-    setAnswers((p) => ({ ...p, [id]: { ...p[id], note: "" } }));
-    setNoteOpen((p) => ({ ...p, [id]: false }));
-  }
-
   const checks: CheckItem[] = useMemo(
     () => [
       {
@@ -114,11 +111,7 @@ export default function InPersonChecksInsideCabin() {
             "Strong smoke smell",
             "Aircon smell",
           ],
-          unsure: [
-            "Couldn’t check boot area",
-            "Raining / wet day",
-            "Short inspection",
-          ],
+          unsure: ["Couldn’t check boot area", "Raining / wet day", "Short inspection"],
         },
       },
       {
@@ -154,6 +147,70 @@ export default function InPersonChecksInsideCabin() {
     ],
     []
   );
+
+  /* -------------------------------------------------------
+     Persist progress + auto-build imperfections
+  ------------------------------------------------------- */
+  useEffect(() => {
+    const existingImperfections = Array.isArray(progress?.imperfections)
+      ? progress.imperfections
+      : [];
+
+    const aroundSet = new Set<string>();
+    for (const imp of existingImperfections) {
+      const loc = String((imp as any)?.location ?? "").toLowerCase();
+      if (loc.includes("around")) aroundSet.add(String((imp as any)?.id ?? ""));
+    }
+
+    const insideImperfections = buildImperfectionsFromChecks(
+      answers,
+      checks,
+      "Inside the cabin"
+    );
+
+    // Keep around-car imperfections if they already exist,
+    // then add/replace inside-cabin derived imperfections.
+    const kept = existingImperfections.filter((imp: any) =>
+      aroundSet.has(String(imp?.id ?? ""))
+    );
+
+    const merged = [...kept, ...insideImperfections];
+
+    saveProgress({
+      ...(progress ?? {}),
+      step: "/scan/in-person/checks/inside",
+      checks: answers,
+      imperfections: merged,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, checks]);
+
+  function setAnswer(id: string, value: AnswerValue) {
+    setAnswers((p) => ({ ...p, [id]: { ...p[id], value } }));
+
+    // If OK, collapse note UI to reduce clutter
+    if (value === "ok") {
+      setNoteOpen((p) => ({ ...p, [id]: false }));
+    }
+  }
+
+  function setNote(id: string, note: string) {
+    setAnswers((p) => ({ ...p, [id]: { ...p[id], note } }));
+  }
+
+  function addChip(id: string, chip: string) {
+    setAnswers((p) => {
+      const existing = p[id]?.note ?? "";
+      const next = appendChip(existing, chip);
+      return { ...p, [id]: { ...p[id], note: next } };
+    });
+    setNoteOpen((p) => ({ ...p, [id]: true }));
+  }
+
+  function clearNote(id: string) {
+    setAnswers((p) => ({ ...p, [id]: { ...p[id], note: "" } }));
+    setNoteOpen((p) => ({ ...p, [id]: false }));
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">

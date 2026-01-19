@@ -32,6 +32,42 @@ function mergeNote(existing: string | undefined, addition: string) {
   return `${base}\n${add}`;
 }
 
+/**
+ * Build progress.imperfections[] from existing progress.checks
+ * WITHOUT asking the user to enter anything twice.
+ *
+ * Rule:
+ * - Only "concern" answers become imperfections
+ * - label = check title
+ * - note = check note (if any)
+ * - severity = minor (default)
+ */
+function buildImperfectionsFromChecks(
+  checks: Record<string, CheckAnswer>,
+  checkConfigs: CheckConfig[],
+  locationLabel: string
+) {
+  const byId = new Map<string, CheckConfig>();
+  for (const c of checkConfigs) byId.set(c.id, c);
+
+  const imperfections = Object.entries(checks || [])
+    .filter(([_, a]) => a?.value === "concern")
+    .map(([id, a]) => {
+      const cfg = byId.get(id);
+      const label = cfg?.title || id;
+
+      return {
+        id: `imp:${id}`,
+        label,
+        severity: "minor" as const,
+        location: locationLabel,
+        note: (a?.note ?? "").trim() || undefined,
+      };
+    });
+
+  return imperfections;
+}
+
 export default function InPersonChecksDrive() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
@@ -39,66 +75,6 @@ export default function InPersonChecksDrive() {
   const [answers, setAnswers] = useState<Record<string, CheckAnswer>>(
     progress?.checks ?? {}
   );
-
-  /* -------------------------------------------------------
-     Progress indicator (checks corridor only)
-  ------------------------------------------------------- */
-  const steps = useMemo(
-    () => [
-      { key: "around", label: "Around" },
-      { key: "inside", label: "Inside" },
-      { key: "drive", label: "Drive" },
-    ],
-    []
-  );
-
-  const currentIndex = 2; // drive
-  const percent = Math.round(((currentIndex + 1) / steps.length) * 100);
-
-  /* -------------------------------------------------------
-     Persist progress
-  ------------------------------------------------------- */
-  useEffect(() => {
-    saveProgress({
-      ...(progress ?? {}),
-      step: "/scan/in-person/checks/drive",
-      checks: answers,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answers]);
-
-  function setAnswer(id: string, value: AnswerValue) {
-    setAnswers((p) => {
-      const prev = p[id];
-      const prevValue = prev?.value;
-
-      // If switching between answer types, wipe note so old chips don't carry over
-      // This prevents "Couldn't check" text sticking around when they later say they DID drive.
-      const switchingType =
-        prevValue && prevValue !== value && (prev?.note?.trim()?.length ?? 0) > 0;
-
-      return {
-        ...p,
-        [id]: {
-          ...prev,
-          value,
-          note: switchingType ? "" : prev?.note,
-        },
-      };
-    });
-  }
-
-  function setNote(id: string, note: string) {
-    setAnswers((p) => ({ ...p, [id]: { ...p[id], note } }));
-  }
-
-  function applyChip(id: string, chip: string) {
-    setAnswers((p) => {
-      const existing = p[id]?.note ?? "";
-      const next = mergeNote(existing, chip);
-      return { ...p, [id]: { ...p[id], note: next } };
-    });
-  }
 
   const checks: CheckConfig[] = [
     {
@@ -141,6 +117,99 @@ export default function InPersonChecksDrive() {
       quickUnsure: ["Not fitted / unsure", "Didn’t test"],
     },
   ];
+
+  /* -------------------------------------------------------
+     Progress indicator (checks corridor only)
+  ------------------------------------------------------- */
+  const steps = useMemo(
+    () => [
+      { key: "around", label: "Around" },
+      { key: "inside", label: "Inside" },
+      { key: "drive", label: "Drive" },
+    ],
+    []
+  );
+
+  const currentIndex = 2; // drive
+  const percent = Math.round(((currentIndex + 1) / steps.length) * 100);
+
+  /* -------------------------------------------------------
+     Persist progress + auto-build imperfections
+  ------------------------------------------------------- */
+  useEffect(() => {
+    const existingImperfections = Array.isArray(progress?.imperfections)
+      ? progress.imperfections
+      : [];
+
+    // Keep around + inside imperfections if they already exist,
+    // then add/replace drive-derived imperfections.
+    const kept = existingImperfections.filter((imp: any) => {
+      const id = String(imp?.id ?? "");
+      const loc = String(imp?.location ?? "").toLowerCase();
+
+      // Keep anything that isn't drive-derived
+      if (id.startsWith("imp:steering")) return false;
+      if (id.startsWith("imp:noise-hesitation")) return false;
+      if (id.startsWith("imp:adas-systems")) return false;
+
+      // Also keep anything explicitly tagged as around/inside
+      if (loc.includes("around")) return true;
+      if (loc.includes("inside")) return true;
+
+      // Keep anything else too (future-proof)
+      return true;
+    });
+
+    const driveImperfections = buildImperfectionsFromChecks(
+      answers,
+      checks,
+      "During the drive"
+    );
+
+    const merged = [...kept, ...driveImperfections];
+
+    saveProgress({
+      ...(progress ?? {}),
+      step: "/scan/in-person/checks/drive",
+      checks: answers,
+      imperfections: merged,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers]);
+
+  function setAnswer(id: string, value: AnswerValue) {
+    setAnswers((p) => {
+      const prev = p[id];
+      const prevValue = prev?.value;
+
+      // If switching between answer types, wipe note so old chips don't carry over
+      const switchingType =
+        prevValue &&
+        prevValue !== value &&
+        (prev?.note?.trim()?.length ?? 0) > 0;
+
+      return {
+        ...p,
+        [id]: {
+          ...prev,
+          value,
+          note: switchingType ? "" : prev?.note,
+        },
+      };
+    });
+  }
+
+  function setNote(id: string, note: string) {
+    setAnswers((p) => ({ ...p, [id]: { ...p[id], note } }));
+  }
+
+  function applyChip(id: string, chip: string) {
+    setAnswers((p) => {
+      const existing = p[id]?.note ?? "";
+      const next = mergeNote(existing, chip);
+      return { ...p, [id]: { ...p[id], note: next } };
+    });
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
