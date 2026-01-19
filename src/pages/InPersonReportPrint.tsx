@@ -132,18 +132,6 @@ function safeDateLabel(value: unknown): string {
   }
 }
 
-function safeVehicleTitle(progress: any): string {
-  const year =
-    progress?.vehicle?.year || progress?.year || progress?.vehicleYear || "";
-  const make =
-    progress?.vehicle?.make || progress?.make || progress?.vehicleMake || "";
-  const model =
-    progress?.vehicle?.model || progress?.model || progress?.vehicleModel || "";
-
-  const parts = [year, make, model].filter(Boolean);
-  return parts.length ? parts.join(" ") : "Vehicle";
-}
-
 /* -------------------------------------------------------
    Page
 ------------------------------------------------------- */
@@ -168,7 +156,20 @@ export default function InPersonReportPrint() {
   const scanId = progress?.scanId ?? "—";
   const reportDate = safeDateLabel(progress?.createdAt ?? progress?.date);
 
-  const vehicleTitle = safeVehicleTitle(progress);
+  const vehicleTitle = (() => {
+    const year =
+      progress?.vehicle?.year || progress?.year || progress?.vehicleYear || "";
+    const make =
+      progress?.vehicle?.make || progress?.make || progress?.vehicleMake || "";
+    const model =
+      progress?.vehicle?.model ||
+      progress?.model ||
+      progress?.vehicleModel ||
+      "";
+
+    const parts = [year, make, model].filter(Boolean);
+    return parts.length ? parts.join(" ") : "Vehicle";
+  })();
 
   const askingPrice =
     typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
@@ -216,21 +217,21 @@ export default function InPersonReportPrint() {
 
   return (
     <div className="print-body bg-white text-black min-h-screen">
-      <div className="max-w-3xl mx-auto px-10 py-14 space-y-10 print-container">
+      <div className="print-page max-w-3xl mx-auto px-10 py-14 space-y-10">
         {/* =====================================================
             HEADER
         ===================================================== */}
-        <header className="space-y-4 border-b border-black/20 pb-6 print-avoid-break">
+        <header className="print-block space-y-4 border-b border-black/20 pb-6">
           <div className="flex items-start justify-between gap-6">
             <div className="min-w-[240px]">
               <div className="flex items-center gap-3">
                 <img
                   src="/logo.png"
                   alt="CarVerity"
-                  className="h-7 w-auto object-contain"
+                  className="h-7 w-7 object-contain"
                 />
                 <p className="text-xs uppercase tracking-[0.18em] text-black/50">
-                  In-person report
+                  CarVerity — In-person report
                 </p>
               </div>
 
@@ -264,7 +265,7 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             EXECUTIVE VERDICT
         ===================================================== */}
-        <section className="space-y-3 print-avoid-break">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Executive verdict
           </h2>
@@ -294,7 +295,7 @@ export default function InPersonReportPrint() {
             </span>
           </div>
 
-          <div className="border border-black/15 bg-black/5 px-5 py-4 text-sm print-avoid-break">
+          <div className="border border-black/15 bg-black/5 px-5 py-4 text-sm">
             <p className="font-semibold">How to save this report</p>
             <p className="text-black/70 mt-1 leading-relaxed">
               In the print dialog, choose <strong>Save as PDF</strong> (desktop)
@@ -306,7 +307,7 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             EVIDENCE BASIS
         ===================================================== */}
-        <section className="space-y-3 print-avoid-break">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Evidence considered
           </h2>
@@ -322,7 +323,7 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             PRIORITY FINDINGS
         ===================================================== */}
-        <section className="space-y-3">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Priority findings
           </h2>
@@ -332,7 +333,7 @@ export default function InPersonReportPrint() {
               {priorityRisks.map((r) => (
                 <li
                   key={r.id}
-                  className="border border-black/15 px-5 py-4 print-avoid-break"
+                  className="print-card border border-black/15 px-5 py-4"
                 >
                   <p className="text-sm font-semibold">
                     {r.label}{" "}
@@ -356,7 +357,7 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             ITEMS WORTH CLARIFYING
         ===================================================== */}
-        <section className="space-y-3">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Items worth clarifying
           </h2>
@@ -366,7 +367,7 @@ export default function InPersonReportPrint() {
               {moderateRisks.map((r) => (
                 <li
                   key={r.id}
-                  className="border border-black/15 px-5 py-4 print-avoid-break"
+                  className="print-card border border-black/15 px-5 py-4"
                 >
                   <p className="text-sm font-semibold">
                     {r.label}{" "}
@@ -390,7 +391,7 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             DECLARED UNCERTAINTY
         ===================================================== */}
-        <section className="space-y-3 print-avoid-break">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Buyer-declared uncertainty
           </h2>
@@ -417,7 +418,7 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             HOW RISK WAS WEIGHED
         ===================================================== */}
-        <section className="space-y-3 print-avoid-break">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             How risk was weighed
           </h2>
@@ -428,7 +429,7 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             BUYER POSITIONING (NO NEGOTIATION)
         ===================================================== */}
-        <section className="space-y-3 print-avoid-break">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Buyer-safe posture
           </h2>
@@ -440,7 +441,7 @@ export default function InPersonReportPrint() {
             }
           />
 
-          <div className="border border-black/15 bg-black/5 px-5 py-4 text-sm print-avoid-break">
+          <div className="border border-black/15 bg-black/5 px-5 py-4 text-sm">
             <p className="font-semibold">Reminder</p>
             <p className="text-black/70 mt-1 leading-relaxed">
               This report does not include negotiation scripts. It focuses on
@@ -452,7 +453,7 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             PHOTO EVIDENCE
         ===================================================== */}
-        <section className="space-y-3">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Photo evidence
           </h2>
@@ -460,11 +461,11 @@ export default function InPersonReportPrint() {
           {photos.length > 0 ? (
             <div className="grid grid-cols-3 gap-4">
               {photos.map((src, i) => (
-                <figure key={i} className="space-y-1 print-avoid-break">
+                <figure key={i} className="print-card space-y-1">
                   <img
                     src={src}
                     alt={`Inspection photo ${i + 1}`}
-                    className="border border-black/20 object-cover aspect-square"
+                    className="border border-black/20 object-cover aspect-square w-full"
                   />
                   <figcaption className="text-[11px] text-black/50">
                     Buyer-captured inspection photo {i + 1}
@@ -482,7 +483,7 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             DISCLAIMER
         ===================================================== */}
-        <div className="border border-black/20 bg-black/5 px-6 py-4 text-xs leading-relaxed print-avoid-break">
+        <div className="print-block border border-black/20 bg-black/5 px-6 py-4 text-xs leading-relaxed">
           This document is not a mechanical inspection, defect report, or
           valuation. It reflects buyer-recorded observations only and should be
           used alongside professional inspections and independent checks.
@@ -509,60 +510,58 @@ export default function InPersonReportPrint() {
       </div>
 
       <style>{`
-        /* =========================
-           Print safety + A4 layout
-        ========================== */
+        /* ===== Print rules that stop the browser doing ugly page splits ===== */
 
-        /* Prevent accidental horizontal overflow causing cut-off */
+        /* Force the print page to be its own clean document (no app chrome). */
         .print-body {
-          overflow-x: hidden;
+          background: white;
         }
 
-        /* Help browsers calculate print sizes correctly */
+        /* Avoid weird scaling differences between Chrome/Safari */
+        * {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
         @page {
           size: A4;
           margin: 14mm;
         }
 
         @media print {
-          /* Hide buttons */
-          .no-print { display: none !important; }
-
-          /* Ensure full width uses printable area */
           html, body {
             background: white !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
           }
 
-          /* Prevent Tailwind max-width + padding from causing cutoff */
-          .print-container {
+          /* Hide any nav/layout that might still render */
+          header, footer, nav {
+            display: none !important;
+          }
+
+          .no-print {
+            display: none !important;
+          }
+
+          .print-page {
+            padding: 0 !important;
+            margin: 0 auto !important;
             max-width: none !important;
-            width: 100% !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
           }
 
-          /* Avoid splitting important blocks across pages */
-          .print-avoid-break {
+          /* Prevent sections/cards/images from being cut in half */
+          .print-block,
+          .print-card,
+          section,
+          figure,
+          img {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
 
-          /* Keep headings with content */
+          /* Give headings a little breathing room so they don't orphan */
           h1, h2, h3 {
-            break-after: avoid-page !important;
+            break-after: avoid !important;
             page-break-after: avoid !important;
-          }
-
-          section {
-            break-inside: avoid;
-            page-break-inside: avoid;
-          }
-
-          img {
-            max-width: 100% !important;
-            height: auto !important;
           }
         }
       `}</style>
