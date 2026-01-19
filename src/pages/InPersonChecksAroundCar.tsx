@@ -56,52 +56,44 @@ function splitLines(note?: string) {
     .filter(Boolean);
 }
 
+/**
+ * Build progress.imperfections[] from existing progress.checks
+ * WITHOUT asking the user to enter anything twice.
+ *
+ * Rule:
+ * - Only "concern" answers become imperfections
+ * - label = check title
+ * - note = check note (if any)
+ * - severity = minor (default)
+ */
+function buildImperfectionsFromChecks(
+  checks: Record<string, CheckAnswer>,
+  checkConfigs: CheckConfig[]
+) {
+  const byId = new Map<string, CheckConfig>();
+  for (const c of checkConfigs) byId.set(c.id, c);
+
+  const imperfections = Object.entries(checks || [])
+    .filter(([_, a]) => a?.value === "concern")
+    .map(([id, a]) => {
+      const cfg = byId.get(id);
+      const label = cfg?.title || id;
+
+      return {
+        id: `imp:${id}`,
+        label,
+        severity: "minor" as const,
+        location: "Around the car",
+        note: (a?.note ?? "").trim() || undefined,
+      };
+    });
+
+  return imperfections;
+}
+
 export default function InPersonChecksAroundCar() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
-
-  const [answers, setAnswers] = useState<Record<string, CheckAnswer>>(
-    progress?.checks ?? {}
-  );
-
-  useEffect(() => {
-    saveProgress({
-      ...(progress ?? {}),
-      step: "/scan/in-person/checks/around",
-      checks: answers,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answers]);
-
-  function setAnswer(id: string, value: AnswerValue) {
-    setAnswers((p) => {
-      const prev = p[id];
-
-      // If user switches back to OK, keep note but it won't show unless note exists
-      return { ...p, [id]: { ...prev, value } };
-    });
-  }
-
-  function setNote(id: string, note: string) {
-    setAnswers((p) => ({ ...p, [id]: { ...p[id], note } }));
-  }
-
-  function toggleChip(id: string, chipText: string) {
-    setAnswers((p) => {
-      const prev = p[id] ?? { value: "ok" as AnswerValue, note: "" };
-      const lines = splitLines(prev.note);
-
-      const already = lines.some(
-        (l) => l.toLowerCase() === chipText.toLowerCase()
-      );
-
-      const nextNote = already
-        ? removeLine(prev.note, chipText)
-        : mergeNote(prev.note, chipText);
-
-      return { ...p, [id]: { ...prev, note: nextNote } };
-    });
-  }
 
   const checks: CheckConfig[] = useMemo(
     () => [
@@ -157,6 +149,52 @@ export default function InPersonChecksAroundCar() {
     []
   );
 
+  const [answers, setAnswers] = useState<Record<string, CheckAnswer>>(
+    progress?.checks ?? {}
+  );
+
+  useEffect(() => {
+    const imperfections = buildImperfectionsFromChecks(answers, checks);
+
+    saveProgress({
+      ...(progress ?? {}),
+      step: "/scan/in-person/checks/around",
+      checks: answers,
+      imperfections,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, checks]);
+
+  function setAnswer(id: string, value: AnswerValue) {
+    setAnswers((p) => {
+      const prev = p[id];
+
+      // Keep note even if switching to OK (fine)
+      return { ...p, [id]: { ...prev, value } };
+    });
+  }
+
+  function setNote(id: string, note: string) {
+    setAnswers((p) => ({ ...p, [id]: { ...p[id], note } }));
+  }
+
+  function toggleChip(id: string, chipText: string) {
+    setAnswers((p) => {
+      const prev = p[id] ?? { value: "ok" as AnswerValue, note: "" };
+      const lines = splitLines(prev.note);
+
+      const already = lines.some(
+        (l) => l.toLowerCase() === chipText.toLowerCase()
+      );
+
+      const nextNote = already
+        ? removeLine(prev.note, chipText)
+        : mergeNote(prev.note, chipText);
+
+      return { ...p, [id]: { ...prev, note: nextNote } };
+    });
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
       <div className="flex items-center gap-3">
@@ -164,7 +202,8 @@ export default function InPersonChecksAroundCar() {
         <div>
           <h1 className="text-2xl font-semibold text-white">Around the car</h1>
           <p className="text-sm text-slate-400 mt-1">
-            Tap the best match. If something stood out, pick a quick note (or add your own).
+            Tap the best match. If something stood out, pick a quick note (or
+            add your own).
           </p>
         </div>
       </div>
@@ -221,7 +260,6 @@ export default function InPersonChecksAroundCar() {
               </button>
             </div>
 
-            {/* Quick chips (only when relevant) */}
             {current?.value === "concern" && c.quickConcerns.length > 0 && (
               <div className="space-y-2">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
@@ -282,8 +320,9 @@ export default function InPersonChecksAroundCar() {
               </div>
             )}
 
-            {/* Note box (optional, but only shown when it matters) */}
-            {(current?.value === "concern" || current?.value === "unsure" || current?.note) && (
+            {(current?.value === "concern" ||
+              current?.value === "unsure" ||
+              current?.note) && (
               <textarea
                 value={current?.note ?? ""}
                 onChange={(e) => setNote(c.id, e.target.value)}
