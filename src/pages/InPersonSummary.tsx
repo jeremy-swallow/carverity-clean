@@ -13,7 +13,11 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
+import {
+  loadProgress,
+  clearProgress,
+  saveProgress,
+} from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
 
 type PricingVerdict = "missing" | "info" | "room" | "concern";
@@ -61,28 +65,18 @@ function countUnsure(checks: Record<string, any>) {
     .length;
 }
 
-function severityWeight(s?: string) {
-  if (s === "major") return 3;
-  if (s === "moderate") return 2;
-  return 1; // minor/default
-}
-
-function sumImperfectionWeight(imps: any[]) {
-  return (imps || []).reduce((acc, it) => acc + severityWeight(it?.severity), 0);
-}
-
 function getPricingVerdict(args: {
   askingPrice?: number | null;
   concerns: number;
   unsure: number;
-  imperfectionWeight: number;
+  issuesRecorded: number;
 }): PricingVerdict {
-  const { askingPrice, concerns, unsure, imperfectionWeight } = args;
+  const { askingPrice, concerns, unsure, issuesRecorded } = args;
 
   if (!askingPrice || askingPrice <= 0) return "missing";
 
   // Heuristic: more issues => price sensitivity increases
-  const issueScore = concerns * 2 + unsure * 1 + imperfectionWeight * 0.75;
+  const issueScore = concerns * 2 + unsure * 1 + issuesRecorded * 0.25;
 
   if (issueScore >= 12) return "concern";
   if (issueScore >= 6) return "room";
@@ -186,7 +180,9 @@ function toneClasses(tone: "good" | "info" | "warn" | "danger") {
 
 function hasAnyDriveAnswers(checks: Record<string, any>) {
   const driveIds = ["steering", "noise-hesitation", "adas-systems"];
-  return driveIds.some((id) => Boolean(checks?.[id]?.value || checks?.[id]?.note));
+  return driveIds.some((id) =>
+    Boolean(checks?.[id]?.value || checks?.[id]?.note)
+  );
 }
 
 function getThumbnailFromPhotos(photos: any[]): string | null {
@@ -197,7 +193,9 @@ function getThumbnailFromPhotos(photos: any[]): string | null {
   if (first?.dataUrl && typeof first.dataUrl === "string") return first.dataUrl;
 
   // Fallback: find any photo with a usable dataUrl
-  const any = photos.find((p) => typeof p?.dataUrl === "string" && p.dataUrl.length > 0);
+  const any = photos.find(
+    (p) => typeof p?.dataUrl === "string" && p.dataUrl.length > 0
+  );
   return any?.dataUrl ?? null;
 }
 
@@ -208,7 +206,6 @@ export default function InPersonSummary() {
   const progress: any = loadProgress();
   const activeScanId: string | null = progress?.scanId || routeScanId || null;
 
-  const imperfections = progress?.imperfections ?? [];
   const followUps = progress?.followUpPhotos ?? [];
   const checks = progress?.checks ?? {};
   const photos = progress?.photos ?? [];
@@ -247,19 +244,18 @@ export default function InPersonSummary() {
   const unsure = useMemo(() => countUnsure(checks), [checks]);
   const score = useMemo(() => scoreFromChecks(checks), [checks]);
 
-  const imperfectionWeight = useMemo(
-    () => sumImperfectionWeight(imperfections),
-    [imperfections]
-  );
+  // This replaces the old "imperfections" concept without adding a new step:
+  // "Issues recorded" = anything the user flagged as concern or unsure.
+  const issuesRecorded = useMemo(() => concerns + unsure, [concerns, unsure]);
 
   const verdict = useMemo(() => {
     return getPricingVerdict({
       askingPrice: parsedAskingPrice,
       concerns,
       unsure,
-      imperfectionWeight,
+      issuesRecorded,
     });
-  }, [parsedAskingPrice, concerns, unsure, imperfectionWeight]);
+  }, [parsedAskingPrice, concerns, unsure, issuesRecorded]);
 
   const verdictCopy = useMemo(() => pricingCopy(verdict), [verdict]);
 
@@ -325,7 +321,8 @@ export default function InPersonSummary() {
 
         vehicle: {
           make: progress?.vehicle?.make || progress?.make || progress?.vehicleMake,
-          model: progress?.vehicle?.model || progress?.model || progress?.vehicleModel,
+          model:
+            progress?.vehicle?.model || progress?.model || progress?.vehicleModel,
           year: progress?.vehicle?.year || progress?.year || progress?.vehicleYear,
           variant:
             progress?.vehicle?.variant ||
@@ -340,7 +337,10 @@ export default function InPersonSummary() {
         score,
         concerns,
         unsure,
-        imperfectionsCount: imperfections.length,
+
+        // Store a meaningful count without forcing users to re-enter anything:
+        imperfectionsCount: issuesRecorded,
+
         photosCount: photos.length,
         fromOnlineScan,
       });
@@ -625,9 +625,9 @@ export default function InPersonSummary() {
 
                   <span className="text-xs text-slate-500 inline-flex items-center gap-2">
                     <Sparkles className="h-3.5 w-3.5 text-slate-400" />
-                    Imperfections recorded:{" "}
+                    Issues recorded:{" "}
                     <span className="text-slate-200 tabular-nums font-semibold">
-                      {imperfections.length}
+                      {issuesRecorded}
                     </span>
                   </span>
                 </div>
