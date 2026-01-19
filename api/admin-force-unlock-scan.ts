@@ -61,15 +61,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { scanId, reason } = req.body ?? {};
+  const { scanId } = req.body ?? {};
   const cleanScanId = safeString(scanId);
 
   if (!cleanScanId) {
     res.status(400).json({ error: "MISSING_SCAN_ID" });
     return;
   }
-
-  const cleanReason = safeString(reason);
 
   // Service role client (admin)
   const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
@@ -103,20 +101,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const reference = `scan:${cleanScanId}`;
 
-  // IMPORTANT:
-  // A "force unlock" should NOT pretend the scan was "completed".
-  // It should create a dedicated unlock marker event.
-  //
-  // This keeps your ledger clean and makes admin actions auditable.
-  const UNLOCK_MARKER_EVENT = "in_person_unlock";
+  // New marker (clean)
+  const NEW_MARKER = "in_person_unlock";
 
-  // If already unlocked, do nothing
+  // Old marker (legacy compatibility)
+  const LEGACY_MARKER = "in_person_scan_completed";
+
+  // If already unlocked under EITHER marker, do nothing
   const { data: existing, error: existingErr } = await supabaseAdmin
     .from("credit_ledger")
-    .select("id")
+    .select("id, event_type")
     .eq("user_id", ownerUserId)
-    .eq("event_type", UNLOCK_MARKER_EVENT)
     .eq("reference", reference)
+    .in("event_type", [NEW_MARKER, LEGACY_MARKER])
     .limit(1)
     .maybeSingle();
 
@@ -127,7 +124,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (existing) {
-    res.status(200).json({ success: true, alreadyUnlocked: true });
+    res.status(200).json({
+      success: true,
+      alreadyUnlocked: true,
+      marker: (existing as any).event_type,
+    });
     return;
   }
 
@@ -149,12 +150,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Insert unlock marker ledger row (no credit spend)
   const { error: insertErr } = await supabaseAdmin.from("credit_ledger").insert({
     user_id: ownerUserId,
-    event_type: UNLOCK_MARKER_EVENT,
+    event_type: NEW_MARKER,
     credits_delta: 0,
     balance_after: currentCredits,
     reference,
-    // If you later add a "note" column, we can store cleanReason there.
-    // For now, we keep the reason out of event_type to avoid breaking logic.
   });
 
   if (insertErr) {
@@ -168,6 +167,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     alreadyUnlocked: false,
     scanId: cleanScanId,
     userId: ownerUserId,
-    reason: cleanReason || null,
+    marker: NEW_MARKER,
   });
 }
