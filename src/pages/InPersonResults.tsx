@@ -14,8 +14,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Mail,
-  FileDown,
   RotateCcw,
+  Printer,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -143,16 +143,6 @@ function formatMoney(n: unknown): string {
   } catch {
     return `$${Math.round(n)}`;
   }
-}
-
-/**
- * Opens the user's own email app with a prefilled subject/body.
- * NOTE: We cannot auto-attach files from a browser.
- */
-function openEmailDraft(opts: { subject: string; body: string }) {
-  const subject = encodeURIComponent(opts.subject);
-  const body = encodeURIComponent(opts.body);
-  window.location.href = `mailto:?subject=${subject}&body=${body}`;
 }
 
 /* =======================================================
@@ -326,32 +316,63 @@ export default function InPersonResults() {
   }, [coverage, confidence]);
 
   /* -------------------------------------------------------
-     Email + PDF actions
+     Email report (opens user's own email client)
   ------------------------------------------------------- */
-  function emailReport() {
-    const subject = `CarVerity in-person report (${scanId})`;
+  const emailHref = useMemo(() => {
+    const subjectParts = ["CarVerity report", vehicleTitleFromProgress(progress)];
+    const subject = subjectParts.filter(Boolean).join(" — ");
 
-    const bodyLines: string[] = [
-      "Hi,",
-      "",
-      "Please find my CarVerity in-person inspection report attached as a PDF.",
-      "",
-      "Download the PDF first, then email it as an attachment.",
-      "",
-      `Scan ID: ${scanId}`,
-      askingPrice != null ? `Asking price: ${formatMoney(askingPrice)}` : "",
-      "",
-      "— Sent from CarVerity",
-    ].filter(Boolean);
+    const lines: string[] = [];
+    lines.push("Hi,");
+    lines.push("");
+    lines.push("Here is my CarVerity in-person inspection summary.");
+    lines.push("");
+    lines.push(`Vehicle: ${vehicleTitleFromProgress(progress) || "—"}`);
+    lines.push(`Scan ID: ${scanId}`);
+    lines.push(`Date: ${new Date().toLocaleDateString()}`);
+    lines.push(`Asking price: ${formatMoney(askingPrice)}`);
+    lines.push("");
+    lines.push("Summary:");
+    lines.push(`• Verdict: ${verdictMeta.short}`);
+    lines.push(`• Confidence: ${confidence}%`);
+    lines.push(`• Coverage: ${coverage}%`);
+    lines.push(
+      `• Concerns recorded: ${
+        analysis.risks.filter((r) => r.severity !== "info").length
+      }`
+    );
+    lines.push(`• Unsure items: ${uncertaintyFactors.length}`);
+    lines.push("");
+    lines.push(
+      "If needed, I can also attach the saved PDF version of the report."
+    );
+    lines.push("");
+    lines.push("— Sent from CarVerity");
 
-    openEmailDraft({
-      subject,
-      body: bodyLines.join("\n"),
-    });
+    const body = lines.join("\n");
+    return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(
+      body
+    )}`;
+  }, [
+    progress,
+    scanId,
+    askingPrice,
+    verdictMeta.short,
+    confidence,
+    coverage,
+    analysis.risks,
+    uncertaintyFactors.length,
+  ]);
+
+  function vehicleTitleFromProgress(p: any): string {
+    const year = p?.vehicle?.year || p?.year || p?.vehicleYear || "";
+    const make = p?.vehicle?.make || p?.make || p?.vehicleMake || "";
+    const model = p?.vehicle?.model || p?.model || p?.vehicleModel || "";
+    const parts = [year, make, model].filter(Boolean);
+    return parts.length ? parts.join(" ") : "";
   }
 
   function startNewScan() {
-    // We keep it simple: route to Start. The Start page can decide whether to clear progress.
     navigate("/scan/in-person/start");
   }
 
@@ -665,55 +686,81 @@ export default function InPersonResults() {
         )}
       </section>
 
-      {/* ACTIONS (ENDING) */}
-      <section className="space-y-4 pt-2">
-        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-4">
-          <h2 className="text-lg font-semibold text-slate-200">Finish</h2>
-
-          <p className="text-sm text-slate-400">
-            You’re done. You can save this report, send it, or start another scan.
+      {/* FINISHING ACTIONS (ENDING) */}
+      <section className="space-y-5 pt-2">
+        <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6">
+          <p className="text-base font-semibold text-white">
+            You’re done — save or share your report
+          </p>
+          <p className="mt-2 text-sm text-slate-400 leading-relaxed max-w-3xl">
+            If you want to share this with someone (partner, family, mechanic), the
+            simplest option is to print and save as PDF, then email it from your own
+            email app.
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               onClick={() => navigate("/scan/in-person/print")}
-              className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 text-base inline-flex items-center justify-center gap-2"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-200 hover:bg-white text-black font-semibold px-4 py-3 text-sm"
             >
-              <FileDown className="h-5 w-5" />
-              Download PDF
+              <Printer className="h-4 w-4" />
+              Print / Save as PDF
             </button>
 
-            <button
-              onClick={emailReport}
-              className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-4 text-base inline-flex items-center justify-center gap-2"
+            <a
+              href={emailHref}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-sm text-slate-200"
             >
-              <Mail className="h-5 w-5" />
-              Email report (attach PDF)
-            </button>
-          </div>
-
-          <p className="text-xs text-slate-500">
-            Download the PDF first, then email it as an attachment.
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            <button
-              onClick={() => navigate("/scan/in-person/decision")}
-              className="w-full rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-6 py-3 text-sm text-slate-200 inline-flex items-center justify-center gap-2"
-            >
-              <ArrowRight className="h-4 w-4" />
-              Decision & next steps
-            </button>
+              <Mail className="h-4 w-4" />
+              Email this report
+            </a>
 
             <button
               onClick={startNewScan}
-              className="w-full rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-6 py-3 text-sm text-slate-200 inline-flex items-center justify-center gap-2"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 text-sm"
             >
               <RotateCcw className="h-4 w-4" />
               Start a new scan
             </button>
           </div>
+
+          <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+              Quick how-to
+            </p>
+            <p className="mt-2 text-sm text-slate-300 leading-relaxed">
+              1) Tap <strong>Print / Save as PDF</strong>
+              <br />
+              2) Save the PDF
+              <br />
+              3) Tap <strong>Email this report</strong> and attach the PDF (optional)
+            </p>
+          </div>
         </div>
+      </section>
+
+      {/* ACTIONS (PRIMARY CTA) */}
+      <section className="space-y-4 pt-2">
+        <button
+          onClick={() => navigate("/scan/in-person/decision")}
+          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 text-base"
+        >
+          Decision & next steps
+        </button>
+
+        <button
+          onClick={() => navigate("/scan/in-person/print")}
+          className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
+        >
+          Print / save report
+        </button>
+
+        <button
+          onClick={startNewScan}
+          className="w-full rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
+        >
+          Start a new scan
+        </button>
       </section>
     </div>
   );
