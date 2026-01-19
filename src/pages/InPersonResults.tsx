@@ -14,6 +14,7 @@ import {
   ArrowRight,
   ShieldCheck,
   Mail,
+  FileDown,
   RotateCcw,
 } from "lucide-react";
 
@@ -142,6 +143,16 @@ function formatMoney(n: unknown): string {
   } catch {
     return `$${Math.round(n)}`;
   }
+}
+
+/**
+ * Opens the user's own email app with a prefilled subject/body.
+ * NOTE: We cannot auto-attach files from a browser.
+ */
+function openEmailDraft(opts: { subject: string; body: string }) {
+  const subject = encodeURIComponent(opts.subject);
+  const body = encodeURIComponent(opts.body);
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
 }
 
 /* =======================================================
@@ -315,30 +326,34 @@ export default function InPersonResults() {
   }, [coverage, confidence]);
 
   /* -------------------------------------------------------
-     Email report (simple + safe)
+     Email + PDF actions
   ------------------------------------------------------- */
-  const emailSubject = `CarVerity in-person report — ${scanId}`;
-  const emailBodyLines: string[] = [
-    "Hi,",
-    "",
-    "Here’s my CarVerity in-person scan summary:",
-    "",
-    `Scan ID: ${scanId}`,
-    `Asking price: ${formatMoney(askingPrice)}`,
-    `Verdict: ${verdictMeta.short}`,
-    `Confidence: ${confidence}%`,
-    `Coverage: ${coverage}%`,
-    `Concerns flagged: ${analysis.risks.filter((r) => r.severity !== "info").length}`,
-    `Unsure items: ${uncertaintyFactors.length}`,
-    "",
-    "Tip: If you want the full report, open the scan and use “Print / save report”, then attach it to this email.",
-    "",
-    "— Sent from CarVerity",
-  ];
+  function emailReport() {
+    const subject = `CarVerity in-person report (${scanId})`;
 
-  const mailtoHref = `mailto:?subject=${encodeURIComponent(
-    emailSubject
-  )}&body=${encodeURIComponent(emailBodyLines.join("\n"))}`;
+    const bodyLines: string[] = [
+      "Hi,",
+      "",
+      "Please find my CarVerity in-person inspection report attached as a PDF.",
+      "",
+      "Download the PDF first, then email it as an attachment.",
+      "",
+      `Scan ID: ${scanId}`,
+      askingPrice != null ? `Asking price: ${formatMoney(askingPrice)}` : "",
+      "",
+      "— Sent from CarVerity",
+    ].filter(Boolean);
+
+    openEmailDraft({
+      subject,
+      body: bodyLines.join("\n"),
+    });
+  }
+
+  function startNewScan() {
+    // We keep it simple: route to Start. The Start page can decide whether to clear progress.
+    navigate("/scan/in-person/start");
+  }
 
   /* =======================================================
      UI
@@ -650,73 +665,53 @@ export default function InPersonResults() {
         )}
       </section>
 
-      {/* =======================================================
-          THE ENDING (closure panel)
-      ======================================================= */}
-      <section className="space-y-5 pt-2">
-        <div className="rounded-2xl border border-white/12 bg-slate-950/35 px-7 py-7">
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div className="space-y-2">
-              <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
-                Your next move
-              </p>
-              <h3 className="text-xl font-semibold text-white leading-tight">
-                You’re done — now decide with confidence
-              </h3>
-              <p className="text-sm text-slate-400 max-w-2xl">
-                CarVerity doesn’t “fill in gaps”. It only reflects what you recorded.
-                If something feels unclear, it’s okay to pause and verify before committing.
-              </p>
-            </div>
+      {/* ACTIONS (ENDING) */}
+      <section className="space-y-4 pt-2">
+        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-4">
+          <h2 className="text-lg font-semibold text-slate-200">Finish</h2>
 
-            <div className="rounded-xl border border-white/10 bg-slate-900/50 px-4 py-3">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                Outcome
-              </div>
-              <div className="mt-1 text-sm font-semibold text-slate-100">
-                {verdictMeta.short}
-              </div>
-              <div className="mt-1 text-xs text-slate-400">
-                Confidence {confidence}% · Coverage {coverage}%
-              </div>
-            </div>
-          </div>
+          <p className="text-sm text-slate-400">
+            You’re done. You can save this report, send it, or start another scan.
+          </p>
 
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <button
-              onClick={() => navigate("/scan/in-person/decision")}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 text-sm"
-            >
-              Open decision guide
-              <ArrowRight className="h-4 w-4" />
-            </button>
-
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               onClick={() => navigate("/scan/in-person/print")}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-3 text-sm"
+              className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 text-base inline-flex items-center justify-center gap-2"
             >
-              Print / save report
+              <FileDown className="h-5 w-5" />
+              Download PDF
             </button>
 
-            <a
-              href={mailtoHref}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 px-4 py-3 text-sm"
+            <button
+              onClick={emailReport}
+              className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-4 text-base inline-flex items-center justify-center gap-2"
             >
-              <Mail className="h-4 w-4" />
-              Email report
-            </a>
+              <Mail className="h-5 w-5" />
+              Email report (attach PDF)
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-500">
+            Download the PDF first, then email it as an attachment.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <button
+              onClick={() => navigate("/scan/in-person/decision")}
+              className="w-full rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-6 py-3 text-sm text-slate-200 inline-flex items-center justify-center gap-2"
+            >
+              <ArrowRight className="h-4 w-4" />
+              Decision & next steps
+            </button>
 
             <button
-              onClick={() => navigate("/start")}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 px-4 py-3 text-sm"
+              onClick={startNewScan}
+              className="w-full rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-6 py-3 text-sm text-slate-200 inline-flex items-center justify-center gap-2"
             >
               <RotateCcw className="h-4 w-4" />
               Start a new scan
             </button>
-          </div>
-
-          <div className="mt-5 text-xs text-slate-500">
-            Tip: If the seller pressures you to rush, treat that as a signal to slow down.
           </div>
         </div>
       </section>
