@@ -1,227 +1,256 @@
 // src/pages/SignIn.tsx
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mail, Lock, ArrowRight, ShieldCheck } from "lucide-react";
 import { signInWithGoogle } from "../supabaseAuth";
 import { supabase } from "../supabaseClient";
 
-type Mode = "signin" | "signup" | "reset";
-
-function isValidEmail(email: string) {
-  const v = email.trim().toLowerCase();
-  // simple + safe validation (Supabase will also validate)
-  return v.includes("@") && v.includes(".");
-}
+type EmailMode = "signin" | "create" | "reset";
 
 export default function SignIn() {
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState<Mode>("signin");
+  // OAuth
+  const [sendingGoogle, setSendingGoogle] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
 
+  // Email/password
+  const [mode, setMode] = useState<EmailMode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailSuccess, setEmailSuccess] = useState<string | null>(null);
 
-  const canSubmit = useMemo(() => {
-    if (!isValidEmail(email)) return false;
-    if (mode === "reset") return true;
-    return password.trim().length >= 6;
-  }, [email, password, mode]);
-
-  function clearMessages() {
-    setError(null);
-    setSuccess(null);
-  }
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
 
   async function handleGoogle() {
-    clearMessages();
+    setOauthError(null);
 
     try {
-      setSending(true);
+      setSendingGoogle(true);
       await signInWithGoogle();
-      // Redirect happens automatically after OAuth
+      // Redirect happens automatically
     } catch (err) {
       console.error("Google sign-in error:", err);
-      setError("Google sign-in is not available right now.");
-      setSending(false);
+      setOauthError("Google sign-in is not available right now.");
+      setSendingGoogle(false);
     }
   }
 
-  async function handleEmailAuth() {
-    clearMessages();
+  function resetEmailMessages() {
+    setEmailError(null);
+    setEmailSuccess(null);
+    setResendMsg(null);
+  }
 
-    if (!isValidEmail(email)) {
-      setError("Please enter a valid email address.");
+  async function handleEmailAuth() {
+    resetEmailMessages();
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      setEmailError("Please enter your email.");
       return;
     }
 
     if (mode !== "reset" && password.trim().length < 6) {
-      setError("Password must be at least 6 characters.");
+      setEmailError("Password must be at least 6 characters.");
       return;
     }
 
     try {
-      setSending(true);
+      setSendingEmail(true);
 
       if (mode === "signin") {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
+        const { error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
           password,
         });
 
-        if (signInError) {
-          // Common: "Invalid login credentials"
-          setError(signInError.message || "Unable to sign in.");
-          setSending(false);
+        if (error) {
+          setEmailError("Invalid login credentials.");
           return;
         }
 
-        // Signed in
-        navigate("/");
+        setEmailSuccess("Signed in successfully.");
+        navigate("/start-scan");
         return;
       }
 
-      if (mode === "signup") {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: email.trim().toLowerCase(),
+      if (mode === "create") {
+        const { error } = await supabase.auth.signUp({
+          email: cleanEmail,
           password,
-          options: {
-            // Important: ensures email links (if needed) go back to your domain
-            emailRedirectTo: `${window.location.origin}/account`,
-          },
         });
 
-        if (signUpError) {
-          setError(signUpError.message || "Unable to create account.");
-          setSending(false);
+        if (error) {
+          if (error.message?.toLowerCase().includes("already registered")) {
+            setEmailError(
+              "That email already has an account. Try Sign in instead."
+            );
+            return;
+          }
+
+          setEmailError("Could not create account. Please try again.");
           return;
         }
 
-        setSuccess(
-          "Account created. If your email provider requires confirmation, check your inbox."
+        setEmailSuccess(
+          "Account created. Please confirm the email we just sent you."
         );
-        setSending(false);
         return;
       }
 
       if (mode === "reset") {
-        const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-          email.trim().toLowerCase(),
-          {
-            redirectTo: `${window.location.origin}/account`,
-          }
-        );
+        const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
 
-        if (resetError) {
-          setError(resetError.message || "Unable to send reset email.");
-          setSending(false);
+        if (error) {
+          setEmailError("Could not send reset email. Please try again.");
           return;
         }
 
-        setSuccess(
-          "Password reset email sent. Check your inbox (and junk/spam)."
-        );
-        setSending(false);
+        setEmailSuccess("Reset email sent. Check your inbox.");
         return;
       }
     } catch (err) {
       console.error("Email auth error:", err);
-      setError("Something went wrong. Please try again.");
-      setSending(false);
+      setEmailError("Something went wrong. Please try again.");
+    } finally {
+      setSendingEmail(false);
     }
   }
+
+  // “Resend confirmation” workaround:
+  // Supabase does not expose a direct "resend confirmation" call on the client.
+  // We send a reset email to the same address, which still helps users find the email flow.
+  async function handleResendEmail() {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      setResendMsg("Enter your email above first.");
+      return;
+    }
+
+    try {
+      setResending(true);
+      setResendMsg(null);
+
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+
+      if (error) {
+        console.error("Resend email error:", error.message);
+        setResendMsg("Could not resend email. Try again in a moment.");
+        return;
+      }
+
+      setResendMsg("Email sent again. Check Inbox and Junk/Spam.");
+    } catch (err) {
+      console.error("Resend email error:", err);
+      setResendMsg("Could not resend email. Try again in a moment.");
+    } finally {
+      setResending(false);
+    }
+  }
+
+  const showJunkNote =
+    emailSuccess &&
+    (mode === "create" || mode === "reset") &&
+    emailSuccess.toLowerCase().includes("email");
+
+  const showResendBlock = mode === "create" && Boolean(emailSuccess);
 
   return (
     <div className="max-w-md mx-auto px-4 py-20">
       <span className="text-[11px] uppercase tracking-[0.18em] text-slate-500 block text-center mb-4">
-        CarVerity · Sign in
+        CarVerity · Account
       </span>
 
       <h1 className="text-3xl font-semibold text-white mb-3 text-center">
         Sign in to CarVerity
       </h1>
 
-      <p className="text-slate-400 mb-6 text-center">
-        Sign in is used for purchases and credits.
+      <p className="text-slate-400 mb-7 text-center">
+        Sign in is only used for purchases and credits.
         <br />
-        Choose the option that suits you.
+        Google is the fastest setup.
       </p>
 
       {/* Trust strip */}
       <div className="flex flex-wrap justify-center gap-2 mb-6">
-        <span className="text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-900/40 text-slate-300 inline-flex items-center gap-1">
-          <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+        <span className="text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-900/40 text-slate-300">
           Secure sign-in
         </span>
         <span className="text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-900/40 text-slate-300">
           No spam
         </span>
         <span className="text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-900/40 text-slate-300">
-          Buyer-safe
+          Cancel anytime
         </span>
       </div>
 
-      {/* GOOGLE */}
-      <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-white">
-              Continue with Google
-            </p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Quick sign-in, no password to remember.
-            </p>
-          </div>
+      {/* OAuth (premium primary) */}
+      <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+        <div className="mb-3">
+          <p className="text-sm font-semibold text-white">Quick sign-in</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Recommended — no confirmation emails required.
+          </p>
         </div>
+
+        {oauthError && (
+          <p className="text-red-400 text-sm mb-3">{oauthError}</p>
+        )}
 
         <button
           type="button"
           onClick={handleGoogle}
-          disabled={sending}
+          disabled={sendingGoogle}
           className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-4 py-3 transition"
         >
-          {sending ? "Opening Google…" : "Continue with Google"}
+          {sendingGoogle ? "Opening Google…" : "Continue with Google"}
         </button>
+
+        <div className="mt-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Apple sign-in is coming soon.
+          </p>
+        </div>
       </div>
 
       {/* Divider */}
-      <div className="flex items-center gap-3 my-6">
+      <div className="flex items-center gap-3 my-7">
         <div className="h-px flex-1 bg-white/10" />
-        <span className="text-[11px] text-slate-500">or</span>
+        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+          or
+        </span>
         <div className="h-px flex-1 bg-white/10" />
       </div>
 
-      {/* EMAIL/PASSWORD */}
-      <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-white">
-              Email & password
-            </p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Works with Gmail, Outlook, Hotmail, and more.
-            </p>
-          </div>
+      {/* Email & password (secondary) */}
+      <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+        <div className="mb-3">
+          <p className="text-sm font-semibold text-white">Email & password</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Works with Gmail, Outlook, Hotmail, and more.
+          </p>
         </div>
 
         {/* Mode tabs */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="flex gap-2 mb-4">
           <button
             type="button"
             onClick={() => {
-              clearMessages();
               setMode("signin");
+              resetEmailMessages();
             }}
-            className={[
-              "rounded-xl px-3 py-2 text-xs font-semibold transition border",
+            className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold border transition ${
               mode === "signin"
-                ? "bg-slate-950/60 border-white/15 text-white"
-                : "bg-transparent border-white/10 text-slate-300 hover:bg-slate-950/40",
-            ].join(" ")}
+                ? "bg-white text-black border-white/10"
+                : "bg-transparent text-slate-300 border-white/10 hover:bg-white/5"
+            }`}
           >
             Sign in
           </button>
@@ -229,15 +258,14 @@ export default function SignIn() {
           <button
             type="button"
             onClick={() => {
-              clearMessages();
-              setMode("signup");
+              setMode("create");
+              resetEmailMessages();
             }}
-            className={[
-              "rounded-xl px-3 py-2 text-xs font-semibold transition border",
-              mode === "signup"
-                ? "bg-slate-950/60 border-white/15 text-white"
-                : "bg-transparent border-white/10 text-slate-300 hover:bg-slate-950/40",
-            ].join(" ")}
+            className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold border transition ${
+              mode === "create"
+                ? "bg-white text-black border-white/10"
+                : "bg-transparent text-slate-300 border-white/10 hover:bg-white/5"
+            }`}
           >
             Create
           </button>
@@ -245,91 +273,115 @@ export default function SignIn() {
           <button
             type="button"
             onClick={() => {
-              clearMessages();
               setMode("reset");
+              resetEmailMessages();
             }}
-            className={[
-              "rounded-xl px-3 py-2 text-xs font-semibold transition border",
+            className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold border transition ${
               mode === "reset"
-                ? "bg-slate-950/60 border-white/15 text-white"
-                : "bg-transparent border-white/10 text-slate-300 hover:bg-slate-950/40",
-            ].join(" ")}
+                ? "bg-white text-black border-white/10"
+                : "bg-transparent text-slate-300 border-white/10 hover:bg-white/5"
+            }`}
           >
             Reset
           </button>
         </div>
 
-        {/* Email */}
-        <label className="block text-xs text-slate-400 mb-1">Email</label>
-        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 mb-3">
-          <Mail className="h-4 w-4 text-slate-400" />
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            className="w-full bg-transparent outline-none text-slate-100 text-sm"
-            autoComplete="email"
-            inputMode="email"
-          />
-        </div>
-
-        {/* Password (not for reset) */}
-        {mode !== "reset" && (
-          <>
-            <label className="block text-xs text-slate-400 mb-1">
-              Password
+        {/* Inputs */}
+        <div className="space-y-3">
+          <div>
+            <label className="text-[11px] uppercase tracking-[0.18em] text-slate-500 block mb-1">
+              Email
             </label>
-            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 mb-3">
-              <Lock className="h-4 w-4 text-slate-400" />
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full rounded-xl bg-black/20 border border-white/10 px-3 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-emerald-500/60"
+            />
+          </div>
+
+          {mode !== "reset" && (
+            <div>
+              <label className="text-[11px] uppercase tracking-[0.18em] text-slate-500 block mb-1">
+                Password
+              </label>
               <input
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-transparent outline-none text-slate-100 text-sm"
                 type="password"
-                autoComplete={
-                  mode === "signup" ? "new-password" : "current-password"
-                }
+                placeholder="At least 6 characters"
+                className="w-full rounded-xl bg-black/20 border border-white/10 px-3 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-emerald-500/60"
               />
             </div>
-
-            <p className="text-[11px] text-slate-500 mb-3">
-              Use at least 6 characters.
-            </p>
-          </>
-        )}
+          )}
+        </div>
 
         {/* Messages */}
-        {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
-        {success && <p className="text-emerald-300 text-sm mb-3">{success}</p>}
+        {emailError && (
+          <p className="text-red-400 text-sm mt-3">{emailError}</p>
+        )}
 
+        {emailSuccess && (
+          <p className="text-emerald-400 text-sm mt-3">{emailSuccess}</p>
+        )}
+
+        {showJunkNote && (
+          <div className="mt-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+            <p className="text-xs text-slate-300 leading-relaxed">
+              If you don’t see the email within a minute, check your{" "}
+              <span className="text-white font-semibold">Junk / Spam</span>{" "}
+              folder (Outlook often puts first-time emails there).
+            </p>
+          </div>
+        )}
+
+        {/* Action button */}
         <button
           type="button"
           onClick={handleEmailAuth}
-          disabled={sending || !canSubmit}
-          className="w-full rounded-xl bg-white text-black font-semibold px-4 py-3 transition hover:bg-slate-200 disabled:opacity-50 inline-flex items-center justify-center gap-2"
+          disabled={sendingEmail}
+          className="w-full mt-4 rounded-xl border border-white/10 bg-white text-black font-semibold px-4 py-3 transition hover:bg-slate-200 disabled:opacity-60"
         >
-          {mode === "signin" && (
-            <>
-              Sign in <ArrowRight className="h-4 w-4" />
-            </>
-          )}
-          {mode === "signup" && (
-            <>
-              Create account <ArrowRight className="h-4 w-4" />
-            </>
-          )}
-          {mode === "reset" && (
-            <>
-              Send reset email <ArrowRight className="h-4 w-4" />
-            </>
-          )}
+          {sendingEmail
+            ? "Please wait…"
+            : mode === "signin"
+            ? "Sign in"
+            : mode === "create"
+            ? "Create account"
+            : "Send reset email"}
         </button>
 
-        <div className="mt-4 text-[11px] text-slate-500 leading-relaxed text-center">
-          Tip: If you’re not receiving emails, check junk/spam. Outlook/Hotmail
-          can take a minute.
-        </div>
+        {/* Resend confirmation block (after Create) */}
+        {showResendBlock && (
+          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Didn’t receive the confirmation email?
+              <br />
+              Check <span className="text-white font-semibold">Junk / Spam</span>{" "}
+              first, then resend.
+            </p>
+
+            <button
+              type="button"
+              onClick={handleResendEmail}
+              disabled={resending}
+              className="w-full mt-3 rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-2.5 transition"
+            >
+              {resending ? "Resending…" : "Resend confirmation email"}
+            </button>
+
+            {resendMsg && (
+              <p className="text-xs text-slate-400 mt-2">{resendMsg}</p>
+            )}
+          </div>
+        )}
+
+        <p className="text-[11px] text-slate-500 leading-relaxed text-center mt-3">
+          Tip: If you already created an account, use{" "}
+          <span className="text-slate-300 font-semibold">Sign in</span>. If you
+          can’t access it, use{" "}
+          <span className="text-slate-300 font-semibold">Reset</span>.
+        </p>
       </div>
 
       <div className="mt-10 text-xs text-slate-500 leading-relaxed text-center">
