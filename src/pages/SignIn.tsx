@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { signInWithGoogle } from "../supabaseAuth";
 import { supabase } from "../supabaseClient";
 
-type EmailMode = "signin" | "create" | "reset";
+type EmailMode = "signin" | "signup" | "reset";
 
 export default function SignIn() {
   const navigate = useNavigate();
@@ -80,7 +80,7 @@ export default function SignIn() {
         return;
       }
 
-      if (mode === "create") {
+      if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
@@ -157,10 +157,10 @@ export default function SignIn() {
 
   const showJunkNote =
     emailSuccess &&
-    (mode === "create" || mode === "reset") &&
+    (mode === "signup" || mode === "reset") &&
     emailSuccess.toLowerCase().includes("email");
 
-  const showResendBlock = mode === "create" && Boolean(emailSuccess);
+  const showResendBlock = mode === "signup" && Boolean(emailSuccess);
 
   return (
     <div className="max-w-md mx-auto px-4 py-20">
@@ -258,16 +258,16 @@ export default function SignIn() {
           <button
             type="button"
             onClick={() => {
-              setMode("create");
+              setMode("signup");
               resetEmailMessages();
             }}
             className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold border transition ${
-              mode === "create"
+              mode === "signup"
                 ? "bg-white text-black border-white/10"
                 : "bg-transparent text-slate-300 border-white/10 hover:bg-white/5"
             }`}
           >
-            Create
+            Sign up
           </button>
 
           <button
@@ -346,12 +346,12 @@ export default function SignIn() {
             ? "Please wait…"
             : mode === "signin"
             ? "Sign in"
-            : mode === "create"
-            ? "Create account"
+            : mode === "signup"
+            ? "Sign up"
             : "Send reset email"}
         </button>
 
-        {/* Resend confirmation block (after Create) */}
+        {/* Resend confirmation block (after Sign up) */}
         {showResendBlock && (
           <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
             <p className="text-xs text-slate-300 leading-relaxed">
