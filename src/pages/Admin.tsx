@@ -2,6 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  Search,
+  Shield,
+  User,
+  Coins,
+  CheckCircle2,
+  XCircle,
+  ArrowLeft,
+  RefreshCcw,
+  MinusCircle,
+  PlusCircle,
+  ListOrdered,
+  Zap,
+  Undo2,
+  LockOpen,
+} from "lucide-react";
 import { supabase } from "../supabaseClient";
 
 const ADMIN_EMAIL = "jeremy.swallow@gmail.com";
@@ -73,6 +89,13 @@ function formatDateTime(iso: string) {
   } catch {
     return "—";
   }
+}
+
+function isFiniteIntString(s: string) {
+  const t = String(s ?? "").trim();
+  if (!t) return false;
+  const n = parseInt(t, 10);
+  return Number.isFinite(n) && String(n) === t.replace(/^\+/, "");
 }
 
 export default function Admin() {
@@ -464,6 +487,22 @@ export default function Admin() {
     }
   }
 
+  async function quickAdjustCredits(n: number, quickReason?: string) {
+    // Mobile-friendly quick actions (no typing required)
+    if (!cleanTargetEmail) {
+      setMsg("Enter an email address first.");
+      return;
+    }
+
+    setDelta(String(n));
+    if (quickReason) setReason(quickReason);
+
+    // Slight delay so UI reflects new delta before request
+    window.setTimeout(() => {
+      handleAdjustCredits();
+    }, 50);
+  }
+
   if (checking) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-16 text-slate-300">
@@ -478,29 +517,41 @@ export default function Admin() {
   const isWhitelisted = Boolean(lookup?.access?.unlimited);
 
   const disableAllActions =
-    lookupLoading || working || whitelistWorking || refundWorking || forceUnlockWorking;
+    lookupLoading ||
+    working ||
+    whitelistWorking ||
+    refundWorking ||
+    forceUnlockWorking;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-14 space-y-10">
-      <header className="space-y-2">
-        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-          CarVerity · Admin
-        </span>
-
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-semibold text-white">Admin tools</h1>
-            <p className="text-slate-400 text-sm max-w-2xl mt-2">
-              Internal controls for support, testing, and credit management.
-            </p>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-8 sm:space-y-10">
+      {/* HEADER */}
+      <header className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-slate-400" />
+            <span className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+              CarVerity · Admin
+            </span>
           </div>
 
           <button
             onClick={() => navigate("/account")}
-            className="rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 text-slate-200 font-semibold px-4 py-3 transition"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 text-slate-200 font-semibold px-3 py-2 sm:px-4 sm:py-3 transition"
           >
-            Back to account
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Back to account</span>
+            <span className="sm:hidden">Back</span>
           </button>
+        </div>
+
+        <div className="space-y-1">
+          <h1 className="text-2xl sm:text-3xl font-semibold text-white">
+            Admin tools
+          </h1>
+          <p className="text-slate-400 text-sm max-w-2xl">
+            Internal controls for support, testing, and credit management.
+          </p>
         </div>
       </header>
 
@@ -510,12 +561,24 @@ export default function Admin() {
         </div>
       )}
 
-      <section className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 space-y-5">
-        <div>
-          <h2 className="text-lg font-semibold text-white">User lookup</h2>
-          <p className="text-slate-400 text-sm mt-1">
-            Search by email to view credits, whitelist, and ledger history.
-          </p>
+      {/* USER LOOKUP */}
+      <section className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 sm:p-6 space-y-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-white">User lookup</h2>
+            <p className="text-slate-400 text-sm mt-1">
+              Search by email to view credits, whitelist, and ledger history.
+            </p>
+          </div>
+
+          <button
+            onClick={handleLookup}
+            disabled={disableAllActions || !cleanTargetEmail}
+            className="hidden sm:inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            Refresh
+          </button>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
@@ -523,55 +586,112 @@ export default function Admin() {
             <label className="block text-sm text-slate-300 mb-1">
               User email
             </label>
-            <input
-              value={targetEmail}
-              onChange={(e) => setTargetEmail(e.target.value)}
-              type="email"
-              className="w-full rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="user@example.com"
-            />
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <input
+                value={targetEmail}
+                onChange={(e) => setTargetEmail(e.target.value)}
+                type="email"
+                className="w-full pl-10 rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="user@example.com"
+              />
+            </div>
           </div>
 
           <div className="flex items-end">
             <button
               onClick={handleLookup}
               disabled={disableAllActions}
-              className="w-full rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
             >
+              <User className="h-4 w-4" />
               {lookupLoading ? "Looking up…" : "Lookup"}
             </button>
           </div>
         </div>
 
+        {/* RESULTS */}
         {lookup && (
-          <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5 space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
+          <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 sm:p-5 space-y-4">
+            {/* USER + CREDITS */}
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div className="space-y-1">
                 <div className="text-slate-400 text-xs uppercase tracking-[0.18em]">
                   User
                 </div>
-                <div className="mt-2 text-white font-semibold">
+                <div className="mt-1 text-white font-semibold">
                   {lookup.profile.email ?? "—"}
                 </div>
-                <div className="text-xs text-slate-500 mt-1">
+                <div className="text-xs text-slate-500">
                   User ID: {lookup.profile.id}
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-slate-900/40 px-5 py-4 min-w-[220px]">
-                <div className="text-slate-400 text-xs uppercase tracking-[0.18em]">
-                  Credits
+              <div className="rounded-2xl border border-white/10 bg-slate-900/40 px-5 py-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-slate-400 text-xs uppercase tracking-[0.18em]">
+                      Credits
+                    </div>
+                    <div className="mt-1 text-3xl font-bold text-white tabular-nums">
+                      {formatCredits(currentCredits)}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      Balance from profiles table
+                    </div>
+                  </div>
+
+                  <Coins className="h-7 w-7 text-slate-400" />
                 </div>
-                <div className="mt-1 text-3xl font-bold text-white tabular-nums">
-                  {formatCredits(currentCredits)}
-                </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  Balance from profiles table
+
+                {/* MOBILE QUICK BUTTONS */}
+                <div className="sm:hidden mt-4">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500 mb-2">
+                    Quick credit actions
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => quickAdjustCredits(-1, "Admin quick adjust")}
+                      disabled={disableAllActions}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-3 py-3"
+                    >
+                      <MinusCircle className="h-4 w-4 text-slate-300" />
+                      -1
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => quickAdjustCredits(+1, "Admin quick adjust")}
+                      disabled={disableAllActions}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-3 py-3"
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                      +1
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => quickAdjustCredits(+5, "Admin quick adjust")}
+                      disabled={disableAllActions}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-3 py-3"
+                    >
+                      <Zap className="h-4 w-4" />
+                      +5
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                    Tip: Use -1 to remove a credit, or +5 to grant a pack.
+                  </p>
                 </div>
               </div>
             </div>
 
+            {/* WHITELIST + ADJUST CREDITS */}
             <div className="grid gap-3 sm:grid-cols-2">
+              {/* WHITELIST */}
               <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -589,14 +709,18 @@ export default function Admin() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleToggleWhitelist(true)}
-                      disabled={whitelistWorking || isWhitelisted || disableAllActions}
+                      disabled={
+                        whitelistWorking || isWhitelisted || disableAllActions
+                      }
                       className="rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-4 py-2 transition"
                     >
                       Enable
                     </button>
                     <button
                       onClick={() => handleToggleWhitelist(false)}
-                      disabled={whitelistWorking || !isWhitelisted || disableAllActions}
+                      disabled={
+                        whitelistWorking || !isWhitelisted || disableAllActions
+                      }
                       className="rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-2 transition"
                     >
                       Remove
@@ -605,6 +729,7 @@ export default function Admin() {
                 </div>
               </div>
 
+              {/* ADJUST CREDITS */}
               <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 space-y-3">
                 <div>
                   <div className="text-slate-400 text-xs uppercase tracking-[0.18em]">
@@ -615,7 +740,7 @@ export default function Admin() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm text-slate-300 mb-1">
                       Delta
@@ -644,7 +769,7 @@ export default function Admin() {
 
                 <button
                   onClick={handleAdjustCredits}
-                  disabled={working || whitelistWorking || lookupLoading || refundWorking || forceUnlockWorking}
+                  disabled={disableAllActions}
                   className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-4 py-3 transition"
                 >
                   {working ? "Applying…" : "Apply credit change"}
@@ -657,17 +782,29 @@ export default function Admin() {
                   <span className="text-slate-300 font-semibold">+5</span> to
                   grant a pack.
                 </p>
+
+                {!isFiniteIntString(delta) && (
+                  <p className="text-xs text-amber-300/90">
+                    Delta should be a whole number (e.g. -1, 1, 5).
+                  </p>
+                )}
               </div>
             </div>
 
+            {/* REFUND LAST UNLOCK */}
             <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 space-y-3">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-slate-400 text-xs uppercase tracking-[0.18em]">
-                    Refund last unlock
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-slate-300">
+                    <Undo2 className="h-4 w-4 text-slate-400" />
+                    <div className="text-slate-400 text-xs uppercase tracking-[0.18em]">
+                      Refund last unlock
+                    </div>
                   </div>
-                  <div className="mt-2 text-slate-300 text-sm">
-                    Adds <span className="text-slate-200 font-semibold">+1</span>{" "}
+
+                  <div className="text-slate-300 text-sm">
+                    Adds{" "}
+                    <span className="text-slate-200 font-semibold">+1</span>{" "}
                     credit and logs an{" "}
                     <span className="text-slate-200 font-semibold">
                       admin_refund
@@ -679,9 +816,19 @@ export default function Admin() {
                 <button
                   onClick={handleRefundLastUnlock}
                   disabled={disableAllActions}
-                  className="rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-2 transition"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
                 >
-                  {refundWorking ? "Refunding…" : "Refund last unlock"}
+                  {refundWorking ? (
+                    <>
+                      <RefreshCcw className="h-4 w-4" />
+                      Refunding…
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Refund last unlock
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -703,13 +850,18 @@ export default function Admin() {
               </p>
             </div>
 
+            {/* FORCE UNLOCK */}
             <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 space-y-3">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-slate-400 text-xs uppercase tracking-[0.18em]">
-                    Force unlock scan (no credit spend)
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-slate-300">
+                    <LockOpen className="h-4 w-4 text-slate-400" />
+                    <div className="text-slate-400 text-xs uppercase tracking-[0.18em]">
+                      Force unlock scan (no credit spend)
+                    </div>
                   </div>
-                  <div className="mt-2 text-slate-300 text-sm">
+
+                  <div className="text-slate-300 text-sm">
                     Inserts an unlock marker in{" "}
                     <span className="text-slate-200 font-semibold">
                       credit_ledger
@@ -721,9 +873,19 @@ export default function Admin() {
                 <button
                   onClick={handleForceUnlockScan}
                   disabled={disableAllActions}
-                  className="rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-4 py-2 transition"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-4 py-3 transition"
                 >
-                  {forceUnlockWorking ? "Unlocking…" : "Force unlock"}
+                  {forceUnlockWorking ? (
+                    <>
+                      <RefreshCcw className="h-4 w-4" />
+                      Unlocking…
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Force unlock
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -758,15 +920,30 @@ export default function Admin() {
               </p>
             </div>
 
+            {/* LEDGER */}
             <div className="rounded-2xl border border-white/10 overflow-hidden">
               <div className="bg-slate-900 px-4 py-3 flex items-center justify-between">
-                <div>
-                  <div className="text-slate-200 font-semibold">
-                    Credit ledger (latest)
+                <div className="flex items-center gap-2">
+                  <ListOrdered className="h-4 w-4 text-slate-400" />
+                  <div>
+                    <div className="text-slate-200 font-semibold">
+                      Credit ledger (latest)
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Last {lookup.ledger.length} events
+                    </div>
                   </div>
-                  <div className="text-xs text-slate-500">
-                    Last {lookup.ledger.length} events
-                  </div>
+                </div>
+
+                <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500">
+                  <span className="inline-flex items-center gap-1">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                    Credit add
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <XCircle className="h-3.5 w-3.5 text-red-400" />
+                    Credit spend
+                  </span>
                 </div>
               </div>
 
@@ -775,67 +952,123 @@ export default function Admin() {
                   No ledger activity found.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-950/40 text-slate-400">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Time</th>
-                        <th className="px-4 py-3 text-left">Event</th>
-                        <th className="px-4 py-3 text-left">Delta</th>
-                        <th className="px-4 py-3 text-left">Balance</th>
-                        <th className="px-4 py-3 text-left">Reference</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lookup.ledger.map((row) => (
-                        <tr
+                <>
+                  {/* MOBILE: CARDS */}
+                  <div className="sm:hidden px-4 py-4 space-y-3">
+                    {lookup.ledger.map((row) => {
+                      const deltaTone =
+                        row.credits_delta > 0
+                          ? "text-emerald-300"
+                          : row.credits_delta < 0
+                          ? "text-red-300"
+                          : "text-slate-300";
+
+                      return (
+                        <div
                           key={row.id}
-                          className="border-t border-white/10 text-slate-300"
+                          className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 space-y-2"
                         >
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            {formatDateTime(row.created_at)}
-                          </td>
-                          <td className="px-4 py-3">
-                            {prettyEventType(row.event_type)}
-                          </td>
-                          <td
-                            className={[
-                              "px-4 py-3 tabular-nums font-semibold",
-                              row.credits_delta > 0
-                                ? "text-emerald-400"
-                                : row.credits_delta < 0
-                                ? "text-red-400"
-                                : "text-slate-400",
-                            ].join(" ")}
-                          >
-                            {formatDelta(row.credits_delta)}
-                          </td>
-                          <td className="px-4 py-3 tabular-nums">
-                            {row.balance_after}
-                          </td>
-                          <td className="px-4 py-3 text-slate-400">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-0.5">
+                              <div className="text-slate-200 font-semibold text-sm">
+                                {prettyEventType(row.event_type)}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                {formatDateTime(row.created_at)}
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <div
+                                className={[
+                                  "text-sm font-semibold tabular-nums",
+                                  deltaTone,
+                                ].join(" ")}
+                              >
+                                {formatDelta(row.credits_delta)}
+                              </div>
+                              <div className="text-xs text-slate-500 tabular-nums">
+                                Bal: {row.balance_after}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="text-xs text-slate-500">
+                            <span className="text-slate-400">Ref:</span>{" "}
                             {row.reference || "—"}
-                          </td>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* DESKTOP: TABLE */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-950/40 text-slate-400">
+                        <tr>
+                          <th className="px-4 py-3 text-left">Time</th>
+                          <th className="px-4 py-3 text-left">Event</th>
+                          <th className="px-4 py-3 text-left">Delta</th>
+                          <th className="px-4 py-3 text-left">Balance</th>
+                          <th className="px-4 py-3 text-left">Reference</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {lookup.ledger.map((row) => (
+                          <tr
+                            key={row.id}
+                            className="border-t border-white/10 text-slate-300"
+                          >
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {formatDateTime(row.created_at)}
+                            </td>
+                            <td className="px-4 py-3">
+                              {prettyEventType(row.event_type)}
+                            </td>
+                            <td
+                              className={[
+                                "px-4 py-3 tabular-nums font-semibold",
+                                row.credits_delta > 0
+                                  ? "text-emerald-400"
+                                  : row.credits_delta < 0
+                                  ? "text-red-400"
+                                  : "text-slate-400",
+                              ].join(" ")}
+                            >
+                              {formatDelta(row.credits_delta)}
+                            </td>
+                            <td className="px-4 py-3 tabular-nums">
+                              {row.balance_after}
+                            </td>
+                            <td className="px-4 py-3 text-slate-400">
+                              {row.reference || "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-slate-900/30 p-4 text-xs text-slate-400 leading-relaxed">
               Admin actions are server-protected and require your account
               (jeremy.swallow@gmail.com). Credits are stored in{" "}
-              <span className="text-slate-200 font-semibold">profiles.credits</span>{" "}
+              <span className="text-slate-200 font-semibold">
+                profiles.credits
+              </span>{" "}
               and all adjustments are written to{" "}
-              <span className="text-slate-200 font-semibold">credit_ledger</span>.
+              <span className="text-slate-200 font-semibold">credit_ledger</span>
+              .
             </div>
           </div>
         )}
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-slate-900/40 p-6 space-y-3">
+      {/* IDEAS */}
+      <section className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 sm:p-6 space-y-3">
         <h2 className="text-lg font-semibold text-white">Premium admin ideas</h2>
         <ul className="list-disc list-inside text-sm text-slate-400 space-y-1.5">
           <li>
