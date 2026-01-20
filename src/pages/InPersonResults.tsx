@@ -92,7 +92,6 @@ function pickFirstUsefulText(evidence: unknown): string {
 function extractEvidenceBullets(evidence: unknown): string[] {
   if (!evidence) return [];
 
-  // If analysis.evidenceSummary is a string, we can’t safely bullet it.
   if (typeof evidence === "string") return [];
 
   if (Array.isArray(evidence)) {
@@ -103,7 +102,6 @@ function extractEvidenceBullets(evidence: unknown): string[] {
     const v = evidence["bullets"];
     if (Array.isArray(v)) return v.map(asCleanText).filter(Boolean);
 
-    // fallback keys
     const fallbackKeys = ["bulletPoints", "points", "items"];
     for (const k of fallbackKeys) {
       const vv = evidence[k];
@@ -122,10 +120,10 @@ function UncertaintyText(u: unknown): string {
       asCleanText(u.title) ||
       asCleanText(u.reason) ||
       asCleanText(u.description) ||
-      "An item was marked as unsure by the buyer."
+      "You marked something as unsure."
     );
   }
-  return "An item was marked as unsure by the buyer.";
+  return "You marked something as unsure.";
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -194,61 +192,61 @@ export default function InPersonResults() {
   const coverage = clamp(Number(analysis.completenessScore ?? 0), 0, 100);
 
   /* -------------------------------------------------------
-     Verdict meta (tone + positioning)
+     Verdict meta (simpler language)
   ------------------------------------------------------- */
   const verdictMeta = {
     proceed: {
       icon: <CheckCircle2 className="h-6 w-6 text-emerald-400" />,
-      title: "Buyer-safe: proceed (with normal checks)",
+      title: "Looks OK to continue",
       tone: "border-emerald-500/40 bg-emerald-500/10",
       posture:
-        "Nothing you recorded strongly suggests elevated risk. Confirm the basics, then proceed normally.",
-      short: "Proceed normally",
+        "Based on what you recorded, there are no major red flags. Still do the normal checks before you buy.",
+      short: "Looks OK to continue",
     },
     caution: {
       icon: <AlertTriangle className="h-6 w-6 text-amber-400" />,
-      title: "Buyer-safe: proceed only after clarification",
+      title: "Continue only after a few checks",
       tone: "border-amber-500/40 bg-amber-500/10",
       posture:
-        "You recorded at least one meaningful concern or uncertainty. Clarify those items before committing.",
-      short: "Clarify first",
+        "You recorded at least one concern or unsure item. Get clear answers before you commit.",
+      short: "Check a few things first",
     },
     "walk-away": {
       icon: <XCircle className="h-6 w-6 text-red-400" />,
-      title: "Buyer-safe: pause or walk away is reasonable",
+      title: "Pause — walking away is reasonable",
       tone: "border-red-500/40 bg-red-500/10",
       posture:
-        "Your recorded evidence suggests elevated risk. If the seller can’t resolve key items, walking away is sensible.",
+        "What you recorded suggests higher risk. If the seller can’t explain or prove key items, it’s OK to walk away.",
       short: "Pause / walk away",
     },
   }[analysis.verdict];
 
   /* -------------------------------------------------------
-     Guided “next steps” generation (no scripts)
+     Next steps (simpler, human language)
   ------------------------------------------------------- */
   const nextSteps = useMemo(() => {
     const steps: string[] = [];
 
     if (criticalRisks.length > 0) {
       steps.push(
-        "Resolve the high-impact items first. If they can’t be verified with evidence, pausing is sensible."
+        "Start with the biggest concerns first. Ask for proof (invoice, photos, written confirmation)."
       );
     }
 
     if (moderateRisks.length > 0) {
       steps.push(
-        "Clarify the items you flagged before committing (invoices, written confirmation, or independent inspection)."
+        "Ask the seller to explain the concerns you recorded. Don’t guess — confirm."
       );
     }
 
     if (uncertaintyFactors.length > 0) {
       steps.push(
-        "Treat unsure items as unknowns — verify them before you decide."
+        "Anything marked “unsure” should be treated as unknown. Try to verify it before buying."
       );
     }
 
     steps.push(
-      "Re-check the basics: identity + paperwork match, service proof, and any warning lights."
+      "Do the basics: match paperwork to the car, check service history, and watch for warning lights."
     );
 
     return steps.slice(0, 4);
@@ -262,28 +260,26 @@ export default function InPersonResults() {
       if (!label) continue;
 
       qs.push(
-        `Can you show evidence that “${label}” is explained or resolved (invoice, inspection note, photos, or written confirmation)?`
+        `Can you show proof for “${label}” (invoice, inspection note, photos, or written confirmation)?`
       );
     }
 
     if (qs.length === 0 && uncertaintyFactors.length > 0) {
       qs.push(
-        "Can you confirm the items I couldn’t verify today (service proof, repairs, warnings, or faults) in writing?"
+        "Can you confirm the things I couldn’t check today (service history, repairs, warnings, faults) in writing?"
       );
     }
 
     if (qs.length === 0) {
-      qs.push("Can you show the most recent service invoice and any repair history?");
-      qs.push("Are there any known faults, warnings, or upcoming maintenance due soon?");
+      qs.push("Can you show the latest service invoice and any repair history?");
+      qs.push("Are there any known faults or warning lights?");
     }
 
     return qs.slice(0, 4);
   }, [criticalRisks, moderateRisks, uncertaintyFactors.length]);
 
   const whyThisVerdict =
-    (analysis as any).whyThisVerdict ||
-    (analysis as any).verdictReason ||
-    "";
+    (analysis as any).whyThisVerdict || (analysis as any).verdictReason || "";
 
   const topSignals = useMemo(() => {
     const signals: Array<{
@@ -299,7 +295,10 @@ export default function InPersonResults() {
     }
 
     if (signals.length < 3 && uncertaintyFactors.length > 0) {
-      signals.push({ label: "Some items were marked as unsure", tone: "unknown" });
+      signals.push({
+        label: "Some items were marked as unsure",
+        tone: "unknown",
+      });
     }
 
     return signals.slice(0, 4);
@@ -307,12 +306,12 @@ export default function InPersonResults() {
 
   const scoreBlurb = useMemo(() => {
     if (coverage < 40) {
-      return "Low coverage means this result is cautious by design. It’s still useful — but verify more before committing.";
+      return "You didn’t record much, so this result is cautious. It can still help — but check more before you decide.";
     }
     if (confidence < 45) {
-      return "Confidence is moderate because one or more items need verification. Use the checklist below to reduce uncertainty.";
+      return "Some things need checking. Use the questions below to get clearer answers.";
     }
-    return "Confidence reflects how consistent your recorded evidence was. It doesn’t assume anything you didn’t check.";
+    return "This is based only on what you recorded. It doesn’t assume anything you didn’t check.";
   }, [coverage, confidence]);
 
   /* -------------------------------------------------------
@@ -333,7 +332,7 @@ export default function InPersonResults() {
     lines.push(`Asking price: ${formatMoney(askingPrice)}`);
     lines.push("");
     lines.push("Summary:");
-    lines.push(`• Verdict: ${verdictMeta.short}`);
+    lines.push(`• Result: ${verdictMeta.short}`);
     lines.push(`• Confidence: ${confidence}%`);
     lines.push(`• Coverage: ${coverage}%`);
     lines.push(
@@ -343,9 +342,7 @@ export default function InPersonResults() {
     );
     lines.push(`• Unsure items: ${uncertaintyFactors.length}`);
     lines.push("");
-    lines.push(
-      "If needed, I can also attach the saved PDF version of the report."
-    );
+    lines.push("Tip: You can print/save the PDF and attach it to this email.");
     lines.push("");
     lines.push("— Sent from CarVerity");
 
@@ -384,17 +381,17 @@ export default function InPersonResults() {
       {/* HEADER */}
       <header className="space-y-4">
         <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-          CarVerity · In-person report
+          CarVerity · Your report
         </span>
 
         <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-slate-400">
           <span>Scan ID: {scanId}</span>
-          <span>Generated: {new Date().toLocaleDateString()}</span>
+          <span>Date: {new Date().toLocaleDateString()}</span>
           <span>Asking price: {formatMoney(askingPrice)}</span>
         </div>
       </header>
 
-      {/* EXECUTIVE VERDICT */}
+      {/* VERDICT */}
       <section
         className={`rounded-2xl border px-8 py-8 space-y-6 ${verdictMeta.tone}`}
       >
@@ -413,13 +410,13 @@ export default function InPersonResults() {
           </div>
         </div>
 
-        {/* TOP SIGNALS */}
+        {/* KEY SIGNALS */}
         {topSignals.length > 0 && (
           <div className="rounded-2xl border border-white/12 bg-slate-950/30 px-5 py-4">
             <div className="flex items-center gap-2 text-slate-200">
               <ShieldCheck className="h-4 w-4 text-slate-300" />
               <p className="text-sm font-semibold">
-                Key signals (from your inspection)
+                What stood out (from your inspection)
               </p>
             </div>
 
@@ -448,6 +445,7 @@ export default function InPersonResults() {
           </div>
         )}
 
+        {/* SCORES */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-2">
           <div>
             <div className="flex items-center gap-2 text-slate-400">
@@ -489,17 +487,16 @@ export default function InPersonResults() {
         <p className="text-xs text-slate-400">{scoreBlurb}</p>
       </section>
 
-      {/* GUIDED NEXT STEPS */}
+      {/* WHAT TO DO NEXT */}
       <section className="space-y-6">
         <div className="flex items-center gap-3 text-slate-300">
           <ClipboardCheck className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold">What to do next (buyer-safe)</h2>
+          <h2 className="text-lg font-semibold">What to do next</h2>
         </div>
 
         <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6 space-y-4">
           <p className="text-sm text-slate-400">
-            This is calm guidance based only on what you recorded. It avoids hype and
-            avoids assumptions.
+            This guidance is based only on what you recorded today.
           </p>
 
           <BulletList items={nextSteps} />
@@ -523,26 +520,26 @@ export default function InPersonResults() {
         </div>
       </section>
 
-      {/* CLARIFY WITH SELLER */}
+      {/* QUESTIONS TO ASK */}
       <section className="space-y-6">
         <h2 className="text-lg font-semibold text-slate-200">
-          What to clarify before you commit
+          Questions to ask the seller
         </h2>
 
         <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-4">
           <p className="text-sm text-slate-400">
-            Use these as a checklist. The goal is clarity — not confrontation.
+            Keep it simple. You’re just trying to get clear answers.
           </p>
 
           <BulletList items={clarifyQuestions} />
         </div>
       </section>
 
-      {/* PRIORITY FINDINGS */}
+      {/* BIG CONCERNS */}
       {criticalRisks.length > 0 && (
         <section className="space-y-6">
           <h2 className="text-lg font-semibold text-slate-200">
-            High-impact items (resolve these first)
+            Biggest concerns
           </h2>
 
           <div className="space-y-4">
@@ -561,10 +558,11 @@ export default function InPersonResults() {
         </section>
       )}
 
+      {/* OTHER ITEMS */}
       {moderateRisks.length > 0 && (
         <section className="space-y-6">
           <h2 className="text-lg font-semibold text-slate-200">
-            Items worth clarifying
+            Things worth checking
           </h2>
 
           <div className="space-y-4">
@@ -583,11 +581,11 @@ export default function InPersonResults() {
         </section>
       )}
 
-      {/* DECLARED UNCERTAINTY */}
+      {/* UNSURE */}
       {uncertaintyFactors.length > 0 && (
         <section className="space-y-6">
           <h2 className="text-lg font-semibold text-slate-200">
-            Items you marked as unsure
+            Things you weren’t sure about
           </h2>
 
           <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6">
@@ -598,31 +596,33 @@ export default function InPersonResults() {
             </ul>
 
             <p className="text-xs text-slate-500 mt-4">
-              Unsure means unknown — not “safe” and not “dangerous”. Treat it as a
-              prompt to verify.
+              “Unsure” just means you couldn’t confirm it today. If it matters,
+              try to verify it before buying.
             </p>
           </div>
         </section>
       )}
 
-      {/* EVIDENCE BASIS */}
+      {/* WHAT YOU RECORDED */}
       <section className="space-y-6">
-        <h2 className="text-lg font-semibold text-slate-200">Evidence you recorded</h2>
+        <h2 className="text-lg font-semibold text-slate-200">
+          What you recorded
+        </h2>
 
         <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-5">
           {evidenceText ? (
             <Paragraph value={evidenceText} />
           ) : (
             <p className="text-[14px] text-slate-400">
-              No written evidence summary was generated — your selections and photos
-              were still used to form the result.
+              No written summary was generated — your answers and photos were
+              still used to create this result.
             </p>
           )}
 
           {evidenceBullets.length > 0 && (
             <div className="pt-1">
               <div className="text-xs uppercase tracking-[0.18em] text-slate-500 mb-2">
-                What you captured (quick log)
+                Quick log
               </div>
               <BulletList items={evidenceBullets} />
             </div>
@@ -630,7 +630,7 @@ export default function InPersonResults() {
 
           <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
             <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-              Coverage snapshot
+              Snapshot
             </div>
             <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm text-slate-300">
               <div>
@@ -645,7 +645,9 @@ export default function InPersonResults() {
               </div>
               <div>
                 <div className="text-slate-500 text-xs">Unsure</div>
-                <div className="text-white font-semibold">{uncertaintyFactors.length}</div>
+                <div className="text-white font-semibold">
+                  {uncertaintyFactors.length}
+                </div>
               </div>
               <div>
                 <div className="text-slate-500 text-xs">Coverage</div>
@@ -655,17 +657,17 @@ export default function InPersonResults() {
           </div>
 
           <p className="text-xs text-slate-500 max-w-3xl">
-            This assessment uses only what you recorded and what you explicitly marked
-            as unsure. Missing items are treated as “not recorded”, not as risk.
+            This report is based only on what you recorded. If something wasn’t
+            checked, it’s treated as “not recorded” — not as good or bad.
           </p>
         </div>
       </section>
 
-      {/* PHOTO EVIDENCE */}
+      {/* PHOTOS */}
       <section className="space-y-6">
         <div className="flex items-center gap-3 text-slate-300">
           <Camera className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold">Photos captured</h2>
+          <h2 className="text-lg font-semibold">Photos</h2>
         </div>
 
         {photos.length > 0 ? (
@@ -681,20 +683,20 @@ export default function InPersonResults() {
           </div>
         ) : (
           <p className="text-sm text-slate-400">
-            No photos were captured during this inspection.
+            You didn’t take any photos during this inspection.
           </p>
         )}
       </section>
 
-      {/* FINISHING ACTIONS (ENDING) */}
+      {/* FINISH */}
       <section className="space-y-5 pt-2">
         <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6">
           <p className="text-base font-semibold text-white">
-            You’re done — save or share your report
+            Finished — save or share this report
           </p>
           <p className="mt-2 text-sm text-slate-400 leading-relaxed max-w-3xl">
-            If you want to share this with someone (partner, family, mechanic), the
-            simplest option is to print and save as PDF, then email it from your own
+            If you want to share this with someone (partner, family, mechanic),
+            the easiest way is to save it as a PDF, then email it from your own
             email app.
           </p>
 
@@ -733,13 +735,14 @@ export default function InPersonResults() {
               <br />
               2) Save the PDF
               <br />
-              3) Tap <strong>Email this report</strong> and attach the PDF (optional)
+              3) Tap <strong>Email this report</strong> and attach the PDF
+              (optional)
             </p>
           </div>
         </div>
       </section>
 
-      {/* ACTIONS (PRIMARY CTA) */}
+      {/* PRIMARY BUTTONS */}
       <section className="space-y-4 pt-2">
         <button
           onClick={() => navigate("/scan/in-person/decision")}
