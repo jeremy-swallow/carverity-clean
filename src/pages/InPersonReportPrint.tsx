@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { loadProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 
-/* ------------------------------------------------s -------------------------------------------------------
+/* -------------------------------------------------------
    Small helpers (print-safe, no JSX namespace)
 ------------------------------------------------------- */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -132,22 +132,6 @@ function safeDateLabel(value: unknown): string {
   }
 }
 
-function verdictTitle(verdict: unknown): string {
-  if (verdict === "proceed") return "Proceed normally";
-  if (verdict === "caution") return "Proceed — after a few clarifications";
-  return "Risk appears higher — pausing is reasonable";
-}
-
-function verdictSubtitle(verdict: unknown): string {
-  if (verdict === "proceed") {
-    return "No major issues were recorded. Confirm the basics and proceed as normal.";
-  }
-  if (verdict === "caution") {
-    return "One or more items need checking. Get clarity before you commit.";
-  }
-  return "One or more high-impact issues were recorded. If they can’t be resolved, walking away is sensible.";
-}
-
 /* -------------------------------------------------------
    Page
 ------------------------------------------------------- */
@@ -206,6 +190,17 @@ export default function InPersonReportPrint() {
     (analysis as any)?.buyerPosture ??
     null;
 
+  const APP_URL = "https://carverity.com.au";
+  const SUPPORT_EMAIL = "support@carverity.com.au";
+
+  // QR code uses a public image endpoint (loads like a normal <img> in print).
+  // If you ever want a scan-specific QR, swap APP_URL for a deep link.
+  const qrSrc = useMemo(() => {
+    const size = 140;
+    const data = encodeURIComponent(APP_URL);
+    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${data}`;
+  }, [APP_URL]);
+
   function triggerPrint() {
     window.print();
   }
@@ -217,8 +212,6 @@ export default function InPersonReportPrint() {
     }
     navigate("/my-scans");
   }
-
-  const siteLabel = "carverity.com.au";
 
   // Auto-trigger print dialog (feels like "Download PDF")
   useEffect(() => {
@@ -235,32 +228,76 @@ export default function InPersonReportPrint() {
 
   return (
     <div className="print-body bg-white text-black min-h-screen">
-      <div className="print-page max-w-3xl mx-auto px-12 py-16 space-y-12">
+      {/* Fixed footer (repeats on each printed page in Chrome/Safari) */}
+      <div className="print-footer">
+        <div className="print-footer-inner">
+          <div className="print-footer-left">
+            <div className="flex items-center gap-2">
+              <img
+                src="/logo.png"
+                alt="CarVerity"
+                className="h-5 w-5 object-contain"
+              />
+              <div>
+                <div className="text-[11px] font-semibold text-black/70">
+                  Produced by CarVerity
+                </div>
+                <div className="text-[10px] text-black/55">
+                  Buyer-recorded inspection summary (not a mechanical inspection)
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-2 text-[10px] text-black/60">
+              <span className="font-semibold text-black/65">Website:</span>{" "}
+              {APP_URL}{" "}
+              <span className="mx-2 text-black/25">•</span>
+              <span className="font-semibold text-black/65">Support:</span>{" "}
+              {SUPPORT_EMAIL}
+            </div>
+          </div>
+
+          <div className="print-footer-right">
+            <div className="text-[10px] text-black/55 text-right leading-tight">
+              Scan to visit
+              <br />
+              CarVerity
+            </div>
+            <img
+              src={qrSrc}
+              alt="CarVerity QR code"
+              className="h-12 w-12 border border-black/15"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="print-page max-w-3xl mx-auto px-10 py-14 space-y-10">
         {/* =====================================================
             HEADER
         ===================================================== */}
-        <header className="print-block space-y-5 border-b border-black/15 pb-7">
-          <div className="flex items-start justify-between gap-8">
-            <div className="min-w-[260px]">
+        <header className="print-block space-y-4 border-b border-black/20 pb-6">
+          <div className="flex items-start justify-between gap-6">
+            <div className="min-w-[240px]">
               <div className="flex items-center gap-3">
                 <img
                   src="/logo.png"
                   alt="CarVerity"
-                  className="h-9 w-9 object-contain"
+                  className="h-8 w-8 object-contain"
                 />
-                <div className="leading-tight">
-                  <p className="text-base font-semibold">CarVerity</p>
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-black/50">
-                    In-person inspection report
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-black/50">
+                    CarVerity — In-person report
+                  </p>
+                  <p className="text-[11px] text-black/55 mt-1">
+                    Produced by CarVerity · {APP_URL}
                   </p>
                 </div>
               </div>
 
-              <p className="text-[12px] text-black/50 mt-2">{siteLabel}</p>
+              <h1 className="text-3xl font-bold mt-3">{vehicleTitle}</h1>
 
-              <h1 className="text-3xl font-bold mt-4">{vehicleTitle}</h1>
-
-              <p className="text-sm text-black/60 mt-2 leading-relaxed max-w-lg">
+              <p className="text-sm text-black/60 mt-2 leading-relaxed">
                 A buyer-recorded inspection summary with clear reasoning — based
                 only on what was observed and marked during the scan.
               </p>
@@ -279,14 +316,10 @@ export default function InPersonReportPrint() {
             </div>
           </div>
 
-          <div className="border border-black/15 bg-black/5 px-5 py-4 text-sm">
-            <p className="font-semibold">What this is</p>
-            <p className="text-black/70 mt-1 leading-relaxed">
-              This report summarises what was recorded during a guided,
-              buyer-performed in-person inspection. It does not assume anything
-              you didn’t check.
-            </p>
-          </div>
+          <Paragraph
+            muted
+            value="This report summarises what was recorded during a guided, buyer-performed in-person inspection. It reflects observed evidence and buyer-marked uncertainty only, and does not assume unobserved conditions."
+          />
         </header>
 
         {/* =====================================================
@@ -297,9 +330,12 @@ export default function InPersonReportPrint() {
             Executive verdict
           </h2>
 
-          <p className="text-xl font-semibold">{verdictTitle(analysis.verdict)}</p>
-          <p className="text-sm text-black/60 leading-relaxed">
-            {verdictSubtitle(analysis.verdict)}
+          <p className="text-xl font-semibold">
+            {analysis.verdict === "proceed"
+              ? "Proceed normally"
+              : analysis.verdict === "caution"
+              ? "Proceed — after targeted clarification"
+              : "Risk appears elevated — pausing / walking away is reasonable"}
           </p>
 
           <Paragraph
@@ -320,7 +356,7 @@ export default function InPersonReportPrint() {
           </div>
 
           <div className="border border-black/15 bg-black/5 px-5 py-4 text-sm">
-            <p className="font-semibold">Save this report as a PDF</p>
+            <p className="font-semibold">How to save this report</p>
             <p className="text-black/70 mt-1 leading-relaxed">
               In the print dialog, choose <strong>Save as PDF</strong> (desktop)
               or <strong>Share → Save to Files</strong> (iPhone).
@@ -333,14 +369,14 @@ export default function InPersonReportPrint() {
         ===================================================== */}
         <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
-            What you checked today
+            Evidence considered
           </h2>
 
           {renderEvidenceSummary((analysis as any).evidenceSummary)}
 
           <p className="text-xs text-black/60">
-            This report uses only what you recorded and what you marked as
-            unsure. Missing checks are treated as “not recorded”, not as risk.
+            Only evidence you recorded and items you explicitly marked as unsure
+            are used. Missing checks are treated as not recorded, not as risk.
           </p>
         </section>
 
@@ -417,7 +453,7 @@ export default function InPersonReportPrint() {
         ===================================================== */}
         <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
-            Items marked as unsure
+            Buyer-declared uncertainty
           </h2>
 
           {uncertaintyFactors.length > 0 ? (
@@ -429,50 +465,46 @@ export default function InPersonReportPrint() {
               </ul>
 
               <p className="text-xs text-black/60">
-                “Unsure” means unknown — not automatically safe or dangerous.
-                Treat these as items to verify.
+                These are treated as unknowns to verify — not automatic faults.
               </p>
             </>
           ) : (
-            <p className="text-sm text-black/70">No unsure items were recorded.</p>
+            <p className="text-sm text-black/70">
+              No buyer-declared uncertainty was recorded.
+            </p>
           )}
         </section>
 
         {/* =====================================================
-            WHY THIS RESULT WAS GIVEN
+            HOW RISK WAS WEIGHED
         ===================================================== */}
         <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
-            Why this result was given
+            How risk was weighed
           </h2>
 
-          <Paragraph
-            value={
-              (analysis as any).riskWeightingExplanation ||
-              "This result is based on the issues you recorded, how serious they may be, and how complete your inspection was."
-            }
-          />
+          <Paragraph value={(analysis as any).riskWeightingExplanation} />
         </section>
 
         {/* =====================================================
-            WHAT THIS MEANS FOR YOU (NO NEGOTIATION)
+            BUYER POSITIONING (NO NEGOTIATION)
         ===================================================== */}
         <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
-            What this means for you
+            Buyer-safe posture
           </h2>
 
           <Paragraph
             value={
               buyerPositioningText ||
-              "This report is designed to reduce buyer regret. It highlights what matters, what it could mean, and what to verify before you decide."
+              "This report is designed to reduce buyer regret. It highlights the few checks that matter most, what they mean, and what to verify before you commit."
             }
           />
 
           <div className="border border-black/15 bg-black/5 px-5 py-4 text-sm">
-            <p className="font-semibold">Note</p>
+            <p className="font-semibold">Reminder</p>
             <p className="text-black/70 mt-1 leading-relaxed">
-              This PDF report does not include negotiation scripts. It focuses on
+              This report does not include negotiation scripts. It focuses on
               clarity, evidence, and decision confidence.
             </p>
           </div>
@@ -496,7 +528,7 @@ export default function InPersonReportPrint() {
                     className="border border-black/20 object-cover aspect-square w-full"
                   />
                   <figcaption className="text-[11px] text-black/50">
-                    Buyer-captured photo {i + 1}
+                    Buyer-captured inspection photo {i + 1}
                   </figcaption>
                 </figure>
               ))}
@@ -511,11 +543,10 @@ export default function InPersonReportPrint() {
         {/* =====================================================
             DISCLAIMER
         ===================================================== */}
-        <div className="print-block border border-black/15 bg-black/5 px-6 py-4 text-xs leading-relaxed text-black/70">
-          <strong>Disclaimer:</strong> This document is not a mechanical
-          inspection, defect report, or valuation. It reflects buyer-recorded
-          observations only and should be used alongside professional inspections
-          and independent checks.
+        <div className="print-block border border-black/20 bg-black/5 px-6 py-4 text-xs leading-relaxed">
+          This document is not a mechanical inspection, defect report, or
+          valuation. It reflects buyer-recorded observations only and should be
+          used alongside professional inspections and independent checks.
         </div>
 
         {/* =====================================================
@@ -538,24 +569,8 @@ export default function InPersonReportPrint() {
         </div>
       </div>
 
-      {/* Fixed footer (prints on every page) */}
-      <div className="print-footer">
-        <div className="print-footer-left">
-          <span className="brand">CarVerity</span>
-          <span className="sep">•</span>
-          <span className="site">{siteLabel}</span>
-          <span className="sep">•</span>
-          <span className="scan">Scan ID: {scanId}</span>
-        </div>
-
-        <div className="print-footer-right">
-          <span className="page-label">Page</span>{" "}
-          <span className="page-number" />
-        </div>
-      </div>
-
       <style>{`
-        /* ===== Print rules ===== */
+        /* ===== Print rules that stop the browser doing ugly page splits ===== */
 
         .print-body {
           background: white;
@@ -566,13 +581,13 @@ export default function InPersonReportPrint() {
           print-color-adjust: exact;
         }
 
-        /* More breathing room so it feels premium + avoids edge hugging */
+        /* A4 with more breathing room (fixes "too close to edges") */
         @page {
           size: A4;
-          margin: 20mm;
+          margin: 18mm;
         }
 
-        /* Footer always visible while printing */
+        /* Footer that repeats each page (Chrome/Safari print) */
         .print-footer {
           display: none;
         }
@@ -590,12 +605,43 @@ export default function InPersonReportPrint() {
             display: none !important;
           }
 
-          /* Reserve space so footer never overlaps content */
+          /* Make space so the fixed footer never overlaps content */
           .print-page {
             padding: 0 !important;
             margin: 0 auto !important;
             max-width: none !important;
-            padding-bottom: 18mm !important;
+            padding-bottom: 26mm !important;
+          }
+
+          /* Show and pin footer */
+          .print-footer {
+            display: block !important;
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            border-top: 1px solid rgba(0,0,0,0.18);
+            padding: 8mm 18mm;
+            z-index: 9999;
+          }
+
+          .print-footer-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12mm;
+          }
+
+          .print-footer-left {
+            flex: 1;
+            min-width: 0;
+          }
+
+          .print-footer-right {
+            display: flex;
+            align-items: center;
+            gap: 8mm;
           }
 
           /* Prevent sections/cards/images from being cut in half */
@@ -611,50 +657,6 @@ export default function InPersonReportPrint() {
           h1, h2, h3 {
             break-after: avoid !important;
             page-break-after: avoid !important;
-          }
-
-          /* Footer */
-          .print-footer {
-            display: flex !important;
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
-
-            padding: 8mm 20mm;
-            border-top: 1px solid rgba(0,0,0,0.12);
-            background: white;
-
-            font-size: 11px;
-            color: rgba(0,0,0,0.55);
-
-            align-items: center;
-            justify-content: space-between;
-          }
-
-          .print-footer-left {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            white-space: nowrap;
-          }
-
-          .print-footer-left .brand {
-            font-weight: 700;
-            color: rgba(0,0,0,0.65);
-          }
-
-          .print-footer-left .sep {
-            opacity: 0.55;
-          }
-
-          .print-footer-right {
-            white-space: nowrap;
-          }
-
-          /* Page numbers (works well in Chrome, usually OK in Safari) */
-          .page-number:before {
-            content: counter(page);
           }
         }
       `}</style>
