@@ -11,11 +11,51 @@ import {
   Timer,
   BadgeCheck,
 } from "lucide-react";
-import { loadProgress } from "../utils/scanProgress";
+import { loadProgress, clearProgress } from "../utils/scanProgress";
 
 export default function Home() {
   const navigate = useNavigate();
   const progress = loadProgress();
+
+  /**
+   * IMPORTANT:
+   * If a user returns to the homepage AFTER completing a scan,
+   * we must NOT show "Resume inspection".
+   *
+   * The most common cause is progress.step still being set to the
+   * last scan step (results/print/negotiation), so we defensively
+   * clear progress if it looks "completed".
+   *
+   * We do NOT want to add extra steps or ask the user to re-enter anything.
+   */
+  const shouldShowResume = (() => {
+    const step = progress?.step;
+    if (!step) return false;
+
+    // If the user is already on an end-of-flow page, it's not "in progress".
+    // Clear progress so the homepage is clean and correct.
+    const completedStepPrefixes = [
+      "/scan/in-person/results",
+      "/scan/in-person/print",
+      "/scan/in-person/negotiation",
+      "/scan/online/results",
+    ];
+
+    const isCompletedStep = completedStepPrefixes.some((p) =>
+      String(step).startsWith(p)
+    );
+
+    if (isCompletedStep) {
+      try {
+        clearProgress();
+      } catch {
+        // ignore
+      }
+      return false;
+    }
+
+    return true;
+  })();
 
   function resumeScan() {
     if (!progress?.step) return;
@@ -73,7 +113,7 @@ export default function Home() {
                 <ArrowRight className="h-4 w-4" />
               </button>
 
-              {progress?.step && (
+              {shouldShowResume && (
                 <div className="flex flex-col gap-1">
                   <button
                     onClick={resumeScan}
@@ -357,7 +397,7 @@ export default function Home() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            {progress?.step && (
+            {shouldShowResume && (
               <button
                 onClick={resumeScan}
                 className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-black font-semibold transition"
