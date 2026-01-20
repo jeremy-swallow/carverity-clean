@@ -1,12 +1,14 @@
+// api/mark-in-person-scan-completed.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || "";
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 if (!SUPABASE_URL) throw new Error("Missing SUPABASE_URL");
-if (!SUPABASE_ANON_KEY) throw new Error("Missing VITE_SUPABASE_ANON_KEY");
+if (!SUPABASE_SERVICE_ROLE_KEY)
+  throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
 
 function extractErrorCode(message: string | null | undefined): string | null {
   if (!message) return null;
@@ -44,7 +46,11 @@ export default async function handler(
     return;
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  // IMPORTANT:
+  // This endpoint MUST be able to reliably deduct credits.
+  // Use Service Role for the RPC call so it can't fail due to RLS.
+  // The RPC itself must still enforce "only deduct for the authenticated user".
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     global: {
       headers: {
         Authorization: `Bearer ${jwt}`,
@@ -62,7 +68,7 @@ export default async function handler(
 
   const reference = `scan:${scanId}`;
 
-  const { error } = await supabase.rpc("mark_in_person_scan_completed", {
+  const { error } = await supabaseAdmin.rpc("mark_in_person_scan_completed", {
     p_reference: reference,
   });
 
