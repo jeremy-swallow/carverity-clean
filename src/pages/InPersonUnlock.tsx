@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { clearProgress } from "../utils/scanProgress";
 
 function formatCredits(n: number | null) {
   if (n == null) return "—";
@@ -119,6 +120,17 @@ export default function InPersonUnlock() {
 
         throw new Error("FAILED_TO_UNLOCK");
       }
+
+      // IMPORTANT:
+      // - Clear local scan progress so Home never shows "Resume inspection"
+      // - Refresh credits so the UI reflects the deduction instantly
+      try {
+        clearProgress();
+      } catch {
+        // ignore
+      }
+
+      await refreshCredits();
 
       // Go directly to the full paid report (no preview)
       navigate(`/scan/in-person/results/${scanId}`);
