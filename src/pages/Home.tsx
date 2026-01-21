@@ -85,7 +85,7 @@ export default function Home() {
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1.5 w-fit">
               <ShieldCheck className="h-4 w-4 text-emerald-300" />
               <span className="text-[12px] text-slate-200">
-                Calm, buyer-safe in-person inspection
+                Buyer-safe in-person inspection
               </span>
             </div>
 
@@ -152,7 +152,7 @@ export default function Home() {
                   <p className="text-sm font-semibold">Guided scan</p>
                 </div>
                 <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                  Outside → cabin → test drive, with calm prompts that keep you
+                  Outside → cabin → test drive, with clear prompts that keep you
                   focused.
                 </p>
               </div>
@@ -210,7 +210,7 @@ export default function Home() {
               <p className="text-slate-300 text-sm leading-relaxed">
                 If you don’t buy cars often, it’s easy to miss small warning
                 signs — or get pressured into a decision you’re not ready for.
-                CarVerity is a calm guide that helps you slow down, stay
+                CarVerity is a guided flow that helps you slow down, stay
                 organised, and focus on what actually matters.
               </p>
             </div>
@@ -222,7 +222,7 @@ export default function Home() {
                   Premium feel
                 </div>
                 <div className="text-[11px] text-slate-400">
-                  Calm, structured, buyer-safe
+                  Structured, buyer-safe, step-by-step
                 </div>
               </div>
             </div>
@@ -353,7 +353,7 @@ export default function Home() {
                 <p className="text-sm font-semibold">Buyer-safe</p>
               </div>
               <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                Calm language that helps you clarify — not escalate.
+                Clear language that helps you clarify — not escalate.
               </p>
             </div>
 
@@ -420,7 +420,8 @@ export default function Home() {
         <div className="text-xs text-slate-500 leading-relaxed">
           CarVerity helps you record what you can observe during an in-person
           inspection. It’s not a mechanical inspection or valuation — it’s a
-          calm guide to reduce buyer regret and improve decision confidence.
+          guided flow designed to reduce buyer regret and improve decision
+          confidence.
         </div>
       </section>
     </div>
