@@ -10,6 +10,8 @@ import {
   Receipt,
   RefreshCw,
   CheckCircle2,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 
 type PackKey = "single" | "three" | "five";
@@ -165,7 +167,7 @@ export default function Pricing() {
 
   // “Restore” UI:
   // This should now almost never show once create-checkout-session returns to the SAME origin.
-  // Keep it as a gentle fallback (no “bullshit” vibes: we don’t pretend we can restore auth from Stripe).
+  // Keep it as a gentle fallback (we don’t pretend we can restore auth from Stripe).
   const inRestoreWindow =
     success && restore && (!sessionReady || (sessionReady && !isLoggedIn));
 
@@ -216,18 +218,32 @@ export default function Pricing() {
     <div className="max-w-5xl mx-auto px-4 py-20">
       {/* Header */}
       <header className="max-w-2xl mb-10">
-        <h1 className="text-3xl md:text-4xl font-semibold text-white mb-4">
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/40 px-3 py-1.5 mb-4">
+          <Sparkles className="h-4 w-4 text-emerald-300" />
+          <span className="text-[12px] text-slate-200">
+            Credits unlock the final report
+          </span>
+        </div>
+
+        <h1 className="text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight">
           Straightforward pricing
         </h1>
-        <p className="text-slate-400 text-base">
+
+        <p className="text-slate-400 text-base leading-relaxed">
           Each inspection gives you a structured assessment you can trust when
           viewing a vehicle in person.
         </p>
       </header>
 
       {/* Trust strip (premium + credible) */}
-      <section className="mb-10 rounded-2xl border border-white/10 bg-slate-900/40 px-6 py-5">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+      <section className="mb-10 rounded-2xl border border-white/10 bg-slate-900/40 px-6 py-5 relative overflow-hidden">
+        {/* subtle premium glow */}
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-20 -left-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+          <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-sky-500/10 blur-3xl" />
+        </div>
+
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-1">
             <p className="text-sm font-semibold text-white">
               Secure checkout, buyer-safe product
@@ -261,7 +277,7 @@ export default function Pricing() {
           </div>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="relative mt-4 pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <p className="text-xs text-slate-500">
             By purchasing, you agree to our{" "}
             <NavLink
@@ -414,82 +430,100 @@ export default function Pricing() {
 
       {/* Pricing */}
       <div className="grid gap-8 md:grid-cols-3">
-        {PACKS.map((pack) => (
-          <div
-            key={pack.key}
-            className={[
-              "relative rounded-2xl border px-6 py-8 flex flex-col",
-              pack.recommended
-                ? "border-emerald-500/40 bg-emerald-900/20"
-                : "border-slate-800 bg-slate-900/60",
-            ].join(" ")}
-          >
-            {pack.recommended && (
-              <div className="absolute -top-3 left-6 text-xs tracking-wide uppercase text-emerald-400">
-                Recommended
-              </div>
-            )}
+        {PACKS.map((pack) => {
+          const isRecommended = Boolean(pack.recommended);
+          const isLoading = loadingPack === pack.key;
 
-            <h2 className="text-lg font-semibold text-white mb-1">
-              {pack.title}
-            </h2>
-
-            <p className="text-sm text-slate-400 mb-4">{pack.context}</p>
-
-            <div className="mb-6">
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                Includes
-              </p>
-              <p className="text-sm text-slate-200 mt-1">
-                <span className="font-semibold text-white tabular-nums">
-                  {pack.credits}
-                </span>{" "}
-                {plural(pack.credits, "inspection")}
-              </p>
-            </div>
-
-            <div className="text-3xl font-semibold text-white mb-2">
-              {pack.price}
-            </div>
-
-            <p className="text-xs text-slate-500 mb-6">
-              Adds{" "}
-              <span className="text-slate-200 font-semibold tabular-nums">
-                {pack.credits}
-              </span>{" "}
-              {plural(pack.credits, "credit")} to your account
-            </p>
-
-            {pack.note && (
-              <p className="text-xs text-slate-400 mb-6">{pack.note}</p>
-            )}
-
-            <button
-              onClick={() => startCheckout(pack.key)}
-              disabled={loadingPack === pack.key}
+          return (
+            <div
+              key={pack.key}
               className={[
-                "mt-auto rounded-xl px-4 py-3 font-semibold transition",
-                pack.recommended
-                  ? "bg-emerald-500 hover:bg-emerald-400 text-black"
-                  : "bg-slate-800 hover:bg-slate-700 text-slate-200",
-                loadingPack === pack.key
-                  ? "opacity-60 cursor-not-allowed"
-                  : "",
+                "group relative rounded-2xl border px-6 py-8 flex flex-col overflow-hidden",
+                "transition duration-200",
+                "hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/30",
+                isRecommended
+                  ? "border-emerald-500/40 bg-emerald-900/15"
+                  : "border-white/10 bg-slate-900/55",
               ].join(" ")}
             >
-              {loadingPack === pack.key ? "Preparing checkout…" : "Continue"}
-            </button>
+              {/* Card glow */}
+              <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition">
+                <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+              </div>
 
-            {!isLoggedIn && sessionReady && (
-              <p className="mt-3 text-xs text-slate-500">
-                Sign in is required to purchase credits.
-              </p>
-            )}
-          </div>
-        ))}
+              {/* top badge */}
+              {isRecommended && (
+                <div className="absolute -top-3 left-6 text-xs tracking-wide uppercase text-emerald-300">
+                  Recommended
+                </div>
+              )}
+
+              <div className="relative">
+                <h2 className="text-lg font-semibold text-white mb-1 tracking-tight">
+                  {pack.title}
+                </h2>
+
+                <p className="text-sm text-slate-400 mb-4 leading-relaxed">
+                  {pack.context}
+                </p>
+
+                <div className="mb-6">
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    Includes
+                  </p>
+                  <p className="text-sm text-slate-200 mt-1">
+                    <span className="font-semibold text-white tabular-nums">
+                      {pack.credits}
+                    </span>{" "}
+                    {plural(pack.credits, "inspection")}
+                  </p>
+                </div>
+
+                <div className="flex items-end justify-between gap-3 mb-2">
+                  <div className="text-3xl font-semibold text-white tracking-tight">
+                    {pack.price}
+                  </div>
+
+                  <div className="text-xs text-slate-500 text-right">
+                    Adds{" "}
+                    <span className="text-slate-200 font-semibold tabular-nums">
+                      {pack.credits}
+                    </span>{" "}
+                    {plural(pack.credits, "credit")}
+                  </div>
+                </div>
+
+                {pack.note && (
+                  <p className="text-xs text-slate-400 mb-6">{pack.note}</p>
+                )}
+              </div>
+
+              <button
+                onClick={() => startCheckout(pack.key)}
+                disabled={isLoading}
+                className={[
+                  "relative mt-auto rounded-xl px-4 py-3 font-semibold transition inline-flex items-center justify-center gap-2",
+                  isRecommended
+                    ? "bg-emerald-500 hover:bg-emerald-400 text-black"
+                    : "bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-white/10",
+                  isLoading ? "opacity-60 cursor-not-allowed" : "",
+                ].join(" ")}
+              >
+                {isLoading ? "Preparing checkout…" : "Continue"}
+                {!isLoading && <ArrowRight className="h-4 w-4" />}
+              </button>
+
+              {!isLoggedIn && sessionReady && (
+                <p className="mt-3 text-xs text-slate-500">
+                  Sign in is required to purchase credits.
+                </p>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      <p className="mt-16 text-sm text-slate-500 max-w-2xl">
+      <p className="mt-16 text-sm text-slate-500 max-w-2xl leading-relaxed">
         Credits never expire. You only use a credit when you unlock a completed
         inspection report.
       </p>
