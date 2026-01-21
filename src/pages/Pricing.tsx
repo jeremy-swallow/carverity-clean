@@ -220,8 +220,8 @@ export default function Pricing() {
           Straightforward pricing
         </h1>
         <p className="text-slate-400 text-base">
-          Each inspection gives you a calm, structured assessment you can trust
-          when viewing a vehicle in person.
+          Each inspection gives you a structured assessment you can trust when
+          viewing a vehicle in person.
         </p>
       </header>
 
