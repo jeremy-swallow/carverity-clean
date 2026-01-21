@@ -92,16 +92,16 @@ export default function StartScan() {
       </h1>
 
       <p className="text-slate-300">
-        CarVerity guides you through a calm, real-world inspection of the
-        vehicle. You’ll take a few key photos, follow guided checks, and note
-        anything worth confirming.
+        CarVerity guides you through a real-world inspection of the vehicle.
+        You’ll take a few key photos, follow guided checks, and note anything
+        worth confirming.
       </p>
 
       <p className="text-sm text-slate-400">
         You only use a credit when you unlock the final report.
       </p>
 
-      {/* Status line (premium, calm, not “form-like”) */}
+      {/* Status line (premium, not “form-like”) */}
       <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-4">
         <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
           Account status
