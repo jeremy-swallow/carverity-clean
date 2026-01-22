@@ -20,6 +20,7 @@ import {
 
 import { loadProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
+import { loadScanById } from "../utils/scanStorage";
 
 /* =======================================================
    Small rendering helpers (visual-only, type-safe)
@@ -143,14 +144,20 @@ function formatMoney(n: unknown): string {
   }
 }
 
+function vehicleTitleFromProgress(p: any): string {
+  const year = p?.vehicleYear ?? p?.vehicle?.year ?? "";
+  const make = p?.vehicleMake ?? p?.vehicle?.make ?? "";
+  const model = p?.vehicleModel ?? p?.vehicle?.model ?? "";
+  const parts = [year, make, model].filter(Boolean);
+  return parts.length ? parts.join(" ") : "";
+}
+
 /* =======================================================
    Page
 ======================================================= */
 export default function InPersonResults() {
   const navigate = useNavigate();
   const { scanId } = useParams<{ scanId: string }>();
-
-  const progress: any = loadProgress();
 
   /* -------------------------------------------------------
      Routing safety
@@ -164,11 +171,20 @@ export default function InPersonResults() {
   if (!scanId) return null;
 
   /* -------------------------------------------------------
-     Analysis
+     Load saved scan (preferred)
+  ------------------------------------------------------- */
+  const saved = useMemo(() => loadScanById(scanId), [scanId]);
+
+  const progressFallback: any = loadProgress();
+  const progress: any = saved?.progressSnapshot ?? progressFallback ?? {};
+
+  /* -------------------------------------------------------
+     Analysis (prefer persisted analysis)
   ------------------------------------------------------- */
   const analysis = useMemo(() => {
+    if (saved?.analysis) return saved.analysis;
     return analyseInPersonInspection(progress);
-  }, [progress]);
+  }, [saved, progress]);
 
   const photos: string[] = (progress?.photos ?? []).map((p: any) => p.dataUrl);
 
@@ -227,7 +243,6 @@ export default function InPersonResults() {
   const nextSteps = useMemo(() => {
     const steps: string[] = [];
 
-    // 🔥 Your recommendation: test drive should be strongly recommended
     steps.push(
       "Take a short test drive if possible. If you’re planning to buy the car, this is strongly recommended."
     );
@@ -365,14 +380,6 @@ export default function InPersonResults() {
     analysis.risks,
     uncertaintyFactors.length,
   ]);
-
-  function vehicleTitleFromProgress(p: any): string {
-    const year = p?.vehicle?.year || p?.year || p?.vehicleYear || "";
-    const make = p?.vehicle?.make || p?.make || p?.vehicleMake || "";
-    const model = p?.vehicle?.model || p?.model || p?.vehicleModel || "";
-    const parts = [year, make, model].filter(Boolean);
-    return parts.length ? parts.join(" ") : "";
-  }
 
   function startNewScan() {
     navigate("/scan/in-person/start");

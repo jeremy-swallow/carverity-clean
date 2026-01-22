@@ -3,6 +3,9 @@
    Local-only persistence (in-person only)
 ========================================================= */
 
+import type { AnalysisResult } from "./inPersonAnalysis";
+import type { ScanProgress } from "./scanProgress";
+
 export type InspectionType = "in-person";
 
 export interface InspectionHistoryEvent {
@@ -24,8 +27,7 @@ export interface SavedInspection {
     variant?: string;
   };
 
-  // ✅ NEW: Thumbnail image (base64 dataUrl)
-  // Stored as the first photo taken during the inspection (if available)
+  // Thumbnail image (base64 dataUrl)
   thumbnail?: string | null;
 
   // Optional summary metrics (used for MyScans + previews)
@@ -44,6 +46,18 @@ export interface SavedInspection {
 
   // Completion hint (future use)
   completed?: boolean;
+
+  /**
+   * NEW: Persisted analysis output for reload-safe results.
+   * This is generated at the moment report generation begins.
+   */
+  analysis?: AnalysisResult;
+
+  /**
+   * NEW: Persisted progress snapshot at the time of report generation.
+   * This ensures the report is reproducible and print-safe.
+   */
+  progressSnapshot?: ScanProgress;
 }
 
 const STORAGE_KEY = "carverity_saved_inspections";
@@ -61,6 +75,8 @@ function normaliseInspections(records: any[]): SavedInspection[] {
     completed: record.completed ?? false,
     history: record.history ?? [],
     thumbnail: record.thumbnail ?? null,
+    analysis: record.analysis ?? undefined,
+    progressSnapshot: record.progressSnapshot ?? undefined,
   })) as SavedInspection[];
 }
 
@@ -84,6 +100,11 @@ export function loadScans(): SavedInspection[] {
   }
 }
 
+export function loadScanById(inspectionId: string): SavedInspection | null {
+  const scans = loadScans();
+  return scans.find((s) => s.id === inspectionId) ?? null;
+}
+
 export function saveScan(inspection: SavedInspection) {
   if (typeof window === "undefined") return;
 
@@ -98,6 +119,8 @@ export function saveScan(inspection: SavedInspection) {
       completed: inspection.completed ?? false,
       history: inspection.history ?? [],
       thumbnail: inspection.thumbnail ?? null,
+      analysis: inspection.analysis ?? undefined,
+      progressSnapshot: inspection.progressSnapshot ?? undefined,
     },
     ...existing,
   ];

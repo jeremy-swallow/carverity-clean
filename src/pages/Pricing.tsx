@@ -10,8 +10,11 @@ import {
   Receipt,
   RefreshCw,
   CheckCircle2,
-  Sparkles,
   ArrowRight,
+  Sparkles,
+  BadgeCheck,
+  FileText,
+  Timer,
 } from "lucide-react";
 
 type PackKey = "single" | "three" | "five";
@@ -29,26 +32,26 @@ type PackOption = {
 const PACKS: PackOption[] = [
   {
     key: "single",
-    title: "Single inspection",
+    title: "Single report credit",
     price: "$14.99",
     credits: 1,
-    context: "For a one-off vehicle you want confidence on.",
+    context: "For one vehicle you want clarity on.",
   },
   {
     key: "three",
-    title: "Inspection bundle",
+    title: "3-pack",
     price: "$39",
     credits: 3,
-    context: "Ideal if you’re comparing a few vehicles.",
-    note: "Most people choose this option",
+    context: "Best if you’re comparing a few options.",
+    note: "Most popular",
     recommended: true,
   },
   {
     key: "five",
-    title: "Extended bundle",
+    title: "5-pack",
     price: "$59",
     credits: 5,
-    context: "Best value if you’re actively shopping.",
+    context: "Best value for active shopping.",
   },
 ];
 
@@ -213,68 +216,103 @@ export default function Pricing() {
   const showCreditsLine = sessionReady;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-20">
+    <div className="max-w-6xl mx-auto px-4 py-20">
       {/* Header */}
-      <header className="max-w-2xl mb-10">
+      <header className="max-w-3xl mb-10">
         <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/40 px-3 py-1.5 mb-4">
           <Sparkles className="h-4 w-4 text-emerald-300" />
           <span className="text-[12px] text-slate-200">
-            Credits unlock the final report
+            Pay only when you generate the report
           </span>
         </div>
 
         <h1 className="text-3xl md:text-4xl font-semibold text-white mb-4 tracking-tight">
-          Straightforward pricing
+          Pricing that’s simple and fair
         </h1>
 
         <p className="text-slate-400 text-base leading-relaxed">
-          Start the inspection for free. You only use a credit when you generate
-          the final report.
+          Start the in-person inspection for free. A credit is used only when
+          you begin report generation (the moment the analysis starts).
         </p>
       </header>
 
-      {/* Trust strip */}
-      <section className="mb-10 rounded-2xl border border-white/10 bg-slate-900/40 px-6 py-5 relative overflow-hidden">
+      {/* “How it works” strip */}
+      <section className="mb-10 rounded-2xl border border-white/10 bg-slate-900/40 px-6 py-6 relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-20 -left-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
-          <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-sky-500/10 blur-3xl" />
+          <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
+          <div className="absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
         </div>
 
-        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-white">
-              Secure checkout, buyer-safe product
-            </p>
-            <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
-              Payments are processed by Stripe. Credits are added to your
-              account instantly after purchase.
-            </p>
+        <div className="relative">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-white">
+                What your credit covers
+              </p>
+              <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
+                A credit is consumed when report generation begins. You can walk
+                through the inspection first and decide later.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
+                <FileText className="h-4 w-4 text-slate-300" />
+                Full report output
+              </span>
+
+              <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
+                <Timer className="h-4 w-4 text-slate-300" />
+                Uses credit at analysis start
+              </span>
+
+              <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
+                <BadgeCheck className="h-4 w-4 text-slate-300" />
+                Stored on your account
+              </span>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
-              <ShieldCheck className="h-4 w-4 text-slate-300" />
-              Stripe secured
-            </span>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Step 1
+              </p>
+              <p className="text-sm text-slate-200 mt-1 font-semibold">
+                Inspect the car
+              </p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                Follow the guided checks and take photos if you want.
+              </p>
+            </div>
 
-            <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
-              <CreditCard className="h-4 w-4 text-slate-300" />
-              No card storage
-            </span>
+            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Step 2
+              </p>
+              <p className="text-sm text-slate-200 mt-1 font-semibold">
+                Review your notes
+              </p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                Make sure everything important is captured before analysis.
+              </p>
+            </div>
 
-            <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
-              <Lock className="h-4 w-4 text-slate-300" />
-              Sign-in required
-            </span>
-
-            <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
-              <Receipt className="h-4 w-4 text-slate-300" />
-              Tax invoice via Stripe
-            </span>
+            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Step 3
+              </p>
+              <p className="text-sm text-slate-200 mt-1 font-semibold">
+                Generate the report
+              </p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                A credit is used when report generation begins.
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="relative mt-4 pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="relative mt-5 pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <p className="text-xs text-slate-500">
             By purchasing, you agree to our{" "}
             <NavLink
@@ -302,6 +340,43 @@ export default function Pricing() {
               support@carverity.com.au
             </a>
           </p>
+        </div>
+      </section>
+
+      {/* Trust strip */}
+      <section className="mb-10 rounded-2xl border border-white/10 bg-slate-900/50 px-6 py-5">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-white">
+              Secure checkout and transparent billing
+            </p>
+            <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
+              Payments are processed by Stripe. Credits are added to your
+              account after purchase and can be used any time.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
+              <ShieldCheck className="h-4 w-4 text-slate-300" />
+              Stripe secured
+            </span>
+
+            <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
+              <CreditCard className="h-4 w-4 text-slate-300" />
+              No card storage
+            </span>
+
+            <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
+              <Lock className="h-4 w-4 text-slate-300" />
+              Sign-in required
+            </span>
+
+            <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-white/10 bg-slate-950/30 text-slate-300">
+              <Receipt className="h-4 w-4 text-slate-300" />
+              Tax invoice via Stripe
+            </span>
+          </div>
         </div>
       </section>
 
@@ -392,7 +467,7 @@ export default function Pricing() {
       )}
 
       {/* Account status */}
-      <section className="mb-12 rounded-2xl border border-white/10 bg-slate-900/50 px-6 py-5 flex flex-wrap items-center justify-between gap-4">
+      <section className="mb-12 rounded-2xl border border-white/10 bg-slate-900/55 px-6 py-5 flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-wide text-slate-500">
             Account status
@@ -409,7 +484,7 @@ export default function Pricing() {
             </p>
           ) : (
             <p className="text-sm text-slate-300 mt-1">
-              Not signed in · Sign in to buy credits and unlock reports
+              Not signed in · Sign in to buy credits and generate reports
             </p>
           )}
         </div>
@@ -439,7 +514,7 @@ export default function Pricing() {
                 "hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/30",
                 isRecommended
                   ? "border-emerald-500/40 bg-emerald-900/15"
-                  : "border-white/10 bg-slate-900/55",
+                  : "border-white/10 bg-slate-900/60",
               ].join(" ")}
             >
               <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition">
@@ -469,7 +544,11 @@ export default function Pricing() {
                     <span className="font-semibold text-white tabular-nums">
                       {pack.credits}
                     </span>{" "}
-                    {plural(pack.credits, "inspection")}
+                    {plural(pack.credits, "report credit")}
+                  </p>
+
+                  <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                    Used when report generation begins.
                   </p>
                 </div>
 
@@ -517,10 +596,39 @@ export default function Pricing() {
         })}
       </div>
 
-      <p className="mt-16 text-sm text-slate-500 max-w-2xl leading-relaxed">
-        Credits never expire. You only use a credit when you generate a completed
-        inspection report.
-      </p>
+      <section className="mt-14 rounded-2xl border border-white/10 bg-slate-900/40 p-6">
+        <p className="text-sm font-semibold text-white mb-2">
+          Good to know
+        </p>
+
+        <ul className="space-y-2 text-sm text-slate-400 leading-relaxed">
+          <li>
+            <span className="text-slate-200 font-semibold">
+              Credits never expire.
+            </span>{" "}
+            Use them whenever you’re ready.
+          </li>
+          <li>
+            <span className="text-slate-200 font-semibold">
+              No credit is used during the inspection itself.
+            </span>{" "}
+            A credit is used only when report generation begins.
+          </li>
+          <li>
+            <span className="text-slate-200 font-semibold">
+              Reports are tied to your account.
+            </span>{" "}
+            You can revisit them from{" "}
+            <button
+              onClick={() => navigate("/my-scans")}
+              className="text-slate-200 underline underline-offset-4 decoration-white/10 hover:decoration-white/30 hover:text-white"
+            >
+              My Scans
+            </button>
+            .
+          </li>
+        </ul>
+      </section>
     </div>
   );
 }
