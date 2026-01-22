@@ -12,7 +12,8 @@ const ADMIN_EMAIL = "jeremy.swallow@gmail.com";
 
 if (!STRIPE_SECRET_KEY) throw new Error("Missing STRIPE_SECRET_KEY");
 if (!SUPABASE_URL) throw new Error("Missing VITE_SUPABASE_URL");
-if (!SUPABASE_SERVICE_ROLE_KEY) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+if (!SUPABASE_SERVICE_ROLE_KEY)
+  throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
 
 const stripe = new Stripe(STRIPE_SECRET_KEY, {
   apiVersion: "2025-11-17.clover" as any,
@@ -54,8 +55,7 @@ async function getRequesterUserFromJwtOrThrow(jwt: string) {
 }
 
 /**
- * We store a marker reference so the same Stripe session cannot be refunded twice.
- * This uses the existing credit_ledger table (no schema change required).
+ * Marker prevents the same Stripe session being refunded twice (app-side).
  */
 function refundMarkerReference(sessionId: string) {
   return `stripe_session_refund:${sessionId}`;
@@ -141,7 +141,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .limit(1);
 
     if (markerError) {
-      console.error("[admin-refund-checkout-session] marker lookup error:", markerError);
+      console.error(
+        "[admin-refund-checkout-session] marker lookup error:",
+        markerError
+      );
       return res.status(500).json({ error: "LEDGER_LOOKUP_FAILED" });
     }
 
@@ -149,8 +152,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(409).json({ error: "ALREADY_REFUNDED" });
     }
 
-    // 3) Create Stripe refund
-    // Use idempotency key so repeated clicks won't double-refund on Stripe side
+    // 3) Read profile credits BEFORE refund (safeguard)
+    const { data: profile, error: profileErr } = await supabaseAdmin
+      .from("profiles")
+      .select("id, credits")
+      .eq("id", supabaseUserId)
+      .single();
+
+    if (profileErr || !profile) {
+      console.error(
+        "[admin-refund-checkout-session] profile read error:",
+        profileErr
+      );
+      return res.status(404).json({ error: "USER_PROFILE_NOT_FOUND" });
+    }
+
+    const creditsBefore = Number(profile.credits ?? 0);
+
+    /**
+     * SAFEGUARD:
+     * Only allow pack refunds if the user still has at least the pack credits available.
+     * This prevents:
+     *   buy pack -> spend credits -> refund -> keep usage
+     */
+    if (creditsBefore < creditsToRestore) {
+      return res.status(409).json({
+        error: "CREDITS_ALREADY_USED",
+        credits_before: creditsBefore,
+        required_available: creditsToRestore,
+      });
+    }
+
+    // 4) Create Stripe refund (idempotent on Stripe side)
     const refund = await stripe.refunds.create(
       {
         payment_intent: paymentIntentId,
@@ -169,36 +202,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     );
 
-    // 4) Restore credits in Supabase (profiles + ledger)
-    // Read current credits
-    const { data: profile, error: profileErr } = await supabaseAdmin
-      .from("profiles")
-      .select("id, credits")
-      .eq("id", supabaseUserId)
-      .single();
-
-    if (profileErr || !profile) {
-      console.error("[admin-refund-checkout-session] profile read error:", profileErr);
-      return res.status(404).json({ error: "USER_PROFILE_NOT_FOUND" });
-    }
-
-    const creditsBefore = Number(profile.credits ?? 0);
+    // 5) Restore credits (profiles + ledger)
     const creditsAfter = creditsBefore + creditsToRestore;
 
-    // Update profile credits
     const { error: updateErr } = await supabaseAdmin
       .from("profiles")
       .update({ credits: creditsAfter })
       .eq("id", supabaseUserId);
 
     if (updateErr) {
-      console.error("[admin-refund-checkout-session] profile update error:", updateErr);
+      console.error(
+        "[admin-refund-checkout-session] profile update error:",
+        updateErr
+      );
       return res.status(500).json({ error: "FAILED_TO_UPDATE_CREDITS" });
     }
 
-    // Insert ledger entry (restore credits)
     const purchaseRef = purchaseReference(sessionId);
 
+    // Ledger entry: refund credit restore
     const { error: ledgerErr } = await supabaseAdmin.from("credit_ledger").insert([
       {
         user_id: supabaseUserId,
@@ -211,28 +233,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ]);
 
     if (ledgerErr) {
-      console.error("[admin-refund-checkout-session] ledger insert error:", ledgerErr);
-      // Credits already restored — do not fail hard. Return success with warning.
+      console.error(
+        "[admin-refund-checkout-session] ledger insert error:",
+        ledgerErr
+      );
+      // Stripe refund already happened, credits already restored.
+      // We still return success to avoid leaving the admin guessing.
     }
 
-    // Insert refund marker (prevents repeat refunds)
-    const { error: markerInsertErr } = await supabaseAdmin.from("credit_ledger").insert([
-      {
-        user_id: supabaseUserId,
-        event_type: "admin_refund_marker",
-        credits_delta: 0,
-        balance_after: creditsAfter,
-        reference: markerRef,
-        note: `Stripe refund id: ${refund.id}`,
-      } as any,
-    ]);
+    // Ledger entry: marker to prevent double refund in-app
+    const { error: markerInsertErr } = await supabaseAdmin
+      .from("credit_ledger")
+      .insert([
+        {
+          user_id: supabaseUserId,
+          event_type: "admin_refund_marker",
+          credits_delta: 0,
+          balance_after: creditsAfter,
+          reference: markerRef,
+          note: `Stripe refund id: ${refund.id}`,
+        } as any,
+      ]);
 
     if (markerInsertErr) {
       console.error(
         "[admin-refund-checkout-session] marker insert error:",
         markerInsertErr
       );
-      // Still return success (Stripe refund already happened)
     }
 
     return res.status(200).json({

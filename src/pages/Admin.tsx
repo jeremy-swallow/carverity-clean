@@ -540,13 +540,24 @@ export default function Admin() {
           return;
         }
 
+        if (code === "CREDITS_ALREADY_USED") {
+          setMsg(
+            `Refund blocked: credits from this pack have already been used (current credits: ${formatCredits(
+              data?.credits_before
+            )}, required available: ${formatCredits(data?.required_available)}).`
+          );
+          return;
+        }
+
         if (code === "NOT_A_CREDIT_PACK_PURCHASE") {
           setMsg("That Stripe session is not a credit pack purchase.");
           return;
         }
 
         if (code === "INVALID_PACK") {
-          setMsg("Pack metadata was invalid. This purchase can’t be refunded safely.");
+          setMsg(
+            "Pack metadata was invalid. This purchase can’t be refunded safely."
+          );
           return;
         }
 
@@ -565,8 +576,6 @@ export default function Admin() {
         )} → ${formatCredits(data?.credits_after)}).`
       );
 
-      // Refresh lookup if email matches the refunded user (optional)
-      // We don't have email here, so just refresh current lookup if present
       if (lookup) {
         await handleLookup();
       }
@@ -579,7 +588,6 @@ export default function Admin() {
   }
 
   async function quickAdjustCredits(n: number, quickReason?: string) {
-    // Mobile-friendly quick actions (no typing required)
     if (!cleanTargetEmail) {
       setMsg("Enter an email address first.");
       return;
@@ -588,7 +596,6 @@ export default function Admin() {
     setDelta(String(n));
     if (quickReason) setReason(quickReason);
 
-    // Slight delay so UI reflects new delta before request
     window.setTimeout(() => {
       handleAdjustCredits();
     }, 50);
@@ -953,7 +960,8 @@ export default function Admin() {
               <div className="rounded-xl border border-white/10 bg-slate-950/30 px-4 py-3">
                 <p className="text-xs text-slate-400 leading-relaxed">
                   Safety: This action is idempotent per Stripe session (it won’t
-                  refund the same session twice).
+                  refund the same session twice). Refunds are blocked if the
+                  credits have already been used.
                 </p>
               </div>
             </div>
@@ -1120,7 +1128,6 @@ export default function Admin() {
                 </div>
               ) : (
                 <>
-                  {/* MOBILE: CARDS */}
                   <div className="sm:hidden px-4 py-4 space-y-3">
                     {lookup.ledger.map((row) => {
                       const deltaTone =
@@ -1169,7 +1176,6 @@ export default function Admin() {
                     })}
                   </div>
 
-                  {/* DESKTOP: TABLE */}
                   <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-slate-950/40 text-slate-400">
