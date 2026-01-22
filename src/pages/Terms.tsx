@@ -71,14 +71,19 @@ export default function Terms() {
 
       <section className="space-y-4">
         <h2 className="text-sm font-semibold text-slate-200">
-          Credits, refunds &amp; service issues (Australia)
+          Credits, service delivery &amp; technical issues (Australia)
         </h2>
 
         <p className="text-sm text-slate-300 max-w-xl">
-          CarVerity is a digital service. In the unlikely event you experience a
-          technical issue where a credit is used but your report is not
-          delivered, we will generally resolve this by restoring the relevant
-          credits to your account so you can generate the report again.
+          CarVerity uses a credit system. Credits are used when report generation
+          begins (not when you start an inspection).
+        </p>
+
+        <p className="text-sm text-slate-300 max-w-xl">
+          In the unlikely event a technical issue occurs where a credit is used
+          but your report is not delivered, we will generally resolve this by
+          restoring the relevant credits to your account so you can generate the
+          report again.
         </p>
 
         <p className="text-sm text-slate-300 max-w-xl">
