@@ -17,6 +17,7 @@ import {
   Zap,
   Undo2,
   LockOpen,
+  CreditCard,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
 
@@ -127,6 +128,11 @@ export default function Admin() {
   const [forceUnlockWorking, setForceUnlockWorking] = useState(false);
   const [forceScanId, setForceScanId] = useState("");
   const [forceReason, setForceReason] = useState("");
+
+  // NEW: Stripe refund tool (credit pack purchase)
+  const [stripeRefundWorking, setStripeRefundWorking] = useState(false);
+  const [stripeSessionId, setStripeSessionId] = useState("");
+  const [stripeRefundReason, setStripeRefundReason] = useState("");
 
   useEffect(() => {
     async function guard() {
@@ -487,6 +493,91 @@ export default function Admin() {
     }
   }
 
+  async function handleStripeRefundCreditPack() {
+    setMsg(null);
+
+    const sessionId = stripeSessionId.trim();
+
+    if (!sessionId || !sessionId.startsWith("cs_")) {
+      setMsg("Enter a valid Stripe Checkout Session ID (starts with cs_).");
+      return;
+    }
+
+    setStripeRefundWorking(true);
+
+    try {
+      const jwt = await getJwtOrThrow();
+
+      const res = await fetch("/api/admin-refund-checkout-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({
+          sessionId,
+          reason: stripeRefundReason.trim(),
+        }),
+      });
+
+      const data = (await res.json().catch(() => null)) as any;
+
+      if (!res.ok) {
+        const code = data?.error || "REFUND_FAILED";
+
+        if (code === "NOT_AUTHENTICATED") {
+          navigate("/sign-in");
+          return;
+        }
+
+        if (code === "NOT_AUTHORIZED") {
+          navigate("/account");
+          return;
+        }
+
+        if (code === "ALREADY_REFUNDED") {
+          setMsg("That Stripe session has already been refunded (blocked).");
+          return;
+        }
+
+        if (code === "NOT_A_CREDIT_PACK_PURCHASE") {
+          setMsg("That Stripe session is not a credit pack purchase.");
+          return;
+        }
+
+        if (code === "INVALID_PACK") {
+          setMsg("Pack metadata was invalid. This purchase can’t be refunded safely.");
+          return;
+        }
+
+        if (code === "NO_PAYMENT_INTENT_TO_REFUND") {
+          setMsg("This session has no payment intent to refund.");
+          return;
+        }
+
+        setMsg("Stripe refund failed. Please try again.");
+        return;
+      }
+
+      setMsg(
+        `Stripe refund complete. Restored ${data?.credits_restored} credits (${formatCredits(
+          data?.credits_before
+        )} → ${formatCredits(data?.credits_after)}).`
+      );
+
+      // Refresh lookup if email matches the refunded user (optional)
+      // We don't have email here, so just refresh current lookup if present
+      if (lookup) {
+        await handleLookup();
+      }
+    } catch (err) {
+      console.error("[Admin] stripe refund error:", err);
+      setMsg("Stripe refund failed. Please try again.");
+    } finally {
+      setStripeRefundWorking(false);
+    }
+  }
+
   async function quickAdjustCredits(n: number, quickReason?: string) {
     // Mobile-friendly quick actions (no typing required)
     if (!cleanTargetEmail) {
@@ -521,7 +612,8 @@ export default function Admin() {
     working ||
     whitelistWorking ||
     refundWorking ||
-    forceUnlockWorking;
+    forceUnlockWorking ||
+    stripeRefundWorking;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-8 sm:space-y-10">
@@ -706,7 +798,6 @@ export default function Admin() {
                     </div>
                   </div>
 
-                  {/* FIX: mobile-friendly buttons (stack on mobile, row on desktop) */}
                   <div className="w-full sm:w-auto grid grid-cols-2 sm:flex gap-2">
                     <button
                       onClick={() => handleToggleWhitelist(true)}
@@ -789,6 +880,81 @@ export default function Admin() {
                     Delta should be a whole number (e.g. -1, 1, 5).
                   </p>
                 )}
+              </div>
+            </div>
+
+            {/* NEW: STRIPE REFUND CREDIT PACK */}
+            <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-slate-300">
+                    <CreditCard className="h-4 w-4 text-slate-400" />
+                    <div className="text-slate-400 text-xs uppercase tracking-[0.18em]">
+                      Refund credit pack purchase (Stripe)
+                    </div>
+                  </div>
+
+                  <div className="text-slate-300 text-sm">
+                    Refunds the Stripe payment and restores the pack credits
+                    (1 / 3 / 5). This is for genuine technical failures or
+                    duplicate charges.
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleStripeRefundCreditPack}
+                  disabled={disableAllActions}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-4 py-3 transition"
+                >
+                  {stripeRefundWorking ? (
+                    <>
+                      <RefreshCcw className="h-4 w-4" />
+                      Refunding…
+                    </>
+                  ) : (
+                    <>
+                      <Undo2 className="h-4 w-4" />
+                      Refund purchase
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">
+                    Stripe Checkout Session ID
+                  </label>
+                  <input
+                    value={stripeSessionId}
+                    onChange={(e) => setStripeSessionId(e.target.value)}
+                    className="w-full rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="cs_test_..."
+                  />
+                  <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                    Tip: You can find this in Stripe → Payments → Checkout
+                    Session.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-300 mb-1">
+                    Reason (optional)
+                  </label>
+                  <input
+                    value={stripeRefundReason}
+                    onChange={(e) => setStripeRefundReason(e.target.value)}
+                    className="w-full rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="e.g. User charged twice"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-slate-950/30 px-4 py-3">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Safety: This action is idempotent per Stripe session (it won’t
+                  refund the same session twice).
+                </p>
               </div>
             </div>
 
@@ -1073,14 +1239,14 @@ export default function Admin() {
         <h2 className="text-lg font-semibold text-white">Premium admin ideas</h2>
         <ul className="list-disc list-inside text-sm text-slate-400 space-y-1.5">
           <li>
-            “Refund last unlock” button (adds +1 credit + ledger note, and logs
-            the scan reference).
+            Refund credit pack purchase by Stripe Checkout Session ID (money back
+            + credit restore).
+          </li>
+          <li>
+            “Refund last unlock” for in-person report generation failures.
           </li>
           <li>
             “Force unlock scan” by scanId for support cases (no credit spend).
-          </li>
-          <li>
-            Show last scan activity (from scans table) + direct open links.
           </li>
           <li>
             Basic fraud signals: repeated unlock attempts, frequent refunds.
