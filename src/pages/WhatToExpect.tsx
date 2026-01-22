@@ -11,24 +11,24 @@ export default function WhatToExpect() {
 
         <p className="text-slate-300 leading-relaxed">
           Buying a used car can feel rushed, pressured, and uncertain. CarVerity
-          is designed to slow things down — giving you calm, practical guidance
-          while you’re standing next to the car.
+          is designed to slow things down — giving you practical, buyer-safe
+          guidance while you’re standing next to the car.
         </p>
       </header>
 
       {/* REASSURANCE */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">A calm guide — not a judgement</h2>
+        <h2 className="text-lg font-semibold">A guided flow — not a judgement</h2>
 
         <p className="text-slate-300 leading-relaxed">
           CarVerity doesn’t tell you what to buy or push you toward a decision.
           It helps you notice what’s in front of you, document what you see, and
-          understand how condition affects confidence and next steps.
+          understand what’s worth clarifying before you commit.
         </p>
 
         <p className="text-slate-300 leading-relaxed">
-          There’s no pressure and no “gotcha” moments — just structured support
-          so you can make a clearer decision.
+          No pressure and no “gotcha” moments — just structured support so you
+          can make a clearer decision.
         </p>
       </section>
 
@@ -38,9 +38,9 @@ export default function WhatToExpect() {
 
         <ul className="text-slate-300 list-disc list-inside space-y-1">
           <li>Guided photo capture during an in-person inspection</li>
-          <li>Simple “tap-to-answer” checks (no typing required)</li>
+          <li>Simple tap-to-answer checks (no typing required)</li>
           <li>Capturing concerns, unknowns, and quick notes</li>
-          <li>A calm summary of what you recorded</li>
+          <li>A structured summary of what you recorded</li>
           <li>Buyer-safe guidance to reduce regret</li>
         </ul>
       </section>
@@ -67,8 +67,8 @@ export default function WhatToExpect() {
 
         <p className="text-slate-300 leading-relaxed">
           CarVerity does not estimate what a car is worth or predict market
-          prices. Instead, it sanity-checks whether the asking price feels
-          aligned with what you recorded.
+          prices. Instead, it checks whether the asking price seems aligned with
+          what you recorded during the inspection.
         </p>
 
         <p className="text-slate-300 leading-relaxed">
@@ -102,7 +102,7 @@ export default function WhatToExpect() {
 
         <p className="text-slate-300 leading-relaxed">
           CarVerity guides you step by step through photos and checks, using
-          plain language and gentle prompts.
+          plain language and clear prompts.
         </p>
 
         <p className="text-slate-300 leading-relaxed">
