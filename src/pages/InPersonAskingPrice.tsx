@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { DollarSign } from "lucide-react";
+import { DollarSign, Info } from "lucide-react";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 function parseAudNumber(input: string): number | null {
@@ -74,6 +74,18 @@ export default function InPersonAskingPrice() {
         Enter the advertised price so we can give a buyer-safe adjustment range
         based on what you recorded. This is guidance, not a valuation.
       </p>
+
+      {/* Recommendation (buyer-safe, not preachy) */}
+      <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
+        <div className="flex items-start gap-3">
+          <Info className="h-4 w-4 text-slate-300 mt-0.5" />
+          <p className="text-sm text-slate-300 leading-relaxed">
+            Recommendation: if you’re serious about buying, enter the exact
+            advertised price. It helps the report give a more realistic
+            “fair vs high” read and a better adjustment range.
+          </p>
+        </div>
+      </div>
 
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-4 space-y-3">
         <label className="text-xs uppercase tracking-wide text-slate-500">

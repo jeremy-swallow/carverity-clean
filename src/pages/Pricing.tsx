@@ -165,9 +165,7 @@ export default function Pricing() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [success]);
 
-  // “Restore” UI:
-  // This should now almost never show once create-checkout-session returns to the SAME origin.
-  // Keep it as a gentle fallback (we don’t pretend we can restore auth from Stripe).
+  // “Restore” UI fallback
   const inRestoreWindow =
     success && restore && (!sessionReady || (sessionReady && !isLoggedIn));
 
@@ -230,14 +228,13 @@ export default function Pricing() {
         </h1>
 
         <p className="text-slate-400 text-base leading-relaxed">
-          Each inspection gives you a structured assessment you can trust when
-          viewing a vehicle in person.
+          Start the inspection for free. You only use a credit when you generate
+          the final report.
         </p>
       </header>
 
-      {/* Trust strip (premium + credible) */}
+      {/* Trust strip */}
       <section className="mb-10 rounded-2xl border border-white/10 bg-slate-900/40 px-6 py-5 relative overflow-hidden">
-        {/* subtle premium glow */}
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -top-20 -left-20 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
           <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-sky-500/10 blur-3xl" />
@@ -365,8 +362,7 @@ export default function Pricing() {
                 </>
               ) : (
                 <>
-                  You’re not currently signed in on this device. If you used a
-                  different domain (www vs non-www), it can look signed out. Tap{" "}
+                  You’re not currently signed in on this device. Tap{" "}
                   <span className="text-slate-200">Sign in</span>.
                 </>
               )}
@@ -395,7 +391,7 @@ export default function Pricing() {
         </section>
       )}
 
-      {/* Account status / credits */}
+      {/* Account status */}
       <section className="mb-12 rounded-2xl border border-white/10 bg-slate-900/50 px-6 py-5 flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-wide text-slate-500">
@@ -428,7 +424,7 @@ export default function Pricing() {
         )}
       </section>
 
-      {/* Pricing */}
+      {/* Pricing cards */}
       <div className="grid gap-8 md:grid-cols-3">
         {PACKS.map((pack) => {
           const isRecommended = Boolean(pack.recommended);
@@ -446,12 +442,10 @@ export default function Pricing() {
                   : "border-white/10 bg-slate-900/55",
               ].join(" ")}
             >
-              {/* Card glow */}
               <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition">
                 <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
               </div>
 
-              {/* top badge */}
               {isRecommended && (
                 <div className="absolute -top-3 left-6 text-xs tracking-wide uppercase text-emerald-300">
                   Recommended
@@ -524,7 +518,7 @@ export default function Pricing() {
       </div>
 
       <p className="mt-16 text-sm text-slate-500 max-w-2xl leading-relaxed">
-        Credits never expire. You only use a credit when you unlock a completed
+        Credits never expire. You only use a credit when you generate a completed
         inspection report.
       </p>
     </div>

@@ -10,6 +10,7 @@ import {
   Timer,
   CheckCircle2,
   Info,
+  RotateCcw,
 } from "lucide-react";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
@@ -24,9 +25,25 @@ function removeDriveChecksFromProgress(progress: any) {
     }
   }
 
+  // Also remove drive-derived imperfections (so report doesn't keep stale drive findings)
+  const nextImperfections = Array.isArray(progress?.imperfections)
+    ? progress.imperfections.filter((imp: any) => {
+        const id = String(imp?.id ?? "");
+        const loc = String(imp?.location ?? "").toLowerCase();
+
+        if (id.startsWith("imp:steering")) return false;
+        if (id.startsWith("imp:noise-hesitation")) return false;
+        if (id.startsWith("imp:adas-systems")) return false;
+        if (loc.includes("during the drive")) return false;
+
+        return true;
+      })
+    : progress?.imperfections;
+
   return {
     ...(progress ?? {}),
     checks: nextChecks,
+    imperfections: nextImperfections,
   };
 }
 
@@ -43,10 +60,22 @@ export default function InPersonChecksDriveIntro() {
   }, []);
 
   function startDriveChecks() {
-    // 🔥 IMPORTANT:
-    // Always re-load progress at click time to avoid stale state.
-    // If user previously tapped "Couldn't check" (or chips added notes),
-    // we want a clean slate when they proceed.
+    // ✅ RECOMMENDATION:
+    // Do NOT wipe previous drive answers automatically.
+    // If the user already entered drive notes, preserve them so "Back" doesn't feel punishing.
+    // Only wipe if the user explicitly taps "Start over".
+    const latest: any = loadProgress();
+
+    saveProgress({
+      ...(latest ?? {}),
+      step: "/scan/in-person/checks/drive",
+    });
+
+    navigate("/scan/in-person/checks/drive");
+  }
+
+  function startOverDriveChecks() {
+    // Explicit reset (user chose it)
     const latest: any = loadProgress();
 
     const cleaned = removeDriveChecksFromProgress(latest);
@@ -59,20 +88,26 @@ export default function InPersonChecksDriveIntro() {
     navigate("/scan/in-person/checks/drive");
   }
 
-  function skipDriveChecks() {
-    // If user can't / won't drive, we should NOT force them into drive checks.
-    // Also clear any previous drive answers so nothing stays highlighted.
+  function cantTestDriveRightNow() {
+    // If user can't / won't drive, do not force them into drive checks.
+    // Also do NOT wipe anything automatically — we preserve prior work.
     const latest: any = loadProgress();
 
-    const cleaned = removeDriveChecksFromProgress(latest);
-
     saveProgress({
-      ...cleaned,
+      ...(latest ?? {}),
       step: "/scan/in-person/summary",
     });
 
     navigate("/scan/in-person/summary");
   }
+
+  const existingDriveAnswers = (() => {
+    const checks = progress?.checks ?? {};
+    return DRIVE_CHECK_IDS.some((id) => {
+      const a = checks?.[id];
+      return Boolean(a?.value || (a?.note ?? "").trim().length > 0);
+    });
+  })();
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-8">
@@ -85,7 +120,7 @@ export default function InPersonChecksDriveIntro() {
           Back
         </button>
 
-        <div className="text-xs text-slate-500">Step 3 of 3 — Drive (optional)</div>
+        <div className="text-xs text-slate-500">Step 3 of 3 — Test drive</div>
       </div>
 
       <div className="space-y-3">
@@ -96,12 +131,18 @@ export default function InPersonChecksDriveIntro() {
 
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold text-white">
-              Drive check (optional)
+              Test drive check
             </h1>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Only do this if the seller allows it and it feels safe. This step is
-              about spotting{" "}
-              <span className="text-slate-200 font-medium">big decision signals</span>{" "}
+              If you’re serious about buying the car, a short test drive is{" "}
+              <span className="text-slate-200 font-medium">
+                highly recommended
+              </span>
+              . Only proceed if the seller allows it and it feels safe. This
+              step is about spotting{" "}
+              <span className="text-slate-200 font-medium">
+                big decision signals
+              </span>{" "}
               — not chasing perfection.
             </p>
           </div>
@@ -115,7 +156,8 @@ export default function InPersonChecksDriveIntro() {
                 Safety first (non-negotiable)
               </p>
               <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-                If anything feels unsafe — stop. You don’t owe anyone a test drive.
+                If anything feels unsafe — stop. You don’t owe anyone a test
+                drive.
               </p>
             </div>
           </div>
@@ -127,8 +169,8 @@ export default function InPersonChecksDriveIntro() {
                 Keep it short (2–5 minutes)
               </p>
               <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-                You’re listening for warning lights, harsh shifts, steering pull,
-                braking feel, and any “something isn’t right” sensation.
+                You’re listening for warning lights, harsh shifts, steering
+                pull, braking feel, and any “something isn’t right” sensation.
               </p>
             </div>
           </div>
@@ -152,11 +194,13 @@ export default function InPersonChecksDriveIntro() {
             <AlertTriangle className="h-4 w-4 text-amber-300 mt-0.5" />
             <div className="flex-1">
               <p className="text-sm font-semibold text-white">
-                If the seller won’t allow a drive
+                If you can’t test drive it
               </p>
               <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-                That’s not automatically “bad”, but it becomes an unknown. You can
-                skip this step and continue.
+                If the seller won’t allow a drive (or it’s not possible today),
+                that doesn’t prove something is wrong — but it does leave an
+                important unknown. CarVerity will treat it as something to
+                clarify before you commit.
               </p>
             </div>
           </div>
@@ -171,6 +215,32 @@ export default function InPersonChecksDriveIntro() {
             </p>
           </div>
         </div>
+
+        {existingDriveAnswers && (
+          <div className="rounded-2xl border border-white/10 bg-slate-900/50 px-5 py-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <RotateCcw className="h-4 w-4 text-slate-300 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-white">
+                  You already have drive notes saved
+                </p>
+                <p className="text-sm text-slate-300 mt-1 leading-relaxed">
+                  If you’re re-checking the car, you can continue where you left
+                  off — or start over if you want a clean slate.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={startOverDriveChecks}
+              className="w-full rounded-xl border border-white/20 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-slate-200 font-semibold inline-flex items-center justify-center gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Start over (clear drive notes)
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -184,10 +254,10 @@ export default function InPersonChecksDriveIntro() {
 
         <button
           type="button"
-          onClick={skipDriveChecks}
+          onClick={cantTestDriveRightNow}
           className="flex-1 rounded-xl border border-white/25 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-slate-200"
         >
-          Skip drive checks
+          Can’t test drive right now
         </button>
 
         <button
@@ -195,7 +265,7 @@ export default function InPersonChecksDriveIntro() {
           onClick={startDriveChecks}
           className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3"
         >
-          Start drive checks
+          Start test drive checks
         </button>
       </div>
     </div>

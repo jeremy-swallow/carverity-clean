@@ -1,30 +1,17 @@
 /* =========================================================
    In-person start
    • Requires auth
-   • Atomically deducts 1 credit via API
-   • TRUE idempotency via stable reference (sessionStorage)
+   • Does NOT deduct a credit here
+   • Generates a stable scanId for this inspection session
+   • Credit is deducted later when generating the report
 ========================================================= */
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { clearProgress } from "../utils/scanProgress";
+import { clearProgress, saveProgress } from "../utils/scanProgress";
 import { supabase } from "../supabaseClient";
 
-const START_REF_KEY = "carverity_in_person_start_ref";
 const SCAN_ID_KEY = "carverity_in_person_scan_id";
-
-function getOrCreateStartRef(): string {
-  const existing = sessionStorage.getItem(START_REF_KEY);
-  if (existing && existing.trim().length > 0) return existing;
-
-  const created =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-  sessionStorage.setItem(START_REF_KEY, created);
-  return created;
-}
 
 function getOrCreateScanId(): string {
   const existing = sessionStorage.getItem(SCAN_ID_KEY);
@@ -39,10 +26,6 @@ function getOrCreateScanId(): string {
   return created;
 }
 
-function clearStartRef() {
-  sessionStorage.removeItem(START_REF_KEY);
-}
-
 function clearScanId() {
   sessionStorage.removeItem(SCAN_ID_KEY);
 }
@@ -52,12 +35,10 @@ export default function InPersonStart() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Prepare stable identifiers
-  const startReference = useMemo(() => getOrCreateStartRef(), []);
   const scanId = useMemo(() => getOrCreateScanId(), []);
 
   useEffect(() => {
-    // Always start fresh — no auto-resume
+    // Always start fresh — no auto-resume from a previous attempt
     clearProgress();
   }, []);
 
@@ -67,59 +48,29 @@ export default function InPersonStart() {
     setStarting(true);
     setError(null);
 
-    // Ensure user is authenticated
     const {
       data: { session },
     } = await supabase.auth.getSession();
 
     if (!session) {
+      clearScanId();
       navigate("/sign-in");
       return;
     }
 
     try {
-      const res = await fetch("/api/start-in-person-scan", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          scanId,
-          reference: startReference,
-        }),
+      // Persist scanId immediately so the rest of the flow is stable
+      saveProgress({
+        scanId,
+        type: "in-person",
+        step: "/scan/in-person/start",
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (data?.error === "INSUFFICIENT_CREDITS") {
-          clearStartRef();
-          clearScanId();
-          navigate("/pricing");
-          return;
-        }
-
-        if (data?.error === "NOT_AUTHENTICATED") {
-          clearStartRef();
-          clearScanId();
-          navigate("/sign-in");
-          return;
-        }
-
-        throw new Error(data?.error || "START_FAILED");
-      }
-
-      // Success — clear idempotency helpers
-      clearStartRef();
-      // NOTE: we intentionally keep scanId for the rest of the flow
 
       navigate("/scan/in-person/vehicle-details");
     } catch (err) {
       console.error("Start inspection failed:", err);
       setError("Something went wrong starting the inspection. Please try again.");
       setStarting(false);
-      // Do NOT clear refs here — retry must remain idempotent
     }
   }
 
@@ -135,8 +86,9 @@ export default function InPersonStart() {
 
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-4 space-y-3">
         <p className="text-sm text-slate-300">
-          CarVerity will guide you through a calm, real-world inspection of the
-          vehicle.
+          CarVerity guides you through a real-world inspection of the vehicle —
+          so you can stay organised, capture what matters, and make a clearer
+          decision.
         </p>
 
         <ul className="text-sm text-slate-300 list-disc list-inside space-y-1">
@@ -146,8 +98,7 @@ export default function InPersonStart() {
         </ul>
 
         <p className="text-[11px] text-slate-400">
-          This inspection focuses on observations and confidence — not pricing
-          or diagnosis.
+          No credit is used until you unlock the final report.
         </p>
       </section>
 
@@ -167,11 +118,11 @@ export default function InPersonStart() {
             : "bg-emerald-500 hover:bg-emerald-400 text-black",
         ].join(" ")}
       >
-        {starting ? "Starting inspection…" : "Start inspection (uses 1 credit)"}
+        {starting ? "Starting inspection…" : "Start inspection"}
       </button>
 
       <p className="text-[11px] text-slate-400 text-center">
-        One scan credit will be used when the inspection begins.
+        Credit is only used when the report is generated.
       </p>
     </div>
   );

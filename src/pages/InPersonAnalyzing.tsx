@@ -42,9 +42,13 @@ export default function InPersonAnalyzing() {
           return;
         }
 
-        // 🔐 IRREVERSIBLE COMMITMENT POINT
-        // This permanently blocks refunds for scan:{scanId}
-        const res = await fetch("/api/mark-in-person-scan-completed", {
+        // =====================================================
+        // PROFESSIONAL CREDIT USAGE POINT
+        // - Deduct 1 credit
+        // - Mark scan completed (refund-block)
+        // - Server-side atomic operation
+        // =====================================================
+        const res = await fetch("/api/generate-in-person-report", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -53,8 +57,20 @@ export default function InPersonAnalyzing() {
           body: JSON.stringify({ scanId }),
         });
 
+        const data = await res.json().catch(() => ({}));
+
         if (!res.ok) {
-          throw new Error("FAILED_TO_MARK_SCAN_COMPLETED");
+          if (data?.error === "INSUFFICIENT_CREDITS") {
+            navigate("/pricing");
+            return;
+          }
+
+          if (data?.error === "NOT_AUTHENTICATED") {
+            navigate("/sign-in", { replace: true });
+            return;
+          }
+
+          throw new Error(data?.error || "FAILED_TO_GENERATE_REPORT");
         }
 
         // Warm analysis (pure function)
@@ -68,7 +84,7 @@ export default function InPersonAnalyzing() {
           if (!cancelled) {
             navigate(`/scan/in-person/results/${scanId}`, { replace: true });
           }
-        }, 10000);
+        }, 9000);
 
         return () => clearTimeout(timer);
       } catch (err) {
@@ -88,9 +104,7 @@ export default function InPersonAnalyzing() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100 px-6">
         <div className="max-w-md text-center space-y-4">
-          <h1 className="text-xl font-semibold">
-            We couldn’t complete the analysis
-          </h1>
+          <h1 className="text-xl font-semibold">We couldn’t generate the report</h1>
           <p className="text-sm text-slate-400">
             Your inspection data is safe. Please return to the summary and try
             again.
@@ -118,9 +132,7 @@ export default function InPersonAnalyzing() {
         </div>
 
         <div className="space-y-3">
-          <h1 className="text-xl font-semibold">
-            Analysing your inspection
-          </h1>
+          <h1 className="text-xl font-semibold">Generating your report</h1>
           <p className="text-sm text-slate-400">
             We’re weighing observations, uncertainty, and risk signals to
             prepare your buyer-safe report.

@@ -47,7 +47,7 @@ export default function InPersonChecksIntro() {
         key: "around",
         label: "Around",
         blurb:
-          "Quick exterior signals. We’re not chasing perfection — we’re looking for red flags.",
+          "Quick exterior signals. We’re not chasing perfection — we’re looking for decision-relevant issues.",
         time: "~2 min",
         icon: Eye,
       },
@@ -63,7 +63,7 @@ export default function InPersonChecksIntro() {
         key: "drive",
         label: "Drive",
         blurb:
-          "Only if allowed. A short drive to notice warning lights, noises, steering feel.",
+          "Highly recommended if you’re serious about buying. Short drive to notice warning lights, noises, steering feel.",
         time: "~3–5 min",
         icon: Timer,
       },
@@ -126,12 +126,18 @@ export default function InPersonChecksIntro() {
             <h1 className="text-2xl font-semibold text-white">
               Quick checks (guided)
             </h1>
+
+            {/* ✅ Recommendation applied:
+               - Remove the word "calm"
+               - Avoid promising "under 5 minutes" (test drive can make it longer)
+               - Keep it premium + grounded */}
             <p className="text-sm text-slate-400 leading-relaxed">
-              This takes{" "}
-              <span className="text-slate-200 font-medium">under 5 minutes</span>
-              . Tap answers, capture only what matters, and we’ll turn it into a{" "}
+              This is designed to be{" "}
+              <span className="text-slate-200 font-medium">quick</span> and{" "}
+              <span className="text-slate-200 font-medium">focused</span>. Tap
+              answers, capture only what matters, and we’ll turn it into a{" "}
               <span className="text-slate-200 font-medium">
-                calm buyer report
+                clear buyer report
               </span>
               .
             </p>

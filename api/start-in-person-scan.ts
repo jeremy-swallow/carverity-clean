@@ -49,44 +49,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // ✅ Consistent, idempotent reference per scan
+  // We keep the reference format consistent across the app.
   const reference = `scan:${scanId}`;
 
+  // This endpoint now only verifies auth and returns a stable reference.
+  // No credit is deducted here.
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: {
       headers: {
         Authorization: `Bearer ${jwt}`,
       },
     },
-    auth: {
-      persistSession: false,
-    },
+    auth: { persistSession: false },
   });
 
-  const { data, error } = await supabase.rpc("deduct_credit_for_in_person_scan", {
-    p_reference: reference,
-  });
+  // Optional sanity check: verify the JWT is valid
+  const { data, error } = await supabase.auth.getUser();
 
-  if (error) {
-    console.error("RPC error:", error.message);
-
-    if (error.message.includes("INSUFFICIENT_CREDITS")) {
-      res.status(402).json({ error: "INSUFFICIENT_CREDITS" });
-      return;
-    }
-
-    if (error.message.includes("NOT_AUTHENTICATED")) {
-      res.status(401).json({ error: "NOT_AUTHENTICATED" });
-      return;
-    }
-
-    res.status(500).json({ error: "CREDIT_DEDUCTION_FAILED" });
+  if (error || !data?.user) {
+    res.status(401).json({ error: "NOT_AUTHENTICATED" });
     return;
   }
 
   res.status(200).json({
     success: true,
     reference,
-    remainingCredits: data?.[0]?.new_balance ?? null,
+    message: "Inspection started (no credits used yet).",
   });
 }

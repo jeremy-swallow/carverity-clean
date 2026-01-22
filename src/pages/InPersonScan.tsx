@@ -75,20 +75,24 @@ export default function InPersonStart() {
       </h1>
 
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-4 space-y-3">
-        <p className="text-sm text-slate-300">
-          CarVerity will guide you through a calm, real-world inspection of the
-          vehicle.
+        <p className="text-sm text-slate-300 leading-relaxed">
+          CarVerity guides you through a real-world inspection so you can spot
+          risk, capture evidence, and make a confident decision.
         </p>
 
         <ul className="text-sm text-slate-300 list-disc list-inside space-y-1">
-          <li>You’ll capture a few key exterior photos first</li>
-          <li>Then follow guided checks as you move around the car</li>
-          <li>You can note anything that feels worth confirming</li>
+          <li>Capture a few key exterior photos first</li>
+          <li>Follow guided checks as you move around the vehicle</li>
+          <li>Mark anything that feels unclear or worth confirming</li>
+          <li>
+            If you’re serious about buying the car, a short test drive is
+            strongly recommended
+          </li>
         </ul>
 
-        <p className="text-[11px] text-slate-400">
-          This inspection focuses on observations and confidence — not pricing
-          or diagnosis.
+        <p className="text-[11px] text-slate-400 leading-relaxed">
+          This inspection focuses on buyer-observed evidence and decision
+          confidence — not mechanical diagnosis or pricing.
         </p>
       </section>
 

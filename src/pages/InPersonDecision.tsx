@@ -17,6 +17,7 @@ import {
   Info,
   ClipboardList,
   Eye,
+  Car,
 } from "lucide-react";
 
 function clamp(n: number, min: number, max: number) {
@@ -31,6 +32,7 @@ function toneClasses(tone: Tone) {
       wrap: "border-emerald-500/25 bg-emerald-500/10",
       icon: "text-emerald-300",
       pill: "border-emerald-500/20 bg-emerald-500/10 text-emerald-200",
+      cta: "bg-emerald-500 hover:bg-emerald-400 text-black",
     };
   }
   if (tone === "warn") {
@@ -38,6 +40,7 @@ function toneClasses(tone: Tone) {
       wrap: "border-amber-500/25 bg-amber-500/10",
       icon: "text-amber-300",
       pill: "border-amber-500/20 bg-amber-500/10 text-amber-200",
+      cta: "bg-amber-400 hover:bg-amber-300 text-black",
     };
   }
   if (tone === "danger") {
@@ -45,12 +48,14 @@ function toneClasses(tone: Tone) {
       wrap: "border-rose-500/25 bg-rose-500/10",
       icon: "text-rose-300",
       pill: "border-rose-500/20 bg-rose-500/10 text-rose-200",
+      cta: "bg-rose-500 hover:bg-rose-400 text-black",
     };
   }
   return {
     wrap: "border-sky-500/25 bg-sky-500/10",
     icon: "text-sky-300",
     pill: "border-sky-500/20 bg-sky-500/10 text-sky-200",
+    cta: "bg-sky-500 hover:bg-sky-400 text-black",
   };
 }
 
@@ -59,6 +64,13 @@ function confidenceLabel(score: number) {
   if (score >= 60) return "Medium";
   if (score >= 35) return "Low";
   return "Very low";
+}
+
+function confidenceMeaning(score: number) {
+  if (score >= 80) return "You captured enough detail for a strong read.";
+  if (score >= 60) return "Good coverage — a few unknowns remain.";
+  if (score >= 35) return "Several unknowns — verify key items before deciding.";
+  return "Many unknowns — treat this as a first pass, not a final call.";
 }
 
 export default function InPersonDecision() {
@@ -81,21 +93,23 @@ export default function InPersonDecision() {
   const posture = useMemo(() => {
     if (analysis.verdict === "walk-away") {
       return {
-        title: "Decision posture: pause / walk-away is reasonable",
+        title: "Decision posture: pause / walking away is reasonable",
         body:
           "Based on what you recorded, risk looks elevated. If the seller can’t resolve the key items with evidence, walking away is a buyer-safe choice.",
         tone: "danger" as Tone,
         icon: AlertTriangle,
+        cta: "Re-check the key items",
       };
     }
 
     if (analysis.verdict === "caution") {
       return {
-        title: "Decision posture: proceed only after clarification",
+        title: "Decision posture: proceed after clarification",
         body:
-          "You recorded at least one meaningful concern or uncertainty. Clarify those items first — then decide with confidence.",
+          "You recorded at least one meaningful concern or unknown. Clarify those items first — then decide with confidence.",
         tone: "warn" as Tone,
         icon: HelpCircle,
+        cta: "Clarify what you flagged",
       };
     }
 
@@ -105,6 +119,7 @@ export default function InPersonDecision() {
         "Nothing you recorded strongly suggests elevated risk. Confirm the basics and proceed with normal buyer checks.",
       tone: "good" as Tone,
       icon: CheckCircle2,
+      cta: "Proceed with normal checks",
     };
   }, [analysis.verdict]);
 
@@ -160,7 +175,7 @@ export default function InPersonDecision() {
     const good: string[] = [];
 
     good.push("The seller can show clear evidence for your concerns (in writing or invoices).");
-    good.push("Your unsure items become “confirmed” rather than “unknown”.");
+    good.push("Your unknown items become “confirmed” rather than “unknown”.");
     good.push("No new warning lights or behaviours appear on a second look.");
 
     if (analysis.verdict === "proceed") {
@@ -200,7 +215,7 @@ export default function InPersonDecision() {
         } to resolve before you commit.`
       );
     } else {
-      lines.push("No high-impact red flags were recorded.");
+      lines.push("No high-impact items were recorded.");
     }
 
     if (moderate.length > 0) {
@@ -228,6 +243,38 @@ export default function InPersonDecision() {
 
   const scanId = progress?.scanId ?? "";
 
+  // 🔥 Recommendation (my take)
+  // If the user recorded ANY critical OR lots of unknowns, encourage re-checking.
+  // Otherwise, encourage confirming basics and proceeding.
+  const recommendedNextAction = useMemo(() => {
+    if (analysis.verdict === "walk-away") {
+      return {
+        title: "Recommended next action",
+        body:
+          "Re-check the high-impact items once more and ask for evidence. If it can’t be verified quickly and cleanly, walking away is the buyer-safe call.",
+        icon: AlertTriangle,
+      };
+    }
+
+    if (analysis.verdict === "caution") {
+      return {
+        title: "Recommended next action",
+        body:
+          "Clarify your flagged items now (service proof, written confirmation, photos). If the answers are vague or inconsistent, treat it as risk — not reassurance.",
+        icon: HelpCircle,
+      };
+    }
+
+    return {
+      title: "Recommended next action",
+      body:
+        "Proceed with normal checks: confirm service history, confirm identity/paperwork, and make sure nothing new appears on a second look.",
+      icon: ShieldCheck,
+    };
+  }, [analysis.verdict]);
+
+  const RecIcon = recommendedNextAction.icon;
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-8">
       <div className="flex items-center justify-between gap-4">
@@ -252,8 +299,8 @@ export default function InPersonDecision() {
           Decision & next steps
         </h1>
         <p className="text-sm text-slate-400 leading-relaxed">
-          Calm, buyer-safe guidance based only on what you recorded. No scripts.
-          No pressure. Just a clear posture and the next few actions that reduce regret.
+          Buyer-safe guidance based only on what you recorded. No scripts. No
+          pressure. Just a clear posture and the next few actions that reduce regret.
         </p>
       </div>
 
@@ -289,7 +336,7 @@ export default function InPersonDecision() {
           </span>
 
           <span className="text-xs text-slate-300">
-            Confidence reflects how complete your recorded inputs were.
+            {confidenceMeaning(confidence)}
           </span>
         </div>
 
@@ -297,11 +344,36 @@ export default function InPersonDecision() {
           <div className="flex items-start gap-3">
             <Info className="h-4 w-4 text-slate-300 mt-0.5" />
             <p className="text-xs text-slate-400 leading-relaxed">
-              CarVerity doesn’t “fill gaps”. If you couldn’t check something, we keep it as an
+              CarVerity doesn’t fill gaps. If you couldn’t check something, we keep it as an
               unknown and treat it as a question to verify.
             </p>
           </div>
         </div>
+
+        {/* Strong CTA button */}
+        <button
+          type="button"
+          onClick={() => navigate("/scan/in-person/results/" + scanId)}
+          className={[
+            "w-full rounded-xl px-4 py-3 font-semibold transition inline-flex items-center justify-center gap-2",
+            postureTone.cta,
+          ].join(" ")}
+        >
+          <Car className="h-4 w-4" />
+          {posture.cta}
+        </button>
+      </section>
+
+      {/* My recommendation */}
+      <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-3">
+        <div className="flex items-center gap-2 text-slate-200">
+          <RecIcon className="h-4 w-4 text-slate-300" />
+          <h2 className="text-sm font-semibold">{recommendedNextAction.title}</h2>
+        </div>
+
+        <p className="text-sm text-slate-300 leading-relaxed">
+          {recommendedNextAction.body}
+        </p>
       </section>
 
       {/* Top takeaways */}

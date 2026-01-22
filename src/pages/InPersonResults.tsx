@@ -227,6 +227,11 @@ export default function InPersonResults() {
   const nextSteps = useMemo(() => {
     const steps: string[] = [];
 
+    // 🔥 Your recommendation: test drive should be strongly recommended
+    steps.push(
+      "Take a short test drive if possible. If you’re planning to buy the car, this is strongly recommended."
+    );
+
     if (criticalRisks.length > 0) {
       steps.push(
         "Start with the biggest concerns first. Ask for proof (invoice, photos, written confirmation)."
@@ -249,7 +254,7 @@ export default function InPersonResults() {
       "Do the basics: match paperwork to the car, check service history, and watch for warning lights."
     );
 
-    return steps.slice(0, 4);
+    return steps.slice(0, 5);
   }, [criticalRisks.length, moderateRisks.length, uncertaintyFactors.length]);
 
   const clarifyQuestions = useMemo(() => {

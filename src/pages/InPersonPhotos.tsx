@@ -2,6 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { saveProgress, loadProgress } from "../utils/scanProgress";
 import { generateScanId } from "../utils/scanStorage";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Camera,
+  Upload,
+  CheckCircle2,
+  AlertTriangle,
+  Image as ImageIcon,
+  X,
+  ShieldCheck,
+} from "lucide-react";
 
 type StepPhoto = {
   id: string;
@@ -16,12 +27,12 @@ type PhotoStep = {
   image?: string;
   required?: boolean;
   requiredHint?: string;
+  whyItMatters?: string;
 };
 
 const MAX_PHOTOS = 15;
 
 // ✅ IMPORTANT: this must match your real first checks route
-// We now route to the intro so the user sees the guided flow start.
 const FIRST_CHECKS_ROUTE = "/scan/in-person/checks/intro";
 
 export default function InPersonPhotos() {
@@ -69,7 +80,7 @@ export default function InPersonPhotos() {
   }, [scanId, photos]);
 
   /* =========================================================
-     Photo steps — AI baseline v1
+     Photo steps — baseline v1
   ========================================================== */
 
   const steps: PhotoStep[] = [
@@ -81,7 +92,9 @@ export default function InPersonPhotos() {
       image: "/photo-guides/front.png",
       required: true,
       requiredHint:
-        "Add a clear front view to continue — this helps assess overall exterior condition.",
+        "Add a clear front view to continue — this helps anchor the exterior baseline.",
+      whyItMatters:
+        "This helps the report stay aligned to what you actually inspected.",
     },
     {
       id: "exterior-side-left",
@@ -91,7 +104,9 @@ export default function InPersonPhotos() {
       image: "/photo-guides/side-left.png",
       required: true,
       requiredHint:
-        "Add a clear left-side view to continue — this helps assess body alignment.",
+        "Add a clear left-side view to continue — this helps check panel alignment and stance.",
+      whyItMatters:
+        "Side profile photos help catch obvious misalignment or uneven stance.",
     },
     {
       id: "exterior-rear",
@@ -101,7 +116,9 @@ export default function InPersonPhotos() {
       image: "/photo-guides/rear.png",
       required: true,
       requiredHint:
-        "Add a clear rear view to continue — this helps assess panel fit.",
+        "Add a clear rear view to continue — this completes the baseline exterior set.",
+      whyItMatters:
+        "Rear framing helps document overall condition and panel fit.",
     },
     {
       id: "exterior-side-right",
@@ -112,40 +129,54 @@ export default function InPersonPhotos() {
       required: true,
       requiredHint:
         "Add a clear right-side view to complete the baseline exterior set.",
+      whyItMatters:
+        "This completes the baseline set so the report has consistent context.",
     },
     {
       id: "tyres-wheels",
       title: "Tyres & wheels (optional)",
       guidance:
         "Capture close-ups only if something stands out. Otherwise you can skip.",
+      whyItMatters:
+        "A quick tyre photo can support notes like uneven wear or damage.",
     },
     {
       id: "interior",
       title: "Interior overview (optional)",
       guidance:
         "If permitted, capture a general interior view (driver seat + dashboard).",
+      whyItMatters:
+        "Interior photos help support notes about wear, smell, and condition.",
     },
     {
       id: "dashboard",
       title: "Dashboard (optional)",
       guidance:
         "If safe, capture the dashboard with ignition on to document warning lights.",
+      whyItMatters:
+        "This can help you remember what lights were present at inspection time.",
     },
     {
       id: "engine-bay",
       title: "Engine bay overview (optional)",
       guidance:
         "Only if permitted. Take a simple overview without touching anything.",
+      whyItMatters:
+        "This is for documentation only — not diagnosis.",
     },
     {
       id: "service-records",
       title: "Service records (optional)",
       guidance: "Capture stamped logbook pages or receipts if available.",
+      whyItMatters:
+        "Proof beats promises. A quick photo can reduce uncertainty later.",
     },
     {
       id: "vin",
       title: "VIN / compliance (optional)",
       guidance: "Capture the VIN plate or compliance sticker if easy to access.",
+      whyItMatters:
+        "This helps you verify details later if needed.",
     },
   ];
 
@@ -169,7 +200,10 @@ export default function InPersonPhotos() {
       setPhotos((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id:
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
           dataUrl: reader.result as string,
           stepId: step.id,
         },
@@ -208,6 +242,8 @@ export default function InPersonPhotos() {
   const hasAtLeastOneForStep = stepPhotos.length > 0;
   const canContinue = !mustHavePhotoForThisStep || hasAtLeastOneForStep;
 
+  const percent = Math.round(((stepIndex + 1) / steps.length) * 100);
+
   function prevStep() {
     if (stepIndex === 0) {
       setShowExitConfirm(true);
@@ -224,8 +260,6 @@ export default function InPersonPhotos() {
       return;
     }
 
-    // ✅ CRITICAL FIX:
-    // Route to the checks INTRO so the user sees the guided flow start.
     saveProgress({
       ...(existingProgress ?? {}),
       type: "in-person",
@@ -253,90 +287,192 @@ export default function InPersonPhotos() {
   ========================================================== */
 
   return (
-    <div ref={containerRef} className="max-w-3xl mx-auto px-6 py-10 space-y-6">
-      <span className="text-[11px] uppercase text-slate-400">
-        In-person scan — Photos
-      </span>
+    <div ref={containerRef} className="max-w-3xl mx-auto px-6 py-12 space-y-6">
+      {/* Top bar */}
+      <div className="flex items-center justify-between gap-4">
+        <button
+          onClick={prevStep}
+          className="inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
 
-      <h1 className="text-xl md:text-2xl font-semibold text-white">
-        Capture inspection evidence
-      </h1>
+        <div className="text-xs text-slate-500">
+          Photos · Step {stepIndex + 1} of {steps.length}
+        </div>
+      </div>
 
-      <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-3">
-        <div className="flex justify-between items-center">
-          <h2 className="font-semibold text-slate-100">{step.title}</h2>
-          <span className="text-[11px] text-slate-400">
-            Step {stepIndex + 1} of {steps.length}
-          </span>
+      {/* Mini progress */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-slate-500">
+          <span>Evidence</span>
+          <span>{percent}%</span>
+        </div>
+
+        <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-emerald-400 transition-all"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <span className="text-[11px] uppercase tracking-wide text-slate-400">
+          In-person scan — Photos
+        </span>
+
+        <h1 className="text-2xl font-semibold text-white">
+          Capture inspection evidence
+        </h1>
+
+        <p className="text-sm text-slate-400 leading-relaxed">
+          These photos are for your report context and memory — not for diagnosing faults.
+        </p>
+      </div>
+
+      {/* Step card */}
+      <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="font-semibold text-slate-100">{step.title}</h2>
+            <p className="text-sm text-slate-300 mt-1 leading-relaxed">
+              {step.guidance}
+            </p>
+          </div>
+
+          {step.required ? (
+            <span className="shrink-0 inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[11px] text-emerald-200">
+              <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+              Required
+            </span>
+          ) : (
+            <span className="shrink-0 inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/40 px-3 py-1 text-[11px] text-slate-300">
+              <ImageIcon className="h-4 w-4 text-slate-300" />
+              Optional
+            </span>
+          )}
         </div>
 
         {step.image && (
-          <img
-            src={step.image}
-            alt="Example framing"
-            className="rounded-lg border border-white/10"
-          />
+          <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
+            <img
+              src={step.image}
+              alt="Example framing"
+              className="rounded-xl border border-white/10 w-full"
+            />
+            <p className="text-[11px] text-slate-500 mt-2">
+              Example framing (use as a guide)
+            </p>
+          </div>
         )}
 
-        <p className="text-sm text-slate-300">{step.guidance}</p>
-
-        {step.required && (
-          <p className="text-[11px] text-slate-400">
-            Baseline view — required for analysis.
-          </p>
+        {step.whyItMatters && (
+          <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="h-4 w-4 text-slate-300 mt-0.5" />
+              <p className="text-xs text-slate-400 leading-relaxed">
+                <span className="text-slate-200 font-medium">Why this matters: </span>
+                {step.whyItMatters}
+              </p>
+            </div>
+          </div>
         )}
       </section>
 
-      <section className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-4 space-y-3">
-        <div className="flex gap-2">
+      {/* Capture controls */}
+      <section className="rounded-2xl border border-white/12 bg-slate-900/60 px-5 py-5 space-y-4">
+        {atHardLimit && (
+          <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-4 w-4 text-amber-300 mt-0.5" />
+              <p className="text-sm text-slate-200 leading-relaxed">
+                Photo limit reached ({MAX_PHOTOS}). Remove one to add more.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             onClick={handleTakePhoto}
-            className="flex-1 rounded-lg bg-emerald-400 text-black font-semibold px-3 py-2"
+            disabled={atHardLimit}
+            className={[
+              "rounded-xl px-4 py-3 font-semibold transition inline-flex items-center justify-center gap-2",
+              atHardLimit
+                ? "bg-slate-800 text-slate-400 cursor-not-allowed"
+                : "bg-emerald-500 hover:bg-emerald-400 text-black",
+            ].join(" ")}
           >
-            📷 Take photo
+            <Camera className="h-4 w-4" />
+            Take photo
           </button>
 
-          <label className="flex-1">
-            <span className="block rounded-lg bg-slate-800 border border-white/20 px-3 py-2 text-center text-slate-200 cursor-pointer">
-              📁 Upload
+          <label className={atHardLimit ? "opacity-60 cursor-not-allowed" : ""}>
+            <span
+              className={[
+                "w-full rounded-xl px-4 py-3 font-semibold transition inline-flex items-center justify-center gap-2",
+                "border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200",
+              ].join(" ")}
+            >
+              <Upload className="h-4 w-4" />
+              Upload
             </span>
             <input
               type="file"
               accept="image/*"
               className="hidden"
               onChange={handleUploadFromGallery}
+              disabled={atHardLimit}
             />
           </label>
         </div>
 
-        {stepPhotos.length > 0 && (
-          <div className="grid grid-cols-3 gap-2">
+        {/* Step photos */}
+        {stepPhotos.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
             {stepPhotos.map((p) => (
-              <div key={p.id} className="relative">
+              <div
+                key={p.id}
+                className="relative rounded-2xl border border-white/10 bg-slate-950/40 overflow-hidden"
+              >
                 <img
                   src={p.dataUrl}
-                  className="h-24 w-full object-cover rounded-lg border border-white/20"
+                  className="h-28 w-full object-cover"
                   alt="Captured"
                 />
+
                 <button
                   onClick={() => removePhoto(p.id)}
-                  className="absolute top-1 right-1 bg-black/70 text-white text-[10px] px-2 py-1 rounded"
+                  className="absolute top-2 right-2 rounded-full bg-black/70 hover:bg-black/80 text-white p-2"
+                  aria-label="Remove photo"
                 >
-                  Remove
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             ))}
           </div>
+        ) : (
+          <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+            <p className="text-sm text-slate-300">
+              No photos added for this step yet.
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Add one clear photo and move on — don’t overthink it.
+            </p>
+          </div>
         )}
 
         {!canContinue && step.required && (
-          <p className="text-[11px] text-amber-200 font-semibold">
+          <p className="text-xs text-amber-200 font-semibold">
             {step.requiredHint}
           </p>
         )}
       </section>
 
-      <div className="flex gap-2">
+      {/* Nav buttons */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <button
           onClick={prevStep}
           className="flex-1 rounded-xl border border-white/25 px-4 py-3 text-slate-200"
@@ -347,7 +483,7 @@ export default function InPersonPhotos() {
         {!step.required && (
           <button
             onClick={skipStep}
-            className="flex-1 rounded-xl border border-white/15 px-4 py-3 text-slate-200"
+            className="flex-1 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-slate-200"
           >
             Skip
           </button>
@@ -356,17 +492,18 @@ export default function InPersonPhotos() {
         <button
           onClick={nextStep}
           disabled={!canContinue}
-          className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 px-4 py-3 font-semibold text-black"
+          className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 px-4 py-3 font-semibold text-black inline-flex items-center justify-center gap-2"
         >
           Continue
+          <ArrowRight className="h-4 w-4" />
         </button>
       </div>
 
-      <p className="text-[11px] text-slate-400 text-center">
-        CarVerity helps you document observations — it does not diagnose
-        mechanical faults.
+      <p className="text-[11px] text-slate-500 text-center">
+        CarVerity helps you document observations — it does not diagnose mechanical faults.
       </p>
 
+      {/* Exit confirm */}
       {showExitConfirm && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center px-6">
           <div className="bg-slate-900 border border-white/20 rounded-2xl px-6 py-5 space-y-3 max-w-md w-full">

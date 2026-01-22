@@ -41,7 +41,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const body = safeJson<{ scanId?: string; reference?: string }>(req.body) || {};
+  const body =
+    safeJson<{ scanId?: string; reference?: string }>(req.body) || {};
   const scanId = (body.scanId || "").trim();
   const providedReference = (body.reference || "").trim();
 
@@ -50,6 +51,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // Stable reference for this scan (ledger + idempotency)
   const reference = providedReference || `scan:${scanId}`;
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -61,7 +63,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     auth: { persistSession: false },
   });
 
-  // ✅ Ledger-backed check: has the user marked this scan completed?
+  /**
+   * Unlock = credit has been spent for this scan.
+   *
+   * With Model B, we spend at analysis start (unlock),
+   * and your SQL logs that as:
+   * event_type = 'in_person_scan_completed'
+   */
   const { data, error } = await supabase
     .from("credit_ledger")
     .select("id")
@@ -70,11 +78,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .limit(1);
 
   if (error) {
-    console.error("Ledger check error:", error.message);
+    console.error("Unlock ledger check error:", error.message);
+
     if (error.message.includes("NOT_AUTHENTICATED")) {
       res.status(401).json({ error: "NOT_AUTHENTICATED" });
       return;
     }
+
     res.status(500).json({ error: "CHECK_FAILED" });
     return;
   }

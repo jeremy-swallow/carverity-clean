@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sofa, MessageSquarePlus, X } from "lucide-react";
+import { Sofa } from "lucide-react";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 type AnswerValue = "ok" | "concern" | "unsure";
@@ -12,27 +12,48 @@ type CheckItem = {
   id: string;
   title: string;
   guidance: string;
-  chips: {
-    concern: string[];
-    unsure: string[];
-  };
+  quickConcerns: string[];
+  quickUnsure: string[];
 };
 
-function asOneLine(s: string) {
-  return s.replace(/\s+/g, " ").trim();
+function mergeNote(existing: string | undefined, addition: string) {
+  const base = (existing ?? "").trim();
+  const add = addition.trim();
+  if (!add) return base;
+  if (!base) return add;
+
+  const parts = base
+    .split("\n")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  // Prevent duplicates
+  if (parts.some((p) => p.toLowerCase() === add.toLowerCase())) return base;
+
+  return [...parts, add].join("\n");
 }
 
-function appendChip(existing: string | undefined, chip: string) {
-  const clean = asOneLine(chip);
-  if (!clean) return existing ?? "";
+function removeLine(existing: string | undefined, lineToRemove: string) {
+  const base = (existing ?? "").trim();
+  if (!base) return "";
 
-  const current = (existing ?? "").trim();
-  if (!current) return clean;
+  const parts = base
+    .split("\n")
+    .map((p) => p.trim())
+    .filter(Boolean);
 
-  const lower = current.toLowerCase();
-  if (lower.includes(clean.toLowerCase())) return current;
+  const next = parts.filter(
+    (p) => p.toLowerCase() !== lineToRemove.trim().toLowerCase()
+  );
 
-  return `${current}${current.endsWith(".") ? " " : ". "}${clean}`;
+  return next.join("\n");
+}
+
+function splitLines(note?: string) {
+  return (note ?? "")
+    .split("\n")
+    .map((p) => p.trim())
+    .filter(Boolean);
 }
 
 /**
@@ -75,92 +96,92 @@ export default function InPersonChecksInsideCabin() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
 
-  const [answers, setAnswers] = useState<Record<string, CheckAnswer>>(
-    progress?.checks ?? {}
-  );
-
-  // UI-only: whether custom note box is open per check
-  const [noteOpen, setNoteOpen] = useState<Record<string, boolean>>({});
-
-  /* -------------------------------------------------------
-     Progress indicator (checks corridor only)
-  ------------------------------------------------------- */
-  const steps = useMemo(
-    () => [
-      { key: "around", label: "Around" },
-      { key: "inside", label: "Inside" },
-      { key: "drive", label: "Drive" },
-    ],
-    []
-  );
-
-  const currentIndex = 1; // inside
-  const percent = Math.round(((currentIndex + 1) / steps.length) * 100);
-
   const checks: CheckItem[] = useMemo(
     () => [
       {
         id: "interior-smell",
         title: "Smell or moisture",
-        guidance: "Note any damp or musty smells.",
-        chips: {
-          concern: [
-            "Musty smell",
-            "Damp carpet",
-            "Mould spots",
-            "Strong smoke smell",
-            "Aircon smell",
-          ],
-          unsure: ["Couldn’t check boot area", "Raining / wet day", "Short inspection"],
-        },
+        guidance:
+          "A damp or musty smell can hint at leaks, water entry, or poor storage.",
+        quickConcerns: [
+          "Musty smell",
+          "Damp carpet",
+          "Mould spots",
+          "Strong smoke smell",
+          "Aircon smell",
+        ],
+        quickUnsure: [
+          "Raining / wet day",
+          "Short inspection",
+          "Couldn’t check boot area",
+        ],
       },
       {
         id: "interior-condition",
         title: "General interior condition",
-        guidance: "Normal wear is expected — note anything unusually rough.",
-        chips: {
-          concern: [
-            "Torn seat",
-            "Sagging headliner",
-            "Sticky buttons",
-            "Worn steering wheel",
-            "Cracked dash",
-          ],
-          unsure: ["Didn’t check rear seats", "Low light", "Seat covers fitted"],
-        },
+        guidance:
+          "Normal wear is expected — you’re looking for unusually rough condition.",
+        quickConcerns: [
+          "Torn seat",
+          "Sagging headliner",
+          "Sticky buttons",
+          "Worn steering wheel",
+          "Cracked dash",
+        ],
+        quickUnsure: ["Didn’t check rear seats", "Low light", "Seat covers fitted"],
+      },
+      {
+        id: "seatbelts-trim",
+        title: "Seatbelts & airbag trim",
+        guidance:
+          "Check belts retract smoothly and airbag trim looks intact and undisturbed.",
+        quickConcerns: [
+          "Belt frayed / damaged",
+          "Belt doesn’t retract smoothly",
+          "Airbag trim looks disturbed",
+          "Warning label / trim missing",
+        ],
+        quickUnsure: [
+          "Couldn’t fully test retraction",
+          "Trim hard to inspect quickly",
+        ],
       },
       {
         id: "aircon",
         title: "Air-conditioning",
-        guidance: "Weak airflow or warm air can be worth noting.",
-        chips: {
-          concern: [
-            "Not cold",
-            "Weak airflow",
-            "Noisy fan",
-            "Bad smell on AC",
-            "Takes too long to cool",
-          ],
-          unsure: ["Didn’t run long enough", "Couldn’t test (seller rushed)"],
-        },
+        guidance:
+          "Weak airflow, warm air, or strange smells are worth noting before purchase.",
+        quickConcerns: [
+          "Not cold",
+          "Weak airflow",
+          "Noisy fan",
+          "Bad smell on AC",
+          "Takes too long to cool",
+        ],
+        quickUnsure: ["Didn’t run long enough", "Couldn’t test (seller rushed)"],
       },
     ],
     []
   );
 
+  const [answers, setAnswers] = useState<Record<string, CheckAnswer>>(
+    progress?.checks ?? {}
+  );
+
   /* -------------------------------------------------------
      Persist progress + auto-build imperfections
+     - Replace only "Inside the cabin" derived imperfections
+     - Keep everything else untouched (around car, drive, photos, etc)
   ------------------------------------------------------- */
   useEffect(() => {
     const existingImperfections = Array.isArray(progress?.imperfections)
       ? progress.imperfections
       : [];
 
-    const aroundSet = new Set<string>();
-    for (const imp of existingImperfections) {
-      const loc = String((imp as any)?.location ?? "").toLowerCase();
-      if (loc.includes("around")) aroundSet.add(String((imp as any)?.id ?? ""));
-    }
+    const kept = existingImperfections.filter((imp: any) => {
+      const loc = String(imp?.location ?? "").toLowerCase();
+      return !loc.includes("inside the cabin");
+    });
 
     const insideImperfections = buildImperfectionsFromChecks(
       answers,
@@ -168,232 +189,187 @@ export default function InPersonChecksInsideCabin() {
       "Inside the cabin"
     );
 
-    // Keep around-car imperfections if they already exist,
-    // then add/replace inside-cabin derived imperfections.
-    const kept = existingImperfections.filter((imp: any) =>
-      aroundSet.has(String(imp?.id ?? ""))
-    );
-
-    const merged = [...kept, ...insideImperfections];
-
     saveProgress({
       ...(progress ?? {}),
       step: "/scan/in-person/checks/inside",
       checks: answers,
-      imperfections: merged,
+      imperfections: [...kept, ...insideImperfections],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers, checks]);
 
   function setAnswer(id: string, value: AnswerValue) {
-    setAnswers((p) => ({ ...p, [id]: { ...p[id], value } }));
-
-    // If OK, collapse note UI to reduce clutter
-    if (value === "ok") {
-      setNoteOpen((p) => ({ ...p, [id]: false }));
-    }
+    setAnswers((p) => {
+      const prev = p[id];
+      return { ...p, [id]: { ...prev, value } };
+    });
   }
 
   function setNote(id: string, note: string) {
     setAnswers((p) => ({ ...p, [id]: { ...p[id], note } }));
   }
 
-  function addChip(id: string, chip: string) {
+  function toggleChip(id: string, chipText: string) {
     setAnswers((p) => {
-      const existing = p[id]?.note ?? "";
-      const next = appendChip(existing, chip);
-      return { ...p, [id]: { ...p[id], note: next } };
-    });
-    setNoteOpen((p) => ({ ...p, [id]: true }));
-  }
+      const prev = p[id] ?? { value: "ok" as AnswerValue, note: "" };
+      const lines = splitLines(prev.note);
 
-  function clearNote(id: string) {
-    setAnswers((p) => ({ ...p, [id]: { ...p[id], note: "" } }));
-    setNoteOpen((p) => ({ ...p, [id]: false }));
+      const already = lines.some(
+        (l) => l.toLowerCase() === chipText.toLowerCase()
+      );
+
+      const nextNote = already
+        ? removeLine(prev.note, chipText)
+        : mergeNote(prev.note, chipText);
+
+      return { ...p, [id]: { ...prev, note: nextNote } };
+    });
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12 space-y-6">
-      {/* Mini progress */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-slate-500">
-          <span>Checks</span>
-          <span>{percent}%</span>
+    <div className="max-w-3xl mx-auto px-6 py-12 space-y-8">
+      <div className="flex items-start gap-3">
+        <div className="mt-1">
+          <Sofa className="h-5 w-5 text-slate-400" />
         </div>
 
-        <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-emerald-400 transition-all"
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          {steps.map((s, i) => {
-            const active = i === currentIndex;
-            const done = i < currentIndex;
-            return (
-              <div
-                key={s.key}
-                className={[
-                  "flex-1 text-center",
-                  active ? "text-slate-200 font-medium" : "",
-                  done ? "text-slate-300" : "",
-                ].join(" ")}
-              >
-                {s.label}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3 pt-2">
-        <Sofa className="h-5 w-5 text-slate-400" />
-        <div className="space-y-1">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold text-white">Inside the cabin</h1>
-          <p className="text-sm text-slate-400">
-            Quick-tap answers first. Add a note only if it matters.
+          <p className="text-sm text-slate-400 mt-1 leading-relaxed">
+            Quick checks that help you spot wear, odd smells, and anything that
+            feels inconsistent with the asking price.
           </p>
         </div>
       </div>
 
-      {checks.map((c) => {
-        const current = answers[c.id];
-        const value = current?.value;
-        const note = current?.note ?? "";
-        const showChips = value === "concern" || value === "unsure";
-        const isOpen = Boolean(noteOpen[c.id] || note.trim().length > 0);
+      <div className="space-y-5">
+        {checks.map((c) => {
+          const current = answers[c.id];
+          const selectedLines = splitLines(current?.note);
 
-        const chipSet =
-          value === "concern"
-            ? c.chips.concern
-            : value === "unsure"
-            ? c.chips.unsure
-            : [];
+          const selectedValue: AnswerValue = current?.value ?? "ok";
 
-        return (
-          <section
-            key={c.id}
-            className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-4 space-y-3"
-          >
-            <div className="space-y-1">
-              <div className="text-sm font-medium text-slate-100">{c.title}</div>
-              <p className="text-xs text-slate-400">{c.guidance}</p>
-            </div>
+          const chips =
+            selectedValue === "concern"
+              ? c.quickConcerns
+              : selectedValue === "unsure"
+              ? c.quickUnsure
+              : [];
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setAnswer(c.id, "ok")}
-                className={[
-                  "flex-1 rounded-xl px-3 py-2 text-xs border transition",
-                  value === "ok"
-                    ? "bg-emerald-500 text-black border-emerald-500"
-                    : "border-white/20 text-slate-200 hover:bg-white/5",
-                ].join(" ")}
-              >
-                Seemed normal
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setAnswer(c.id, "concern");
-                  setNoteOpen((p) => ({ ...p, [c.id]: true }));
-                }}
-                className={[
-                  "flex-1 rounded-xl px-3 py-2 text-xs border transition",
-                  value === "concern"
-                    ? "bg-amber-400 text-black border-amber-400"
-                    : "border-white/20 text-slate-200 hover:bg-white/5",
-                ].join(" ")}
-              >
-                Something stood out
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setAnswer(c.id, "unsure");
-                  setNoteOpen((p) => ({ ...p, [c.id]: true }));
-                }}
-                className={[
-                  "flex-1 rounded-xl px-3 py-2 text-xs border transition",
-                  value === "unsure"
-                    ? "bg-slate-700 text-white border-slate-600"
-                    : "border-white/20 text-slate-200 hover:bg-white/5",
-                ].join(" ")}
-              >
-                Couldn’t check
-              </button>
-            </div>
-
-            {/* Quick chips */}
-            {showChips && chipSet.length > 0 && (
-              <div className="space-y-2 pt-1">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">
-                  Quick notes (tap to add)
+          return (
+            <section
+              key={c.id}
+              className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-5 space-y-4"
+            >
+              <div className="space-y-1">
+                <div className="text-sm text-white font-semibold">{c.title}</div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  {c.guidance}
                 </p>
-
-                <div className="flex flex-wrap gap-2">
-                  {chipSet.map((chip) => (
-                    <button
-                      key={chip}
-                      type="button"
-                      onClick={() => addChip(c.id, chip)}
-                      className="rounded-full border border-white/15 bg-slate-950/40 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
-                    >
-                      {chip}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setNoteOpen((p) => ({ ...p, [c.id]: !isOpen }))
-                    }
-                    className="inline-flex items-center gap-2 text-xs text-slate-300 hover:text-white"
-                  >
-                    <MessageSquarePlus className="h-4 w-4" />
-                    {isOpen ? "Hide note" : "Add custom note"}
-                  </button>
-
-                  {note.trim().length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => clearNote(c.id)}
-                      className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      Clear
-                    </button>
-                  )}
-                </div>
               </div>
-            )}
 
-            {/* Note box */}
-            {isOpen && (
-              <textarea
-                value={note}
-                onChange={(e) => setNote(c.id, e.target.value)}
-                placeholder="Optional detail…"
-                className="w-full rounded-xl bg-slate-950 border border-white/15 px-3 py-3 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-              />
-            )}
-          </section>
-        );
-      })}
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAnswer(c.id, "ok")}
+                  className={[
+                    "rounded-xl px-3 py-2 text-xs font-semibold transition border",
+                    selectedValue === "ok"
+                      ? "bg-emerald-500 text-black border-emerald-400/30"
+                      : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
+                  ].join(" ")}
+                >
+                  Looks fine
+                </button>
 
-      {/* NAVIGATION */}
-      <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setAnswer(c.id, "concern")}
+                  className={[
+                    "rounded-xl px-3 py-2 text-xs font-semibold transition border",
+                    selectedValue === "concern"
+                      ? "bg-amber-400 text-black border-amber-300/40"
+                      : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
+                  ].join(" ")}
+                >
+                  Something off
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAnswer(c.id, "unsure")}
+                  className={[
+                    "rounded-xl px-3 py-2 text-xs font-semibold transition border",
+                    selectedValue === "unsure"
+                      ? "bg-slate-600 text-white border-slate-400/30"
+                      : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
+                  ].join(" ")}
+                >
+                  Couldn’t check
+                </button>
+              </div>
+
+              {chips.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                    Quick notes
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    {chips.map((chip) => {
+                      const active = selectedLines.some(
+                        (l) => l.toLowerCase() === chip.toLowerCase()
+                      );
+
+                      return (
+                        <button
+                          key={chip}
+                          type="button"
+                          onClick={() => toggleChip(c.id, chip)}
+                          className={[
+                            "rounded-full border px-3 py-1 text-xs transition",
+                            active
+                              ? selectedValue === "concern"
+                                ? "bg-amber-400/20 border-amber-300/40 text-amber-100"
+                                : "bg-slate-500/40 border-slate-300/30 text-white"
+                              : "bg-white/5 border-white/10 text-slate-200 hover:bg-white/10",
+                          ].join(" ")}
+                        >
+                          {chip}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {(selectedValue === "concern" ||
+                selectedValue === "unsure" ||
+                Boolean(current?.note)) && (
+                <div className="space-y-2">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                    Optional detail
+                  </p>
+
+                  <textarea
+                    value={current?.note ?? ""}
+                    onChange={(e) => setNote(c.id, e.target.value)}
+                    placeholder="Add a short note (optional)…"
+                    className="w-full rounded-xl bg-slate-950/40 border border-white/10 px-3 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-400/30"
+                    rows={3}
+                  />
+                </div>
+              )}
+            </section>
+          );
+        })}
+      </div>
+
+      <div className="flex gap-3 pt-2">
         <button
           type="button"
           onClick={() => navigate("/scan/in-person/checks/around")}
-          className="flex-1 rounded-xl border border-white/25 px-4 py-3 text-slate-200"
+          className="flex-1 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-slate-200 font-semibold transition"
         >
           Back
         </button>
@@ -401,7 +377,7 @@ export default function InPersonChecksInsideCabin() {
         <button
           type="button"
           onClick={() => navigate("/scan/in-person/checks/drive-intro")}
-          className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3"
+          className="flex-1 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 transition"
         >
           Continue
         </button>
