@@ -16,7 +16,7 @@ export type ScanProgress = {
 
   checks?: Record<string, CheckAnswer>;
   photos?: Array<{ id: string; dataUrl: string; stepId: string }>;
-  followUpPhotos?: Array<{ id: string; dataUrl: string; note?: string }>;
+  followUpPhotos?: Array<{ id: string; dataUrl: string; stepId: string; note?: string }>;
   imperfections?: Array<{
     id: string;
     label?: string;
@@ -179,40 +179,99 @@ const REQUIRED_PHOTO_STEP_IDS = [
   "exterior-side-right",
 ];
 
+/**
+ * KEY CHECK IDS
+ * Include BOTH:
+ * - New IDs (current guided flows)
+ * - Legacy IDs (backwards compatibility for older scans)
+ */
 const KEY_CHECK_IDS = [
+  /* New (current) */
   // Around car
+  "body-panels-paint",
+  "tyre-wear",
+  "brakes-visible",
+
+  // Cabin
+  "interior-smell",
+  "interior-condition",
+  "seatbelts-trim",
+  "aircon",
+
+  // Drive
+  "steering",
+  "noise-hesitation",
+  "adas-systems",
+
+  /* Legacy (older builds) */
   "body-panels",
   "paint",
   "glass-lights",
   "tyres",
-  "underbody-leaks", // kept for backwards compatibility only
-  // Cabin
-  "interior-smell",
-  "interior-condition",
-  "aircon",
-  // Drive
-  "steering",
-  "noise-hesitation",
-  // ADAS
-  "adas-systems",
+  "underbody-leaks", // backwards compatibility only
 ];
 
+/**
+ * This is the "analysis default-fill" list.
+ * If a scan has missing/empty checks, we treat unrecorded items as "ok"
+ * for scoring/verdict purposes (buyer-safe: avoids harsh verdicts due to empty data).
+ *
+ * NOTE:
+ * We do NOT use these defaults for evidence bullets (those should reflect what the user actually recorded).
+ */
+const DEFAULT_FILL_CHECK_IDS = [...new Set(KEY_CHECK_IDS)];
+
 const CHECK_LABELS: Record<string, string> = {
+  /* New (current) */
+  "body-panels-paint": "Body panels & paint",
+  "tyre-wear": "Tyre wear & tread",
+  "brakes-visible": "Brake discs (if visible)",
+
+  "seatbelts-trim": "Seatbelts & airbag trim",
+
+  /* Shared (same IDs across versions) */
+  "interior-smell": "Smell or moisture",
+  "interior-condition": "General interior condition",
+  aircon: "Air-conditioning",
+  steering: "Steering & handling feel",
+  "noise-hesitation": "Noise / hesitation under power",
+  "adas-systems": "Driver-assist systems (if fitted)",
+
+  /* Legacy */
   "body-panels": "Body panels & alignment",
   paint: "Paint condition",
   "glass-lights": "Glass & lights",
   tyres: "Tyres condition",
   "underbody-leaks": "Visible fluid leaks (if noticed)",
-  "interior-smell": "Interior smell",
-  "interior-condition": "Interior condition",
-  aircon: "Air conditioning",
-  steering: "Steering & handling feel",
-  "noise-hesitation": "Noise / hesitation under power",
-  "adas-systems": "Driver-assist systems (if fitted)",
 };
 
 function labelForCheckId(id: string) {
   return CHECK_LABELS[id] || titleFromId(id);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * Default-fill logic:
+ * - Never overwrites existing values
+ * - Fills only missing ids with value "ok"
+ */
+function withDefaultFilledChecks(
+  raw: Record<string, CheckAnswer> | undefined | null
+): Record<string, CheckAnswer> {
+  const base: Record<string, CheckAnswer> = isRecord(raw) ? (raw as any) : {};
+  const next: Record<string, CheckAnswer> = { ...base };
+
+  for (const id of DEFAULT_FILL_CHECK_IDS) {
+    const existing = next[id];
+    if (!existing || !existing.value) {
+      next[id] = { ...(existing ?? {}), value: "ok" };
+    }
+  }
+
+  return next;
 }
 
 /* =========================================================
@@ -678,7 +737,13 @@ function buildRiskWeightingText(args: {
 ========================================================= */
 
 export function analyseInPersonInspection(progress: ScanProgress): AnalysisResult {
-  const checks = progress.checks ?? {};
+  /**
+   * Raw checks = what user actually recorded.
+   * Effective checks = raw + default-filled "ok" (never overwrites), used for verdict/scoring safety.
+   */
+  const rawChecks = progress.checks ?? {};
+  const checks = withDefaultFilledChecks(rawChecks);
+
   const photos = progress.photos ?? [];
   const followUps = progress.followUpPhotos ?? [];
   const imperfections = progress.imperfections ?? [];
@@ -704,8 +769,9 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
 
   /* -----------------------------
      CHECK COVERAGE
+     Use RAW checks (truth: what user actually recorded)
   ----------------------------- */
-  const answeredKeyChecks = KEY_CHECK_IDS.filter((id) => checks[id]?.value)
+  const answeredKeyChecks = KEY_CHECK_IDS.filter((id) => rawChecks[id]?.value)
     .length;
 
   const checkCoverage =
@@ -713,6 +779,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
 
   /* -----------------------------
      COMPLETENESS SCORE
+     (truthful: reflects actual recorded coverage)
   ----------------------------- */
   const completenessScore = Math.round(
     clamp(
@@ -724,25 +791,27 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
 
   /* -----------------------------
      CONFIDENCE SCORE (buyer-safe)
+     Use RAW checks (truthful)
   ----------------------------- */
-  const values = Object.values(checks);
-  const concernCount = values.filter((v) => v?.value === "concern").length;
-  const unsureCount = values.filter((v) => v?.value === "unsure").length;
+  const rawValues = Object.values(rawChecks);
+  const concernCountRaw = rawValues.filter((v) => v?.value === "concern").length;
+  const unsureCountRaw = rawValues.filter((v) => v?.value === "unsure").length;
 
-  const concernWithNotes = values.filter(
+  const concernWithNotes = rawValues.filter(
     (v) => v?.value === "concern" && hasNote(v.note)
   ).length;
 
   let confidence =
     32 +
     completenessScore * 0.68 -
-    unsureCount * 5 +
+    unsureCountRaw * 5 +
     concernWithNotes * 1.5;
 
   confidence = clamp(Math.round(confidence), 0, 100);
 
   /* -----------------------------
      RISKS
+     Use EFFECTIVE checks to avoid harsh verdicts due to empty/missing check objects
   ----------------------------- */
   const risks: RiskItem[] = [];
 
@@ -756,7 +825,8 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     });
   }
 
-  if (unsureCount >= 3) {
+  // Use RAW unsure count here (truthful: don't invent uncertainty)
+  if (unsureCountRaw >= 3) {
     risks.push({
       id: "many-unknowns",
       label: "Several items were marked as unsure",
@@ -827,6 +897,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     "moderate"
   );
 
+  // Backwards compatibility only
   pushConcern(
     "underbody-leaks",
     "Possible fluid leak was noticed",
@@ -836,6 +907,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
 
   /* -----------------------------
      VERDICT
+     Use RAW counts for truth, but safe scoring will not punish missing check objects
   ----------------------------- */
   const criticalCount = risks.filter((r) => r.severity === "critical").length;
   const moderateCount = risks.filter((r) => r.severity === "moderate").length;
@@ -846,10 +918,10 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
   );
 
   const score =
-    concernCount * 2 +
+    concernCountRaw * 2 +
     criticalCount * 4 +
     moderateCount * 1.5 +
-    unsureCount * 1.5 +
+    unsureCountRaw * 1.5 +
     imperfectionScore;
 
   let verdict: AnalysisResult["verdict"] = "proceed";
@@ -888,8 +960,8 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
   const pressureScore =
     criticalCount * 4.8 +
     moderateCount * 2.2 +
-    concernCount * 1.2 +
-    unsureCount * 2.0 +
+    concernCountRaw * 1.2 +
+    unsureCountRaw * 2.0 +
     (uncertaintyPenalty / 100) * 6;
 
   const base = rangeFromScore(pressureScore);
@@ -911,7 +983,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
       rationale: bandRationale("conservative", {
         criticalCount,
         moderateCount,
-        unsureCount,
+        unsureCount: unsureCountRaw,
         completenessScore,
       }),
     },
@@ -922,7 +994,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
       rationale: bandRationale("balanced", {
         criticalCount,
         moderateCount,
-        unsureCount,
+        unsureCount: unsureCountRaw,
         completenessScore,
       }),
     },
@@ -933,7 +1005,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
       rationale: bandRationale("aggressive", {
         criticalCount,
         moderateCount,
-        unsureCount,
+        unsureCount: unsureCountRaw,
         completenessScore,
       }),
     },
@@ -941,8 +1013,9 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
 
   /* -----------------------------
      EXPLICIT REASONING OUTPUTS
+     Use RAW checks (truthful)
   ----------------------------- */
-  const explicitlyUncertainItems: string[] = Object.entries(checks)
+  const explicitlyUncertainItems: string[] = Object.entries(rawChecks)
     .filter(([, v]) => v?.value === "unsure")
     .map(([id, v]) => {
       const baseLabel = labelForCheckId(id);
@@ -964,7 +1037,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
       : verdict === "caution"
       ? "Recorded findings included at least one meaningful concern or uncertainty."
       : "Multiple high-impact concerns were recorded, increasing downside risk.",
-    unsureCount > 0
+    unsureCountRaw > 0
       ? "Uncertainty here comes only from items you marked as ‘unsure’."
       : "No items were marked as ‘unsure’, so certainty is based on recorded observations.",
     completenessScore >= 75
@@ -978,7 +1051,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
 
   const counterfactuals: string[] = [];
 
-  if (unsureCount > 0) {
+  if (unsureCountRaw > 0) {
     counterfactuals.push(
       "Clarifying the items marked ‘unsure’ would increase confidence without changing what was observed."
     );
@@ -1059,6 +1132,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
 
   /* -----------------------------
      ADAS INFERENCE (kept)
+     Use EFFECTIVE checks so older scans that omitted the key doesn't misbehave
   ----------------------------- */
   const adas = checks["adas-systems"];
   const adasPresentButDisabled =
@@ -1066,17 +1140,18 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
 
   /* -----------------------------
      Evidence summary (NOW RENDERS)
+     Use RAW checks (truthful)
   ----------------------------- */
   const evidenceBullets = buildEvidenceBullets({
-    checks,
+    checks: rawChecks,
     imperfections,
     photos,
     followUps,
   });
 
   const evidenceSummaryText = buildEvidenceSummaryText({
-    concernCount,
-    unsureCount,
+    concernCount: concernCountRaw,
+    unsureCount: unsureCountRaw,
     imperfectionsCount: imperfections.length,
     photosCount: photos.length,
     followUpsCount: followUps.length,
@@ -1090,7 +1165,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     // Metrics
     photosCaptured: photos.length,
     photosExpected: REQUIRED_PHOTO_STEP_IDS.length,
-    checksCompleted: Object.values(checks).filter((v) => Boolean(v?.value))
+    checksCompleted: Object.values(rawChecks).filter((v) => Boolean(v?.value))
       .length,
     keyChecksExpected: KEY_CHECK_IDS.length,
     imperfectionsNoted: imperfections.length,
@@ -1105,7 +1180,7 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     verdict,
     criticalCount,
     moderateCount,
-    unsureCount,
+    unsureCount: unsureCountRaw,
     completenessScore,
     confidenceScore: confidence,
   });
