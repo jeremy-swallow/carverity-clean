@@ -18,7 +18,7 @@ import {
   clearProgress,
   saveProgress,
 } from "../utils/scanProgress";
-import { saveScan, generateScanId } from "../utils/scanStorage";
+import { saveScan } from "../utils/scanStorage";
 
 type PricingVerdict = "missing" | "info" | "room" | "concern";
 
@@ -113,7 +113,7 @@ function pricingCopy(verdict: PricingVerdict) {
     title: "Nothing you recorded strongly contradicts the asking price",
     body:
       "That’s a good sign — but the report will still highlight the few checks that matter most before you decide.",
-  };
+    };
 }
 
 function parseAskingPrice(raw: string): number | null {
@@ -188,11 +188,9 @@ function hasAnyDriveAnswers(checks: Record<string, any>) {
 function getThumbnailFromPhotos(photos: any[]): string | null {
   if (!Array.isArray(photos) || photos.length === 0) return null;
 
-  // Prefer first photo in the flow (should be front/hero)
   const first = photos[0];
   if (first?.dataUrl && typeof first.dataUrl === "string") return first.dataUrl;
 
-  // Fallback: find any photo with a usable dataUrl
   const any = photos.find(
     (p) => typeof p?.dataUrl === "string" && p.dataUrl.length > 0
   );
@@ -244,8 +242,6 @@ export default function InPersonSummary() {
   const unsure = useMemo(() => countUnsure(checks), [checks]);
   const score = useMemo(() => scoreFromChecks(checks), [checks]);
 
-  // This replaces the old "imperfections" concept without adding a new step:
-  // "Issues recorded" = anything the user flagged as concern or unsure.
   const issuesRecorded = useMemo(() => concerns + unsure, [concerns, unsure]);
 
   const verdict = useMemo(() => {
@@ -303,18 +299,16 @@ export default function InPersonSummary() {
       const session = data.session;
 
       if (!session) {
-        alert("Please sign in to save this scan.");
+        alert("Please sign in to continue.");
         navigate("/sign-in");
         return;
       }
 
-      const finalScanId = activeScanId || generateScanId();
       const title = buildTitleFromProgress(progress);
-
       const thumbnail = getThumbnailFromPhotos(photos);
 
       await saveScan({
-        id: finalScanId,
+        id: activeScanId,
         type: "in-person",
         title,
         createdAt: new Date().toISOString(),
@@ -338,14 +332,13 @@ export default function InPersonSummary() {
         concerns,
         unsure,
 
-        // Store a meaningful count without forcing users to re-enter anything:
         imperfectionsCount: issuesRecorded,
 
         photosCount: photos.length,
         fromOnlineScan,
       });
 
-      navigate(`/scan/in-person/analyzing/${finalScanId}`);
+      navigate(`/scan/in-person/analyzing/${activeScanId}`);
     } catch (e) {
       console.error("[InPersonSummary] save failed:", e);
       alert("Failed to save scan. Please try again.");
@@ -363,8 +356,6 @@ export default function InPersonSummary() {
   }
 
   function handleDoDriveNow() {
-    // If they skipped earlier, we route them into the drive intro,
-    // which clears stale drive answers and prevents highlighted buttons.
     navigate("/scan/in-person/checks/drive-intro");
   }
 
@@ -390,9 +381,9 @@ export default function InPersonSummary() {
               Summary
             </h1>
             <p className="text-slate-400 mt-3 max-w-2xl leading-relaxed">
-              This is a calm snapshot of what you recorded. Next, CarVerity will
-              turn it into a buyer-safe report with clear reasoning and next
-              steps — without hype or pressure.
+              This is a clear snapshot of what you recorded. Next, CarVerity will
+              convert it into a buyer-safe report with reasoning and practical
+              next steps — without hype or pressure.
             </p>
           </div>
 
@@ -409,7 +400,6 @@ export default function InPersonSummary() {
         </div>
       </header>
 
-      {/* If drive checks were skipped, give them a way back */}
       {driveWasSkippedOrMissing && (
         <div className="mb-8 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-5">
           <div className="flex items-start gap-3">
@@ -519,9 +509,9 @@ export default function InPersonSummary() {
                   What this snapshot is for
                 </p>
                 <p className="text-sm text-slate-400 mt-1 leading-relaxed">
-                  It helps you sanity-check the inspection before you generate
-                  the report. If something feels missing, review checks now —
-                  it’s faster than fixing it later.
+                  It helps you sanity-check the inspection before generating the
+                  report. If something feels missing, review checks now — it’s
+                  faster than fixing it later.
                 </p>
               </div>
             </div>
@@ -637,16 +627,15 @@ export default function InPersonSummary() {
                     <span className="text-slate-200 font-semibold">
                       Buyer-safe logic:
                     </span>{" "}
-                    CarVerity won’t “fill in gaps”. If you marked items as
-                    unsure, the report treats them as questions to clarify — not
-                    automatic negatives.
+                    CarVerity won’t “fill in gaps”. If you marked items as unsure,
+                    the report treats them as questions to clarify — not automatic
+                    negatives.
                   </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Calm expectations (premium feel) */}
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
               <p className="text-xs uppercase tracking-wide text-slate-500">
@@ -680,7 +669,7 @@ export default function InPersonSummary() {
                 Sanity-check signal
               </p>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                A calm read on whether the asking price fits what you recorded.
+                A grounded read on whether the asking price fits what you recorded.
               </p>
             </div>
           </div>
@@ -695,8 +684,8 @@ export default function InPersonSummary() {
               Ready to generate your report?
             </p>
             <p className="text-sm text-slate-400 mt-1 leading-relaxed">
-              Credits are only used when you unlock. If you want to change
-              anything, review checks first.
+              A credit is used when report generation begins. If you want to
+              change anything, review checks first.
             </p>
           </div>
 
@@ -737,11 +726,10 @@ export default function InPersonSummary() {
         {authReady && !isLoggedIn && (
           <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3">
             <p className="text-sm text-amber-200 font-semibold">
-              Sign in required to save this scan
+              Sign in required to continue
             </p>
             <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-              You can still complete an inspection, but to unlock and store your
-              report you’ll need to sign in.
+              To generate and store your report, you’ll need to sign in.
             </p>
             <div className="mt-3">
               <button
@@ -755,13 +743,13 @@ export default function InPersonSummary() {
         )}
       </section>
 
-      {/* Subtle footer reassurance */}
+      {/* Footer reassurance */}
       <div className="mt-8 rounded-2xl border border-white/10 bg-slate-900/30 p-5">
         <div className="flex items-start gap-3">
           <Info className="h-4 w-4 text-slate-300 mt-0.5" />
           <div className="flex-1">
             <p className="text-sm font-semibold text-white">
-              Calm guidance, not car-yard hype
+              Buyer-safe guidance, not car-yard hype
             </p>
             <p className="text-sm text-slate-400 mt-1 leading-relaxed">
               CarVerity is designed to reduce buyer regret. The report focuses

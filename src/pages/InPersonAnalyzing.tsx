@@ -32,7 +32,7 @@ export default function InPersonAnalyzing() {
           });
         }
 
-        // Auth required — server is source of truth
+        // Auth required
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -43,12 +43,14 @@ export default function InPersonAnalyzing() {
         }
 
         // =====================================================
-        // PROFESSIONAL CREDIT USAGE POINT
-        // - Deduct 1 credit
-        // - Mark scan completed (refund-block)
-        // - Server-side atomic operation
+        // CREDIT USAGE POINT (PROFESSIONAL)
+        // Spend 1 credit ONLY at the moment we actually start
+        // the irreversible report generation step (API usage).
+        //
+        // This endpoint calls:
+        //   deduct_credit_for_in_person_scan(p_reference = scan:{scanId})
         // =====================================================
-        const res = await fetch("/api/generate-in-person-report", {
+        const res = await fetch("/api/start-in-person-scan", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -60,8 +62,12 @@ export default function InPersonAnalyzing() {
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          if (data?.error === "INSUFFICIENT_CREDITS") {
-            navigate("/pricing");
+          // Not enough credits → send them to Pricing
+          if (
+            data?.error === "INSUFFICIENT_CREDITS" ||
+            data?.error === "NO_CREDITS"
+          ) {
+            navigate("/pricing", { replace: true });
             return;
           }
 
@@ -70,10 +76,10 @@ export default function InPersonAnalyzing() {
             return;
           }
 
-          throw new Error(data?.error || "FAILED_TO_GENERATE_REPORT");
+          throw new Error(data?.error || "FAILED_TO_DEDUCT_CREDIT");
         }
 
-        // Warm analysis (pure function)
+        // Warm analysis (pure function, client-side)
         analyseInPersonInspection({
           ...(progress ?? {}),
           scanId,
