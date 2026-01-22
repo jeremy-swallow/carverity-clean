@@ -193,6 +193,65 @@ function getThumbnailFromPhotos(photos: any[]): string | null {
   return any?.dataUrl ?? null;
 }
 
+/**
+ * Ensure checks have explicit stored defaults.
+ * - UI shows "Looks fine" by default, so we persist "ok" for any missing items.
+ * - Never overwrites an existing user choice.
+ */
+function ensureDefaultChecks(progress: any) {
+  const allCheckIds = [
+    // Around the car
+    "body-panels-paint",
+    "tyre-wear",
+    "brakes-visible",
+
+    // Inside the cabin
+    "interior-smell",
+    "interior-condition",
+    "seatbelts-trim",
+    "aircon",
+
+    // During the drive
+    "steering",
+    "noise-hesitation",
+    "adas-systems",
+  ];
+
+  const existingChecks = progress?.checks && typeof progress.checks === "object"
+    ? progress.checks
+    : {};
+
+  let changed = false;
+  const nextChecks: Record<string, any> = { ...(existingChecks ?? {}) };
+
+  for (const id of allCheckIds) {
+    const existing = nextChecks[id];
+
+    // If missing entirely, add default ok
+    if (!existing || typeof existing !== "object") {
+      nextChecks[id] = { value: "ok" };
+      changed = true;
+      continue;
+    }
+
+    // If exists but no value, set default ok
+    if (!existing.value) {
+      nextChecks[id] = { ...existing, value: "ok" };
+      changed = true;
+    }
+  }
+
+  if (!changed) return { changed: false, next: progress };
+
+  return {
+    changed: true,
+    next: {
+      ...(progress ?? {}),
+      checks: nextChecks,
+    },
+  };
+}
+
 export default function InPersonSummary() {
   const navigate = useNavigate();
   const { scanId: routeScanId } = useParams<{ scanId?: string }>();
@@ -218,6 +277,17 @@ export default function InPersonSummary() {
   const parsedAskingPrice = useMemo(() => {
     return parseAskingPrice(askingPriceInput);
   }, [askingPriceInput]);
+
+  // NEW: Persist default check values so Summary matches what user saw in the UI
+  useEffect(() => {
+    const latest: any = loadProgress();
+    const { changed, next } = ensureDefaultChecks(latest);
+
+    if (!changed) return;
+
+    saveProgress(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Persist asking price into progress as user types
   useEffect(() => {
@@ -300,8 +370,24 @@ export default function InPersonSummary() {
         return;
       }
 
-      const title = buildTitleFromProgress(progress);
-      const thumbnail = getThumbnailFromPhotos(photos);
+      const latest: any = loadProgress();
+      const { changed, next } = ensureDefaultChecks(latest);
+
+      // Make sure saved scan includes the corrected check defaults
+      if (changed) {
+        saveProgress(next);
+      }
+
+      const progressForSave = changed ? next : latest;
+
+      const title = buildTitleFromProgress(progressForSave);
+      const thumbnail = getThumbnailFromPhotos(progressForSave?.photos ?? []);
+
+      const checksForSave = progressForSave?.checks ?? {};
+      const concernsForSave = countConcerns(checksForSave);
+      const unsureForSave = countUnsure(checksForSave);
+      const scoreForSave = scoreFromChecks(checksForSave);
+      const issuesRecordedForSave = concernsForSave + unsureForSave;
 
       await saveScan({
         id: activeScanId,
@@ -310,27 +396,35 @@ export default function InPersonSummary() {
         createdAt: new Date().toISOString(),
 
         vehicle: {
-          make: progress?.vehicle?.make || progress?.make || progress?.vehicleMake,
+          make:
+            progressForSave?.vehicle?.make ||
+            progressForSave?.make ||
+            progressForSave?.vehicleMake,
           model:
-            progress?.vehicle?.model || progress?.model || progress?.vehicleModel,
-          year: progress?.vehicle?.year || progress?.year || progress?.vehicleYear,
+            progressForSave?.vehicle?.model ||
+            progressForSave?.model ||
+            progressForSave?.vehicleModel,
+          year:
+            progressForSave?.vehicle?.year ||
+            progressForSave?.year ||
+            progressForSave?.vehicleYear,
           variant:
-            progress?.vehicle?.variant ||
-            progress?.variant ||
-            progress?.vehicleVariant ||
+            progressForSave?.vehicle?.variant ||
+            progressForSave?.variant ||
+            progressForSave?.vehicleVariant ||
             undefined,
         },
 
         thumbnail,
 
         askingPrice: parsedAskingPrice,
-        score,
-        concerns,
-        unsure,
+        score: scoreForSave,
+        concerns: concernsForSave,
+        unsure: unsureForSave,
 
-        imperfectionsCount: issuesRecorded,
+        imperfectionsCount: issuesRecordedForSave,
 
-        photosCount: photos.length,
+        photosCount: (progressForSave?.photos ?? []).length,
         fromOnlineScan,
       });
 
