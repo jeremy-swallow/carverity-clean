@@ -498,7 +498,7 @@ export default function Layout() {
                 onClick={() => setMobileOpen(false)}
                 className="hover:text-slate-200 underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
               >
-                Terms
+                Terms &amp; Conditions
               </NavLink>
               <NavLink
                 to="/privacy"
@@ -516,8 +516,8 @@ export default function Layout() {
             </div>
 
             <p className="leading-relaxed">
-              CarVerity is a buyer decision-support tool — not a diagnostic
-              service.
+              CarVerity provides decision-support guidance — it does not diagnose
+              mechanical or electrical faults.
             </p>
           </div>
         </div>
@@ -537,8 +537,8 @@ export default function Layout() {
             <div className="space-y-1">
               <p className="text-sm font-semibold text-white">CarVerity</p>
               <p className="text-xs text-slate-500 max-w-md leading-relaxed">
-                Buyer decision-support tool for documenting visible observations
-                during an in-person inspection.
+                Decision-support guidance for documenting visible observations
+                during an in-person vehicle inspection.
               </p>
             </div>
 
@@ -547,7 +547,7 @@ export default function Layout() {
                 to="/terms"
                 className="hover:text-white underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
               >
-                Terms
+                Terms &amp; Conditions
               </NavLink>
               <NavLink
                 to="/privacy"
