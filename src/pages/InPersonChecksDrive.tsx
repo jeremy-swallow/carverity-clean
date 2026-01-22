@@ -161,6 +161,30 @@ export default function InPersonChecksDrive() {
   const percent = Math.round(((currentIndex + 1) / steps.length) * 100);
 
   /* -------------------------------------------------------
+     NEW: Auto-save defaults so "Looks fine" isn't just visual
+     - If user doesn't tap anything, we still treat it as recorded
+     - Only fills missing answers (never overwrites user choices)
+  ------------------------------------------------------- */
+  useEffect(() => {
+    setAnswers((prev) => {
+      let changed = false;
+      const next: Record<string, CheckAnswer> = { ...(prev ?? {}) };
+
+      for (const c of checks) {
+        const existing = next[c.id];
+
+        // If there is no stored answer, set the default to "ok"
+        if (!existing || !existing.value) {
+          next[c.id] = { ...(existing ?? {}), value: "ok" };
+          changed = true;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [checks]);
+
+  /* -------------------------------------------------------
      Persist progress + auto-build imperfections
      - Replace only "During the drive" derived imperfections
      - Keep everything else untouched
