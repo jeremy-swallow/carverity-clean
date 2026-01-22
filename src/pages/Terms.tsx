@@ -1,8 +1,10 @@
+// src/pages/Terms.tsx
+
 export default function Terms() {
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-8">
       <h1 className="text-2xl md:text-3xl font-semibold text-white">
-        Terms & disclaimer
+        Terms &amp; Conditions
       </h1>
 
       <p className="text-sm text-slate-300 max-w-xl">
@@ -64,6 +66,25 @@ export default function Terms() {
           Any decision to proceed with or purchase a vehicle remains entirely
           your responsibility. CarVerity does not accept liability for purchase
           outcomes, negotiations, or vehicle performance after sale.
+        </p>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-sm font-semibold text-slate-200">
+          Credits, refunds &amp; service issues (Australia)
+        </h2>
+
+        <p className="text-sm text-slate-300 max-w-xl">
+          CarVerity is a digital service. In the unlikely event you experience a
+          technical issue where a credit is used but your report is not
+          delivered, we will generally resolve this by restoring the relevant
+          credits to your account so you can generate the report again.
+        </p>
+
+        <p className="text-sm text-slate-300 max-w-xl">
+          Refunds are not offered for change of mind. If we are unable to
+          provide the service after reasonable attempts to resolve the issue, a
+          refund may be provided in line with Australian Consumer Law.
         </p>
       </section>
 
