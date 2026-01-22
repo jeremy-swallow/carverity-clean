@@ -16,6 +16,8 @@ import {
   Mail,
   RotateCcw,
   Printer,
+  Flag,
+  Wrench,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -152,6 +154,28 @@ function vehicleTitleFromProgress(p: any): string {
   return parts.length ? parts.join(" ") : "";
 }
 
+function severityLabel(sev: unknown): "Minor" | "Moderate" | "Major" {
+  if (sev === "major") return "Major";
+  if (sev === "moderate") return "Moderate";
+  return "Minor";
+}
+
+function severityPillClass(sev: unknown) {
+  if (sev === "major") {
+    return "border-red-400/30 bg-red-500/10 text-red-200";
+  }
+  if (sev === "moderate") {
+    return "border-amber-400/30 bg-amber-500/10 text-amber-200";
+  }
+  return "border-white/15 bg-white/5 text-slate-200";
+}
+
+function titleFromId(id: string) {
+  return id
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
 /* =======================================================
    Page
 ======================================================= */
@@ -206,6 +230,83 @@ export default function InPersonResults() {
 
   const confidence = clamp(Number(analysis.confidenceScore ?? 0), 0, 100);
   const coverage = clamp(Number(analysis.completenessScore ?? 0), 0, 100);
+
+  /* -------------------------------------------------------
+     Explicit evidence lists (the missing part)
+  ------------------------------------------------------- */
+  const flaggedChecks = useMemo(() => {
+    const checks = progress?.checks ?? {};
+    if (!checks || typeof checks !== "object") return [];
+
+    const items = Object.entries(checks)
+      .map(([id, v]: any) => {
+        const value = v?.value as string | undefined;
+        const note = (v?.note ?? "").trim();
+
+        if (value !== "concern" && value !== "unsure") return null;
+
+        const label = titleFromId(id);
+        return {
+          id,
+          label,
+          value,
+          note,
+        };
+      })
+      .filter(Boolean) as Array<{
+      id: string;
+      label: string;
+      value: "concern" | "unsure";
+      note: string;
+    }>;
+
+    // concerns first, then unsure
+    items.sort((a, b) => {
+      const rank = (x: "concern" | "unsure") => (x === "concern" ? 0 : 1);
+      return rank(a.value) - rank(b.value);
+    });
+
+    return items;
+  }, [progress]);
+
+  const recordedImperfections = useMemo(() => {
+    const list = Array.isArray(progress?.imperfections)
+      ? progress.imperfections
+      : [];
+
+    const cleaned = list
+      .map((imp: any) => {
+        const id = String(imp?.id ?? "");
+        const label = (imp?.label ?? "").trim();
+        const location = (imp?.location ?? "").trim();
+        const note = (imp?.note ?? "").trim();
+        const severity = imp?.severity ?? "minor";
+
+        if (!id && !label && !location && !note) return null;
+
+        return {
+          id: id || `${severity}-${label}-${location}-${note}`.slice(0, 60),
+          label: label || "Imperfection",
+          location,
+          note,
+          severity,
+        };
+      })
+      .filter(Boolean) as Array<{
+      id: string;
+      label: string;
+      location: string;
+      note: string;
+      severity: "minor" | "moderate" | "major";
+    }>;
+
+    const weight = (sev: string) =>
+      sev === "major" ? 0 : sev === "moderate" ? 1 : 2;
+
+    cleaned.sort((a, b) => weight(a.severity) - weight(b.severity));
+
+    return cleaned;
+  }, [progress]);
 
   /* -------------------------------------------------------
      Verdict meta (simpler language)
@@ -333,6 +434,48 @@ export default function InPersonResults() {
     }
     return "This is based only on what you recorded. It doesn’t assume anything you didn’t check.";
   }, [coverage, confidence]);
+
+  /* -------------------------------------------------------
+     Professional evidence copy
+  ------------------------------------------------------- */
+  const evidenceHeadline = useMemo(() => {
+    const concernCount = analysis.risks.filter((r) => r.severity !== "info").length;
+    const imperfectionCount = recordedImperfections.length;
+    const photoCount = photos.length;
+
+    const parts: string[] = [];
+
+    if (concernCount > 0) parts.push(`${concernCount} flagged item${concernCount === 1 ? "" : "s"}`);
+    if (imperfectionCount > 0)
+      parts.push(`${imperfectionCount} imperfection${imperfectionCount === 1 ? "" : "s"}`);
+    if (photoCount > 0) parts.push(`${photoCount} photo${photoCount === 1 ? "" : "s"}`);
+
+    if (parts.length === 0) {
+      return "This report is based on the information recorded during your inspection.";
+    }
+
+    return `This report was generated from ${parts.join(", ")} recorded during your inspection.`;
+  }, [analysis.risks, recordedImperfections.length, photos.length]);
+
+  const evidenceNotes = useMemo(() => {
+    const lines: string[] = [];
+
+    lines.push(
+      "Only items you recorded are used. If something wasn’t checked, it’s treated as not recorded — not as good or bad."
+    );
+
+    if (uncertaintyFactors.length > 0) {
+      lines.push(
+        "Items marked as unsure are treated as unknown and included in the overall risk posture."
+      );
+    }
+
+    lines.push(
+      "This is not a mechanical certification. If you’re close to buying, consider an independent pre-purchase inspection."
+    );
+
+    return lines;
+  }, [uncertaintyFactors.length]);
 
   /* -------------------------------------------------------
      Email report (opens user's own email client)
@@ -464,7 +607,9 @@ export default function InPersonResults() {
               <BarChart3 className="h-4 w-4" />
               <span className="text-xs uppercase tracking-wide">Confidence</span>
             </div>
-            <p className="mt-1 text-2xl font-semibold text-white">{confidence}%</p>
+            <p className="mt-1 text-2xl font-semibold text-white">
+              {confidence}%
+            </p>
           </div>
 
           <div>
@@ -497,6 +642,126 @@ export default function InPersonResults() {
         </div>
 
         <p className="text-xs text-slate-400">{scoreBlurb}</p>
+      </section>
+
+      {/* WHAT YOU FLAGGED (EXPLICIT LIST) */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-3 text-slate-300">
+          <Flag className="h-5 w-5 text-slate-400" />
+          <h2 className="text-lg font-semibold">What you flagged</h2>
+        </div>
+
+        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-6">
+          {/* Checks */}
+          <div className="space-y-3">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+              Checks (concerns + unsure)
+            </div>
+
+            {flaggedChecks.length > 0 ? (
+              <div className="space-y-3">
+                {flaggedChecks.map((c) => {
+                  const tone =
+                    c.value === "concern"
+                      ? "border-red-400/25 bg-red-500/10"
+                      : "border-amber-400/25 bg-amber-500/10";
+
+                  const tag =
+                    c.value === "concern" ? "Stood out" : "Couldn’t confirm";
+
+                  return (
+                    <div
+                      key={c.id}
+                      className={`rounded-2xl border px-5 py-4 ${tone}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-base font-semibold text-white">
+                            {c.label}
+                          </p>
+                          {c.note ? (
+                            <p className="mt-2 text-[15px] text-slate-200 leading-relaxed">
+                              {c.note}
+                            </p>
+                          ) : (
+                            <p className="mt-2 text-[14px] text-slate-300">
+                              No notes added.
+                            </p>
+                          )}
+                        </div>
+
+                        <span className="shrink-0 inline-flex items-center rounded-full border border-white/15 bg-slate-950/30 px-3 py-1 text-xs text-slate-200">
+                          {tag}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">
+                You didn’t flag any check items as “stood out” or “unsure”.
+              </p>
+            )}
+          </div>
+
+          {/* Imperfections */}
+          <div className="space-y-3">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+              Imperfections
+            </div>
+
+            {recordedImperfections.length > 0 ? (
+              <div className="space-y-3">
+                {recordedImperfections.map((imp) => (
+                  <div
+                    key={imp.id}
+                    className="rounded-2xl border border-white/10 bg-slate-950/30 px-5 py-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-base font-semibold text-white">
+                          {imp.label}
+                        </p>
+
+                        <div className="mt-1 text-sm text-slate-400">
+                          {imp.location ? `Location: ${imp.location}` : "Location: —"}
+                        </div>
+
+                        {imp.note ? (
+                          <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
+                            {imp.note}
+                          </p>
+                        ) : (
+                          <p className="mt-2 text-[14px] text-slate-400">
+                            No notes added.
+                          </p>
+                        )}
+                      </div>
+
+                      <span
+                        className={[
+                          "shrink-0 inline-flex items-center rounded-full border px-3 py-1 text-xs",
+                          severityPillClass(imp.severity),
+                        ].join(" ")}
+                      >
+                        {severityLabel(imp.severity)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">
+                No imperfections were recorded.
+              </p>
+            )}
+          </div>
+
+          <p className="text-xs text-slate-500 max-w-3xl">
+            This section is the exact list of what you recorded — nothing is inferred.
+          </p>
+        </div>
       </section>
 
       {/* WHAT TO DO NEXT */}
@@ -615,26 +880,33 @@ export default function InPersonResults() {
         </section>
       )}
 
-      {/* WHAT YOU RECORDED */}
+      {/* EVIDENCE CONSIDERED (PROFESSIONAL COPY) */}
       <section className="space-y-6">
-        <h2 className="text-lg font-semibold text-slate-200">
-          What you recorded
-        </h2>
+        <div className="flex items-center gap-3 text-slate-300">
+          <Wrench className="h-5 w-5 text-slate-400" />
+          <h2 className="text-lg font-semibold">Evidence considered</h2>
+        </div>
 
         <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-5">
+          <p className="text-[15px] leading-relaxed text-slate-300 max-w-3xl">
+            {evidenceHeadline}
+          </p>
+
           {evidenceText ? (
-            <Paragraph value={evidenceText} />
-          ) : (
-            <p className="text-[14px] text-slate-400">
-              No written summary was generated — your answers and photos were
-              still used to create this result.
-            </p>
-          )}
+            <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                Summary
+              </div>
+              <div className="mt-2">
+                <Paragraph value={evidenceText} />
+              </div>
+            </div>
+          ) : null}
 
           {evidenceBullets.length > 0 && (
             <div className="pt-1">
               <div className="text-xs uppercase tracking-[0.18em] text-slate-500 mb-2">
-                Quick log
+                Recorded notes
               </div>
               <BulletList items={evidenceBullets} />
             </div>
@@ -642,7 +914,7 @@ export default function InPersonResults() {
 
           <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
             <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-              Snapshot
+              Inspection snapshot
             </div>
             <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm text-slate-300">
               <div>
@@ -650,7 +922,7 @@ export default function InPersonResults() {
                 <div className="text-white font-semibold">{photos.length}</div>
               </div>
               <div>
-                <div className="text-slate-500 text-xs">Concerns</div>
+                <div className="text-slate-500 text-xs">Flagged items</div>
                 <div className="text-white font-semibold">
                   {analysis.risks.filter((r) => r.severity !== "info").length}
                 </div>
@@ -668,10 +940,14 @@ export default function InPersonResults() {
             </div>
           </div>
 
-          <p className="text-xs text-slate-500 max-w-3xl">
-            This report is based only on what you recorded. If something wasn’t
-            checked, it’s treated as “not recorded” — not as good or bad.
-          </p>
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+              Notes on interpretation
+            </div>
+            <div className="mt-2">
+              <BulletList items={evidenceNotes} />
+            </div>
+          </div>
         </div>
       </section>
 
