@@ -13,11 +13,7 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import {
-  loadProgress,
-  clearProgress,
-  saveProgress,
-} from "../utils/scanProgress";
+import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
 import { saveScan } from "../utils/scanStorage";
 
 type PricingVerdict = "missing" | "info" | "room" | "concern";
@@ -113,7 +109,7 @@ function pricingCopy(verdict: PricingVerdict) {
     title: "Nothing you recorded strongly contradicts the asking price",
     body:
       "That’s a good sign — but the report will still highlight the few checks that matter most before you decide.",
-    };
+  };
 }
 
 function parseAskingPrice(raw: string): number | null {
@@ -506,12 +502,12 @@ export default function InPersonSummary() {
               <ClipboardCheck className="h-4 w-4 text-slate-300 mt-0.5" />
               <div>
                 <p className="text-sm font-semibold text-white">
-                  What this snapshot is for
+                  Evidence considered
                 </p>
                 <p className="text-sm text-slate-400 mt-1 leading-relaxed">
-                  It helps you sanity-check the inspection before generating the
-                  report. If something feels missing, review checks now — it’s
-                  faster than fixing it later.
+                  This report is based on the information you recorded during the inspection:
+                  your marked concerns, items you selected as unsure, your notes, and any photos captured.
+                  Items you did not record are treated as not assessed (not as positive or negative).
                 </p>
               </div>
             </div>
