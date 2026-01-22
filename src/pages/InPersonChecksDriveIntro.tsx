@@ -60,9 +60,8 @@ export default function InPersonChecksDriveIntro() {
   }, []);
 
   function startDriveChecks() {
-    // ✅ RECOMMENDATION:
-    // Do NOT wipe previous drive answers automatically.
-    // If the user already entered drive notes, preserve them so "Back" doesn't feel punishing.
+    // ✅ Do NOT wipe previous drive answers automatically.
+    // Preserve them so "Back" doesn't feel punishing.
     // Only wipe if the user explicitly taps "Start over".
     const latest: any = loadProgress();
 
@@ -169,8 +168,9 @@ export default function InPersonChecksDriveIntro() {
                 Keep it short (2–5 minutes)
               </p>
               <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-                You’re listening for warning lights, harsh shifts, steering
-                pull, braking feel, and any “something isn’t right” sensation.
+                You’re watching for warning lights, listening for unusual
+                noises, and feeling for harsh shifts, steering pull, odd
+                braking, or anything that feels “off”.
               </p>
             </div>
           </div>

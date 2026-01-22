@@ -127,9 +127,10 @@ export default function InPersonChecksDrive() {
         id: "adas-systems",
         title: "Driver-assist systems (if fitted)",
         guidance:
-          "If fitted: do sensors behave normally? Any unexpected alerts or warnings?",
+          "If fitted: do driver-assist features behave normally? Any unexpected alerts, warnings, or sensor issues?",
         quickConcerns: [
           "Warning message",
+          "Blind spot monitor issue",
           "Parking sensors inconsistent",
           "Adaptive cruise issue",
           "Lane assist alert",
