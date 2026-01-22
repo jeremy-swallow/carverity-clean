@@ -68,7 +68,8 @@ function splitLines(note?: string) {
  */
 function buildImperfectionsFromChecks(
   checks: Record<string, CheckAnswer>,
-  checkConfigs: CheckConfig[]
+  checkConfigs: CheckConfig[],
+  locationLabel: string
 ) {
   const byId = new Map<string, CheckConfig>();
   for (const c of checkConfigs) byId.set(c.id, c);
@@ -83,7 +84,7 @@ function buildImperfectionsFromChecks(
         id: `imp:${id}`,
         label,
         severity: "minor" as const,
-        location: "Around the car",
+        location: locationLabel,
         note: (a?.note ?? "").trim() || undefined,
       };
     });
@@ -157,14 +158,56 @@ export default function InPersonChecksAroundCar() {
     progress?.checks ?? {}
   );
 
+  /* -------------------------------------------------------
+     NEW: Auto-save defaults so "Looks fine" isn't just visual
+     - If user doesn't tap anything, we still treat it as recorded
+     - Only fills missing answers (never overwrites user choices)
+  ------------------------------------------------------- */
   useEffect(() => {
-    const imperfections = buildImperfectionsFromChecks(answers, checks);
+    setAnswers((prev) => {
+      let changed = false;
+      const next: Record<string, CheckAnswer> = { ...(prev ?? {}) };
+
+      for (const c of checks) {
+        const existing = next[c.id];
+
+        // If there is no stored answer, set the default to "ok"
+        if (!existing || !existing.value) {
+          next[c.id] = { ...(existing ?? {}), value: "ok" };
+          changed = true;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [checks]);
+
+  /* -------------------------------------------------------
+     Persist progress + auto-build imperfections
+     - Replace only "Around the car" derived imperfections
+     - Keep everything else untouched (inside cabin, drive, photos, etc)
+  ------------------------------------------------------- */
+  useEffect(() => {
+    const existingImperfections = Array.isArray(progress?.imperfections)
+      ? progress.imperfections
+      : [];
+
+    const kept = existingImperfections.filter((imp: any) => {
+      const loc = String(imp?.location ?? "").toLowerCase();
+      return !loc.includes("around the car");
+    });
+
+    const aroundImperfections = buildImperfectionsFromChecks(
+      answers,
+      checks,
+      "Around the car"
+    );
 
     saveProgress({
       ...(progress ?? {}),
       step: "/scan/in-person/checks/around",
       checks: answers,
-      imperfections,
+      imperfections: [...kept, ...aroundImperfections],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers, checks]);
