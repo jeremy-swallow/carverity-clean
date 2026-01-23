@@ -1,5 +1,3 @@
-// src/App.tsx
-
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 
@@ -30,6 +28,7 @@ import CreditsHistory from "./pages/CreditsHistory";
    Online scan flow
 ======================= */
 import OnlineStart from "./pages/OnlineStart";
+import OnlineResultsNext from "./pages/OnlineResults_NEXT";
 import OnlineReport from "./pages/OnlineReport";
 
 /* =======================
@@ -87,9 +86,9 @@ export default function App() {
 
         {/* =======================
            Online scan flow
-           (kept minimal / optional)
         ======================= */}
         <Route path="/scan/online/start" element={<OnlineStart />} />
+        <Route path="/scan/online/results" element={<OnlineResultsNext />} />
         <Route path="/scan/online/report" element={<OnlineReport />} />
 
         {/* =======================
@@ -130,13 +129,9 @@ export default function App() {
 
         <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
         <Route
-          path="/scan/in-person/analyzing"
+          path="/scan/in-person/analyzing/:scanId"
           element={<InPersonAnalyzing />}
         />
-
-        {/* IMPORTANT:
-           Results expects /:scanId in the URL
-        */}
         <Route
           path="/scan/in-person/results/:scanId"
           element={<InPersonResults />}
@@ -149,10 +144,7 @@ export default function App() {
         />
 
         {/* Decision + price positioning */}
-        <Route
-          path="/scan/in-person/decision"
-          element={<InPersonDecision />}
-        />
+        <Route path="/scan/in-person/decision" element={<InPersonDecision />} />
         <Route
           path="/scan/in-person/price-positioning/:scanId"
           element={<InPersonPricePositioning />}

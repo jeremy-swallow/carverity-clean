@@ -1,5 +1,3 @@
-// src/pages/InPersonAnalyzing.tsx
-
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
@@ -52,7 +50,7 @@ export default function InPersonAnalyzing() {
         } = await supabase.auth.getSession();
 
         if (!session) {
-          navigate("/sign-in", { replace: true });
+          navigate("/signin", { replace: true });
           return;
         }
 
@@ -82,7 +80,7 @@ export default function InPersonAnalyzing() {
           }
 
           if (data?.error === "NOT_AUTHENTICATED") {
-            navigate("/sign-in", { replace: true });
+            navigate("/signin", { replace: true });
             return;
           }
 
