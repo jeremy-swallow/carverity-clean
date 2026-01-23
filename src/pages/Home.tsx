@@ -1,4 +1,5 @@
 // src/pages/Home.tsx
+
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -12,7 +13,28 @@ import {
   Timer,
   BadgeCheck,
 } from "lucide-react";
-import { loadProgress, clearProgress } from "../utils/scanProgress";
+import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
+
+function normaliseResumeTarget(step: string | null, progress: any): string | null {
+  if (!step) return null;
+
+  const s = String(step).trim();
+  if (!s) return null;
+
+  // If stored step is already a full route, use it
+  if (s.startsWith("/")) return s;
+
+  // If older code stored a keyword step, map it safely
+  const scanId: string | null = progress?.scanId ? String(progress.scanId) : null;
+
+  if (s === "unlock" && scanId) return `/scan/in-person/unlock/${scanId}`;
+  if (s === "analyzing" && scanId) return `/scan/in-person/analyzing/${scanId}`;
+  if (s === "summary") return "/scan/in-person/summary";
+  if (s === "start") return "/scan/in-person/start";
+
+  // Unknown
+  return null;
+}
 
 export default function Home() {
   const navigate = useNavigate();
@@ -23,10 +45,10 @@ export default function Home() {
   const [resumeStep, setResumeStep] = useState<string | null>(null);
 
   useEffect(() => {
-    const progress = loadProgress();
-    const step = progress?.step ? String(progress.step) : "";
+    const progress: any = loadProgress();
+    const rawStep = progress?.step ? String(progress.step) : "";
 
-    if (!step) {
+    if (!rawStep) {
       setResumeStep(null);
       return;
     }
@@ -42,7 +64,7 @@ export default function Home() {
       "/scan/online/results",
     ];
 
-    const isCompleted = completedStepPrefixes.some((p) => step.startsWith(p));
+    const isCompleted = completedStepPrefixes.some((p) => rawStep.startsWith(p));
 
     if (isCompleted) {
       try {
@@ -54,7 +76,23 @@ export default function Home() {
       return;
     }
 
-    setResumeStep(step);
+    const target = normaliseResumeTarget(rawStep, progress);
+
+    if (!target) {
+      // If we can’t safely resume, don’t show the button.
+      setResumeStep(null);
+      return;
+    }
+
+    // Keep stored step in a route-safe format so resume never "flashes"
+    if (rawStep !== target) {
+      saveProgress({
+        ...(progress ?? {}),
+        step: target,
+      });
+    }
+
+    setResumeStep(target);
   }, []);
 
   const shouldShowResume = useMemo(() => Boolean(resumeStep), [resumeStep]);
@@ -68,7 +106,7 @@ export default function Home() {
       // ignore
     }
 
-    // Go directly into the current in-person flow (not /start).
+    // Go directly into the current in-person flow
     navigate("/scan/in-person/start");
   }
 

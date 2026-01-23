@@ -16,6 +16,7 @@ import {
   FileText,
   Timer,
 } from "lucide-react";
+import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 type PackKey = "single" | "three" | "five";
 
@@ -91,6 +92,11 @@ export default function Pricing() {
     () => params.get("canceled") === "1" || params.get("cancelled") === "1",
     [params]
   );
+
+  const reason = useMemo(() => params.get("reason") || "", [params]);
+  const scanIdFromQuery = useMemo(() => params.get("scanId") || "", [params]);
+
+  const cameFromNoCreditsGate = reason === "no_credits" && Boolean(scanIdFromQuery);
 
   async function refreshAuthAndCredits() {
     setLoadingCredits(true);
@@ -168,6 +174,51 @@ export default function Pricing() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [success]);
 
+  // If user came here from an in-person unlock gate, persist a resume-safe step.
+  useEffect(() => {
+    if (!cameFromNoCreditsGate) return;
+    if (!scanIdFromQuery) return;
+
+    const existing: any = loadProgress() ?? {};
+
+    // Only set if it looks like an in-person flow (or empty).
+    saveProgress({
+      ...(existing ?? {}),
+      type: "in-person",
+      scanId: scanIdFromQuery,
+      step: `/scan/in-person/unlock/${scanIdFromQuery}`,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameFromNoCreditsGate, scanIdFromQuery]);
+
+  // Auto-continue after successful purchase if we have scanId and credits > 0
+  useEffect(() => {
+    if (!success) return;
+    if (!cameFromNoCreditsGate) return;
+    if (!scanIdFromQuery) return;
+    if (!sessionReady || !isLoggedIn) return;
+    if (loadingCredits) return;
+
+    const safeCredits = typeof credits === "number" ? credits : 0;
+    if (safeCredits <= 0) return;
+
+    // Give it a tiny moment so UI can show success, then continue.
+    const t = setTimeout(() => {
+      navigate(`/scan/in-person/unlock/${scanIdFromQuery}`, { replace: true });
+    }, 650);
+
+    return () => clearTimeout(t);
+  }, [
+    success,
+    cameFromNoCreditsGate,
+    scanIdFromQuery,
+    sessionReady,
+    isLoggedIn,
+    loadingCredits,
+    credits,
+    navigate,
+  ]);
+
   // “Restore” UI fallback
   const inRestoreWindow =
     success && restore && (!sessionReady || (sessionReady && !isLoggedIn));
@@ -183,7 +234,7 @@ export default function Pricing() {
 
       if (sessionError || !session?.access_token) {
         alert("Please sign in to continue.");
-        navigate("/sign-in");
+        navigate("/signin");
         return;
       }
 
@@ -193,7 +244,12 @@ export default function Pricing() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ pack }),
+        body: JSON.stringify({
+          pack,
+          // pass through scanId if user is mid-unlock
+          scanId: scanIdFromQuery || null,
+          reason: cameFromNoCreditsGate ? "no_credits" : null,
+        }),
       });
 
       const data = await res.json();
@@ -215,6 +271,13 @@ export default function Pricing() {
 
   const showCreditsLine = sessionReady;
 
+  const canContinueUnlock =
+    Boolean(scanIdFromQuery) &&
+    sessionReady &&
+    isLoggedIn &&
+    !loadingCredits &&
+    (credits ?? 0) > 0;
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-20">
       {/* Header */}
@@ -235,6 +298,60 @@ export default function Pricing() {
           you begin report generation (the moment the analysis starts).
         </p>
       </header>
+
+      {/* If user is mid-flow, show a strong “Continue” panel */}
+      {cameFromNoCreditsGate && (
+        <section className="mb-10 rounded-2xl border border-amber-400/25 bg-amber-500/10 px-6 py-5 space-y-3">
+          <p className="text-amber-200 font-semibold">
+            You’re unlocking a report
+          </p>
+          <p className="text-sm text-slate-300">
+            You were mid-way through unlocking a report for this inspection.
+            After purchase, you can continue instantly.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              onClick={() =>
+                navigate(`/scan/in-person/unlock/${scanIdFromQuery}`)
+              }
+              className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
+            >
+              Back to unlock
+            </button>
+
+            <button
+              onClick={() => navigate("/scan/in-person/summary")}
+              className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
+            >
+              Back to summary
+            </button>
+
+            <button
+              onClick={() => navigate("/")}
+              className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
+            >
+              Home
+            </button>
+          </div>
+
+          {canContinueUnlock && (
+            <div className="pt-2">
+              <button
+                onClick={() =>
+                  navigate(`/scan/in-person/unlock/${scanIdFromQuery}`, {
+                    replace: true,
+                  })
+                }
+                className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 text-sm inline-flex items-center justify-center gap-2"
+              >
+                Continue unlocking report
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* “How it works” strip */}
       <section className="mb-10 rounded-2xl border border-white/10 bg-slate-900/40 px-6 py-6 relative overflow-hidden">
@@ -412,6 +529,18 @@ export default function Pricing() {
               View My Scans
             </button>
 
+            {cameFromNoCreditsGate && scanIdFromQuery && (
+              <button
+                onClick={() =>
+                  navigate(`/scan/in-person/unlock/${scanIdFromQuery}`)
+                }
+                className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm inline-flex items-center gap-2"
+              >
+                Continue unlock
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
+
             {inRestoreWindow && (
               <button
                 onClick={() => refreshAuthAndCredits()}
@@ -447,7 +576,7 @@ export default function Pricing() {
           {sessionReady && !isLoggedIn && (
             <div className="pt-2">
               <button
-                onClick={() => navigate("/sign-in")}
+                onClick={() => navigate("/signin")}
                 className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-black font-semibold px-4 py-2 text-sm"
               >
                 Sign in
@@ -491,7 +620,7 @@ export default function Pricing() {
 
         {sessionReady && !isLoggedIn && (
           <button
-            onClick={() => navigate("/sign-in")}
+            onClick={() => navigate("/signin")}
             className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-black font-semibold px-4 py-2 text-sm"
           >
             Sign in
@@ -597,9 +726,7 @@ export default function Pricing() {
       </div>
 
       <section className="mt-14 rounded-2xl border border-white/10 bg-slate-900/40 p-6">
-        <p className="text-sm font-semibold text-white mb-2">
-          Good to know
-        </p>
+        <p className="text-sm font-semibold text-white mb-2">Good to know</p>
 
         <ul className="space-y-2 text-sm text-slate-400 leading-relaxed">
           <li>
