@@ -14,6 +14,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
+import { supabase } from "../supabaseClient";
 
 function normaliseResumeTarget(step: string | null, progress: any): string | null {
   if (!step) return null;
@@ -43,6 +44,44 @@ export default function Home() {
   // We do NOT read localStorage progress during render because it can cause
   // flicker and double-renders (especially if we clear it).
   const [resumeStep, setResumeStep] = useState<string | null>(null);
+
+  // Only show resume if user is signed in (prevents resume button showing to signed-out users)
+  const [isAuthed, setIsAuthed] = useState<boolean>(false);
+  const [authChecked, setAuthChecked] = useState<boolean>(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkAuth() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!cancelled) {
+          setIsAuthed(Boolean(session));
+          setAuthChecked(true);
+        }
+      } catch {
+        if (!cancelled) {
+          setIsAuthed(false);
+          setAuthChecked(true);
+        }
+      }
+    }
+
+    checkAuth();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthed(Boolean(session));
+      setAuthChecked(true);
+    });
+
+    return () => {
+      cancelled = true;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const progress: any = loadProgress();
@@ -95,7 +134,11 @@ export default function Home() {
     setResumeStep(target);
   }, []);
 
-  const shouldShowResume = useMemo(() => Boolean(resumeStep), [resumeStep]);
+  const shouldShowResume = useMemo(() => {
+    // Must be signed in AND have a valid resume target
+    if (!authChecked) return false;
+    return Boolean(isAuthed && resumeStep);
+  }, [authChecked, isAuthed, resumeStep]);
 
   function handleStartInPerson() {
     // USER REQUIREMENT:
@@ -112,6 +155,24 @@ export default function Home() {
 
   function resumeScan() {
     if (!resumeStep) return;
+
+    // Safety: if auth state is missing, force sign-in first
+    if (!isAuthed) {
+      // Keep resume target so we can continue after sign-in
+      try {
+        const progress: any = loadProgress() ?? {};
+        saveProgress({
+          ...(progress ?? {}),
+          step: resumeStep,
+        });
+      } catch {
+        // ignore
+      }
+
+      navigate("/signin");
+      return;
+    }
+
     navigate(resumeStep);
   }
 
@@ -445,7 +506,7 @@ export default function Home() {
           <div>
             <h3 className="font-semibold text-white">Already started?</h3>
             <p className="text-slate-300 text-sm mt-1">
-              You can resume your in-progress inspection anytime.
+              Sign in to resume your in-progress inspection anytime.
             </p>
           </div>
 
