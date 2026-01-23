@@ -30,7 +30,7 @@ export default function InPersonStart() {
     } = await supabase.auth.getSession();
 
     if (!session) {
-      navigate("/sign-in");
+      navigate("/signin");
       return;
     }
 

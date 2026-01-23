@@ -143,7 +143,7 @@ export default function Admin() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        navigate("/sign-in", { replace: true });
+        navigate("/signin", { replace: true });
         return;
       }
 
@@ -196,7 +196,7 @@ export default function Admin() {
         const code = data?.error || "LOOKUP_FAILED";
 
         if (code === "NOT_AUTHENTICATED") {
-          navigate("/sign-in");
+          navigate("/signin");
           return;
         }
 
@@ -273,7 +273,7 @@ export default function Admin() {
         }
 
         if (code === "NOT_AUTHENTICATED") {
-          navigate("/sign-in");
+          navigate("/signin");
           return;
         }
 
@@ -332,7 +332,7 @@ export default function Admin() {
         const code = data?.error || "WHITELIST_UPDATE_FAILED";
 
         if (code === "NOT_AUTHENTICATED") {
-          navigate("/sign-in");
+          navigate("/signin");
           return;
         }
 
@@ -386,7 +386,7 @@ export default function Admin() {
         const code = data?.error || "REFUND_FAILED";
 
         if (code === "NOT_AUTHENTICATED") {
-          navigate("/sign-in");
+          navigate("/signin");
           return;
         }
 
@@ -461,7 +461,7 @@ export default function Admin() {
         const code = data?.error || "FORCE_UNLOCK_FAILED";
 
         if (code === "NOT_AUTHENTICATED") {
-          navigate("/sign-in");
+          navigate("/signin");
           return;
         }
 
@@ -526,7 +526,7 @@ export default function Admin() {
         const code = data?.error || "REFUND_FAILED";
 
         if (code === "NOT_AUTHENTICATED") {
-          navigate("/sign-in");
+          navigate("/signin");
           return;
         }
 

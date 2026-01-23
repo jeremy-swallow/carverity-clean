@@ -52,7 +52,7 @@ export default function Account() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        navigate("/sign-in");
+        navigate("/signin");
         return;
       }
 

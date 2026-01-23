@@ -70,7 +70,7 @@ export default function AuthCallback() {
         // Give user a moment to read, then send to sign-in
         setTimeout(() => {
           if (cancelled) return;
-          navigate("/sign-in", { replace: true });
+          navigate("/signin", { replace: true });
         }, 1200);
       } catch (e) {
         console.error("[AuthCallback] unexpected error:", e);
@@ -83,7 +83,7 @@ export default function AuthCallback() {
 
         setTimeout(() => {
           if (cancelled) return;
-          navigate("/sign-in", { replace: true });
+          navigate("/signin", { replace: true });
         }, 1200);
       }
     }

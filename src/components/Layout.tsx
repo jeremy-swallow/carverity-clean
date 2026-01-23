@@ -328,7 +328,7 @@ export default function Layout() {
                 </>
               ) : (
                 <NavLink
-                  to="/sign-in"
+                  to="/signin"
                   className="px-3 py-1 rounded-full bg-emerald-600 text-black text-xs font-semibold"
                 >
                   Sign in
@@ -480,7 +480,7 @@ export default function Layout() {
                 <button
                   onClick={() => {
                     setMobileOpen(false);
-                    navigate("/sign-in");
+                    navigate("/signin");
                   }}
                   className="block"
                 >

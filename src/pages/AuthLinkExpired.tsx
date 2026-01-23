@@ -80,7 +80,7 @@ export default function AuthLinkExpired() {
             )}
 
             <button
-              onClick={() => navigate("/sign-in")}
+              onClick={() => navigate("/signin")}
               className="w-full rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 text-slate-200 font-semibold px-4 py-3 transition"
             >
               Go to sign-in options
@@ -92,7 +92,7 @@ export default function AuthLinkExpired() {
               Please return to sign-in and request a new link.
             </p>
             <button
-              onClick={() => navigate("/sign-in")}
+              onClick={() => navigate("/signin")}
               className="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 text-black font-semibold px-4 py-3 transition"
             >
               Back to sign-in

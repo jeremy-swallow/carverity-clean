@@ -22,7 +22,7 @@ export default function CreditsHistory() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        navigate("/sign-in");
+        navigate("/signin");
         return;
       }
 

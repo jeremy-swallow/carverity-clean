@@ -69,7 +69,7 @@ export default function StartScan() {
 
     // Must be signed in to start
     if (!isLoggedIn) {
-      navigate("/sign-in");
+      navigate("/signin");
       return;
     }
 
@@ -145,7 +145,7 @@ export default function StartScan() {
 
       {authReady && !isLoggedIn && (
         <button
-          onClick={() => navigate("/sign-in")}
+          onClick={() => navigate("/signin")}
           className="w-full rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-5 py-3 text-slate-200 font-semibold"
         >
           Sign in
