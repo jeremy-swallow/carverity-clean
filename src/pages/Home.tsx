@@ -13,10 +13,17 @@ import {
   Timer,
   BadgeCheck,
 } from "lucide-react";
-import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
+import {
+  loadProgress,
+  clearProgress,
+  saveProgress,
+} from "../utils/scanProgress";
 import { supabase } from "../supabaseClient";
 
-function normaliseResumeTarget(step: string | null, progress: any): string | null {
+function normaliseResumeTarget(
+  step: string | null,
+  progress: any
+): string | null {
   if (!step) return null;
 
   const s = String(step).trim();
@@ -37,44 +44,59 @@ function normaliseResumeTarget(step: string | null, progress: any): string | nul
   return null;
 }
 
+function isSafeResumeRoute(route: string): boolean {
+  const allowedPrefixes = [
+    "/scan/in-person/start",
+    "/scan/in-person/vehicle-details",
+    "/scan/in-person/asking-price",
+    "/scan/in-person/photos",
+    "/scan/in-person/owners",
+    "/scan/in-person/checks/intro",
+    "/scan/in-person/checks/around",
+    "/scan/in-person/checks/inside",
+    "/scan/in-person/checks/drive-intro",
+    "/scan/in-person/checks/drive",
+    "/scan/in-person/summary",
+    "/scan/in-person/unlock/",
+    "/scan/in-person/analyzing/",
+    "/scan/in-person/results/",
+    "/scan/in-person/decision",
+    "/scan/in-person/price-positioning/",
+    "/scan/in-person/print",
+  ];
+
+  return allowedPrefixes.some((p) => route.startsWith(p));
+}
+
 export default function Home() {
   const navigate = useNavigate();
 
-  // IMPORTANT:
-  // We do NOT read localStorage progress during render because it can cause
-  // flicker and double-renders (especially if we clear it).
   const [resumeStep, setResumeStep] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Only show resume if user is signed in (prevents resume button showing to signed-out users)
-  const [isAuthed, setIsAuthed] = useState<boolean>(false);
-  const [authChecked, setAuthChecked] = useState<boolean>(false);
-
+  // Auth gate: Resume should only appear when signed in
   useEffect(() => {
     let cancelled = false;
 
-    async function checkAuth() {
+    async function loadAuth() {
       try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!cancelled) {
-          setIsAuthed(Boolean(session));
-          setAuthChecked(true);
-        }
+        const { data } = await supabase.auth.getSession();
+        if (cancelled) return;
+        setIsLoggedIn(Boolean(data.session));
       } catch {
-        if (!cancelled) {
-          setIsAuthed(false);
-          setAuthChecked(true);
-        }
+        if (cancelled) return;
+        setIsLoggedIn(false);
+      } finally {
+        if (cancelled) return;
+        setAuthReady(true);
       }
     }
 
-    checkAuth();
+    loadAuth();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthed(Boolean(session));
-      setAuthChecked(true);
+    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+      loadAuth();
     });
 
     return () => {
@@ -83,6 +105,7 @@ export default function Home() {
     };
   }, []);
 
+  // Resume step loading (but we will only SHOW it when logged in)
   useEffect(() => {
     const progress: any = loadProgress();
     const rawStep = progress?.step ? String(progress.step) : "";
@@ -92,7 +115,7 @@ export default function Home() {
       return;
     }
 
-    // If progress is pointing at an end-of-flow page, we treat it as completed
+    // If progress is pointing at an end-of-flow page, treat it as completed
     // and clear it once (not during render).
     const completedStepPrefixes = [
       "/scan/in-person/results",
@@ -101,6 +124,7 @@ export default function Home() {
       "/scan/in-person/decision",
       "/scan/in-person/price-positioning",
       "/scan/online/results",
+      "completed",
     ];
 
     const isCompleted = completedStepPrefixes.some((p) => rawStep.startsWith(p));
@@ -117,28 +141,32 @@ export default function Home() {
 
     const target = normaliseResumeTarget(rawStep, progress);
 
-    if (!target) {
-      // If we can’t safely resume, don’t show the button.
+    if (!target || !isSafeResumeRoute(target)) {
       setResumeStep(null);
       return;
     }
 
     // Keep stored step in a route-safe format so resume never "flashes"
     if (rawStep !== target) {
-      saveProgress({
-        ...(progress ?? {}),
-        step: target,
-      });
+      try {
+        saveProgress({
+          ...(progress ?? {}),
+          step: target,
+        });
+      } catch {
+        // ignore
+      }
     }
 
     setResumeStep(target);
   }, []);
 
   const shouldShowResume = useMemo(() => {
-    // Must be signed in AND have a valid resume target
-    if (!authChecked) return false;
-    return Boolean(isAuthed && resumeStep);
-  }, [authChecked, isAuthed, resumeStep]);
+    // IMPORTANT: Only show Resume when signed in
+    if (!authReady) return false;
+    if (!isLoggedIn) return false;
+    return Boolean(resumeStep);
+  }, [authReady, isLoggedIn, resumeStep]);
 
   function handleStartInPerson() {
     // USER REQUIREMENT:
@@ -149,26 +177,23 @@ export default function Home() {
       // ignore
     }
 
-    // Go directly into the current in-person flow
     navigate("/scan/in-person/start");
   }
 
   function resumeScan() {
     if (!resumeStep) return;
 
-    // Safety: if auth state is missing, force sign-in first
-    if (!isAuthed) {
-      // Keep resume target so we can continue after sign-in
+    // Safety: if somehow clicked while logged out, force sign-in
+    if (!isLoggedIn) {
       try {
         const progress: any = loadProgress() ?? {};
         saveProgress({
-          ...(progress ?? {}),
+          ...progress,
           step: resumeStep,
         });
       } catch {
         // ignore
       }
-
       navigate("/signin");
       return;
     }
@@ -506,7 +531,7 @@ export default function Home() {
           <div>
             <h3 className="font-semibold text-white">Already started?</h3>
             <p className="text-slate-300 text-sm mt-1">
-              Sign in to resume your in-progress inspection anytime.
+              You can resume your in-progress inspection anytime.
             </p>
           </div>
 
