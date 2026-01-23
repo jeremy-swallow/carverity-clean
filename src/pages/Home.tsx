@@ -1,5 +1,6 @@
 // src/pages/Home.tsx
 import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -15,51 +16,65 @@ import { loadProgress, clearProgress } from "../utils/scanProgress";
 
 export default function Home() {
   const navigate = useNavigate();
-  const progress = loadProgress();
 
-  /**
-   * IMPORTANT:
-   * If a user returns to the homepage AFTER completing a scan,
-   * we must NOT show "Resume inspection".
-   *
-   * The most common cause is progress.step still being set to the
-   * last scan step (results/print/negotiation), so we defensively
-   * clear progress if it looks "completed".
-   *
-   * We do NOT want to add extra steps or ask the user to re-enter anything.
-   */
-  const shouldShowResume = (() => {
-    const step = progress?.step;
-    if (!step) return false;
+  // IMPORTANT:
+  // We do NOT read localStorage progress during render because it can cause
+  // flicker and double-renders (especially if we clear it).
+  const [resumeStep, setResumeStep] = useState<string | null>(null);
 
-    // If the user is already on an end-of-flow page, it's not "in progress".
-    // Clear progress so the homepage is clean and correct.
+  useEffect(() => {
+    const progress = loadProgress();
+    const step = progress?.step ? String(progress.step) : "";
+
+    if (!step) {
+      setResumeStep(null);
+      return;
+    }
+
+    // If progress is pointing at an end-of-flow page, we treat it as completed
+    // and clear it once (not during render).
     const completedStepPrefixes = [
       "/scan/in-person/results",
       "/scan/in-person/print",
       "/scan/in-person/negotiation",
+      "/scan/in-person/decision",
+      "/scan/in-person/price-positioning",
       "/scan/online/results",
     ];
 
-    const isCompletedStep = completedStepPrefixes.some((p) =>
-      String(step).startsWith(p)
-    );
+    const isCompleted = completedStepPrefixes.some((p) => step.startsWith(p));
 
-    if (isCompletedStep) {
+    if (isCompleted) {
       try {
         clearProgress();
       } catch {
         // ignore
       }
-      return false;
+      setResumeStep(null);
+      return;
     }
 
-    return true;
-  })();
+    setResumeStep(step);
+  }, []);
+
+  const shouldShowResume = useMemo(() => Boolean(resumeStep), [resumeStep]);
+
+  function handleStartInPerson() {
+    // USER REQUIREMENT:
+    // Start scan must ALWAYS start clean unless user explicitly taps Resume.
+    try {
+      clearProgress();
+    } catch {
+      // ignore
+    }
+
+    // Go directly into the current in-person flow (not /start).
+    navigate("/scan/in-person/start");
+  }
 
   function resumeScan() {
-    if (!progress?.step) return;
-    navigate(progress.step);
+    if (!resumeStep) return;
+    navigate(resumeStep);
   }
 
   return (
@@ -106,7 +121,7 @@ export default function Home() {
 
             <div className="flex flex-wrap items-start gap-3 mt-1">
               <button
-                onClick={() => navigate("/start")}
+                onClick={handleStartInPerson}
                 className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-black font-semibold transition"
               >
                 Start in-person inspection
@@ -371,7 +386,7 @@ export default function Home() {
 
           <div className="mt-5 flex flex-wrap gap-3">
             <button
-              onClick={() => navigate("/start")}
+              onClick={handleStartInPerson}
               className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-black font-semibold transition"
             >
               Start inspection

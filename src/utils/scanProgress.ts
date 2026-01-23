@@ -177,7 +177,8 @@ export function saveProgress(update: Partial<ScanProgress>): void {
     const merged: ScanProgress = {
       ...existing,
       ...update,
-      startedAt: existing.startedAt || update.startedAt || new Date().toISOString(),
+      startedAt:
+        existing.startedAt || update.startedAt || new Date().toISOString(),
     };
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
