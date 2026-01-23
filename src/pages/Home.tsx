@@ -106,7 +106,7 @@ export default function Home() {
 
             <div className="flex flex-wrap items-start gap-3 mt-1">
               <button
-                onClick={() => navigate("/start-scan")}
+                onClick={() => navigate("/start")}
                 className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-black font-semibold transition"
               >
                 Start in-person inspection
@@ -371,7 +371,7 @@ export default function Home() {
 
           <div className="mt-5 flex flex-wrap gap-3">
             <button
-              onClick={() => navigate("/start-scan")}
+              onClick={() => navigate("/start")}
               className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-black font-semibold transition"
             >
               Start inspection
