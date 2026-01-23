@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
-import { loadProgress, saveProgress, clearProgress } from "../utils/scanProgress";
+import { loadProgress, saveProgress } from "../utils/scanProgress";
 import { saveScan } from "../utils/scanStorage";
 import { supabase } from "../supabaseClient";
 
@@ -68,12 +68,12 @@ export default function InPersonAnalyzing() {
           return;
         }
 
-        // Always persist scanId + step for resume safety
+        // Always persist scanId + route-step for resume safety
         saveProgress({
           ...(progress ?? {}),
           type: "in-person",
           scanId: scanIdSafe,
-          step: "analyzing",
+          step: `/scan/in-person/analyzing/${scanIdSafe}`,
         });
 
         // Auth required
@@ -93,7 +93,7 @@ export default function InPersonAnalyzing() {
             ...(loadProgress() ?? {}),
             type: "in-person",
             scanId: scanIdSafe,
-            step: "unlock",
+            step: `/scan/in-person/unlock/${scanIdSafe}`,
           });
 
           navigate(`/scan/in-person/unlock/${scanIdSafe}`, { replace: true });
@@ -167,16 +167,19 @@ export default function InPersonAnalyzing() {
           progressSnapshot: latestProgress,
         });
 
-        // Mark flow complete + clear local progress so it can't loop back into inspection
+        // IMPORTANT:
+        // Do NOT clear progress here.
+        // Clearing progress is what causes resume/flow weirdness and can produce
+        // blank results if the results page expects progressSnapshot in storage.
+        //
+        // Instead, mark it as completed and point step at results so resume
+        // takes you to the report.
         saveProgress({
           ...(loadProgress() ?? {}),
           type: "in-person",
           scanId: scanIdSafe,
-          step: "completed",
+          step: `/scan/in-person/results/${scanIdSafe}`,
         });
-
-        // Clear progress after save so resume doesn't re-enter analyzing
-        clearProgress();
 
         // Short delay so it feels deliberate
         await new Promise((r) => setTimeout(r, 900));
@@ -233,8 +236,8 @@ export default function InPersonAnalyzing() {
         <div className="space-y-3">
           <h1 className="text-xl font-semibold">Generating your report</h1>
           <p className="text-sm text-slate-400">
-            We’re weighing observations, uncertainty, and risk signals to prepare
-            your buyer-safe report.
+            We’re weighing observations, uncertainty, and risk signals to
+            prepare your buyer-safe report.
           </p>
         </div>
 
