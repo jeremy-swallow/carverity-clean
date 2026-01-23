@@ -18,6 +18,7 @@ import {
   Printer,
   Flag,
   Wrench,
+  BadgeDollarSign,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -439,22 +440,28 @@ export default function InPersonResults() {
      Professional evidence copy
   ------------------------------------------------------- */
   const evidenceHeadline = useMemo(() => {
-    const concernCount = analysis.risks.filter((r) => r.severity !== "info").length;
+    const concernCount = analysis.risks.filter((r) => r.severity !== "info")
+      .length;
     const imperfectionCount = recordedImperfections.length;
     const photoCount = photos.length;
 
     const parts: string[] = [];
 
-    if (concernCount > 0) parts.push(`${concernCount} flagged item${concernCount === 1 ? "" : "s"}`);
+    if (concernCount > 0)
+      parts.push(`${concernCount} flagged item${concernCount === 1 ? "" : "s"}`);
     if (imperfectionCount > 0)
-      parts.push(`${imperfectionCount} imperfection${imperfectionCount === 1 ? "" : "s"}`);
+      parts.push(
+        `${imperfectionCount} imperfection${imperfectionCount === 1 ? "" : "s"}`
+      );
     if (photoCount > 0) parts.push(`${photoCount} photo${photoCount === 1 ? "" : "s"}`);
 
     if (parts.length === 0) {
       return "This report is based on the information recorded during your inspection.";
     }
 
-    return `This report was generated from ${parts.join(", ")} recorded during your inspection.`;
+    return `This report was generated from ${parts.join(
+      ", "
+    )} recorded during your inspection.`;
   }, [analysis.risks, recordedImperfections.length, photos.length]);
 
   const evidenceNotes = useMemo(() => {
@@ -666,8 +673,7 @@ export default function InPersonResults() {
                       ? "border-red-400/25 bg-red-500/10"
                       : "border-amber-400/25 bg-amber-500/10";
 
-                  const tag =
-                    c.value === "concern" ? "Stood out" : "Couldn’t confirm";
+                  const tag = c.value === "concern" ? "Stood out" : "Couldn’t confirm";
 
                   return (
                     <div
@@ -752,9 +758,7 @@ export default function InPersonResults() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-400">
-                No imperfections were recorded.
-              </p>
+              <p className="text-sm text-slate-400">No imperfections were recorded.</p>
             )}
           </div>
 
@@ -785,6 +789,17 @@ export default function InPersonResults() {
             >
               Open decision guide
               <ArrowRight className="h-4 w-4" />
+            </button>
+
+            {/* NEW: Price positioning */}
+            <button
+              onClick={() =>
+                navigate(`/scan/in-person/price-positioning/${scanId}`)
+              }
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
+            >
+              <BadgeDollarSign className="h-4 w-4" />
+              Price positioning
             </button>
 
             <button
@@ -1043,6 +1058,7 @@ export default function InPersonResults() {
           onClick={() => navigate("/scan/in-person/print")}
           className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
         >
+          <Printer className="h-4 w-4" />
           Print / save report
         </button>
 
