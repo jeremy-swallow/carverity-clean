@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import { clearProgress } from "../utils/scanProgress";
 
 function formatCredits(n: number | null) {
   if (n == null) return "—";
@@ -97,7 +96,6 @@ export default function InPersonUnlock() {
         body: JSON.stringify({ scanId }),
       });
 
-      // If server says NO_CREDITS, route to pricing
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         const serverError = data?.error as string | undefined;
@@ -122,16 +120,11 @@ export default function InPersonUnlock() {
       }
 
       // IMPORTANT:
-      // Clear local scan progress so Home never shows "Resume inspection"
-      try {
-        clearProgress();
-      } catch {
-        // ignore
-      }
-
+      // Do NOT clear progress here.
+      // We still need the progress snapshot to generate analysis + results.
       await refreshCredits();
 
-      // Premium flow: show analyzing screen briefly
+      // Go to analyzing screen
       navigate(`/scan/in-person/analyzing/${scanId}`, { replace: true });
     } catch (err) {
       console.error(err);
