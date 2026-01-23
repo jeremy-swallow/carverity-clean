@@ -1,6 +1,6 @@
 // src/pages/InPersonUnlock.tsx
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { clearProgress } from "../utils/scanProgress";
 
@@ -11,7 +11,10 @@ function formatCredits(n: number | null) {
 
 export default function InPersonUnlock() {
   const navigate = useNavigate();
-  const { scanId } = useParams<{ scanId?: string }>();
+  const { scanId: scanIdParam } = useParams<{ scanId?: string }>();
+  const [params] = useSearchParams();
+
+  const scanId = scanIdParam || params.get("scanId") || undefined;
 
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +77,7 @@ export default function InPersonUnlock() {
 
     if (!session) {
       setUnlocking(false);
-      navigate("/sign-in");
+      navigate("/signin");
       return;
     }
 
@@ -97,7 +100,6 @@ export default function InPersonUnlock() {
         body: JSON.stringify({ scanId }),
       });
 
-      // If server says NO_CREDITS, route to pricing
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         const serverError = data?.error as string | undefined;
@@ -106,24 +108,20 @@ export default function InPersonUnlock() {
 
         if (res.status === 402 || serverError === "NO_CREDITS") {
           setUnlocking(false);
-          navigate(
-            `/pricing?reason=no_credits&scanId=${encodeURIComponent(scanId)}`
-          );
+          navigate(`/pricing?reason=no_credits&scanId=${encodeURIComponent(scanId)}`);
           return;
         }
 
         if (res.status === 401 || serverError === "NOT_AUTHENTICATED") {
           setUnlocking(false);
-          navigate("/sign-in");
+          navigate("/signin");
           return;
         }
 
         throw new Error("FAILED_TO_UNLOCK");
       }
 
-      // IMPORTANT:
-      // - Clear local scan progress so Home never shows "Resume inspection"
-      // - Refresh credits so the UI reflects the deduction instantly
+      // Clear local scan progress so Home never shows "Resume inspection"
       try {
         clearProgress();
       } catch {
@@ -132,7 +130,6 @@ export default function InPersonUnlock() {
 
       await refreshCredits();
 
-      // Go directly to the full paid report (no preview)
       navigate(`/scan/in-person/results/${scanId}`);
     } catch (err) {
       console.error(err);
@@ -206,9 +203,7 @@ export default function InPersonUnlock() {
         <button
           onClick={() =>
             scanId
-              ? navigate(
-                  `/pricing?reason=no_credits&scanId=${encodeURIComponent(scanId)}`
-                )
+              ? navigate(`/pricing?reason=no_credits&scanId=${encodeURIComponent(scanId)}`)
               : navigate("/pricing")
           }
           className="w-full rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-slate-200 font-semibold"
