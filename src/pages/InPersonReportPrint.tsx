@@ -1,9 +1,10 @@
 // src/pages/InPersonReportPrint.tsx
 
 import { useEffect, useMemo, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { loadProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
+import { loadScanById } from "../utils/scanStorage";
 
 /* -------------------------------------------------------
    Small helpers (print-safe, no JSX namespace)
@@ -144,23 +145,93 @@ function verdictLabel(verdict: unknown): string {
 ------------------------------------------------------- */
 export default function InPersonReportPrint() {
   const navigate = useNavigate();
-  const progress: any = loadProgress();
+  const { scanId } = useParams<{ scanId: string }>();
 
-  // Guard: if user refreshes this page without progress, bounce safely.
-  useEffect(() => {
-    if (!progress?.scanId) {
-      navigate("/my-scans", { replace: true });
+  const scanIdSafe = scanId ? String(scanId).trim() : "";
+
+  const saved = useMemo(() => {
+    if (!scanIdSafe) return null;
+    try {
+      return loadScanById(scanIdSafe);
+    } catch (e) {
+      console.warn("[Print] loadScanById failed:", e);
+      return null;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanIdSafe]);
+
+  const progressFallback = useMemo(() => {
+    try {
+      return loadProgress();
+    } catch (e) {
+      console.warn("[Print] loadProgress failed:", e);
+      return null;
+    }
   }, []);
 
-  const analysis = useMemo(() => {
-    return analyseInPersonInspection(progress);
+  const progress: any = saved?.progressSnapshot ?? progressFallback ?? {};
+
+  // Guard: if user refreshes this page without scan data, bounce safely.
+  useEffect(() => {
+    if (scanIdSafe && !saved) {
+      navigate("/my-scans", { replace: true });
+      return;
+    }
+
+    if (!scanIdSafe && !progress?.scanId) {
+      navigate("/my-scans", { replace: true });
+    }
+  }, [scanIdSafe, saved, progress, navigate]);
+
+  // ✅ IMPORTANT FIX:
+  // analyseInPersonInspection expects followUpPhotos to include stepId.
+  // Old snapshots may store followUpPhotos without stepId, which causes TS error.
+  const progressForAnalysis = useMemo(() => {
+    const base: any = progress ?? {};
+
+    const followUpPhotos = Array.isArray(base.followUpPhotos)
+      ? base.followUpPhotos.map((p: any) => ({
+          ...(p ?? {}),
+          // Accept various historic shapes, then default.
+          stepId:
+            p?.stepId ??
+            p?.stepid ??
+            p?.stepID ??
+            p?.step ??
+            "follow-up",
+        }))
+      : undefined;
+
+    const photos = Array.isArray(base.photos)
+      ? base.photos.map((p: any) => ({
+          ...(p ?? {}),
+          stepId: p?.stepId ?? p?.stepid ?? p?.stepID ?? p?.step ?? "photo",
+        }))
+      : undefined;
+
+    return {
+      ...base,
+      ...(followUpPhotos ? { followUpPhotos } : {}),
+      ...(photos ? { photos } : {}),
+    };
   }, [progress]);
 
-  const photos: string[] = (progress?.photos ?? []).map((p: any) => p.dataUrl);
+  const analysis = useMemo(() => {
+    try {
+      if (saved?.analysis) return saved.analysis;
+      return analyseInPersonInspection(progressForAnalysis as any);
+    } catch (e) {
+      console.error("[Print] analyseInPersonInspection failed:", e);
+      return analyseInPersonInspection((progressFallback ?? {}) as any);
+    }
+  }, [saved, progressForAnalysis, progressFallback]);
 
-  const scanId = progress?.scanId ?? "—";
+  const photos: string[] = Array.isArray(progress?.photos)
+    ? progress.photos
+        .map((p: any) => p?.dataUrl)
+        .filter((x: any) => typeof x === "string" && x.length > 0)
+    : [];
+
+  const scanIdForDisplay = scanIdSafe || progress?.scanId || "—";
   const reportDate = safeDateLabel(progress?.createdAt ?? progress?.date);
 
   const vehicleTitle = (() => {
@@ -181,8 +252,12 @@ export default function InPersonReportPrint() {
   const askingPrice =
     typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
 
-  const priorityRisks = analysis.risks.filter((r) => r.severity === "critical");
-  const moderateRisks = analysis.risks.filter((r) => r.severity === "moderate");
+  const risksSafe: any[] = Array.isArray((analysis as any)?.risks)
+    ? ((analysis as any).risks as any[])
+    : [];
+
+  const priorityRisks = risksSafe.filter((r) => r?.severity === "critical");
+  const moderateRisks = risksSafe.filter((r) => r?.severity === "moderate");
 
   const uncertaintyFactors: unknown[] = Array.isArray(
     (analysis as any).uncertaintyFactors
@@ -200,7 +275,6 @@ export default function InPersonReportPrint() {
   const APP_URL = "https://carverity.com.au";
   const SUPPORT_EMAIL = "support@carverity.com.au";
 
-  // QR code: keep as <img> for maximum print compatibility.
   const qrSrc = useMemo(() => {
     const size = 180;
     const data = encodeURIComponent(APP_URL);
@@ -212,14 +286,14 @@ export default function InPersonReportPrint() {
   }
 
   function backToReport() {
-    if (scanId && scanId !== "—") {
-      navigate(`/scan/in-person/results/${scanId}`);
+    const id = scanIdSafe || progress?.scanId;
+    if (id) {
+      navigate(`/scan/in-person/results/${id}`);
       return;
     }
     navigate("/my-scans");
   }
 
-  // Auto-trigger print dialog (feels like "Download PDF")
   useEffect(() => {
     const t = window.setTimeout(() => {
       try {
@@ -257,10 +331,13 @@ export default function InPersonReportPrint() {
             </div>
 
             <div className="mt-6">
-              <h1 className="text-4xl font-bold leading-tight">{vehicleTitle}</h1>
+              <h1 className="text-4xl font-bold leading-tight">
+                {vehicleTitle}
+              </h1>
               <p className="text-sm text-black/65 mt-3 leading-relaxed max-w-xl">
                 A buyer-recorded inspection summary designed to reduce regret.
-                It reflects only what was observed, photographed, and marked during the scan.
+                It reflects only what was observed, photographed, and marked
+                during the scan.
               </p>
             </div>
 
@@ -270,7 +347,7 @@ export default function InPersonReportPrint() {
                   Verdict
                 </div>
                 <div className="text-base font-semibold text-black/85 mt-1">
-                  {verdictLabel(analysis.verdict)}
+                  {verdictLabel((analysis as any)?.verdict)}
                 </div>
                 <div className="mt-2 text-xs text-black/60 leading-relaxed">
                   Based on recorded concerns, unknowns, and evidence.
@@ -283,7 +360,7 @@ export default function InPersonReportPrint() {
                 </div>
                 <div className="mt-2 space-y-1 text-sm text-black/75">
                   <div>
-                    <strong>Scan ID:</strong> {scanId}
+                    <strong>Scan ID:</strong> {scanIdForDisplay}
                   </div>
                   <div>
                     <strong>Date:</strong> {reportDate}
@@ -302,7 +379,7 @@ export default function InPersonReportPrint() {
                     Confidence
                   </div>
                   <div className="text-sm font-semibold text-black/85 mt-1">
-                    {analysis.confidenceScore}%
+                    {(analysis as any)?.confidenceScore ?? 0}%
                   </div>
                 </div>
 
@@ -311,7 +388,7 @@ export default function InPersonReportPrint() {
                     Coverage
                   </div>
                   <div className="text-sm font-semibold text-black/85 mt-1">
-                    {analysis.completenessScore}%
+                    {(analysis as any)?.completenessScore ?? 0}%
                   </div>
                 </div>
 
@@ -327,8 +404,9 @@ export default function InPersonReportPrint() {
 
               <div className="mt-3">
                 <p className="text-xs text-black/60 leading-relaxed">
-                  This is not a mechanical inspection or valuation. It’s a structured summary
-                  of what the buyer recorded during an in-person check.
+                  This is not a mechanical inspection or valuation. It’s a
+                  structured summary of what the buyer recorded during an
+                  in-person check.
                 </p>
               </div>
             </div>
@@ -417,9 +495,6 @@ export default function InPersonReportPrint() {
           REPORT CONTENT (starts on next page)
       ===================================================== */}
       <div className="print-page max-w-3xl mx-auto px-10 py-14 space-y-10">
-        {/* =====================================================
-            HEADER
-        ===================================================== */}
         <header className="print-block space-y-5 border-b border-black/20 pb-6">
           <div className="brand-strip rounded-2xl border border-black/10 px-6 py-5">
             <div className="flex items-start justify-between gap-6">
@@ -450,7 +525,7 @@ export default function InPersonReportPrint() {
 
               <div className="text-right text-sm text-black/75 space-y-1">
                 <div>
-                  <strong>Scan ID:</strong> {scanId}
+                  <strong>Scan ID:</strong> {scanIdForDisplay}
                 </div>
                 <div>
                   <strong>Date:</strong> {reportDate}
@@ -461,7 +536,6 @@ export default function InPersonReportPrint() {
               </div>
             </div>
 
-            {/* NEW: Summary strip (feels more “official”) */}
             <div className="mt-5 rounded-2xl border border-black/10 bg-white px-5 py-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -469,7 +543,7 @@ export default function InPersonReportPrint() {
                     Verdict
                   </div>
                   <div className="text-sm font-semibold text-black/85 mt-1">
-                    {verdictLabel(analysis.verdict)}
+                    {verdictLabel((analysis as any)?.verdict)}
                   </div>
                 </div>
 
@@ -478,7 +552,7 @@ export default function InPersonReportPrint() {
                     Confidence
                   </div>
                   <div className="text-sm font-semibold text-black/85 mt-1">
-                    {analysis.confidenceScore}%
+                    {(analysis as any)?.confidenceScore ?? 0}%
                   </div>
                 </div>
 
@@ -487,7 +561,7 @@ export default function InPersonReportPrint() {
                     Coverage
                   </div>
                   <div className="text-sm font-semibold text-black/85 mt-1">
-                    {analysis.completenessScore}%
+                    {(analysis as any)?.completenessScore ?? 0}%
                   </div>
                 </div>
               </div>
@@ -502,18 +576,15 @@ export default function InPersonReportPrint() {
           </div>
         </header>
 
-        {/* =====================================================
-            EXECUTIVE VERDICT
-        ===================================================== */}
         <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Executive verdict
           </h2>
 
           <p className="text-xl font-semibold">
-            {analysis.verdict === "proceed"
+            {(analysis as any)?.verdict === "proceed"
               ? "Proceed normally"
-              : analysis.verdict === "caution"
+              : (analysis as any)?.verdict === "caution"
               ? "Proceed — after targeted clarification"
               : "Risk appears elevated — pausing / walking away is reasonable"}
           </p>
@@ -535,9 +606,6 @@ export default function InPersonReportPrint() {
           </div>
         </section>
 
-        {/* =====================================================
-            EVIDENCE BASIS
-        ===================================================== */}
         <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Evidence considered
@@ -551,9 +619,6 @@ export default function InPersonReportPrint() {
           </p>
         </section>
 
-        {/* =====================================================
-            PRIORITY FINDINGS
-        ===================================================== */}
         <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Priority findings
@@ -561,19 +626,19 @@ export default function InPersonReportPrint() {
 
           {priorityRisks.length > 0 ? (
             <ul className="space-y-3">
-              {priorityRisks.map((r) => (
+              {priorityRisks.map((r: any) => (
                 <li
-                  key={r.id}
+                  key={String(r?.id ?? r?.label ?? Math.random())}
                   className="print-card rounded-2xl border border-black/15 px-5 py-4"
                 >
                   <p className="text-sm font-semibold">
-                    {r.label}{" "}
+                    {r?.label ?? "Priority finding"}{" "}
                     <span className="text-xs font-normal text-black/60">
                       (high impact)
                     </span>
                   </p>
                   <p className="text-sm text-black/70 mt-1 leading-relaxed">
-                    {r.explanation}
+                    {r?.explanation ?? ""}
                   </p>
                 </li>
               ))}
@@ -585,9 +650,6 @@ export default function InPersonReportPrint() {
           )}
         </section>
 
-        {/* =====================================================
-            ITEMS WORTH CLARIFYING
-        ===================================================== */}
         <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Items worth clarifying
@@ -595,19 +657,19 @@ export default function InPersonReportPrint() {
 
           {moderateRisks.length > 0 ? (
             <ul className="space-y-3">
-              {moderateRisks.map((r) => (
+              {moderateRisks.map((r: any) => (
                 <li
-                  key={r.id}
+                  key={String(r?.id ?? r?.label ?? Math.random())}
                   className="print-card rounded-2xl border border-black/15 px-5 py-4"
                 >
                   <p className="text-sm font-semibold">
-                    {r.label}{" "}
+                    {r?.label ?? "Item"}{" "}
                     <span className="text-xs font-normal text-black/60">
                       (medium impact)
                     </span>
                   </p>
                   <p className="text-sm text-black/70 mt-1 leading-relaxed">
-                    {r.explanation}
+                    {r?.explanation ?? ""}
                   </p>
                 </li>
               ))}
@@ -619,9 +681,6 @@ export default function InPersonReportPrint() {
           )}
         </section>
 
-        {/* =====================================================
-            DECLARED UNCERTAINTY
-        ===================================================== */}
         <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Buyer-declared uncertainty
@@ -646,9 +705,6 @@ export default function InPersonReportPrint() {
           )}
         </section>
 
-        {/* =====================================================
-            HOW RISK WAS WEIGHED
-        ===================================================== */}
         <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             How risk was weighed
@@ -657,9 +713,6 @@ export default function InPersonReportPrint() {
           <Paragraph value={(analysis as any).riskWeightingExplanation} />
         </section>
 
-        {/* =====================================================
-            BUYER POSITIONING (NO NEGOTIATION)
-        ===================================================== */}
         <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Buyer-safe posture
@@ -681,9 +734,6 @@ export default function InPersonReportPrint() {
           </div>
         </section>
 
-        {/* =====================================================
-            PHOTO EVIDENCE
-        ===================================================== */}
         <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Photo evidence
@@ -711,18 +761,12 @@ export default function InPersonReportPrint() {
           )}
         </section>
 
-        {/* =====================================================
-            DISCLAIMER
-        ===================================================== */}
         <div className="print-block rounded-2xl border border-black/20 bg-black/5 px-6 py-4 text-xs leading-relaxed">
           This document is not a mechanical inspection, defect report, or
           valuation. It reflects buyer-recorded observations only and should be
           used alongside professional inspections and independent checks.
         </div>
 
-        {/* =====================================================
-            ACTIONS (NO PRINT)
-        ===================================================== */}
         <div className="no-print flex flex-wrap gap-3 pt-2">
           <button
             onClick={triggerPrint}
@@ -741,49 +785,16 @@ export default function InPersonReportPrint() {
       </div>
 
       <style>{`
-        /* ======================================================
-           PRINT/PDF LAYOUT
-           Goals:
-           - Premium spacing and consistent typography
-           - Safe page margins (not too close to edges)
-           - Footer never overlaps content
-           - Avoid page breaks through cards/photos/sections
-           - Cover page prints as page 1
-        ====================================================== */
+        .print-body { background: white; }
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .brand-strip { background: rgba(0,0,0,0.02); }
+        :root { --print-footer-reserve: 34mm; }
 
-        .print-body {
-          background: white;
-        }
+        @page { size: A4; margin: 16mm 16mm 24mm 16mm; }
 
-        * {
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
+        .print-footer { display: none; }
+        .print-block { break-inside: avoid; page-break-inside: avoid; }
 
-        .brand-strip {
-          background: rgba(0,0,0,0.02);
-        }
-
-        /* More reserve so footer never overlaps even in weird print engines */
-        :root {
-          --print-footer-reserve: 34mm;
-        }
-
-        @page {
-          size: A4;
-          margin: 16mm 16mm 24mm 16mm;
-        }
-
-        .print-footer {
-          display: none;
-        }
-
-        .print-block {
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
-
-        /* Cover page */
         .print-cover {
           max-width: 210mm;
           margin: 0 auto;
@@ -807,34 +818,15 @@ export default function InPersonReportPrint() {
           );
         }
 
-        .print-cover-top {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .print-cover-bottom {
-          border-top: 1px solid rgba(0,0,0,0.12);
-          padding-top: 8mm;
-        }
+        .print-cover-top { flex: 1; min-width: 0; }
+        .print-cover-bottom { border-top: 1px solid rgba(0,0,0,0.12); padding-top: 8mm; }
 
         @media print {
-          html, body {
-            background: white !important;
-          }
+          html, body { background: white !important; }
+          header, footer, nav { display: none !important; }
+          .no-print { display: none !important; }
 
-          header, footer, nav {
-            display: none !important;
-          }
-
-          .no-print {
-            display: none !important;
-          }
-
-          /* Ensure cover always starts at top of first page */
-          .print-cover {
-            page-break-after: always;
-            break-after: page;
-          }
+          .print-cover { page-break-after: always; break-after: page; }
 
           .print-page {
             padding: 0 !important;
@@ -862,10 +854,7 @@ export default function InPersonReportPrint() {
             gap: 12mm;
           }
 
-          .print-footer-left {
-            flex: 1;
-            min-width: 0;
-          }
+          .print-footer-left { flex: 1; min-width: 0; }
 
           .print-footer-right {
             display: flex;
@@ -873,11 +862,7 @@ export default function InPersonReportPrint() {
             gap: 7mm;
           }
 
-          .print-block,
-          .print-card,
-          section,
-          figure,
-          img {
+          .print-block, .print-card, section, figure, img {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
@@ -887,18 +872,10 @@ export default function InPersonReportPrint() {
             page-break-after: avoid !important;
           }
 
-          p, li {
-            orphans: 3;
-            widows: 3;
-          }
+          p, li { orphans: 3; widows: 3; }
 
-          figure {
-            break-inside: avoid !important;
-          }
-
-          .print-card {
-            border-color: rgba(0,0,0,0.18) !important;
-          }
+          figure { break-inside: avoid !important; }
+          .print-card { border-color: rgba(0,0,0,0.18) !important; }
         }
       `}</style>
     </div>
