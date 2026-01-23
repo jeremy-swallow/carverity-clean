@@ -2,10 +2,41 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 function formatCredits(n: number | null) {
   if (n == null) return "—";
   return String(Math.max(0, Math.floor(n)));
+}
+
+async function hasUnlockForScan(scanId: string): Promise<boolean> {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError) {
+    console.warn("[Unlock] getUser error:", userError.message);
+  }
+
+  if (!user) return false;
+
+  const reference = `scan:${scanId}`;
+
+  const { data, error } = await supabase
+    .from("credit_ledger")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("event_type", "in_person_scan_completed")
+    .eq("reference", reference)
+    .limit(1);
+
+  if (error) {
+    console.error("[Unlock] Unlock check failed:", error);
+    return false;
+  }
+
+  return Array.isArray(data) && data.length > 0;
 }
 
 export default function InPersonUnlock() {
@@ -48,6 +79,42 @@ export default function InPersonUnlock() {
     }
   }
 
+  // If already unlocked (eg back button / refresh), go straight to analyzing
+  useEffect(() => {
+    let cancelled = false;
+
+    async function guard() {
+      if (!scanId) return;
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        navigate("/signin", { replace: true });
+        return;
+      }
+
+      const unlocked = await hasUnlockForScan(scanId);
+      if (unlocked && !cancelled) {
+        saveProgress({
+          ...(loadProgress() ?? {}),
+          type: "in-person",
+          scanId,
+          step: "analyzing",
+        });
+
+        navigate(`/scan/in-person/analyzing/${scanId}`, { replace: true });
+      }
+    }
+
+    guard();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [scanId, navigate]);
+
   useEffect(() => {
     refreshCredits();
 
@@ -73,9 +140,17 @@ export default function InPersonUnlock() {
 
     if (!session) {
       setUnlocking(false);
-      navigate("/signin");
+      navigate("/signin", { replace: true });
       return;
     }
+
+    // Persist step so resume works
+    saveProgress({
+      ...(loadProgress() ?? {}),
+      type: "in-person",
+      scanId,
+      step: "unlock",
+    });
 
     const safeCredits = typeof credits === "number" ? credits : 0;
 
@@ -112,19 +187,31 @@ export default function InPersonUnlock() {
 
         if (res.status === 401 || serverError === "NOT_AUTHENTICATED") {
           setUnlocking(false);
-          navigate("/signin");
+          navigate("/signin", { replace: true });
           return;
         }
 
         throw new Error("FAILED_TO_UNLOCK");
       }
 
-      // IMPORTANT:
-      // Do NOT clear progress here.
-      // We still need the progress snapshot to generate analysis + results.
+      // Refresh credits + verify ledger row exists (prevents weird race cases)
       await refreshCredits();
 
-      // Go to analyzing screen
+      const unlocked = await hasUnlockForScan(scanId);
+      if (!unlocked) {
+        setUnlocking(false);
+        setError("Unlock didn’t complete. Please try again.");
+        return;
+      }
+
+      // Move to analyzing (never back into inspection)
+      saveProgress({
+        ...(loadProgress() ?? {}),
+        type: "in-person",
+        scanId,
+        step: "analyzing",
+      });
+
       navigate(`/scan/in-person/analyzing/${scanId}`, { replace: true });
     } catch (err) {
       console.error(err);
