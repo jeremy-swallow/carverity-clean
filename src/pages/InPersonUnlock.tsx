@@ -1,5 +1,5 @@
 // src/pages/InPersonUnlock.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { clearProgress } from "../utils/scanProgress";
@@ -14,7 +14,9 @@ export default function InPersonUnlock() {
   const { scanId: scanIdParam } = useParams<{ scanId?: string }>();
   const [params] = useSearchParams();
 
-  const scanId = scanIdParam || params.get("scanId") || undefined;
+  const scanId = useMemo(() => {
+    return (scanIdParam || params.get("scanId") || "").trim();
+  }, [scanIdParam, params]);
 
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,16 +83,17 @@ export default function InPersonUnlock() {
       return;
     }
 
-    const safeCredits = typeof credits === "number" ? credits : 0;
-
-    // Fast client-side gate (nice UX)
-    if (!loadingCredits && safeCredits <= 0) {
-      setUnlocking(false);
-      navigate(`/pricing?reason=no_credits&scanId=${encodeURIComponent(scanId)}`);
-      return;
-    }
-
     try {
+      /**
+       * IMPORTANT:
+       * We do NOT do a client-side "credits > 0" gate here anymore.
+       * It causes false redirects when credits state is stale.
+       *
+       * The server endpoint is the source of truth:
+       * - 200 = unlocked (credit spent)
+       * - 402 = no credits
+       * - 401 = not authenticated
+       */
       const res = await fetch("/api/mark-in-person-scan-completed", {
         method: "POST",
         headers: {
@@ -108,7 +111,9 @@ export default function InPersonUnlock() {
 
         if (res.status === 402 || serverError === "NO_CREDITS") {
           setUnlocking(false);
-          navigate(`/pricing?reason=no_credits&scanId=${encodeURIComponent(scanId)}`);
+          navigate(
+            `/pricing?reason=no_credits&scanId=${encodeURIComponent(scanId)}`
+          );
           return;
         }
 
@@ -203,7 +208,9 @@ export default function InPersonUnlock() {
         <button
           onClick={() =>
             scanId
-              ? navigate(`/pricing?reason=no_credits&scanId=${encodeURIComponent(scanId)}`)
+              ? navigate(
+                  `/pricing?reason=no_credits&scanId=${encodeURIComponent(scanId)}`
+                )
               : navigate("/pricing")
           }
           className="w-full rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-slate-200 font-semibold"

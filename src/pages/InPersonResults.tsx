@@ -19,13 +19,12 @@ import {
   Flag,
   Wrench,
   BadgeDollarSign,
-  Lock,
 } from "lucide-react";
 
+import { supabase } from "../supabaseClient";
 import { loadProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadScanById } from "../utils/scanStorage";
-import { supabase } from "../supabaseClient";
 
 /* =======================================================
    Small rendering helpers (visual-only, type-safe)
@@ -186,10 +185,8 @@ export default function InPersonResults() {
   const navigate = useNavigate();
   const { scanId } = useParams<{ scanId: string }>();
 
-  const [authChecked, setAuthChecked] = useState(false);
-  const [unlockChecked, setUnlockChecked] = useState(false);
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [unlockCheckError, setUnlockCheckError] = useState<string | null>(null);
+  const [checkingUnlock, setCheckingUnlock] = useState(true);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
 
   /* -------------------------------------------------------
      Routing safety
@@ -201,31 +198,35 @@ export default function InPersonResults() {
   }, [scanId, navigate]);
 
   /* -------------------------------------------------------
-     Auth + Unlock enforcement
-     If not unlocked, redirect to unlock page.
+     ENFORCE PAYWALL (ledger reference check)
+     Must have: credit_ledger row for this user + scan reference
   ------------------------------------------------------- */
   useEffect(() => {
-    async function run() {
+    let cancelled = false;
+
+    async function checkUnlock() {
       if (!scanId) return;
 
-      setUnlockCheckError(null);
-      setAuthChecked(false);
-      setUnlockChecked(false);
-      setIsUnlocked(false);
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setAuthChecked(true);
-        navigate("/signin", { replace: true });
-        return;
-      }
-
-      setAuthChecked(true);
+      setCheckingUnlock(true);
+      setUnlockError(null);
 
       try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError) {
+          console.warn("[Results] getUser error:", userError.message);
+        }
+
+        if (!user) {
+          if (!cancelled) {
+            navigate("/signin", { replace: true });
+          }
+          return;
+        }
+
         const reference = `scan:${scanId}`;
 
         const { data, error } = await supabase
@@ -237,80 +238,53 @@ export default function InPersonResults() {
           .limit(1);
 
         if (error) {
-          console.warn("[Results] unlock check error:", error);
-          setUnlockCheckError("Could not verify unlock status.");
-          setUnlockChecked(true);
-          setIsUnlocked(false);
+          console.error("[Results] Unlock check failed:", error);
+          if (!cancelled) {
+            setUnlockError("Could not verify unlock status.");
+          }
           return;
         }
 
-        const ok = Array.isArray(data) && data.length > 0;
+        const unlocked = Array.isArray(data) && data.length > 0;
 
-        setIsUnlocked(ok);
-        setUnlockChecked(true);
-
-        if (!ok) {
-          navigate(`/scan/in-person/unlock?scanId=${encodeURIComponent(scanId)}`, {
-            replace: true,
-          });
+        if (!unlocked) {
+          if (!cancelled) {
+            navigate(`/scan/in-person/unlock/${scanId}`, { replace: true });
+          }
+          return;
         }
-      } catch (err) {
-        console.error("[Results] unlock check failed:", err);
-        setUnlockCheckError("Could not verify unlock status.");
-        setUnlockChecked(true);
-        setIsUnlocked(false);
+      } finally {
+        if (!cancelled) setCheckingUnlock(false);
       }
     }
 
-    run();
+    checkUnlock();
+
+    return () => {
+      cancelled = true;
+    };
   }, [scanId, navigate]);
 
   if (!scanId) return null;
 
-  if (!authChecked || !unlockChecked) {
+  if (checkingUnlock) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-16">
-        <div className="rounded-2xl border border-white/10 bg-slate-900/60 px-6 py-6">
-          <p className="text-sm text-slate-300">Loading your report…</p>
-          <p className="text-xs text-slate-500 mt-2">
-            Verifying access and unlock status.
-          </p>
-        </div>
+      <div className="max-w-3xl mx-auto px-6 py-16">
+        <p className="text-sm text-slate-400">Verifying unlock…</p>
       </div>
     );
   }
 
-  if (unlockCheckError) {
+  if (unlockError) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-16 space-y-4">
-        <div className="rounded-2xl border border-red-500/30 bg-red-900/20 px-6 py-6">
-          <div className="flex items-center gap-2 text-red-200">
-            <Lock className="h-4 w-4" />
-            <p className="font-semibold">Unable to load report</p>
-          </div>
-          <p className="mt-2 text-sm text-red-200/90">{unlockCheckError}</p>
-          <p className="mt-2 text-xs text-slate-400">
-            Please refresh and try again.
-          </p>
-        </div>
-
+      <div className="max-w-3xl mx-auto px-6 py-16 space-y-4">
+        <p className="text-sm text-red-300">{unlockError}</p>
         <button
           onClick={() => window.location.reload()}
-          className="rounded-xl bg-slate-200 hover:bg-white text-black font-semibold px-4 py-3 text-sm"
+          className="inline-flex items-center gap-2 rounded-xl bg-slate-200 hover:bg-white text-black font-semibold px-4 py-2 text-sm"
         >
-          Refresh
+          Retry
         </button>
-      </div>
-    );
-  }
-
-  if (!isUnlocked) {
-    // We redirect, but keep a safe fallback UI.
-    return (
-      <div className="max-w-5xl mx-auto px-6 py-16">
-        <div className="rounded-2xl border border-white/10 bg-slate-900/60 px-6 py-6">
-          <p className="text-sm text-slate-300">Redirecting to unlock…</p>
-        </div>
       </div>
     );
   }
@@ -351,17 +325,6 @@ export default function InPersonResults() {
 
   const confidence = clamp(Number(analysis.confidenceScore ?? 0), 0, 100);
   const coverage = clamp(Number(analysis.completenessScore ?? 0), 0, 100);
-
-  /* -------------------------------------------------------
-     Price guidance (from analysis)
-  ------------------------------------------------------- */
-  const priceGuidance = (analysis as any).priceGuidance ?? null;
-
-  const showPriceGuidance =
-    priceGuidance &&
-    typeof priceGuidance === "object" &&
-    typeof priceGuidance.askingPriceAud === "number" &&
-    Number.isFinite(priceGuidance.askingPriceAud);
 
   /* -------------------------------------------------------
      Explicit evidence lists
@@ -616,7 +579,7 @@ export default function InPersonResults() {
   }, [uncertaintyFactors.length]);
 
   /* -------------------------------------------------------
-     Email report
+     Email report (opens user's own email client)
   ------------------------------------------------------- */
   const emailHref = useMemo(() => {
     const subjectParts = ["CarVerity report", vehicleTitleFromProgress(progress)];
@@ -782,102 +745,6 @@ export default function InPersonResults() {
         <p className="text-xs text-slate-400">{scoreBlurb}</p>
       </section>
 
-      {/* PRICE GUIDANCE */}
-      <section className="space-y-6">
-        <div className="flex items-center gap-3 text-slate-300">
-          <BadgeDollarSign className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold">Price guidance</h2>
-        </div>
-
-        <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6 space-y-4">
-          {showPriceGuidance ? (
-            <>
-              <p className="text-sm text-slate-300">
-                Based on what you recorded, this is a buyer-safe adjustment
-                window. It’s not a valuation and it doesn’t estimate repair
-                costs.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
-                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                    Asking price
-                  </div>
-                  <div className="mt-2 text-xl font-semibold text-white tabular-nums">
-                    {formatMoney(priceGuidance.askingPriceAud)}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
-                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                    Suggested reduction
-                  </div>
-                  <div className="mt-2 text-xl font-semibold text-white tabular-nums">
-                    {formatMoney(priceGuidance.suggestedReductionLowAud)} –{" "}
-                    {formatMoney(priceGuidance.suggestedReductionHighAud)}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
-                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                    Buyer-safe range
-                  </div>
-                  <div className="mt-2 text-xl font-semibold text-white tabular-nums">
-                    {formatMoney(priceGuidance.adjustedPriceLowAud)} –{" "}
-                    {formatMoney(priceGuidance.adjustedPriceHighAud)}
-                  </div>
-                </div>
-              </div>
-
-              {Array.isArray(priceGuidance.rationale) &&
-                priceGuidance.rationale.length > 0 && (
-                  <div className="rounded-2xl border border-white/10 bg-slate-950/30 px-5 py-4">
-                    <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                      Why this range
-                    </div>
-                    <div className="mt-2">
-                      <BulletList
-                        items={priceGuidance.rationale.slice(0, 4).map(String)}
-                      />
-                    </div>
-                  </div>
-                )}
-
-              <div className="pt-1 flex flex-wrap gap-3">
-                <button
-                  onClick={() =>
-                    navigate(`/scan/in-person/price-positioning/${scanId}`)
-                  }
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
-                >
-                  <BadgeDollarSign className="h-4 w-4" />
-                  Open price positioning
-                </button>
-              </div>
-
-              <p className="text-xs text-slate-500 leading-relaxed">
-                {asCleanText(priceGuidance.disclaimer)}
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-slate-400">
-                Enter an asking price during your inspection to get a buyer-safe
-                adjustment range.
-              </p>
-
-              <button
-                onClick={() => navigate("/scan/in-person/summary")}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
-              >
-                Back to summary
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </>
-          )}
-        </div>
-      </section>
-
       {/* WHAT YOU FLAGGED */}
       <section className="space-y-6">
         <div className="flex items-center gap-3 text-slate-300">
@@ -900,7 +767,8 @@ export default function InPersonResults() {
                       ? "border-red-400/25 bg-red-500/10"
                       : "border-amber-400/25 bg-amber-500/10";
 
-                  const tag = c.value === "concern" ? "Stood out" : "Couldn’t confirm";
+                  const tag =
+                    c.value === "concern" ? "Stood out" : "Couldn’t confirm";
 
                   return (
                     <div
@@ -958,7 +826,9 @@ export default function InPersonResults() {
                         </p>
 
                         <div className="mt-1 text-sm text-slate-400">
-                          {imp.location ? `Location: ${imp.location}` : "Location: —"}
+                          {imp.location
+                            ? `Location: ${imp.location}`
+                            : "Location: —"}
                         </div>
 
                         {imp.note ? (
@@ -985,12 +855,15 @@ export default function InPersonResults() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-400">No imperfections were recorded.</p>
+              <p className="text-sm text-slate-400">
+                No imperfections were recorded.
+              </p>
             )}
           </div>
 
           <p className="text-xs text-slate-500 max-w-3xl">
-            This section is the exact list of what you recorded — nothing is inferred.
+            This section is the exact list of what you recorded — nothing is
+            inferred.
           </p>
         </div>
       </section>
@@ -1019,7 +892,9 @@ export default function InPersonResults() {
             </button>
 
             <button
-              onClick={() => navigate(`/scan/in-person/price-positioning/${scanId}`)}
+              onClick={() =>
+                navigate(`/scan/in-person/price-positioning/${scanId}`)
+              }
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
             >
               <BadgeDollarSign className="h-4 w-4" />
