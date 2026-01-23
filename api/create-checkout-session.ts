@@ -16,7 +16,8 @@ const APP_URL_FALLBACK = process.env.APP_URL || "https://www.carverity.com.au";
 
 if (!STRIPE_SECRET_KEY) throw new Error("Missing STRIPE_SECRET_KEY");
 if (!SUPABASE_URL) throw new Error("Missing VITE_SUPABASE_URL");
-if (!SUPABASE_SERVICE_ROLE_KEY) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+if (!SUPABASE_SERVICE_ROLE_KEY)
+  throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
 
 const stripe = new Stripe(STRIPE_SECRET_KEY, {
   apiVersion: "2025-11-17.clover" as any,
@@ -41,10 +42,24 @@ const PRICE_MAP: Record<PackKey, string> = {
 function getRequestOrigin(req: VercelRequest): string {
   const proto =
     (req.headers["x-forwarded-proto"] as string | undefined) || "https";
-  const host = (req.headers["x-forwarded-host"] as string | undefined) || req.headers.host;
+  const host =
+    (req.headers["x-forwarded-host"] as string | undefined) || req.headers.host;
 
   if (host) return `${proto}://${host}`;
   return APP_URL_FALLBACK;
+}
+
+function asSafeScanId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const v = value.trim();
+  if (!v) return null;
+
+  // Accept UUID-ish strings (what your scan IDs are)
+  // Keep it strict to avoid URL injection / garbage.
+  const uuidLike =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
+  return uuidLike ? v : null;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -70,11 +85,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(401).json({ error: "Invalid user" });
     }
 
-    const { pack } = (req.body || {}) as { pack?: PackKey };
+    const { pack, scanId } = (req.body || {}) as {
+      pack?: PackKey;
+      scanId?: string | null;
+    };
 
     if (!pack || !PRICE_MAP[pack]) {
       return res.status(400).json({ error: "Invalid pack" });
     }
+
+    const safeScanId = asSafeScanId(scanId);
 
     // Validate price exists for this Stripe key (clear error if mismatch)
     try {
@@ -95,6 +115,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const origin = getRequestOrigin(req);
 
+    const successParams = new URLSearchParams();
+    successParams.set("success", "1");
+    successParams.set("restore", "1");
+    successParams.set("session_id", "{CHECKOUT_SESSION_ID}");
+
+    // IMPORTANT:
+    // Preserve scanId so Pricing can send the user back into their scan flow.
+    if (safeScanId) {
+      successParams.set("scanId", safeScanId);
+    }
+
+    const cancelParams = new URLSearchParams();
+    cancelParams.set("cancelled", "1");
+    if (safeScanId) {
+      cancelParams.set("scanId", safeScanId);
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: [{ price: PRICE_MAP[pack], quantity: 1 }],
@@ -102,13 +139,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // IMPORTANT:
       // 1) Use SAME origin as the current app session (prevents “logged out” look)
       // 2) Include CHECKOUT_SESSION_ID for debugging / future reconciliation
-      success_url: `${origin}/pricing?success=1&restore=1&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/pricing?cancelled=1`,
+      success_url: `${origin}/pricing?${successParams.toString()}`,
+      cancel_url: `${origin}/pricing?${cancelParams.toString()}`,
 
       metadata: {
         purchase_type: "credit_pack",
         supabase_user_id: user.id,
         pack,
+        ...(safeScanId ? { scanId: safeScanId } : {}),
       },
     });
 
