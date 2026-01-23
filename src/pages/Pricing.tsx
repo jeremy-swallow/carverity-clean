@@ -17,6 +17,8 @@ import {
   Timer,
 } from "lucide-react";
 
+import { loadProgress, saveProgress } from "../utils/scanProgress";
+
 type PackKey = "single" | "three" | "five";
 
 type PackOption = {
@@ -65,6 +67,17 @@ function plural(n: number, singular: string, pluralWord?: string) {
   return pluralWord ?? `${singular}s`;
 }
 
+function asSafeScanId(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const v = value.trim();
+  if (!v) return "";
+
+  const uuidLike =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
+  return uuidLike ? v : "";
+}
+
 export default function Pricing() {
   const [loadingPack, setLoadingPack] = useState<PackKey | null>(null);
 
@@ -93,11 +106,15 @@ export default function Pricing() {
   );
 
   // NEW: capture scanId so we can send user back to where they came from
-  const scanId = useMemo(() => params.get("scanId") || "", [params]);
+  const scanId = useMemo(() => asSafeScanId(params.get("scanId") || ""), [params]);
+
+  // Determine best return target after purchase
   const returnTo = useMemo(() => {
-    // If scanId exists, return to unlock for that scan
-    if (scanId) return `/scan/in-person/unlock/${encodeURIComponent(scanId)}`;
-    return "";
+    if (!scanId) return "";
+
+    // If we have a scanId, prefer continuing the report-generation flow.
+    // If user already unlocked, analyzing will immediately take them to results.
+    return `/scan/in-person/analyzing/${encodeURIComponent(scanId)}`;
   }, [scanId]);
 
   async function refreshAuthAndCredits() {
@@ -187,13 +204,26 @@ export default function Pricing() {
     const safeCredits = typeof credits === "number" ? credits : 0;
     if (safeCredits <= 0) return;
 
+    // Persist resume route so Home / flow stays consistent after return
+    try {
+      const current: any = loadProgress() ?? {};
+      saveProgress({
+        ...(current ?? {}),
+        type: "in-person",
+        scanId: scanId || current?.scanId,
+        step: returnTo,
+      });
+    } catch {
+      // ignore
+    }
+
     // Small delay so the success UI is visible briefly
     const t = setTimeout(() => {
       navigate(returnTo, { replace: true });
     }, 650);
 
     return () => clearTimeout(t);
-  }, [success, sessionReady, isLoggedIn, credits, returnTo, navigate]);
+  }, [success, sessionReady, isLoggedIn, credits, returnTo, navigate, scanId]);
 
   // “Restore” UI fallback
   const inRestoreWindow =
@@ -222,7 +252,7 @@ export default function Pricing() {
         },
         body: JSON.stringify({
           pack,
-          // NEW: pass scanId so Stripe success returns with scanId preserved
+          // pass scanId so Stripe success returns with scanId preserved
           scanId: scanId || null,
         }),
       });
@@ -441,7 +471,7 @@ export default function Pricing() {
               </button>
             ) : (
               <button
-                onClick={() => navigate("/start-scan")}
+                onClick={() => navigate("/start")}
                 className="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
               >
                 Start scan

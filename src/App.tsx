@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 
@@ -124,7 +126,7 @@ export default function App() {
           element={<InPersonResults />}
         />
 
-        {/* 🔥 FIX: unlock must include scanId */}
+        {/* Unlock */}
         <Route
           path="/scan/in-person/unlock/:scanId"
           element={<InPersonUnlock />}
@@ -141,8 +143,17 @@ export default function App() {
           element={<InPersonPricePositioning />}
         />
 
-        {/* Print */}
-        <Route path="/scan/in-person/print" element={<InPersonReportPrint />} />
+        {/* Print (FIXED) */}
+        <Route
+          path="/scan/in-person/print/:scanId"
+          element={<InPersonReportPrint />}
+        />
+
+        {/* Back-compat: if something links to /print without id, send home */}
+        <Route
+          path="/scan/in-person/print"
+          element={<Navigate to="/" replace />}
+        />
 
         {/* -----------------------
            Legacy routes (keep so old links don't break)

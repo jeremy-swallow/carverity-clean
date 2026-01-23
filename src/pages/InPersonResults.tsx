@@ -178,6 +178,30 @@ function titleFromId(id: string) {
     .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
+/**
+ * Results is an end-state page.
+ * It must NOT overwrite the scan resume "step" to point at results,
+ * otherwise Home will show "Resume inspection" forever (even when logged out),
+ * and you can create loops on refresh.
+ *
+ * If we need to persist something here, we only persist scanId + type safely.
+ */
+function persistScanIdentity(scanId: string) {
+  try {
+    const current: any = loadProgress() ?? {};
+    const next = {
+      ...current,
+      scanId,
+      type: "in-person",
+      // IMPORTANT: do NOT set step to results here
+      // step: current.step ?? undefined,
+    };
+    saveProgress(next);
+  } catch (e) {
+    console.warn("[Results] Failed to persist scan identity:", e);
+  }
+}
+
 /* =======================================================
    Page
 ======================================================= */
@@ -200,7 +224,6 @@ export default function InPersonResults() {
   /* -------------------------------------------------------
      ENFORCE PAYWALL (ledger reference check)
      Must have: credit_ledger row for this user + scan reference
-     Also: must not redirect until we finish checking.
   ------------------------------------------------------- */
   useEffect(() => {
     let cancelled = false;
@@ -222,9 +245,7 @@ export default function InPersonResults() {
         }
 
         if (!user) {
-          if (!cancelled) {
-            navigate("/signin", { replace: true });
-          }
+          if (!cancelled) navigate("/signin", { replace: true });
           return;
         }
 
@@ -240,9 +261,7 @@ export default function InPersonResults() {
 
         if (error) {
           console.error("[Results] Unlock check failed:", error);
-          if (!cancelled) {
-            setUnlockError("Could not verify unlock status.");
-          }
+          if (!cancelled) setUnlockError("Could not verify unlock status.");
           return;
         }
 
@@ -254,6 +273,9 @@ export default function InPersonResults() {
           }
           return;
         }
+
+        // Safe: persist scan identity only (no step overwrite)
+        if (!cancelled) persistScanIdentity(scanId);
       } catch (e: any) {
         console.error("[Results] Unlock check exception:", e);
         if (!cancelled) setUnlockError("Could not verify unlock status.");
@@ -294,7 +316,7 @@ export default function InPersonResults() {
   }
 
   /* -------------------------------------------------------
-     Load saved scan (preferred)
+     Load saved scan (preferred) and fallback to local progress
   ------------------------------------------------------- */
   const saved = useMemo(() => loadScanById(scanId), [scanId]);
 
@@ -302,49 +324,71 @@ export default function InPersonResults() {
   const progress: any = saved?.progressSnapshot ?? progressFallback ?? {};
 
   /* -------------------------------------------------------
-     Persist "where we are" so resume works reliably.
-     IMPORTANT: step MUST be a valid route, not "results".
-     Also: type MUST match ScanJourneyType ("in-person").
-  ------------------------------------------------------- */
-  useEffect(() => {
-    try {
-      const current: any = loadProgress() ?? {};
-      const next = {
-        ...current,
-        scanId,
-        type: "in-person",
-        step: `/scan/in-person/results/${scanId}`,
-      };
-      saveProgress(next);
-    } catch (e) {
-      console.warn("[Results] Failed to save progress step:", e);
-    }
-  }, [scanId]);
-
-  /* -------------------------------------------------------
      Analysis (prefer persisted analysis)
+     Must be stable and render-safe even on refresh.
   ------------------------------------------------------- */
   const analysis = useMemo(() => {
-    if (saved?.analysis) return saved.analysis;
-    return analyseInPersonInspection(progress);
+    try {
+      if (saved?.analysis) return saved.analysis;
+      return analyseInPersonInspection(progress);
+    } catch (e) {
+      console.error("[Results] analyseInPersonInspection crashed:", e);
+      return null;
+    }
   }, [saved, progress]);
 
-  // If analysis is missing/invalid, recover gracefully
-  useEffect(() => {
-    const risks = (analysis as any)?.risks;
-    const verdict = (analysis as any)?.verdict;
+  const analysisOk =
+    Boolean(analysis) &&
+    Array.isArray((analysis as any)?.risks) &&
+    typeof (analysis as any)?.verdict === "string" &&
+    (analysis as any)?.verdict?.length > 0;
 
-    const ok =
-      Boolean(analysis) &&
-      Array.isArray(risks) &&
-      typeof verdict === "string" &&
-      verdict.length > 0;
+  // IMPORTANT: do NOT redirect away automatically if analysis is missing.
+  // A redirect loop here is one of the easiest ways to cause blank screens.
+  if (!analysisOk) {
+    return (
+      <div className="max-w-4xl mx-auto px-6 py-16 space-y-6">
+        <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6 space-y-3">
+          <p className="text-sm text-slate-400">CarVerity · Your report</p>
+          <h1 className="text-2xl font-semibold text-white">
+            We couldn’t load your report
+          </h1>
+          <p className="text-sm text-slate-300 leading-relaxed max-w-2xl">
+            This usually happens if the scan data wasn’t saved correctly, or the
+            page was refreshed before results were generated.
+          </p>
 
-    if (!ok) {
-      // If we can't render results, go back to analyzing to regenerate.
-      navigate(`/scan/in-person/analyzing/${scanId}`, { replace: true });
-    }
-  }, [analysis, scanId, navigate]);
+          <div className="flex flex-wrap gap-3 pt-2">
+            <button
+              onClick={() => navigate(`/scan/in-person/analyzing/${scanId}`)}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-200 hover:bg-white text-black font-semibold px-4 py-2 text-sm"
+            >
+              Try generating again
+              <ArrowRight className="h-4 w-4" />
+            </button>
+
+            <button
+              onClick={() => navigate(`/scan/in-person/summary/${scanId}`)}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
+            >
+              Back to summary
+            </button>
+
+            <button
+              onClick={() => navigate("/scan/in-person/start")}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
+            >
+              Start a new scan
+            </button>
+          </div>
+        </div>
+
+        <p className="text-xs text-slate-500">
+          Scan ID: <span className="text-slate-400">{scanId}</span>
+        </p>
+      </div>
+    );
+  }
 
   const risksSafe: any[] = Array.isArray((analysis as any)?.risks)
     ? ((analysis as any).risks as any[])
@@ -660,7 +704,9 @@ export default function InPersonResults() {
     lines.push(`• Confidence: ${confidence}%`);
     lines.push(`• Coverage: ${coverage}%`);
     lines.push(
-      `• Concerns recorded: ${risksSafe.filter((r) => r?.severity !== "info").length}`
+      `• Concerns recorded: ${
+        risksSafe.filter((r) => r?.severity !== "info").length
+      }`
     );
     lines.push(`• Unsure items: ${uncertaintyFactors.length}`);
     lines.push("");

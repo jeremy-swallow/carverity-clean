@@ -68,7 +68,7 @@ export default function InPersonAnalyzing() {
           return;
         }
 
-        // Always persist scanId + route-step for resume safety
+        // Persist scan identity + "current step" so resume works during analyzing
         saveProgress({
           ...(progress ?? {}),
           type: "in-person",
@@ -168,17 +168,14 @@ export default function InPersonAnalyzing() {
         });
 
         // IMPORTANT:
-        // Do NOT clear progress here.
-        // Clearing progress is what causes resume/flow weirdness and can produce
-        // blank results if the results page expects progressSnapshot in storage.
-        //
-        // Instead, mark it as completed and point step at results so resume
-        // takes you to the report.
+        // Do NOT set resume step to results.
+        // Results is an end-state page and Home will clear progress if it sees results.
+        // Resume should take the user back to summary (or their last meaningful step).
         saveProgress({
           ...(loadProgress() ?? {}),
           type: "in-person",
           scanId: scanIdSafe,
-          step: `/scan/in-person/results/${scanIdSafe}`,
+          step: "/scan/in-person/summary",
         });
 
         // Short delay so it feels deliberate
