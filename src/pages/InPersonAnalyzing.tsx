@@ -1,9 +1,10 @@
+// src/pages/InPersonAnalyzing.tsx
+
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 import { saveScan } from "../utils/scanStorage";
-import { supabase } from "../supabaseClient";
 
 function vehicleTitleFromProgress(p: any): string {
   const year = p?.vehicleYear ?? p?.vehicle?.year ?? "";
@@ -31,12 +32,13 @@ export default function InPersonAnalyzing() {
       try {
         const progress: any = loadProgress();
 
+        // If progress is missing, we can't analyze — go back to start.
         if (!progress) {
           navigate("/scan/in-person/start", { replace: true });
           return;
         }
 
-        // Ensure scanId is persisted
+        // Ensure scanId is persisted (and stable for the rest of the flow)
         if (!progress?.scanId || progress.scanId !== scanIdSafe) {
           saveProgress({
             ...(progress ?? {}),
@@ -44,50 +46,10 @@ export default function InPersonAnalyzing() {
           });
         }
 
-        // Auth required
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session) {
-          navigate("/signin", { replace: true });
-          return;
-        }
-
-        // =====================================================
-        // CREDIT USAGE POINT
-        // Spend 1 credit ONLY at the moment we actually start
-        // report generation (API usage).
-        // =====================================================
-        const res = await fetch("/api/start-in-person-scan", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ scanId: scanIdSafe }),
-        });
-
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          if (
-            data?.error === "INSUFFICIENT_CREDITS" ||
-            data?.error === "NO_CREDITS"
-          ) {
-            navigate("/pricing", { replace: true });
-            return;
-          }
-
-          if (data?.error === "NOT_AUTHENTICATED") {
-            navigate("/signin", { replace: true });
-            return;
-          }
-
-          throw new Error(data?.error || "FAILED_TO_DEDUCT_CREDIT");
-        }
-
-        // Generate analysis (pure function)
+        // IMPORTANT:
+        // Credit deduction is handled ONLY by the unlock step:
+        // /scan/in-person/unlock -> /api/mark-in-person-scan-completed
+        // So analyzing must be a pure local step.
         const analysis = analyseInPersonInspection({
           ...(progress ?? {}),
           scanId: scanIdSafe,
@@ -120,14 +82,18 @@ export default function InPersonAnalyzing() {
           title: vehicleTitleFromProgress(progress),
           createdAt: new Date().toISOString(),
           vehicle: {
-            year: progress?.vehicleYear ? String(progress.vehicleYear) : undefined,
+            year: progress?.vehicleYear
+              ? String(progress.vehicleYear)
+              : undefined,
             make: progress?.vehicleMake,
             model: progress?.vehicleModel,
             variant: progress?.vehicleVariant,
           },
           thumbnail: firstPhoto || null,
           askingPrice:
-            typeof progress?.askingPrice === "number" ? progress.askingPrice : null,
+            typeof progress?.askingPrice === "number"
+              ? progress.askingPrice
+              : null,
           score:
             typeof analysis?.confidenceScore === "number"
               ? analysis.confidenceScore
@@ -149,7 +115,7 @@ export default function InPersonAnalyzing() {
         });
 
         // Short delay so it feels deliberate, without wasting time
-        await new Promise((r) => setTimeout(r, 1200));
+        await new Promise((r) => setTimeout(r, 900));
 
         if (!cancelled) {
           navigate(`/scan/in-person/results/${scanIdSafe}`, { replace: true });
@@ -206,7 +172,9 @@ export default function InPersonAnalyzing() {
           </p>
         </div>
 
-        <p className="text-xs text-slate-500">This usually takes around 10 seconds.</p>
+        <p className="text-xs text-slate-500">
+          This usually takes around 10 seconds.
+        </p>
       </div>
     </div>
   );
