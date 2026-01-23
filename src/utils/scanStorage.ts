@@ -1,6 +1,10 @@
 /* =========================================================
    Inspection Storage Utility
    Local-only persistence (in-person only)
+
+   IMPORTANT:
+   localStorage quota is small (~5MB).
+   NEVER store base64 photos in saved scans.
 ========================================================= */
 
 import type { AnalysisResult } from "./inPersonAnalysis";
@@ -27,7 +31,7 @@ export interface SavedInspection {
     variant?: string;
   };
 
-  // Thumbnail image (base64 dataUrl)
+  // Thumbnail image (base64 dataUrl) — KEEP SMALL OR OMIT
   thumbnail?: string | null;
 
   // Optional summary metrics (used for MyScans + previews)
@@ -48,14 +52,14 @@ export interface SavedInspection {
   completed?: boolean;
 
   /**
-   * NEW: Persisted analysis output for reload-safe results.
-   * This is generated at the moment report generation begins.
+   * Persisted analysis output for reload-safe results.
+   * Generated at the moment report generation begins.
    */
   analysis?: AnalysisResult;
 
   /**
-   * NEW: Persisted progress snapshot at the time of report generation.
-   * This ensures the report is reproducible and print-safe.
+   * Persisted progress snapshot at the time of report generation.
+   * NOTE: this MUST NOT include base64 photo data.
    */
   progressSnapshot?: ScanProgress;
 }
@@ -63,14 +67,73 @@ export interface SavedInspection {
 const STORAGE_KEY = "carverity_saved_inspections";
 
 /* =========================================================
-   Normalisation — keeps older saved records safe
+   Helpers
 ========================================================= */
+
+function safeNowIso() {
+  return new Date().toISOString();
+}
+
+function isProbablyBase64DataUrl(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    (value.startsWith("data:image/") || value.startsWith("data:application/"))
+  );
+}
+
+/**
+ * localStorage is tiny. A single base64 photo can be >1MB.
+ * We strip all dataUrl fields before saving progressSnapshot.
+ */
+function stripPhotosFromProgress(progress?: ScanProgress): ScanProgress | undefined {
+  if (!progress) return undefined;
+
+  const next: ScanProgress = { ...progress };
+
+  // Photos (captured during scan)
+  if (Array.isArray((next as any).photos)) {
+    (next as any).photos = (next as any).photos.map((p: any) => ({
+      id: p?.id,
+      stepId: p?.stepId,
+      // dataUrl intentionally removed
+    }));
+  }
+
+  // Follow-up photos (captured after scan)
+  if (Array.isArray((next as any).followUpPhotos)) {
+    (next as any).followUpPhotos = (next as any).followUpPhotos.map((p: any) => ({
+      id: p?.id,
+      note: p?.note,
+      // dataUrl intentionally removed
+    }));
+  }
+
+  return next;
+}
+
+/**
+ * If thumbnail is a base64 dataUrl, it can also blow quota.
+ * We keep it only if it's "small enough".
+ */
+function safeThumbnail(thumbnail?: string | null): string | null {
+  if (!thumbnail) return null;
+
+  if (!isProbablyBase64DataUrl(thumbnail)) {
+    return thumbnail;
+  }
+
+  // Rough guard: base64 strings are huge; keep only small ones.
+  // 120k chars ~ ~90KB raw-ish (still large, but acceptable for a thumbnail)
+  if (thumbnail.length > 120_000) return null;
+
+  return thumbnail;
+}
 
 function normaliseInspections(records: any[]): SavedInspection[] {
   return records.map((record) => ({
     ...record,
     type: "in-person",
-    createdAt: record.createdAt || record.created_at || new Date().toISOString(),
+    createdAt: record.createdAt || record.created_at || safeNowIso(),
     title: record.title || "In-person inspection",
     completed: record.completed ?? false,
     history: record.history ?? [],
@@ -78,6 +141,52 @@ function normaliseInspections(records: any[]): SavedInspection[] {
     analysis: record.analysis ?? undefined,
     progressSnapshot: record.progressSnapshot ?? undefined,
   })) as SavedInspection[];
+}
+
+function tryWriteToStorage(scans: SavedInspection[]) {
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(scans));
+}
+
+/**
+ * If storage is full, we prune older scans until it fits.
+ * This ensures the current scan still saves.
+ */
+function writeWithPrune(scans: SavedInspection[]) {
+  // First attempt
+  try {
+    tryWriteToStorage(scans);
+    return;
+  } catch (err: any) {
+    const message = String(err?.message || "");
+    const name = String(err?.name || "");
+
+    const isQuota =
+      name === "QuotaExceededError" ||
+      message.toLowerCase().includes("quota") ||
+      message.toLowerCase().includes("exceeded");
+
+    if (!isQuota) {
+      // Unknown storage failure
+      throw err;
+    }
+  }
+
+  // Prune strategy: keep newest first, drop oldest until it fits
+  let pruned = [...scans];
+
+  while (pruned.length > 0) {
+    pruned = pruned.slice(0, pruned.length - 1);
+
+    try {
+      tryWriteToStorage(pruned);
+      return;
+    } catch {
+      // keep pruning
+    }
+  }
+
+  // If we STILL can't write, give up silently (but don't crash app)
+  // This is extremely rare unless localStorage is blocked.
 }
 
 /* =========================================================
@@ -110,22 +219,29 @@ export function saveScan(inspection: SavedInspection) {
 
   const existing = loadScans().filter((i) => i.id !== inspection.id);
 
+  const safeProgressSnapshot = stripPhotosFromProgress(inspection.progressSnapshot);
+
   const updated: SavedInspection[] = [
     {
       ...inspection,
       type: "in-person",
       title: inspection.title || "In-person inspection",
-      createdAt: inspection.createdAt || new Date().toISOString(),
+      createdAt: inspection.createdAt || safeNowIso(),
       completed: inspection.completed ?? false,
       history: inspection.history ?? [],
-      thumbnail: inspection.thumbnail ?? null,
+      thumbnail: safeThumbnail(inspection.thumbnail ?? null),
       analysis: inspection.analysis ?? undefined,
-      progressSnapshot: inspection.progressSnapshot ?? undefined,
+      progressSnapshot: safeProgressSnapshot ?? undefined,
     },
     ...existing,
   ];
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  try {
+    writeWithPrune(updated);
+  } catch (err) {
+    // Never crash the app due to storage issues
+    console.warn("[scanStorage] saveScan failed:", err);
+  }
 }
 
 export function updateScanTitle(inspectionId: string, title: string) {
@@ -135,14 +251,23 @@ export function updateScanTitle(inspectionId: string, title: string) {
     inspection.id === inspectionId ? { ...inspection, title } : inspection
   );
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  try {
+    writeWithPrune(updated);
+  } catch (err) {
+    console.warn("[scanStorage] updateScanTitle failed:", err);
+  }
 }
 
 export function deleteScan(inspectionId: string) {
   if (typeof window === "undefined") return;
 
   const filtered = loadScans().filter((i) => i.id !== inspectionId);
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+
+  try {
+    writeWithPrune(filtered);
+  } catch (err) {
+    console.warn("[scanStorage] deleteScan failed:", err);
+  }
 }
 
 export function clearAllScans() {
