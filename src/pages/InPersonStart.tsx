@@ -54,7 +54,7 @@ export default function InPersonStart() {
 
     if (!session) {
       clearScanId();
-      navigate("/sign-in");
+      navigate("/signin");
       return;
     }
 
