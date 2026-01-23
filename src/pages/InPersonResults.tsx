@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "../supabaseClient";
-import { loadProgress, saveProgress } from "../utils/scanProgress";
+import { loadProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadScanById } from "../utils/scanStorage";
 
@@ -178,36 +178,13 @@ function titleFromId(id: string) {
     .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
-/**
- * Results is an end-state page.
- * It must NOT overwrite the scan resume "step" to point at results,
- * otherwise Home will show "Resume inspection" forever (even when logged out),
- * and you can create loops on refresh.
- *
- * If we need to persist something here, we only persist scanId + type safely.
- */
-function persistScanIdentity(scanId: string) {
-  try {
-    const current: any = loadProgress() ?? {};
-    const next = {
-      ...current,
-      scanId,
-      type: "in-person",
-      // IMPORTANT: do NOT set step to results here
-      // step: current.step ?? undefined,
-    };
-    saveProgress(next);
-  } catch (e) {
-    console.warn("[Results] Failed to persist scan identity:", e);
-  }
-}
-
 /* =======================================================
    Page
 ======================================================= */
 export default function InPersonResults() {
   const navigate = useNavigate();
   const { scanId } = useParams<{ scanId: string }>();
+  const scanIdSafe = scanId ? String(scanId) : "";
 
   const [checkingUnlock, setCheckingUnlock] = useState(true);
   const [unlockError, setUnlockError] = useState<string | null>(null);
@@ -216,20 +193,19 @@ export default function InPersonResults() {
      Routing safety
   ------------------------------------------------------- */
   useEffect(() => {
-    if (!scanId) {
+    if (!scanIdSafe) {
       navigate("/scan/in-person/start", { replace: true });
     }
-  }, [scanId, navigate]);
+  }, [scanIdSafe, navigate]);
 
   /* -------------------------------------------------------
      ENFORCE PAYWALL (ledger reference check)
-     Must have: credit_ledger row for this user + scan reference
   ------------------------------------------------------- */
   useEffect(() => {
     let cancelled = false;
 
     async function checkUnlock() {
-      if (!scanId) return;
+      if (!scanIdSafe) return;
 
       setCheckingUnlock(true);
       setUnlockError(null);
@@ -249,7 +225,7 @@ export default function InPersonResults() {
           return;
         }
 
-        const reference = `scan:${scanId}`;
+        const reference = `scan:${scanIdSafe}`;
 
         const { data, error } = await supabase
           .from("credit_ledger")
@@ -269,13 +245,10 @@ export default function InPersonResults() {
 
         if (!unlocked) {
           if (!cancelled) {
-            navigate(`/scan/in-person/unlock/${scanId}`, { replace: true });
+            navigate(`/scan/in-person/unlock/${scanIdSafe}`, { replace: true });
           }
           return;
         }
-
-        // Safe: persist scan identity only (no step overwrite)
-        if (!cancelled) persistScanIdentity(scanId);
       } catch (e: any) {
         console.error("[Results] Unlock check exception:", e);
         if (!cancelled) setUnlockError("Could not verify unlock status.");
@@ -289,107 +262,70 @@ export default function InPersonResults() {
     return () => {
       cancelled = true;
     };
-  }, [scanId, navigate]);
-
-  if (!scanId) return null;
-
-  if (checkingUnlock) {
-    return (
-      <div className="max-w-3xl mx-auto px-6 py-16">
-        <p className="text-sm text-slate-400">Verifying unlock…</p>
-      </div>
-    );
-  }
-
-  if (unlockError) {
-    return (
-      <div className="max-w-3xl mx-auto px-6 py-16 space-y-4">
-        <p className="text-sm text-red-300">{unlockError}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="inline-flex items-center gap-2 rounded-xl bg-slate-200 hover:bg-white text-black font-semibold px-4 py-2 text-sm"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
+  }, [scanIdSafe, navigate]);
 
   /* -------------------------------------------------------
-     Load saved scan (preferred) and fallback to local progress
+     Load saved scan (preferred) + progress fallback
+     NOTE: These hooks must ALWAYS run (no early returns above),
+     otherwise React throws hooks-order error (#310).
   ------------------------------------------------------- */
-  const saved = useMemo(() => loadScanById(scanId), [scanId]);
+  const saved = useMemo(() => {
+    if (!scanIdSafe) return null;
+    try {
+      return loadScanById(scanIdSafe);
+    } catch (e) {
+      console.warn("[Results] loadScanById failed:", e);
+      return null;
+    }
+  }, [scanIdSafe]);
 
-  const progressFallback: any = loadProgress();
+  const progressFallback = useMemo(() => {
+    try {
+      return loadProgress();
+    } catch (e) {
+      console.warn("[Results] loadProgress failed:", e);
+      return null;
+    }
+  }, []);
+
   const progress: any = saved?.progressSnapshot ?? progressFallback ?? {};
 
   /* -------------------------------------------------------
      Analysis (prefer persisted analysis)
-     Must be stable and render-safe even on refresh.
   ------------------------------------------------------- */
   const analysis = useMemo(() => {
     try {
       if (saved?.analysis) return saved.analysis;
       return analyseInPersonInspection(progress);
     } catch (e) {
-      console.error("[Results] analyseInPersonInspection crashed:", e);
+      console.error("[Results] analyseInPersonInspection failed:", e);
       return null;
     }
   }, [saved, progress]);
 
-  const analysisOk =
-    Boolean(analysis) &&
-    Array.isArray((analysis as any)?.risks) &&
-    typeof (analysis as any)?.verdict === "string" &&
-    (analysis as any)?.verdict?.length > 0;
+  // If analysis is missing/invalid, recover gracefully
+  useEffect(() => {
+    if (!scanIdSafe) return;
+    if (checkingUnlock) return;
+    if (unlockError) return;
 
-  // IMPORTANT: do NOT redirect away automatically if analysis is missing.
-  // A redirect loop here is one of the easiest ways to cause blank screens.
-  if (!analysisOk) {
-    return (
-      <div className="max-w-4xl mx-auto px-6 py-16 space-y-6">
-        <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6 space-y-3">
-          <p className="text-sm text-slate-400">CarVerity · Your report</p>
-          <h1 className="text-2xl font-semibold text-white">
-            We couldn’t load your report
-          </h1>
-          <p className="text-sm text-slate-300 leading-relaxed max-w-2xl">
-            This usually happens if the scan data wasn’t saved correctly, or the
-            page was refreshed before results were generated.
-          </p>
+    const risks = (analysis as any)?.risks;
+    const verdict = (analysis as any)?.verdict;
 
-          <div className="flex flex-wrap gap-3 pt-2">
-            <button
-              onClick={() => navigate(`/scan/in-person/analyzing/${scanId}`)}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-200 hover:bg-white text-black font-semibold px-4 py-2 text-sm"
-            >
-              Try generating again
-              <ArrowRight className="h-4 w-4" />
-            </button>
+    const ok =
+      Boolean(analysis) &&
+      Array.isArray(risks) &&
+      typeof verdict === "string" &&
+      verdict.length > 0;
 
-            <button
-              onClick={() => navigate(`/scan/in-person/summary/${scanId}`)}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
-            >
-              Back to summary
-            </button>
+    if (!ok) {
+      navigate(`/scan/in-person/analyzing/${scanIdSafe}`, { replace: true });
+    }
+  }, [analysis, scanIdSafe, navigate, checkingUnlock, unlockError]);
 
-            <button
-              onClick={() => navigate("/scan/in-person/start")}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
-            >
-              Start a new scan
-            </button>
-          </div>
-        </div>
-
-        <p className="text-xs text-slate-500">
-          Scan ID: <span className="text-slate-400">{scanId}</span>
-        </p>
-      </div>
-    );
-  }
-
+  /* -------------------------------------------------------
+     Derived view data
+  ------------------------------------------------------- */
   const risksSafe: any[] = Array.isArray((analysis as any)?.risks)
     ? ((analysis as any).risks as any[])
     : [];
@@ -695,7 +631,7 @@ export default function InPersonResults() {
     lines.push("Here is my CarVerity in-person inspection summary.");
     lines.push("");
     lines.push(`Vehicle: ${vehicleTitleFromProgress(progress) || "—"}`);
-    lines.push(`Scan ID: ${scanId}`);
+    lines.push(`Scan ID: ${scanIdSafe}`);
     lines.push(`Date: ${new Date().toLocaleDateString()}`);
     lines.push(`Asking price: ${formatMoney(askingPrice)}`);
     lines.push("");
@@ -720,7 +656,7 @@ export default function InPersonResults() {
     )}`;
   }, [
     progress,
-    scanId,
+    scanIdSafe,
     askingPrice,
     verdictMeta.short,
     confidence,
@@ -734,548 +670,599 @@ export default function InPersonResults() {
   }
 
   /* =======================================================
-     UI
+     UI (NO EARLY RETURNS — prevents React #310)
   ======================================================= */
+  const showLoading = !scanIdSafe || checkingUnlock;
+  const showError = Boolean(unlockError);
+  const canRenderReport =
+    Boolean(scanIdSafe) && !checkingUnlock && !unlockError && Boolean(analysis);
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-16 space-y-14">
-      {/* HEADER */}
-      <header className="space-y-4">
-        <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-          CarVerity · Your report
-        </span>
-
-        <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-slate-400">
-          <span>Scan ID: {scanId}</span>
-          <span>Date: {new Date().toLocaleDateString()}</span>
-          <span>Asking price: {formatMoney(askingPrice)}</span>
+      {showLoading && (
+        <div className="max-w-3xl mx-auto px-0 py-6">
+          <p className="text-sm text-slate-400">Verifying unlock…</p>
         </div>
-      </header>
+      )}
 
-      {/* VERDICT */}
-      <section
-        className={`rounded-2xl border px-8 py-8 space-y-6 ${verdictMeta.tone}`}
-      >
-        <div className="flex items-start gap-4">
-          {verdictMeta.icon}
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold text-white leading-tight">
-              {verdictMeta.title}
-            </h1>
-
-            <p className="text-[15px] leading-relaxed text-slate-200 max-w-3xl">
-              {verdictMeta.posture}
-            </p>
-
-            <Paragraph value={whyThisVerdict} />
-          </div>
+      {showError && (
+        <div className="max-w-3xl mx-auto px-0 py-6 space-y-4">
+          <p className="text-sm text-red-300">{unlockError}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-200 hover:bg-white text-black font-semibold px-4 py-2 text-sm"
+          >
+            Retry
+          </button>
         </div>
+      )}
 
-        {/* KEY SIGNALS */}
-        {topSignals.length > 0 && (
-          <div className="rounded-2xl border border-white/12 bg-slate-950/30 px-5 py-4">
-            <div className="flex items-center gap-2 text-slate-200">
-              <ShieldCheck className="h-4 w-4 text-slate-300" />
-              <p className="text-sm font-semibold">
-                What stood out (from your inspection)
-              </p>
-            </div>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {topSignals.map((s, i) => {
-                const pill =
-                  s.tone === "critical"
-                    ? "border-red-400/30 bg-red-500/10 text-red-200"
-                    : s.tone === "moderate"
-                    ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
-                    : "border-white/15 bg-white/5 text-slate-200";
-
-                return (
-                  <span
-                    key={i}
-                    className={[
-                      "inline-flex items-center rounded-full border px-3 py-1 text-xs",
-                      pill,
-                    ].join(" ")}
-                  >
-                    {s.label}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* SCORES */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-2">
-          <div>
-            <div className="flex items-center gap-2 text-slate-400">
-              <BarChart3 className="h-4 w-4" />
-              <span className="text-xs uppercase tracking-wide">Confidence</span>
-            </div>
-            <p className="mt-1 text-2xl font-semibold text-white">
-              {confidence}%
-            </p>
-          </div>
-
-          <div>
-            <div className="flex items-center gap-2 text-slate-400">
-              <Eye className="h-4 w-4" />
-              <span className="text-xs uppercase tracking-wide">Coverage</span>
-            </div>
-            <p className="mt-1 text-2xl font-semibold text-white">{coverage}%</p>
-          </div>
-
-          <div>
-            <div className="flex items-center gap-2 text-slate-400">
-              <AlertTriangle className="h-4 w-4" />
-              <span className="text-xs uppercase tracking-wide">Concerns</span>
-            </div>
-            <p className="mt-1 text-2xl font-semibold text-white">
-              {risksSafe.filter((r) => r?.severity !== "info").length}
-            </p>
-          </div>
-
-          <div>
-            <div className="flex items-center gap-2 text-slate-400">
-              <HelpCircle className="h-4 w-4" />
-              <span className="text-xs uppercase tracking-wide">Unsure</span>
-            </div>
-            <p className="mt-1 text-2xl font-semibold text-white">
-              {uncertaintyFactors.length}
-            </p>
-          </div>
+      {!showLoading && !showError && !canRenderReport && (
+        <div className="max-w-3xl mx-auto px-0 py-6 space-y-3">
+          <p className="text-sm text-slate-400">
+            Rebuilding your report…
+          </p>
+          <button
+            onClick={() => navigate(`/scan/in-person/analyzing/${scanIdSafe}`, { replace: true })}
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-200 hover:bg-white text-black font-semibold px-4 py-2 text-sm"
+          >
+            Retry analysis
+          </button>
         </div>
+      )}
 
-        <p className="text-xs text-slate-400">{scoreBlurb}</p>
-      </section>
+      {canRenderReport && (
+        <>
+          {/* HEADER */}
+          <header className="space-y-4">
+            <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
+              CarVerity · Your report
+            </span>
 
-      {/* WHAT YOU FLAGGED */}
-      <section className="space-y-6">
-        <div className="flex items-center gap-3 text-slate-300">
-          <Flag className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold">What you flagged</h2>
-        </div>
-
-        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-6">
-          {/* Checks */}
-          <div className="space-y-3">
-            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-              Checks (concerns + unsure)
+            <div className="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm text-slate-400">
+              <span>Scan ID: {scanIdSafe}</span>
+              <span>Date: {new Date().toLocaleDateString()}</span>
+              <span>Asking price: {formatMoney(askingPrice)}</span>
             </div>
+          </header>
 
-            {flaggedChecks.length > 0 ? (
-              <div className="space-y-3">
-                {flaggedChecks.map((c) => {
-                  const tone =
-                    c.value === "concern"
-                      ? "border-red-400/25 bg-red-500/10"
-                      : "border-amber-400/25 bg-amber-500/10";
+          {/* VERDICT */}
+          <section
+            className={`rounded-2xl border px-8 py-8 space-y-6 ${verdictMeta.tone}`}
+          >
+            <div className="flex items-start gap-4">
+              {verdictMeta.icon}
+              <div className="space-y-2">
+                <h1 className="text-3xl font-semibold text-white leading-tight">
+                  {verdictMeta.title}
+                </h1>
 
-                  const tag =
-                    c.value === "concern" ? "Stood out" : "Couldn’t confirm";
+                <p className="text-[15px] leading-relaxed text-slate-200 max-w-3xl">
+                  {verdictMeta.posture}
+                </p>
 
-                  return (
-                    <div
-                      key={c.id}
-                      className={`rounded-2xl border px-5 py-4 ${tone}`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-base font-semibold text-white">
-                            {c.label}
-                          </p>
-                          {c.note ? (
-                            <p className="mt-2 text-[15px] text-slate-200 leading-relaxed">
-                              {c.note}
-                            </p>
-                          ) : (
-                            <p className="mt-2 text-[14px] text-slate-300">
-                              No notes added.
-                            </p>
-                          )}
-                        </div>
-
-                        <span className="shrink-0 inline-flex items-center rounded-full border border-white/15 bg-slate-950/30 px-3 py-1 text-xs text-slate-200">
-                          {tag}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                <Paragraph value={whyThisVerdict} />
               </div>
-            ) : (
-              <p className="text-sm text-slate-400">
-                You didn’t flag any check items as “stood out” or “unsure”.
-              </p>
-            )}
-          </div>
-
-          {/* Imperfections */}
-          <div className="space-y-3">
-            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-              Imperfections
             </div>
 
-            {recordedImperfections.length > 0 ? (
-              <div className="space-y-3">
-                {recordedImperfections.map((imp) => (
-                  <div
-                    key={imp.id}
-                    className="rounded-2xl border border-white/10 bg-slate-950/30 px-5 py-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-base font-semibold text-white">
-                          {imp.label}
-                        </p>
+            {/* KEY SIGNALS */}
+            {topSignals.length > 0 && (
+              <div className="rounded-2xl border border-white/12 bg-slate-950/30 px-5 py-4">
+                <div className="flex items-center gap-2 text-slate-200">
+                  <ShieldCheck className="h-4 w-4 text-slate-300" />
+                  <p className="text-sm font-semibold">
+                    What stood out (from your inspection)
+                  </p>
+                </div>
 
-                        <div className="mt-1 text-sm text-slate-400">
-                          {imp.location
-                            ? `Location: ${imp.location}`
-                            : "Location: —"}
-                        </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {topSignals.map((s, i) => {
+                    const pill =
+                      s.tone === "critical"
+                        ? "border-red-400/30 bg-red-500/10 text-red-200"
+                        : s.tone === "moderate"
+                        ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                        : "border-white/15 bg-white/5 text-slate-200";
 
-                        {imp.note ? (
-                          <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
-                            {imp.note}
-                          </p>
-                        ) : (
-                          <p className="mt-2 text-[14px] text-slate-400">
-                            No notes added.
-                          </p>
-                        )}
-                      </div>
-
+                    return (
                       <span
+                        key={i}
                         className={[
-                          "shrink-0 inline-flex items-center rounded-full border px-3 py-1 text-xs",
-                          severityPillClass(imp.severity),
+                          "inline-flex items-center rounded-full border px-3 py-1 text-xs",
+                          pill,
                         ].join(" ")}
                       >
-                        {severityLabel(imp.severity)}
+                        {s.label}
                       </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* SCORES */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-2">
+              <div>
+                <div className="flex items-center gap-2 text-slate-400">
+                  <BarChart3 className="h-4 w-4" />
+                  <span className="text-xs uppercase tracking-wide">
+                    Confidence
+                  </span>
+                </div>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {confidence}%
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 text-slate-400">
+                  <Eye className="h-4 w-4" />
+                  <span className="text-xs uppercase tracking-wide">
+                    Coverage
+                  </span>
+                </div>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {coverage}%
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 text-slate-400">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="text-xs uppercase tracking-wide">
+                    Concerns
+                  </span>
+                </div>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {risksSafe.filter((r) => r?.severity !== "info").length}
+                </p>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 text-slate-400">
+                  <HelpCircle className="h-4 w-4" />
+                  <span className="text-xs uppercase tracking-wide">
+                    Unsure
+                  </span>
+                </div>
+                <p className="mt-1 text-2xl font-semibold text-white">
+                  {uncertaintyFactors.length}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-400">{scoreBlurb}</p>
+          </section>
+
+          {/* WHAT YOU FLAGGED */}
+          <section className="space-y-6">
+            <div className="flex items-center gap-3 text-slate-300">
+              <Flag className="h-5 w-5 text-slate-400" />
+              <h2 className="text-lg font-semibold">What you flagged</h2>
+            </div>
+
+            <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-6">
+              {/* Checks */}
+              <div className="space-y-3">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Checks (concerns + unsure)
+                </div>
+
+                {flaggedChecks.length > 0 ? (
+                  <div className="space-y-3">
+                    {flaggedChecks.map((c) => {
+                      const tone =
+                        c.value === "concern"
+                          ? "border-red-400/25 bg-red-500/10"
+                          : "border-amber-400/25 bg-amber-500/10";
+
+                      const tag =
+                        c.value === "concern" ? "Stood out" : "Couldn’t confirm";
+
+                      return (
+                        <div
+                          key={c.id}
+                          className={`rounded-2xl border px-5 py-4 ${tone}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-base font-semibold text-white">
+                                {c.label}
+                              </p>
+                              {c.note ? (
+                                <p className="mt-2 text-[15px] text-slate-200 leading-relaxed">
+                                  {c.note}
+                                </p>
+                              ) : (
+                                <p className="mt-2 text-[14px] text-slate-300">
+                                  No notes added.
+                                </p>
+                              )}
+                            </div>
+
+                            <span className="shrink-0 inline-flex items-center rounded-full border border-white/15 bg-slate-950/30 px-3 py-1 text-xs text-slate-200">
+                              {tag}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">
+                    You didn’t flag any check items as “stood out” or “unsure”.
+                  </p>
+                )}
+              </div>
+
+              {/* Imperfections */}
+              <div className="space-y-3">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Imperfections
+                </div>
+
+                {recordedImperfections.length > 0 ? (
+                  <div className="space-y-3">
+                    {recordedImperfections.map((imp) => (
+                      <div
+                        key={imp.id}
+                        className="rounded-2xl border border-white/10 bg-slate-950/30 px-5 py-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-base font-semibold text-white">
+                              {imp.label}
+                            </p>
+
+                            <div className="mt-1 text-sm text-slate-400">
+                              {imp.location
+                                ? `Location: ${imp.location}`
+                                : "Location: —"}
+                            </div>
+
+                            {imp.note ? (
+                              <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
+                                {imp.note}
+                              </p>
+                            ) : (
+                              <p className="mt-2 text-[14px] text-slate-400">
+                                No notes added.
+                              </p>
+                            )}
+                          </div>
+
+                          <span
+                            className={[
+                              "shrink-0 inline-flex items-center rounded-full border px-3 py-1 text-xs",
+                              severityPillClass(imp.severity),
+                            ].join(" ")}
+                          >
+                            {severityLabel(imp.severity)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">
+                    No imperfections were recorded.
+                  </p>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-500 max-w-3xl">
+                This section is the exact list of what you recorded — nothing is
+                inferred.
+              </p>
+            </div>
+          </section>
+
+          {/* WHAT TO DO NEXT */}
+          <section className="space-y-6">
+            <div className="flex items-center gap-3 text-slate-300">
+              <ClipboardCheck className="h-5 w-5 text-slate-400" />
+              <h2 className="text-lg font-semibold">What to do next</h2>
+            </div>
+
+            <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6 space-y-4">
+              <p className="text-sm text-slate-400">
+                This guidance is based only on what you recorded today.
+              </p>
+
+              <BulletList items={nextSteps} />
+
+              <div className="pt-2 flex flex-wrap gap-3">
+                <button
+                  onClick={() => navigate("/scan/in-person/decision")}
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
+                >
+                  Open decision guide
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+
+                <button
+                  onClick={() =>
+                    navigate(`/scan/in-person/price-positioning/${scanIdSafe}`)
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
+                >
+                  <BadgeDollarSign className="h-4 w-4" />
+                  Price positioning
+                </button>
+
+                <button
+                  onClick={() => navigate(`/scan/in-person/summary/${scanIdSafe}`)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
+                >
+                  Back to summary
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* QUESTIONS TO ASK */}
+          <section className="space-y-6">
+            <h2 className="text-lg font-semibold text-slate-200">
+              Questions to ask the seller
+            </h2>
+
+            <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-4">
+              <p className="text-sm text-slate-400">
+                Keep it simple. You’re just trying to get clear answers.
+              </p>
+
+              <BulletList items={clarifyQuestions} />
+            </div>
+          </section>
+
+          {/* BIG CONCERNS */}
+          {criticalRisks.length > 0 && (
+            <section className="space-y-6">
+              <h2 className="text-lg font-semibold text-slate-200">
+                Biggest concerns
+              </h2>
+
+              <div className="space-y-4">
+                {criticalRisks.map((r: any) => (
+                  <div
+                    key={String(r?.id ?? r?.label ?? Math.random())}
+                    className="rounded-2xl border border-white/10 bg-slate-900/60 px-6 py-5"
+                  >
+                    <p className="text-base font-semibold text-white">
+                      {r?.label ?? "Concern"}
+                    </p>
+                    <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
+                      {r?.explanation ?? ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* OTHER ITEMS */}
+          {moderateRisks.length > 0 && (
+            <section className="space-y-6">
+              <h2 className="text-lg font-semibold text-slate-200">
+                Things worth checking
+              </h2>
+
+              <div className="space-y-4">
+                {moderateRisks.map((r: any) => (
+                  <div
+                    key={String(r?.id ?? r?.label ?? Math.random())}
+                    className="rounded-2xl border border-white/10 bg-slate-900/50 px-6 py-5"
+                  >
+                    <p className="text-base font-medium text-slate-100">
+                      {r?.label ?? "Item"}
+                    </p>
+                    <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
+                      {r?.explanation ?? ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* UNSURE */}
+          {uncertaintyFactors.length > 0 && (
+            <section className="space-y-6">
+              <h2 className="text-lg font-semibold text-slate-200">
+                Things you weren’t sure about
+              </h2>
+
+              <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6">
+                <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
+                  {uncertaintyFactors.map((u, i) => (
+                    <li key={i}>{UncertaintyText(u)}</li>
+                  ))}
+                </ul>
+
+                <p className="text-xs text-slate-500 mt-4">
+                  “Unsure” just means you couldn’t confirm it today. If it matters,
+                  try to verify it before buying.
+                </p>
+              </div>
+            </section>
+          )}
+
+          {/* EVIDENCE CONSIDERED */}
+          <section className="space-y-6">
+            <div className="flex items-center gap-3 text-slate-300">
+              <Wrench className="h-5 w-5 text-slate-400" />
+              <h2 className="text-lg font-semibold">Evidence considered</h2>
+            </div>
+
+            <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-5">
+              <p className="text-[15px] leading-relaxed text-slate-300 max-w-3xl">
+                {evidenceHeadline}
+              </p>
+
+              {evidenceText ? (
+                <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    Summary
+                  </div>
+                  <div className="mt-2">
+                    <Paragraph value={evidenceText} />
+                  </div>
+                </div>
+              ) : null}
+
+              {evidenceBullets.length > 0 && (
+                <div className="pt-1">
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500 mb-2">
+                    Recorded notes
+                  </div>
+                  <BulletList items={evidenceBullets} />
+                </div>
+              )}
+
+              <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Inspection snapshot
+                </div>
+                <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm text-slate-300">
+                  <div>
+                    <div className="text-slate-500 text-xs">Photos</div>
+                    <div className="text-white font-semibold">{photos.length}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 text-xs">Flagged items</div>
+                    <div className="text-white font-semibold">
+                      {risksSafe.filter((r) => r?.severity !== "info").length}
                     </div>
                   </div>
+                  <div>
+                    <div className="text-slate-500 text-xs">Unsure</div>
+                    <div className="text-white font-semibold">
+                      {uncertaintyFactors.length}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 text-xs">Coverage</div>
+                    <div className="text-white font-semibold">{coverage}%</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Notes on interpretation
+                </div>
+                <div className="mt-2">
+                  <BulletList items={evidenceNotes} />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* PHOTOS */}
+          <section className="space-y-6">
+            <div className="flex items-center gap-3 text-slate-300">
+              <Camera className="h-5 w-5 text-slate-400" />
+              <h2 className="text-lg font-semibold">Photos</h2>
+            </div>
+
+            {photos.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {photos.map((src, i) => (
+                  <img
+                    key={i}
+                    src={src}
+                    alt={`Inspection photo ${i + 1}`}
+                    className="rounded-xl border border-white/10 object-cover aspect-square"
+                  />
                 ))}
               </div>
             ) : (
               <p className="text-sm text-slate-400">
-                No imperfections were recorded.
+                You didn’t take any photos during this inspection.
               </p>
             )}
-          </div>
+          </section>
 
-          <p className="text-xs text-slate-500 max-w-3xl">
-            This section is the exact list of what you recorded — nothing is
-            inferred.
-          </p>
-        </div>
-      </section>
+          {/* FINISH */}
+          <section className="space-y-5 pt-2">
+            <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6">
+              <p className="text-base font-semibold text-white">
+                Finished — save or share this report
+              </p>
+              <p className="mt-2 text-sm text-slate-400 leading-relaxed max-w-3xl">
+                If you want to share this with someone (partner, family, mechanic),
+                the easiest way is to save it as a PDF, then email it from your own
+                email app.
+              </p>
 
-      {/* WHAT TO DO NEXT */}
-      <section className="space-y-6">
-        <div className="flex items-center gap-3 text-slate-300">
-          <ClipboardCheck className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold">What to do next</h2>
-        </div>
+              <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button
+                  onClick={() => navigate(`/scan/in-person/print/${scanIdSafe}`)}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-200 hover:bg-white text-black font-semibold px-4 py-3 text-sm"
+                >
+                  <Printer className="h-4 w-4" />
+                  Print / Save as PDF
+                </button>
 
-        <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6 space-y-4">
-          <p className="text-sm text-slate-400">
-            This guidance is based only on what you recorded today.
-          </p>
+                <a
+                  href={emailHref}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-sm text-slate-200"
+                >
+                  <Mail className="h-4 w-4" />
+                  Email this report
+                </a>
 
-          <BulletList items={nextSteps} />
+                <button
+                  onClick={startNewScan}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 text-sm"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Start a new scan
+                </button>
+              </div>
 
-          <div className="pt-2 flex flex-wrap gap-3">
+              <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Quick how-to
+                </p>
+                <p className="mt-2 text-sm text-slate-300 leading-relaxed">
+                  1) Tap <strong>Print / Save as PDF</strong>
+                  <br />
+                  2) Save the PDF
+                  <br />
+                  3) Tap <strong>Email this report</strong> and attach the PDF
+                  (optional)
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* PRIMARY BUTTONS */}
+          <section className="space-y-4 pt-2">
             <button
               onClick={() => navigate("/scan/in-person/decision")}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
+              className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 text-base"
             >
-              Open decision guide
-              <ArrowRight className="h-4 w-4" />
+              Decision & next steps
             </button>
 
             <button
-              onClick={() =>
-                navigate(`/scan/in-person/price-positioning/${scanId}`)
-              }
-              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
-            >
-              <BadgeDollarSign className="h-4 w-4" />
-              Price positioning
-            </button>
-
-            <button
-              onClick={() => navigate(`/scan/in-person/summary/${scanId}`)}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
-            >
-              Back to summary
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* QUESTIONS TO ASK */}
-      <section className="space-y-6">
-        <h2 className="text-lg font-semibold text-slate-200">
-          Questions to ask the seller
-        </h2>
-
-        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-4">
-          <p className="text-sm text-slate-400">
-            Keep it simple. You’re just trying to get clear answers.
-          </p>
-
-          <BulletList items={clarifyQuestions} />
-        </div>
-      </section>
-
-      {/* BIG CONCERNS */}
-      {criticalRisks.length > 0 && (
-        <section className="space-y-6">
-          <h2 className="text-lg font-semibold text-slate-200">
-            Biggest concerns
-          </h2>
-
-          <div className="space-y-4">
-            {criticalRisks.map((r: any) => (
-              <div
-                key={String(r?.id ?? r?.label ?? Math.random())}
-                className="rounded-2xl border border-white/10 bg-slate-900/60 px-6 py-5"
-              >
-                <p className="text-base font-semibold text-white">
-                  {r?.label ?? "Concern"}
-                </p>
-                <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
-                  {r?.explanation ?? ""}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* OTHER ITEMS */}
-      {moderateRisks.length > 0 && (
-        <section className="space-y-6">
-          <h2 className="text-lg font-semibold text-slate-200">
-            Things worth checking
-          </h2>
-
-          <div className="space-y-4">
-            {moderateRisks.map((r: any) => (
-              <div
-                key={String(r?.id ?? r?.label ?? Math.random())}
-                className="rounded-2xl border border-white/10 bg-slate-900/50 px-6 py-5"
-              >
-                <p className="text-base font-medium text-slate-100">
-                  {r?.label ?? "Item"}
-                </p>
-                <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
-                  {r?.explanation ?? ""}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* UNSURE */}
-      {uncertaintyFactors.length > 0 && (
-        <section className="space-y-6">
-          <h2 className="text-lg font-semibold text-slate-200">
-            Things you weren’t sure about
-          </h2>
-
-          <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6">
-            <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
-              {uncertaintyFactors.map((u, i) => (
-                <li key={i}>{UncertaintyText(u)}</li>
-              ))}
-            </ul>
-
-            <p className="text-xs text-slate-500 mt-4">
-              “Unsure” just means you couldn’t confirm it today. If it matters,
-              try to verify it before buying.
-            </p>
-          </div>
-        </section>
-      )}
-
-      {/* EVIDENCE CONSIDERED */}
-      <section className="space-y-6">
-        <div className="flex items-center gap-3 text-slate-300">
-          <Wrench className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold">Evidence considered</h2>
-        </div>
-
-        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-5">
-          <p className="text-[15px] leading-relaxed text-slate-300 max-w-3xl">
-            {evidenceHeadline}
-          </p>
-
-          {evidenceText ? (
-            <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                Summary
-              </div>
-              <div className="mt-2">
-                <Paragraph value={evidenceText} />
-              </div>
-            </div>
-          ) : null}
-
-          {evidenceBullets.length > 0 && (
-            <div className="pt-1">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-500 mb-2">
-                Recorded notes
-              </div>
-              <BulletList items={evidenceBullets} />
-            </div>
-          )}
-
-          <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-              Inspection snapshot
-            </div>
-            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm text-slate-300">
-              <div>
-                <div className="text-slate-500 text-xs">Photos</div>
-                <div className="text-white font-semibold">{photos.length}</div>
-              </div>
-              <div>
-                <div className="text-slate-500 text-xs">Flagged items</div>
-                <div className="text-white font-semibold">
-                  {risksSafe.filter((r) => r?.severity !== "info").length}
-                </div>
-              </div>
-              <div>
-                <div className="text-slate-500 text-xs">Unsure</div>
-                <div className="text-white font-semibold">
-                  {uncertaintyFactors.length}
-                </div>
-              </div>
-              <div>
-                <div className="text-slate-500 text-xs">Coverage</div>
-                <div className="text-white font-semibold">{coverage}%</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-              Notes on interpretation
-            </div>
-            <div className="mt-2">
-              <BulletList items={evidenceNotes} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* PHOTOS */}
-      <section className="space-y-6">
-        <div className="flex items-center gap-3 text-slate-300">
-          <Camera className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold">Photos</h2>
-        </div>
-
-        {photos.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {photos.map((src, i) => (
-              <img
-                key={i}
-                src={src}
-                alt={`Inspection photo ${i + 1}`}
-                className="rounded-xl border border-white/10 object-cover aspect-square"
-              />
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-slate-400">
-            You didn’t take any photos during this inspection.
-          </p>
-        )}
-      </section>
-
-      {/* FINISH */}
-      <section className="space-y-5 pt-2">
-        <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6">
-          <p className="text-base font-semibold text-white">
-            Finished — save or share this report
-          </p>
-          <p className="mt-2 text-sm text-slate-400 leading-relaxed max-w-3xl">
-            If you want to share this with someone (partner, family, mechanic),
-            the easiest way is to save it as a PDF, then email it from your own
-            email app.
-          </p>
-
-          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button
-              onClick={() => navigate(`/scan/in-person/print/${scanId}`)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-200 hover:bg-white text-black font-semibold px-4 py-3 text-sm"
+              onClick={() => navigate(`/scan/in-person/print/${scanIdSafe}`)}
+              className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
             >
               <Printer className="h-4 w-4" />
-              Print / Save as PDF
+              Print / save report
             </button>
-
-            <a
-              href={emailHref}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-sm text-slate-200"
-            >
-              <Mail className="h-4 w-4" />
-              Email this report
-            </a>
 
             <button
               onClick={startNewScan}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 text-sm"
+              className="w-full rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
             >
-              <RotateCcw className="h-4 w-4" />
               Start a new scan
             </button>
-          </div>
-
-          <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-              Quick how-to
-            </p>
-            <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-              1) Tap <strong>Print / Save as PDF</strong>
-              <br />
-              2) Save the PDF
-              <br />
-              3) Tap <strong>Email this report</strong> and attach the PDF
-              (optional)
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* PRIMARY BUTTONS */}
-      <section className="space-y-4 pt-2">
-        <button
-          onClick={() => navigate("/scan/in-person/decision")}
-          className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 text-base"
-        >
-          Decision & next steps
-        </button>
-
-        <button
-          onClick={() => navigate(`/scan/in-person/print/${scanId}`)}
-          className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
-        >
-          <Printer className="h-4 w-4" />
-          Print / save report
-        </button>
-
-        <button
-          onClick={startNewScan}
-          className="w-full rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
-        >
-          Start a new scan
-        </button>
-      </section>
+          </section>
+        </>
+      )}
     </div>
   );
 }
