@@ -18,7 +18,7 @@ import {
   clearProgress,
   saveProgress,
 } from "../utils/scanProgress";
-import { saveScan } from "../utils/scanStorage";
+import { saveScan, generateScanId } from "../utils/scanStorage";
 
 type PricingVerdict = "missing" | "info" | "room" | "concern";
 
@@ -257,12 +257,52 @@ function ensureDefaultChecks(progress: any) {
   };
 }
 
+async function hasUnlockForScan(scanId: string): Promise<boolean> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return false;
+
+  const reference = `scan:${scanId}`;
+
+  const { data, error } = await supabase
+    .from("credit_ledger")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("event_type", "in_person_scan_completed")
+    .eq("reference", reference)
+    .limit(1);
+
+  if (error) {
+    console.error("[Summary] Unlock check failed:", error);
+    return false;
+  }
+
+  return Array.isArray(data) && data.length > 0;
+}
+
 export default function InPersonSummary() {
   const navigate = useNavigate();
   const { scanId: routeScanId } = useParams<{ scanId?: string }>();
 
-  const progress: any = loadProgress();
-  const activeScanId: string | null = progress?.scanId || routeScanId || null;
+  const [saving, setSaving] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const [askingPriceInput, setAskingPriceInput] = useState<string>("");
+  const [askingPriceTouched, setAskingPriceTouched] = useState(false);
+
+  // Always read progress fresh (avoid stale values after redirects)
+  const progress: any = loadProgress() ?? {};
+
+  // Ensure scanId always exists for this flow (fixes broken loops / missing id)
+  const activeScanId: string = useMemo(() => {
+    const existing = progress?.scanId || routeScanId;
+    if (existing && typeof existing === "string") return existing;
+    return generateScanId();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const followUps = progress?.followUpPhotos ?? [];
   const checks = progress?.checks ?? {};
@@ -272,31 +312,36 @@ export default function InPersonSummary() {
   const askingPrice: number | null =
     typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
 
-  const [askingPriceInput, setAskingPriceInput] = useState<string>(() => {
-    if (askingPrice && askingPrice > 0) return String(Math.round(askingPrice));
-    return "";
-  });
+  useEffect(() => {
+    // Persist scanId + step immediately so resume never bounces to Home
+    const latest: any = loadProgress() ?? {};
+    const merged = {
+      ...(latest ?? {}),
+      type: "in-person",
+      scanId: activeScanId,
+      step: "summary",
+    };
 
-  const [askingPriceTouched, setAskingPriceTouched] = useState(false);
+    const { changed, next } = ensureDefaultChecks(merged);
+    saveProgress(changed ? next : merged);
+
+    // Initialise asking price input from stored value (once)
+    setAskingPriceInput((prev) => {
+      if (prev && prev.trim().length > 0) return prev;
+      if (askingPrice && askingPrice > 0) return String(Math.round(askingPrice));
+      return "";
+    });
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeScanId]);
 
   const parsedAskingPrice = useMemo(() => {
     return parseAskingPrice(askingPriceInput);
   }, [askingPriceInput]);
 
-  // Persist default check values so Summary matches what user saw in the UI
-  useEffect(() => {
-    const latest: any = loadProgress();
-    const { changed, next } = ensureDefaultChecks(latest);
-
-    if (!changed) return;
-
-    saveProgress(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Persist asking price into progress as user types
   useEffect(() => {
-    const latest: any = loadProgress();
+    const latest: any = loadProgress() ?? {};
     const current =
       typeof latest?.askingPrice === "number" ? latest.askingPrice : null;
 
@@ -304,10 +349,13 @@ export default function InPersonSummary() {
 
     saveProgress({
       ...(latest ?? {}),
+      type: "in-person",
+      scanId: activeScanId,
+      step: "summary",
       askingPrice: parsedAskingPrice,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parsedAskingPrice]);
+  }, [parsedAskingPrice, activeScanId]);
 
   const concerns = useMemo(() => countConcerns(checks), [checks]);
   const unsure = useMemo(() => countUnsure(checks), [checks]);
@@ -329,10 +377,6 @@ export default function InPersonSummary() {
   const band = useMemo(() => scoreBand(score), [score]);
   const bandTone = toneClasses(band.tone);
   const verdictTone = toneClasses(verdictCopy.tone);
-
-  const [saving, setSaving] = useState(false);
-  const [authReady, setAuthReady] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -359,7 +403,7 @@ export default function InPersonSummary() {
   async function handleSaveAndContinue() {
     if (!activeScanId) {
       alert("Missing scan id — please restart the inspection.");
-      navigate("/scan/in-person/start");
+      navigate("/scan/in-person/start", { replace: true });
       return;
     }
 
@@ -371,19 +415,25 @@ export default function InPersonSummary() {
 
       if (!session) {
         alert("Please sign in to continue.");
-        navigate("/signin");
+        navigate("/signin", { replace: true });
         return;
       }
 
-      const latest: any = loadProgress();
-      const { changed, next } = ensureDefaultChecks(latest);
+      const latest: any = loadProgress() ?? {};
+      const merged = {
+        ...(latest ?? {}),
+        type: "in-person",
+        scanId: activeScanId,
+        step: "summary",
+        askingPrice: parsedAskingPrice,
+      };
 
-      // Make sure saved scan includes the corrected check defaults
-      if (changed) {
-        saveProgress(next);
-      }
+      const { changed, next } = ensureDefaultChecks(merged);
 
-      const progressForSave = changed ? next : latest;
+      if (changed) saveProgress(next);
+      else saveProgress(merged);
+
+      const progressForSave = changed ? next : merged;
 
       const title = buildTitleFromProgress(progressForSave);
       const thumbnail = getThumbnailFromPhotos(progressForSave?.photos ?? []);
@@ -433,8 +483,30 @@ export default function InPersonSummary() {
         fromOnlineScan,
       });
 
-      // 🔥 IMPORTANT: enforce unlock step so credit gate always happens
-      navigate(`/scan/in-person/unlock/${activeScanId}`);
+      // If already unlocked, go straight to analyzing (never Home)
+      const unlocked = await hasUnlockForScan(activeScanId);
+
+      if (unlocked) {
+        saveProgress({
+          ...(loadProgress() ?? {}),
+          type: "in-person",
+          scanId: activeScanId,
+          step: "analyzing",
+        });
+
+        navigate(`/scan/in-person/analyzing/${activeScanId}`, { replace: true });
+        return;
+      }
+
+      // Otherwise, enforce unlock route (consistent)
+      saveProgress({
+        ...(loadProgress() ?? {}),
+        type: "in-person",
+        scanId: activeScanId,
+        step: "unlock",
+      });
+
+      navigate(`/scan/in-person/unlock/${activeScanId}`, { replace: true });
     } catch (e) {
       console.error("[InPersonSummary] save failed:", e);
       alert("Failed to save scan. Please try again.");
@@ -448,10 +520,16 @@ export default function InPersonSummary() {
       return;
     }
     clearProgress();
-    navigate("/scan/in-person/start");
+    navigate("/scan/in-person/start", { replace: true });
   }
 
   function handleDoDriveNow() {
+    saveProgress({
+      ...(loadProgress() ?? {}),
+      type: "in-person",
+      scanId: activeScanId,
+      step: "checks_drive",
+    });
     navigate("/scan/in-person/checks/drive-intro");
   }
 
@@ -605,9 +683,11 @@ export default function InPersonSummary() {
                   Evidence considered
                 </p>
                 <p className="text-sm text-slate-400 mt-1 leading-relaxed">
-                  This report is based on the information you recorded during the inspection:
-                  your marked concerns, items you selected as unsure, your notes, and any photos captured.
-                  Items you did not record are treated as not assessed (not as positive or negative).
+                  This report is based on the information you recorded during
+                  the inspection: your marked concerns, items you selected as
+                  unsure, your notes, and any photos captured. Items you did not
+                  record are treated as not assessed (not as positive or
+                  negative).
                 </p>
               </div>
             </div>
@@ -723,9 +803,9 @@ export default function InPersonSummary() {
                     <span className="text-slate-200 font-semibold">
                       Buyer-safe logic:
                     </span>{" "}
-                    CarVerity won’t “fill in gaps”. If you marked items as unsure,
-                    the report treats them as questions to clarify — not automatic
-                    negatives.
+                    CarVerity won’t “fill in gaps”. If you marked items as
+                    unsure, the report treats them as questions to clarify — not
+                    automatic negatives.
                   </p>
                 </div>
               </div>
@@ -765,7 +845,8 @@ export default function InPersonSummary() {
                 Sanity-check signal
               </p>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                A grounded read on whether the asking price fits what you recorded.
+                A grounded read on whether the asking price fits what you
+                recorded.
               </p>
             </div>
           </div>
@@ -795,7 +876,15 @@ export default function InPersonSummary() {
             </button>
 
             <button
-              onClick={() => navigate("/scan/in-person/checks/intro")}
+              onClick={() => {
+                saveProgress({
+                  ...(loadProgress() ?? {}),
+                  type: "in-person",
+                  scanId: activeScanId,
+                  step: "checks_intro",
+                });
+                navigate("/scan/in-person/checks/intro");
+              }}
               className="rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200 inline-flex items-center gap-2"
             >
               <ClipboardCheck className="h-4 w-4 text-slate-300" />
@@ -829,7 +918,7 @@ export default function InPersonSummary() {
             </p>
             <div className="mt-3">
               <button
-                onClick={() => navigate("/signin")}
+                onClick={() => navigate("/signin", { replace: true })}
                 className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-black font-semibold px-4 py-2 text-sm"
               >
                 Sign in

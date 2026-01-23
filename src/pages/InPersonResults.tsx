@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "../supabaseClient";
-import { loadProgress } from "../utils/scanProgress";
+import { loadProgress, saveProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadScanById } from "../utils/scanStorage";
 
@@ -200,6 +200,7 @@ export default function InPersonResults() {
   /* -------------------------------------------------------
      ENFORCE PAYWALL (ledger reference check)
      Must have: credit_ledger row for this user + scan reference
+     Also: must not redirect until we finish checking.
   ------------------------------------------------------- */
   useEffect(() => {
     let cancelled = false;
@@ -253,6 +254,9 @@ export default function InPersonResults() {
           }
           return;
         }
+      } catch (e: any) {
+        console.error("[Results] Unlock check exception:", e);
+        if (!cancelled) setUnlockError("Could not verify unlock status.");
       } finally {
         if (!cancelled) setCheckingUnlock(false);
       }
@@ -296,6 +300,25 @@ export default function InPersonResults() {
 
   const progressFallback: any = loadProgress();
   const progress: any = saved?.progressSnapshot ?? progressFallback ?? {};
+
+  /* -------------------------------------------------------
+     Persist "where we are" so resume works reliably.
+     This fixes cases where users return and get bounced.
+  ------------------------------------------------------- */
+  useEffect(() => {
+    try {
+      const current: any = loadProgress() ?? {};
+      const next = {
+        ...current,
+        scanId,
+        type: "in_person",
+        step: "results",
+      };
+      saveProgress(next);
+    } catch (e) {
+      console.warn("[Results] Failed to save progress step:", e);
+    }
+  }, [scanId]);
 
   /* -------------------------------------------------------
      Analysis (prefer persisted analysis)
@@ -979,7 +1002,7 @@ export default function InPersonResults() {
             Things you weren’t sure about
           </h2>
 
-          <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6">
+        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6">
             <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
               {uncertaintyFactors.map((u, i) => (
                 <li key={i}>{UncertaintyText(u)}</li>
@@ -1104,7 +1127,7 @@ export default function InPersonResults() {
 
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
-              onClick={() => navigate("/scan/in-person/print")}
+              onClick={() => navigate(`/scan/in-person/print/${scanId}`)}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-200 hover:bg-white text-black font-semibold px-4 py-3 text-sm"
             >
               <Printer className="h-4 w-4" />
@@ -1154,7 +1177,7 @@ export default function InPersonResults() {
         </button>
 
         <button
-          onClick={() => navigate("/scan/in-person/print")}
+          onClick={() => navigate(`/scan/in-person/print/${scanId}`)}
           className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
         >
           <Printer className="h-4 w-4" />

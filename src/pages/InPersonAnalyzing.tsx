@@ -1,7 +1,9 @@
+// src/pages/InPersonAnalyzing.tsx
+
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
-import { loadProgress, saveProgress } from "../utils/scanProgress";
+import { loadProgress, saveProgress, clearProgress } from "../utils/scanProgress";
 import { saveScan } from "../utils/scanStorage";
 import { supabase } from "../supabaseClient";
 
@@ -11,6 +13,36 @@ function vehicleTitleFromProgress(p: any): string {
   const model = p?.vehicleModel ?? p?.vehicle?.model ?? "";
   const parts = [year, make, model].filter(Boolean);
   return parts.length ? parts.join(" ") : "In-person inspection";
+}
+
+async function hasUnlockForScan(scanId: string): Promise<boolean> {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError) {
+    console.warn("[Analyzing] getUser error:", userError.message);
+  }
+
+  if (!user) return false;
+
+  const reference = `scan:${scanId}`;
+
+  const { data, error } = await supabase
+    .from("credit_ledger")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("event_type", "in_person_scan_completed")
+    .eq("reference", reference)
+    .limit(1);
+
+  if (error) {
+    console.error("[Analyzing] Unlock check failed:", error);
+    return false;
+  }
+
+  return Array.isArray(data) && data.length > 0;
 }
 
 export default function InPersonAnalyzing() {
@@ -36,15 +68,15 @@ export default function InPersonAnalyzing() {
           return;
         }
 
-        // Ensure scanId is persisted
-        if (!progress?.scanId || progress.scanId !== scanIdSafe) {
-          saveProgress({
-            ...(progress ?? {}),
-            scanId: scanIdSafe,
-          });
-        }
+        // Always persist scanId + step for resume safety
+        saveProgress({
+          ...(progress ?? {}),
+          type: "in-person",
+          scanId: scanIdSafe,
+          step: "analyzing",
+        });
 
-        // Auth required (paid report experience)
+        // Auth required
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -54,15 +86,31 @@ export default function InPersonAnalyzing() {
           return;
         }
 
+        // 🔒 Enforce unlock BEFORE generating report
+        const unlocked = await hasUnlockForScan(scanIdSafe);
+        if (!unlocked) {
+          saveProgress({
+            ...(loadProgress() ?? {}),
+            type: "in-person",
+            scanId: scanIdSafe,
+            step: "unlock",
+          });
+
+          navigate(`/scan/in-person/unlock/${scanIdSafe}`, { replace: true });
+          return;
+        }
+
+        const latestProgress: any = loadProgress() ?? progress;
+
         // Generate analysis (pure function)
         const analysis = analyseInPersonInspection({
-          ...(progress ?? {}),
+          ...(latestProgress ?? {}),
           scanId: scanIdSafe,
         });
 
         // Persist a completed scan record for reload-safe results
-        const firstPhoto = Array.isArray(progress?.photos)
-          ? progress.photos[0]?.dataUrl
+        const firstPhoto = Array.isArray(latestProgress?.photos)
+          ? latestProgress.photos[0]?.dataUrl
           : null;
 
         const concernsCount = Array.isArray(analysis?.risks)
@@ -73,28 +121,32 @@ export default function InPersonAnalyzing() {
           ? (analysis as any).uncertaintyFactors.length
           : 0;
 
-        const imperfectionsCount = Array.isArray(progress?.imperfections)
-          ? progress.imperfections.length
+        const imperfectionsCount = Array.isArray(latestProgress?.imperfections)
+          ? latestProgress.imperfections.length
           : 0;
 
-        const photosCount = Array.isArray(progress?.photos)
-          ? progress.photos.length
+        const photosCount = Array.isArray(latestProgress?.photos)
+          ? latestProgress.photos.length
           : 0;
 
-        saveScan({
+        await saveScan({
           id: scanIdSafe,
           type: "in-person",
-          title: vehicleTitleFromProgress(progress),
+          title: vehicleTitleFromProgress(latestProgress),
           createdAt: new Date().toISOString(),
           vehicle: {
-            year: progress?.vehicleYear ? String(progress.vehicleYear) : undefined,
-            make: progress?.vehicleMake,
-            model: progress?.vehicleModel,
-            variant: progress?.vehicleVariant,
+            year: latestProgress?.vehicleYear
+              ? String(latestProgress.vehicleYear)
+              : undefined,
+            make: latestProgress?.vehicleMake,
+            model: latestProgress?.vehicleModel,
+            variant: latestProgress?.vehicleVariant,
           },
           thumbnail: firstPhoto || null,
           askingPrice:
-            typeof progress?.askingPrice === "number" ? progress.askingPrice : null,
+            typeof latestProgress?.askingPrice === "number"
+              ? latestProgress.askingPrice
+              : null,
           score:
             typeof analysis?.confidenceScore === "number"
               ? analysis.confidenceScore
@@ -103,7 +155,7 @@ export default function InPersonAnalyzing() {
           unsure: unsureCount,
           imperfectionsCount,
           photosCount,
-          fromOnlineScan: Boolean(progress?.fromOnlineScan),
+          fromOnlineScan: Boolean(latestProgress?.fromOnlineScan),
           completed: true,
           history: [
             {
@@ -112,11 +164,22 @@ export default function InPersonAnalyzing() {
             },
           ],
           analysis,
-          progressSnapshot: progress,
+          progressSnapshot: latestProgress,
         });
 
-        // Short delay so it feels deliberate, without wasting time
-        await new Promise((r) => setTimeout(r, 1200));
+        // Mark flow complete + clear local progress so it can't loop back into inspection
+        saveProgress({
+          ...(loadProgress() ?? {}),
+          type: "in-person",
+          scanId: scanIdSafe,
+          step: "completed",
+        });
+
+        // Clear progress after save so resume doesn't re-enter analyzing
+        clearProgress();
+
+        // Short delay so it feels deliberate
+        await new Promise((r) => setTimeout(r, 900));
 
         if (!cancelled) {
           navigate(`/scan/in-person/results/${scanIdSafe}`, { replace: true });
@@ -138,7 +201,9 @@ export default function InPersonAnalyzing() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100 px-6">
         <div className="max-w-md text-center space-y-4">
-          <h1 className="text-xl font-semibold">We couldn’t generate the report</h1>
+          <h1 className="text-xl font-semibold">
+            We couldn’t generate the report
+          </h1>
           <p className="text-sm text-slate-400">
             Your inspection data is safe. Please return to the summary and try
             again.
@@ -173,7 +238,9 @@ export default function InPersonAnalyzing() {
           </p>
         </div>
 
-        <p className="text-xs text-slate-500">This usually takes around 10 seconds.</p>
+        <p className="text-xs text-slate-500">
+          This usually takes around 10 seconds.
+        </p>
       </div>
     </div>
   );
