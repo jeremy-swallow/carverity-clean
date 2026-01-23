@@ -16,7 +16,12 @@ export type ScanProgress = {
 
   checks?: Record<string, CheckAnswer>;
   photos?: Array<{ id: string; dataUrl: string; stepId: string }>;
-  followUpPhotos?: Array<{ id: string; dataUrl: string; stepId: string; note?: string }>;
+  followUpPhotos?: Array<{
+    id: string;
+    dataUrl: string;
+    stepId: string;
+    note?: string;
+  }>;
   imperfections?: Array<{
     id: string;
     label?: string;
@@ -166,6 +171,95 @@ function titleFromId(id: string) {
 
 function asOneLine(s: string) {
   return s.replace(/\s+/g, " ").trim();
+}
+
+function normKey(s: string) {
+  return asOneLine(String(s ?? ""))
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Deduplicate imperfections so the report doesn't repeat itself.
+ * We combine locations into a single "Recorded in: ..." style location string.
+ */
+function dedupeImperfections(
+  imperfections: NonNullable<ScanProgress["imperfections"]>
+): NonNullable<ScanProgress["imperfections"]> {
+  const list = Array.isArray(imperfections) ? imperfections : [];
+  if (list.length <= 1) return list;
+
+  type Agg = {
+    id: string;
+    label?: string;
+    severity?: "minor" | "moderate" | "major";
+    note?: string;
+    locations: string[];
+  };
+
+  const map = new Map<string, Agg>();
+
+  for (const imp of list) {
+    const label = (imp.label ?? "").trim();
+    const note = (imp.note ?? "").trim();
+    const sev = imp.severity ?? "minor";
+
+    // Prefer label if present, else fall back to id
+    const baseId = (imp.id ?? "").trim();
+    const identity = normKey(label || baseId || "imperfection");
+    const noteKey = normKey(note);
+
+    // Key includes severity so "minor" and "moderate" don't merge incorrectly
+    const key = `${identity}__${sev}__${noteKey}`;
+
+    const loc = (imp.location ?? "").trim();
+    const locClean = loc ? asOneLine(loc) : "";
+
+    const existing = map.get(key);
+
+    if (!existing) {
+      map.set(key, {
+        id: baseId || identity || `imp-${Math.random().toString(16).slice(2)}`,
+        label: label || undefined,
+        severity: sev,
+        note: note || undefined,
+        locations: locClean ? [locClean] : [],
+      });
+    } else {
+      if (locClean && !existing.locations.includes(locClean)) {
+        existing.locations.push(locClean);
+      }
+    }
+  }
+
+  const merged = Array.from(map.values()).map((a) => {
+    const location =
+      a.locations.length > 1
+        ? a.locations.join(" • ")
+        : a.locations.length === 1
+        ? a.locations[0]
+        : undefined;
+
+    return {
+      id: a.id,
+      label: a.label,
+      severity: a.severity,
+      note: a.note,
+      location,
+    };
+  });
+
+  // Sort: major -> moderate -> minor, then label
+  merged.sort((a, b) => {
+    const wA = severityWeight(a.severity);
+    const wB = severityWeight(b.severity);
+    if (wB !== wA) return wB - wA;
+    return normKey(a.label ?? a.id).localeCompare(normKey(b.label ?? b.id));
+  });
+
+  return merged;
 }
 
 /* =========================================================
@@ -518,12 +612,11 @@ function buildEvidenceBullets(args: {
           : `${label}: couldn't confirm.`
       );
     } else {
-      // keep "ok" lighter to avoid noise; only include if there are very few bullets overall
-      // (we’ll decide later)
+      // keep "ok" lighter to avoid noise
     }
   }
 
-  // Imperfections (explicit user-recorded)
+  // Imperfections (explicit user-recorded) — NOW DEDUPED BEFORE THIS IS CALLED
   const impSorted = [...(imperfections ?? [])].sort((a, b) => {
     const wA = severityWeight(a.severity);
     const wB = severityWeight(b.severity);
@@ -552,8 +645,7 @@ function buildEvidenceBullets(args: {
   if (followUps.length > 0)
     bullets.push(`Follow-up notes/photos: ${followUps.length}.`);
 
-  // If we ended up with nothing meaningful, include a minimal "ok" snapshot so the user
-  // still feels guided (not empty).
+  // If we ended up with nothing meaningful, include a minimal "ok" snapshot
   if (bullets.length === 0) {
     const okItems = Object.entries(checks)
       .filter(([, v]) => v?.value === "ok")
@@ -746,7 +838,10 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
 
   const photos = progress.photos ?? [];
   const followUps = progress.followUpPhotos ?? [];
-  const imperfections = progress.imperfections ?? [];
+
+  // IMPORTANT: dedupe imperfections to prevent repeated report items
+  const imperfectionsRaw = progress.imperfections ?? [];
+  const imperfections = dedupeImperfections(imperfectionsRaw);
 
   const askingPriceAud =
     typeof progress.askingPrice === "number" &&
@@ -851,7 +946,9 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     } else if (i.severity === "moderate") {
       risks.push({
         id: `imp-${i.id}`,
-        label: i.label ? `Observation: ${i.label}` : "Moderate observation recorded",
+        label: i.label
+          ? `Observation: ${i.label}`
+          : "Moderate observation recorded",
         explanation:
           i.note ||
           "A moderate observation was recorded. It may influence negotiation depending on severity and buyer preference.",
