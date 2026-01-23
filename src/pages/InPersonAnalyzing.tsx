@@ -108,11 +108,6 @@ export default function InPersonAnalyzing() {
           scanId: scanIdSafe,
         });
 
-        // Persist a completed scan record for reload-safe results
-        const firstPhoto = Array.isArray(latestProgress?.photos)
-          ? latestProgress.photos[0]?.dataUrl
-          : null;
-
         const concernsCount = Array.isArray(analysis?.risks)
           ? analysis.risks.filter((r: any) => r?.severity !== "info").length
           : 0;
@@ -129,7 +124,10 @@ export default function InPersonAnalyzing() {
           ? latestProgress.photos.length
           : 0;
 
-        await saveScan({
+        // IMPORTANT:
+        // DO NOT store base64 images in localStorage (quota will be exceeded).
+        // Thumbnail must be null unless you generate a tiny compressed one.
+        saveScan({
           id: scanIdSafe,
           type: "in-person",
           title: vehicleTitleFromProgress(latestProgress),
@@ -142,7 +140,7 @@ export default function InPersonAnalyzing() {
             model: latestProgress?.vehicleModel,
             variant: latestProgress?.vehicleVariant,
           },
-          thumbnail: firstPhoto || null,
+          thumbnail: null,
           askingPrice:
             typeof latestProgress?.askingPrice === "number"
               ? latestProgress.askingPrice
@@ -169,8 +167,7 @@ export default function InPersonAnalyzing() {
 
         // IMPORTANT:
         // Do NOT set resume step to results.
-        // Results is an end-state page and Home will clear progress if it sees results.
-        // Resume should take the user back to summary (or their last meaningful step).
+        // Resume should take the user back to summary (or last meaningful step).
         saveProgress({
           ...(loadProgress() ?? {}),
           type: "in-person",

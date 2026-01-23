@@ -8,7 +8,6 @@ import {
   XCircle,
   BarChart3,
   Eye,
-  Camera,
   ClipboardCheck,
   HelpCircle,
   ArrowRight,
@@ -189,6 +188,8 @@ export default function InPersonResults() {
   const [checkingUnlock, setCheckingUnlock] = useState(true);
   const [unlockError, setUnlockError] = useState<string | null>(null);
 
+  const [analysisRetrying, setAnalysisRetrying] = useState(false);
+
   /* -------------------------------------------------------
      Routing safety
   ------------------------------------------------------- */
@@ -266,7 +267,7 @@ export default function InPersonResults() {
 
   /* -------------------------------------------------------
      Load saved scan (preferred) + progress fallback
-     NOTE: These hooks must ALWAYS run (no early returns above),
+     NOTE: Hooks must ALWAYS run (no early returns),
      otherwise React throws hooks-order error (#310).
   ------------------------------------------------------- */
   const saved = useMemo(() => {
@@ -303,25 +304,17 @@ export default function InPersonResults() {
     }
   }, [saved, progress]);
 
-  // If analysis is missing/invalid, recover gracefully
-  useEffect(() => {
-    if (!scanIdSafe) return;
-    if (checkingUnlock) return;
-    if (unlockError) return;
-
+  const analysisLooksValid = useMemo(() => {
     const risks = (analysis as any)?.risks;
     const verdict = (analysis as any)?.verdict;
 
-    const ok =
+    return (
       Boolean(analysis) &&
       Array.isArray(risks) &&
       typeof verdict === "string" &&
-      verdict.length > 0;
-
-    if (!ok) {
-      navigate(`/scan/in-person/analyzing/${scanIdSafe}`, { replace: true });
-    }
-  }, [analysis, scanIdSafe, navigate, checkingUnlock, unlockError]);
+      verdict.length > 0
+    );
+  }, [analysis]);
 
   /* -------------------------------------------------------
      Derived view data
@@ -330,6 +323,10 @@ export default function InPersonResults() {
     ? ((analysis as any).risks as any[])
     : [];
 
+  // NOTE:
+  // progressSnapshot strips dataUrl fields (for quota safety),
+  // so photos will usually NOT exist on reload.
+  // That's OK — photos are optional on the report.
   const photos: string[] = Array.isArray(progress?.photos)
     ? progress.photos
         .map((p: any) => p?.dataUrl)
@@ -353,7 +350,11 @@ export default function InPersonResults() {
     typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
 
   const confidence = clamp(Number((analysis as any)?.confidenceScore ?? 0), 0, 100);
-  const coverage = clamp(Number((analysis as any)?.completenessScore ?? 0), 0, 100);
+  const coverage = clamp(
+    Number((analysis as any)?.completenessScore ?? 0),
+    0,
+    100
+  );
 
   /* -------------------------------------------------------
      Explicit evidence lists
@@ -533,9 +534,7 @@ export default function InPersonResults() {
   }, [criticalRisks, moderateRisks, uncertaintyFactors.length]);
 
   const whyThisVerdict =
-    (analysis as any)?.whyThisVerdict ||
-    (analysis as any)?.verdictReason ||
-    "";
+    (analysis as any)?.whyThisVerdict || (analysis as any)?.verdictReason || "";
 
   const topSignals = useMemo(() => {
     const signals: Array<{
@@ -669,13 +668,36 @@ export default function InPersonResults() {
     navigate("/scan/in-person/start");
   }
 
+  function goToPrint() {
+    navigate(`/scan/in-person/print/${scanIdSafe}`);
+  }
+
+  function goToSummary() {
+    // Your App.tsx route is /scan/in-person/summary (no scanId param)
+    navigate("/scan/in-person/summary");
+  }
+
+  async function retryAnalysis() {
+    if (!scanIdSafe) return;
+    setAnalysisRetrying(true);
+    try {
+      navigate(`/scan/in-person/analyzing/${scanIdSafe}`, { replace: true });
+    } finally {
+      setAnalysisRetrying(false);
+    }
+  }
+
   /* =======================================================
      UI (NO EARLY RETURNS — prevents React #310)
   ======================================================= */
   const showLoading = !scanIdSafe || checkingUnlock;
   const showError = Boolean(unlockError);
   const canRenderReport =
-    Boolean(scanIdSafe) && !checkingUnlock && !unlockError && Boolean(analysis);
+    Boolean(scanIdSafe) &&
+    !checkingUnlock &&
+    !unlockError &&
+    Boolean(analysis) &&
+    analysisLooksValid;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-16 space-y-14">
@@ -698,16 +720,32 @@ export default function InPersonResults() {
       )}
 
       {!showLoading && !showError && !canRenderReport && (
-        <div className="max-w-3xl mx-auto px-0 py-6 space-y-3">
-          <p className="text-sm text-slate-400">
-            Rebuilding your report…
+        <div className="max-w-3xl mx-auto px-0 py-6 space-y-4">
+          <p className="text-sm text-slate-300 font-semibold">
+            We couldn’t rebuild this report
           </p>
-          <button
-            onClick={() => navigate(`/scan/in-person/analyzing/${scanIdSafe}`, { replace: true })}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-200 hover:bg-white text-black font-semibold px-4 py-2 text-sm"
-          >
-            Retry analysis
-          </button>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            This can happen if the scan was saved without a full snapshot, or if
+            storage was cleared. You can retry generating the report from your
+            recorded inspection.
+          </p>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={retryAnalysis}
+              disabled={analysisRetrying}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-200 hover:bg-white disabled:opacity-60 text-black font-semibold px-4 py-2 text-sm"
+            >
+              Retry analysis
+            </button>
+
+            <button
+              onClick={goToSummary}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
+            >
+              Back to summary
+            </button>
+          </div>
         </div>
       )}
 
@@ -991,7 +1029,7 @@ export default function InPersonResults() {
                 </button>
 
                 <button
-                  onClick={() => navigate(`/scan/in-person/summary/${scanIdSafe}`)}
+                  onClick={goToSummary}
                   className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
                 >
                   Back to summary
@@ -1161,7 +1199,7 @@ export default function InPersonResults() {
           {/* PHOTOS */}
           <section className="space-y-6">
             <div className="flex items-center gap-3 text-slate-300">
-              <Camera className="h-5 w-5 text-slate-400" />
+              <Wrench className="h-5 w-5 text-slate-400" />
               <h2 className="text-lg font-semibold">Photos</h2>
             </div>
 
@@ -1178,7 +1216,8 @@ export default function InPersonResults() {
               </div>
             ) : (
               <p className="text-sm text-slate-400">
-                You didn’t take any photos during this inspection.
+                Photos aren’t available here (they aren’t stored in the report for
+                storage safety).
               </p>
             )}
           </section>
@@ -1197,7 +1236,7 @@ export default function InPersonResults() {
 
               <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <button
-                  onClick={() => navigate(`/scan/in-person/print/${scanIdSafe}`)}
+                  onClick={goToPrint}
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-200 hover:bg-white text-black font-semibold px-4 py-3 text-sm"
                 >
                   <Printer className="h-4 w-4" />
@@ -1247,7 +1286,7 @@ export default function InPersonResults() {
             </button>
 
             <button
-              onClick={() => navigate(`/scan/in-person/print/${scanIdSafe}`)}
+              onClick={goToPrint}
               className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
             >
               <Printer className="h-4 w-4" />
