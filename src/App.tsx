@@ -30,7 +30,6 @@ import CreditsHistory from "./pages/CreditsHistory";
    Online scan flow
 ======================= */
 import OnlineStart from "./pages/OnlineStart";
-import OnlineResultsNext from "./pages/OnlineResults_NEXT";
 import OnlineReport from "./pages/OnlineReport";
 
 /* =======================
@@ -88,9 +87,9 @@ export default function App() {
 
         {/* =======================
            Online scan flow
+           (kept minimal / optional)
         ======================= */}
         <Route path="/scan/online/start" element={<OnlineStart />} />
-        <Route path="/scan/online/results" element={<OnlineResultsNext />} />
         <Route path="/scan/online/report" element={<OnlineReport />} />
 
         {/* =======================
@@ -134,7 +133,14 @@ export default function App() {
           path="/scan/in-person/analyzing"
           element={<InPersonAnalyzing />}
         />
-        <Route path="/scan/in-person/results" element={<InPersonResults />} />
+
+        {/* IMPORTANT:
+           Results expects /:scanId in the URL
+        */}
+        <Route
+          path="/scan/in-person/results/:scanId"
+          element={<InPersonResults />}
+        />
 
         <Route path="/scan/in-person/unlock" element={<InPersonUnlock />} />
         <Route
