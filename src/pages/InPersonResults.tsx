@@ -303,7 +303,8 @@ export default function InPersonResults() {
 
   /* -------------------------------------------------------
      Persist "where we are" so resume works reliably.
-     This fixes cases where users return and get bounced.
+     IMPORTANT: step MUST be a valid route, not "results".
+     Also: type MUST match ScanJourneyType ("in-person").
   ------------------------------------------------------- */
   useEffect(() => {
     try {
@@ -311,8 +312,8 @@ export default function InPersonResults() {
       const next = {
         ...current,
         scanId,
-        type: "in_person",
-        step: "results",
+        type: "in-person",
+        step: `/scan/in-person/results/${scanId}`,
       };
       saveProgress(next);
     } catch (e) {
@@ -328,26 +329,51 @@ export default function InPersonResults() {
     return analyseInPersonInspection(progress);
   }, [saved, progress]);
 
-  const photos: string[] = (progress?.photos ?? []).map((p: any) => p.dataUrl);
+  // If analysis is missing/invalid, recover gracefully
+  useEffect(() => {
+    const risks = (analysis as any)?.risks;
+    const verdict = (analysis as any)?.verdict;
 
-  const criticalRisks = analysis.risks.filter((r) => r.severity === "critical");
-  const moderateRisks = analysis.risks.filter((r) => r.severity === "moderate");
+    const ok =
+      Boolean(analysis) &&
+      Array.isArray(risks) &&
+      typeof verdict === "string" &&
+      verdict.length > 0;
+
+    if (!ok) {
+      // If we can't render results, go back to analyzing to regenerate.
+      navigate(`/scan/in-person/analyzing/${scanId}`, { replace: true });
+    }
+  }, [analysis, scanId, navigate]);
+
+  const risksSafe: any[] = Array.isArray((analysis as any)?.risks)
+    ? ((analysis as any).risks as any[])
+    : [];
+
+  const photos: string[] = Array.isArray(progress?.photos)
+    ? progress.photos
+        .map((p: any) => p?.dataUrl)
+        .filter((x: any) => typeof x === "string" && x.length > 0)
+    : [];
+
+  const criticalRisks = risksSafe.filter((r) => r?.severity === "critical");
+  const moderateRisks = risksSafe.filter((r) => r?.severity === "moderate");
 
   const uncertaintyFactors: unknown[] = Array.isArray(
-    (analysis as any).uncertaintyFactors
+    (analysis as any)?.uncertaintyFactors
   )
     ? ((analysis as any).uncertaintyFactors as unknown[])
     : [];
 
-  const evidenceSummary = (analysis as any).evidenceSummary;
+  const evidenceSummary = (analysis as any)?.evidenceSummary;
   const evidenceText = pickFirstUsefulText(evidenceSummary);
   const evidenceBullets = extractEvidenceBullets(evidenceSummary);
 
   const askingPrice =
     typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
 
-  const confidence = clamp(Number(analysis.confidenceScore ?? 0), 0, 100);
-  const coverage = clamp(Number(analysis.completenessScore ?? 0), 0, 100);
+  const confidence = clamp(Number((analysis as any)?.confidenceScore ?? 0), 0, 100);
+  const coverage = clamp(Number((analysis as any)?.completenessScore ?? 0), 0, 100);
 
   /* -------------------------------------------------------
      Explicit evidence lists
@@ -426,34 +452,44 @@ export default function InPersonResults() {
   }, [progress]);
 
   /* -------------------------------------------------------
-     Verdict meta
+     Verdict meta (safe fallback)
   ------------------------------------------------------- */
-  const verdictMeta = {
-    proceed: {
-      icon: <CheckCircle2 className="h-6 w-6 text-emerald-400" />,
-      title: "Looks OK to continue",
-      tone: "border-emerald-500/40 bg-emerald-500/10",
-      posture:
-        "Based on what you recorded, there are no major red flags. Still do the normal checks before you buy.",
-      short: "Looks OK to continue",
-    },
-    caution: {
-      icon: <AlertTriangle className="h-6 w-6 text-amber-400" />,
-      title: "Continue only after a few checks",
-      tone: "border-amber-500/40 bg-amber-500/10",
-      posture:
-        "You recorded at least one concern or unsure item. Get clear answers before you commit.",
-      short: "Check a few things first",
-    },
-    "walk-away": {
-      icon: <XCircle className="h-6 w-6 text-red-400" />,
-      title: "Pause — walking away is reasonable",
-      tone: "border-red-500/40 bg-red-500/10",
-      posture:
-        "What you recorded suggests higher risk. If the seller can’t explain or prove key items, it’s OK to walk away.",
-      short: "Pause / walk away",
-    },
-  }[analysis.verdict];
+  const verdictKey = (analysis as any)?.verdict as
+    | "proceed"
+    | "caution"
+    | "walk-away"
+    | undefined;
+
+  const verdictMeta = useMemo(() => {
+    const map = {
+      proceed: {
+        icon: <CheckCircle2 className="h-6 w-6 text-emerald-400" />,
+        title: "Looks OK to continue",
+        tone: "border-emerald-500/40 bg-emerald-500/10",
+        posture:
+          "Based on what you recorded, there are no major red flags. Still do the normal checks before you buy.",
+        short: "Looks OK to continue",
+      },
+      caution: {
+        icon: <AlertTriangle className="h-6 w-6 text-amber-400" />,
+        title: "Continue only after a few checks",
+        tone: "border-amber-500/40 bg-amber-500/10",
+        posture:
+          "You recorded at least one concern or unsure item. Get clear answers before you commit.",
+        short: "Check a few things first",
+      },
+      "walk-away": {
+        icon: <XCircle className="h-6 w-6 text-red-400" />,
+        title: "Pause — walking away is reasonable",
+        tone: "border-red-500/40 bg-red-500/10",
+        posture:
+          "What you recorded suggests higher risk. If the seller can’t explain or prove key items, it’s OK to walk away.",
+        short: "Pause / walk away",
+      },
+    } as const;
+
+    return map[verdictKey ?? "caution"];
+  }, [verdictKey]);
 
   /* -------------------------------------------------------
      Next steps
@@ -494,7 +530,7 @@ export default function InPersonResults() {
     const qs: string[] = [];
 
     for (const r of [...criticalRisks, ...moderateRisks]) {
-      const label = (r.label || "").trim();
+      const label = (r?.label || "").trim();
       if (!label) continue;
 
       qs.push(
@@ -517,7 +553,9 @@ export default function InPersonResults() {
   }, [criticalRisks, moderateRisks, uncertaintyFactors.length]);
 
   const whyThisVerdict =
-    (analysis as any).whyThisVerdict || (analysis as any).verdictReason || "";
+    (analysis as any)?.whyThisVerdict ||
+    (analysis as any)?.verdictReason ||
+    "";
 
   const topSignals = useMemo(() => {
     const signals: Array<{
@@ -526,10 +564,10 @@ export default function InPersonResults() {
     }> = [];
 
     for (const r of criticalRisks.slice(0, 2)) {
-      signals.push({ label: r.label, tone: "critical" });
+      if (r?.label) signals.push({ label: r.label, tone: "critical" });
     }
     for (const r of moderateRisks.slice(0, 2)) {
-      signals.push({ label: r.label, tone: "moderate" });
+      if (r?.label) signals.push({ label: r.label, tone: "moderate" });
     }
 
     if (signals.length < 3 && uncertaintyFactors.length > 0) {
@@ -556,8 +594,7 @@ export default function InPersonResults() {
      Professional evidence copy
   ------------------------------------------------------- */
   const evidenceHeadline = useMemo(() => {
-    const concernCount = analysis.risks.filter((r) => r.severity !== "info")
-      .length;
+    const concernCount = risksSafe.filter((r) => r?.severity !== "info").length;
     const imperfectionCount = recordedImperfections.length;
     const photoCount = photos.length;
 
@@ -579,7 +616,7 @@ export default function InPersonResults() {
     return `This report was generated from ${parts.join(
       ", "
     )} recorded during your inspection.`;
-  }, [analysis.risks, recordedImperfections.length, photos.length]);
+  }, [risksSafe, recordedImperfections.length, photos.length]);
 
   const evidenceNotes = useMemo(() => {
     const lines: string[] = [];
@@ -623,9 +660,7 @@ export default function InPersonResults() {
     lines.push(`• Confidence: ${confidence}%`);
     lines.push(`• Coverage: ${coverage}%`);
     lines.push(
-      `• Concerns recorded: ${
-        analysis.risks.filter((r) => r.severity !== "info").length
-      }`
+      `• Concerns recorded: ${risksSafe.filter((r) => r?.severity !== "info").length}`
     );
     lines.push(`• Unsure items: ${uncertaintyFactors.length}`);
     lines.push("");
@@ -644,7 +679,7 @@ export default function InPersonResults() {
     verdictMeta.short,
     confidence,
     coverage,
-    analysis.risks,
+    risksSafe,
     uncertaintyFactors.length,
   ]);
 
@@ -750,7 +785,7 @@ export default function InPersonResults() {
               <span className="text-xs uppercase tracking-wide">Concerns</span>
             </div>
             <p className="mt-1 text-2xl font-semibold text-white">
-              {analysis.risks.filter((r) => r.severity !== "info").length}
+              {risksSafe.filter((r) => r?.severity !== "info").length}
             </p>
           </div>
 
@@ -925,7 +960,7 @@ export default function InPersonResults() {
             </button>
 
             <button
-              onClick={() => navigate("/scan/in-person/summary")}
+              onClick={() => navigate(`/scan/in-person/summary/${scanId}`)}
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
             >
               Back to summary
@@ -957,14 +992,16 @@ export default function InPersonResults() {
           </h2>
 
           <div className="space-y-4">
-            {criticalRisks.map((r) => (
+            {criticalRisks.map((r: any) => (
               <div
-                key={r.id}
+                key={String(r?.id ?? r?.label ?? Math.random())}
                 className="rounded-2xl border border-white/10 bg-slate-900/60 px-6 py-5"
               >
-                <p className="text-base font-semibold text-white">{r.label}</p>
+                <p className="text-base font-semibold text-white">
+                  {r?.label ?? "Concern"}
+                </p>
                 <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
-                  {r.explanation}
+                  {r?.explanation ?? ""}
                 </p>
               </div>
             ))}
@@ -980,14 +1017,16 @@ export default function InPersonResults() {
           </h2>
 
           <div className="space-y-4">
-            {moderateRisks.map((r) => (
+            {moderateRisks.map((r: any) => (
               <div
-                key={r.id}
+                key={String(r?.id ?? r?.label ?? Math.random())}
                 className="rounded-2xl border border-white/10 bg-slate-900/50 px-6 py-5"
               >
-                <p className="text-base font-medium text-slate-100">{r.label}</p>
+                <p className="text-base font-medium text-slate-100">
+                  {r?.label ?? "Item"}
+                </p>
                 <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
-                  {r.explanation}
+                  {r?.explanation ?? ""}
                 </p>
               </div>
             ))}
@@ -1002,7 +1041,7 @@ export default function InPersonResults() {
             Things you weren’t sure about
           </h2>
 
-        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6">
+          <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6">
             <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
               {uncertaintyFactors.map((u, i) => (
                 <li key={i}>{UncertaintyText(u)}</li>
@@ -1061,7 +1100,7 @@ export default function InPersonResults() {
               <div>
                 <div className="text-slate-500 text-xs">Flagged items</div>
                 <div className="text-white font-semibold">
-                  {analysis.risks.filter((r) => r.severity !== "info").length}
+                  {risksSafe.filter((r) => r?.severity !== "info").length}
                 </div>
               </div>
               <div>
