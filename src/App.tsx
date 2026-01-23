@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 
@@ -23,13 +25,6 @@ import Admin from "./pages/Admin";
 
 /* Credits */
 import CreditsHistory from "./pages/CreditsHistory";
-
-/* =======================
-   Online scan flow
-======================= */
-import OnlineStart from "./pages/OnlineStart";
-import OnlineResultsNext from "./pages/OnlineResults_NEXT";
-import OnlineReport from "./pages/OnlineReport";
 
 /* =======================
    In-person scan flow
@@ -83,13 +78,6 @@ export default function App() {
 
         {/* Admin */}
         <Route path="/admin" element={<Admin />} />
-
-        {/* =======================
-           Online scan flow
-        ======================= */}
-        <Route path="/scan/online/start" element={<OnlineStart />} />
-        <Route path="/scan/online/results" element={<OnlineResultsNext />} />
-        <Route path="/scan/online/report" element={<OnlineReport />} />
 
         {/* =======================
            In-person scan flow
