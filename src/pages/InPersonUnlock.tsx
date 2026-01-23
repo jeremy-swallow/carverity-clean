@@ -1,6 +1,6 @@
 // src/pages/InPersonUnlock.tsx
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { clearProgress } from "../utils/scanProgress";
 
@@ -11,12 +11,7 @@ function formatCredits(n: number | null) {
 
 export default function InPersonUnlock() {
   const navigate = useNavigate();
-  const { scanId: scanIdParam } = useParams<{ scanId?: string }>();
-  const [params] = useSearchParams();
-
-  const scanId = useMemo(() => {
-    return (scanIdParam || params.get("scanId") || "").trim();
-  }, [scanIdParam, params]);
+  const { scanId } = useParams<{ scanId?: string }>();
 
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,17 +78,16 @@ export default function InPersonUnlock() {
       return;
     }
 
+    const safeCredits = typeof credits === "number" ? credits : 0;
+
+    // Fast client-side gate (nice UX)
+    if (!loadingCredits && safeCredits <= 0) {
+      setUnlocking(false);
+      navigate(`/pricing?reason=no_credits&scanId=${encodeURIComponent(scanId)}`);
+      return;
+    }
+
     try {
-      /**
-       * IMPORTANT:
-       * We do NOT do a client-side "credits > 0" gate here anymore.
-       * It causes false redirects when credits state is stale.
-       *
-       * The server endpoint is the source of truth:
-       * - 200 = unlocked (credit spent)
-       * - 402 = no credits
-       * - 401 = not authenticated
-       */
       const res = await fetch("/api/mark-in-person-scan-completed", {
         method: "POST",
         headers: {
@@ -103,6 +97,7 @@ export default function InPersonUnlock() {
         body: JSON.stringify({ scanId }),
       });
 
+      // If server says NO_CREDITS, route to pricing
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         const serverError = data?.error as string | undefined;
@@ -126,6 +121,7 @@ export default function InPersonUnlock() {
         throw new Error("FAILED_TO_UNLOCK");
       }
 
+      // IMPORTANT:
       // Clear local scan progress so Home never shows "Resume inspection"
       try {
         clearProgress();
@@ -135,7 +131,8 @@ export default function InPersonUnlock() {
 
       await refreshCredits();
 
-      navigate(`/scan/in-person/results/${scanId}`);
+      // Premium flow: show analyzing screen briefly
+      navigate(`/scan/in-person/analyzing/${scanId}`, { replace: true });
     } catch (err) {
       console.error(err);
       setError("Something went wrong unlocking the report.");

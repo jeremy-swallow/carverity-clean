@@ -13,7 +13,11 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
+import {
+  loadProgress,
+  clearProgress,
+  saveProgress,
+} from "../utils/scanProgress";
 import { saveScan } from "../utils/scanStorage";
 
 type PricingVerdict = "missing" | "info" | "room" | "concern";
@@ -217,9 +221,10 @@ function ensureDefaultChecks(progress: any) {
     "adas-systems",
   ];
 
-  const existingChecks = progress?.checks && typeof progress.checks === "object"
-    ? progress.checks
-    : {};
+  const existingChecks =
+    progress?.checks && typeof progress.checks === "object"
+      ? progress.checks
+      : {};
 
   let changed = false;
   const nextChecks: Record<string, any> = { ...(existingChecks ?? {}) };
@@ -278,7 +283,7 @@ export default function InPersonSummary() {
     return parseAskingPrice(askingPriceInput);
   }, [askingPriceInput]);
 
-  // NEW: Persist default check values so Summary matches what user saw in the UI
+  // Persist default check values so Summary matches what user saw in the UI
   useEffect(() => {
     const latest: any = loadProgress();
     const { changed, next } = ensureDefaultChecks(latest);
@@ -366,7 +371,7 @@ export default function InPersonSummary() {
 
       if (!session) {
         alert("Please sign in to continue.");
-        navigate("/sign-in");
+        navigate("/signin");
         return;
       }
 
@@ -428,7 +433,8 @@ export default function InPersonSummary() {
         fromOnlineScan,
       });
 
-      navigate(`/scan/in-person/analyzing/${activeScanId}`);
+      // 🔥 IMPORTANT: enforce unlock step so credit gate always happens
+      navigate(`/scan/in-person/unlock/${activeScanId}`);
     } catch (e) {
       console.error("[InPersonSummary] save failed:", e);
       alert("Failed to save scan. Please try again.");
@@ -823,7 +829,7 @@ export default function InPersonSummary() {
             </p>
             <div className="mt-3">
               <button
-                onClick={() => navigate("/sign-in")}
+                onClick={() => navigate("/signin")}
                 className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-black font-semibold px-4 py-2 text-sm"
               >
                 Sign in

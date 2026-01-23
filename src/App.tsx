@@ -1,5 +1,3 @@
-// src/App.tsx
-
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout";
 
@@ -116,6 +114,7 @@ export default function App() {
         />
 
         <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
+
         <Route
           path="/scan/in-person/analyzing/:scanId"
           element={<InPersonAnalyzing />}
@@ -125,7 +124,11 @@ export default function App() {
           element={<InPersonResults />}
         />
 
-        <Route path="/scan/in-person/unlock" element={<InPersonUnlock />} />
+        {/* 🔥 FIX: unlock must include scanId */}
+        <Route
+          path="/scan/in-person/unlock/:scanId"
+          element={<InPersonUnlock />}
+        />
         <Route
           path="/scan/in-person/unlock/success"
           element={<InPersonUnlockSuccess />}
