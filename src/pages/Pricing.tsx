@@ -16,7 +16,6 @@ import {
   FileText,
   Timer,
 } from "lucide-react";
-import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 type PackKey = "single" | "three" | "five";
 
@@ -93,10 +92,13 @@ export default function Pricing() {
     [params]
   );
 
-  const reason = useMemo(() => params.get("reason") || "", [params]);
-  const scanIdFromQuery = useMemo(() => params.get("scanId") || "", [params]);
-
-  const cameFromNoCreditsGate = reason === "no_credits" && Boolean(scanIdFromQuery);
+  // NEW: capture scanId so we can send user back to where they came from
+  const scanId = useMemo(() => params.get("scanId") || "", [params]);
+  const returnTo = useMemo(() => {
+    // If scanId exists, return to unlock for that scan
+    if (scanId) return `/scan/in-person/unlock/${encodeURIComponent(scanId)}`;
+    return "";
+  }, [scanId]);
 
   async function refreshAuthAndCredits() {
     setLoadingCredits(true);
@@ -174,50 +176,24 @@ export default function Pricing() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [success]);
 
-  // If user came here from an in-person unlock gate, persist a resume-safe step.
-  useEffect(() => {
-    if (!cameFromNoCreditsGate) return;
-    if (!scanIdFromQuery) return;
-
-    const existing: any = loadProgress() ?? {};
-
-    // Only set if it looks like an in-person flow (or empty).
-    saveProgress({
-      ...(existing ?? {}),
-      type: "in-person",
-      scanId: scanIdFromQuery,
-      step: `/scan/in-person/unlock/${scanIdFromQuery}`,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cameFromNoCreditsGate, scanIdFromQuery]);
-
-  // Auto-continue after successful purchase if we have scanId and credits > 0
+  // NEW: After successful checkout, if we have credits and a return target,
+  // automatically take the user back into their scan flow.
   useEffect(() => {
     if (!success) return;
-    if (!cameFromNoCreditsGate) return;
-    if (!scanIdFromQuery) return;
-    if (!sessionReady || !isLoggedIn) return;
-    if (loadingCredits) return;
+    if (!sessionReady) return;
+    if (!isLoggedIn) return;
+    if (!returnTo) return;
 
     const safeCredits = typeof credits === "number" ? credits : 0;
     if (safeCredits <= 0) return;
 
-    // Give it a tiny moment so UI can show success, then continue.
+    // Small delay so the success UI is visible briefly
     const t = setTimeout(() => {
-      navigate(`/scan/in-person/unlock/${scanIdFromQuery}`, { replace: true });
+      navigate(returnTo, { replace: true });
     }, 650);
 
     return () => clearTimeout(t);
-  }, [
-    success,
-    cameFromNoCreditsGate,
-    scanIdFromQuery,
-    sessionReady,
-    isLoggedIn,
-    loadingCredits,
-    credits,
-    navigate,
-  ]);
+  }, [success, sessionReady, isLoggedIn, credits, returnTo, navigate]);
 
   // “Restore” UI fallback
   const inRestoreWindow =
@@ -246,9 +222,8 @@ export default function Pricing() {
         },
         body: JSON.stringify({
           pack,
-          // pass through scanId if user is mid-unlock
-          scanId: scanIdFromQuery || null,
-          reason: cameFromNoCreditsGate ? "no_credits" : null,
+          // NEW: pass scanId so Stripe success returns with scanId preserved
+          scanId: scanId || null,
         }),
       });
 
@@ -271,13 +246,6 @@ export default function Pricing() {
 
   const showCreditsLine = sessionReady;
 
-  const canContinueUnlock =
-    Boolean(scanIdFromQuery) &&
-    sessionReady &&
-    isLoggedIn &&
-    !loadingCredits &&
-    (credits ?? 0) > 0;
-
   return (
     <div className="max-w-6xl mx-auto px-4 py-20">
       {/* Header */}
@@ -298,60 +266,6 @@ export default function Pricing() {
           you begin report generation (the moment the analysis starts).
         </p>
       </header>
-
-      {/* If user is mid-flow, show a strong “Continue” panel */}
-      {cameFromNoCreditsGate && (
-        <section className="mb-10 rounded-2xl border border-amber-400/25 bg-amber-500/10 px-6 py-5 space-y-3">
-          <p className="text-amber-200 font-semibold">
-            You’re unlocking a report
-          </p>
-          <p className="text-sm text-slate-300">
-            You were mid-way through unlocking a report for this inspection.
-            After purchase, you can continue instantly.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <button
-              onClick={() =>
-                navigate(`/scan/in-person/unlock/${scanIdFromQuery}`)
-              }
-              className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
-            >
-              Back to unlock
-            </button>
-
-            <button
-              onClick={() => navigate("/scan/in-person/summary")}
-              className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
-            >
-              Back to summary
-            </button>
-
-            <button
-              onClick={() => navigate("/")}
-              className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
-            >
-              Home
-            </button>
-          </div>
-
-          {canContinueUnlock && (
-            <div className="pt-2">
-              <button
-                onClick={() =>
-                  navigate(`/scan/in-person/unlock/${scanIdFromQuery}`, {
-                    replace: true,
-                  })
-                }
-                className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 text-sm inline-flex items-center justify-center gap-2"
-              >
-                Continue unlocking report
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-        </section>
-      )}
 
       {/* “How it works” strip */}
       <section className="mb-10 rounded-2xl border border-white/10 bg-slate-900/40 px-6 py-6 relative overflow-hidden">
@@ -510,36 +424,36 @@ export default function Pricing() {
               <p className="text-sm text-slate-300 mt-1">
                 {inRestoreWindow
                   ? "Finalising your purchase… (if this doesn’t update in a few seconds, tap Refresh)"
+                  : returnTo
+                  ? "Credits added — returning you to your scan…"
                   : "Your credits should now be available on your account."}
               </p>
             </div>
           </div>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => navigate("/start-scan")}
-              className="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
-            >
-              Start scan
-            </button>
+            {returnTo ? (
+              <button
+                onClick={() => navigate(returnTo)}
+                className="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
+              >
+                Return to scan
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate("/start-scan")}
+                className="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
+              >
+                Start scan
+              </button>
+            )}
+
             <button
               onClick={() => navigate("/my-scans")}
               className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
             >
               View My Scans
             </button>
-
-            {cameFromNoCreditsGate && scanIdFromQuery && (
-              <button
-                onClick={() =>
-                  navigate(`/scan/in-person/unlock/${scanIdFromQuery}`)
-                }
-                className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm inline-flex items-center gap-2"
-              >
-                Continue unlock
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            )}
 
             {inRestoreWindow && (
               <button
