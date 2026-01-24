@@ -1,10 +1,11 @@
 // src/pages/InPersonReportPrint.tsx
 
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { loadProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadScanById } from "../utils/scanStorage";
+import { supabase } from "../supabaseClient";
 
 /* -------------------------------------------------------
    Small helpers (print-safe, no JSX namespace)
@@ -141,6 +142,59 @@ function verdictLabel(verdict: unknown): string {
 }
 
 /* -------------------------------------------------------
+   Photos (Supabase signed URLs)
+------------------------------------------------------- */
+const PHOTO_BUCKET = "scan-photos";
+const SIGNED_URL_TTL = 60 * 60; // 1 hour
+
+function isDataUrl(value: unknown): value is string {
+  return typeof value === "string" && value.startsWith("data:image/");
+}
+
+function normaliseStoragePath(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  let p = value.trim();
+  if (!p) return null;
+
+  // remove leading slash
+  if (p.startsWith("/")) p = p.slice(1);
+
+  // if someone stored bucket name in the path, strip it
+  if (p.startsWith(`${PHOTO_BUCKET}/`)) {
+    p = p.replace(`${PHOTO_BUCKET}/`, "");
+  }
+
+  // also strip "public/" if present
+  if (p.startsWith("public/")) {
+    p = p.replace("public/", "");
+  }
+
+  return p || null;
+}
+
+async function createSignedUrlSafe(
+  bucket: string,
+  path: string,
+  ttlSeconds: number
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, ttlSeconds);
+
+    if (error) {
+      console.warn("[Print] createSignedUrl failed:", error.message);
+      return null;
+    }
+
+    return data?.signedUrl ?? null;
+  } catch (e) {
+    console.warn("[Print] createSignedUrl exception:", e);
+    return null;
+  }
+}
+
+/* -------------------------------------------------------
    Page
 ------------------------------------------------------- */
 export default function InPersonReportPrint() {
@@ -182,16 +236,13 @@ export default function InPersonReportPrint() {
     }
   }, [scanIdSafe, saved, progress, navigate]);
 
-  // ✅ IMPORTANT FIX:
   // analyseInPersonInspection expects followUpPhotos to include stepId.
-  // Old snapshots may store followUpPhotos without stepId, which causes TS error.
   const progressForAnalysis = useMemo(() => {
     const base: any = progress ?? {};
 
     const followUpPhotos = Array.isArray(base.followUpPhotos)
       ? base.followUpPhotos.map((p: any) => ({
           ...(p ?? {}),
-          // Accept various historic shapes, then default.
           stepId:
             p?.stepId ??
             p?.stepid ??
@@ -225,11 +276,77 @@ export default function InPersonReportPrint() {
     }
   }, [saved, progressForAnalysis, progressFallback]);
 
-  const photos: string[] = Array.isArray(progress?.photos)
-    ? progress.photos
-        .map((p: any) => p?.dataUrl)
-        .filter((x: any) => typeof x === "string" && x.length > 0)
+  /* =========================================================
+     Photo evidence (signed URLs)
+  ========================================================== */
+
+  const rawPhotoEntries: any[] = Array.isArray(progress?.photos)
+    ? (progress.photos as any[])
     : [];
+
+  const storagePaths: string[] = useMemo(() => {
+    const out: string[] = [];
+
+    for (const p of rawPhotoEntries) {
+      // allow legacy base64 dataUrl (rare)
+      if (isDataUrl(p?.dataUrl)) {
+        out.push(p.dataUrl);
+        continue;
+      }
+
+      const normalised = normaliseStoragePath(p?.storagePath);
+      if (normalised) out.push(normalised);
+    }
+
+    // de-dupe
+    return Array.from(new Set(out));
+  }, [rawPhotoEntries]);
+
+  const [signedPhotoUrls, setSignedPhotoUrls] = useState<string[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSignedPhotos() {
+      if (storagePaths.length === 0) {
+        setSignedPhotoUrls([]);
+        return;
+      }
+
+      setPhotosLoading(true);
+
+      try {
+        const urls: string[] = [];
+
+        for (const pathOrData of storagePaths) {
+          // If it's already a dataUrl, keep it.
+          if (isDataUrl(pathOrData)) {
+            urls.push(pathOrData);
+            continue;
+          }
+
+          const signed = await createSignedUrlSafe(
+            PHOTO_BUCKET,
+            pathOrData,
+            SIGNED_URL_TTL
+          );
+
+          if (signed) urls.push(signed);
+        }
+
+        if (!cancelled) setSignedPhotoUrls(urls);
+      } finally {
+        if (!cancelled) setPhotosLoading(false);
+      }
+    }
+
+    void loadSignedPhotos();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [storagePaths]);
 
   const scanIdForDisplay = scanIdSafe || progress?.scanId || "—";
   const reportDate = safeDateLabel(progress?.createdAt ?? progress?.date);
@@ -397,7 +514,7 @@ export default function InPersonReportPrint() {
                     Photos
                   </div>
                   <div className="text-sm font-semibold text-black/85 mt-1">
-                    {photos.length}
+                    {signedPhotoUrls.length}
                   </div>
                 </div>
               </div>
@@ -739,9 +856,11 @@ export default function InPersonReportPrint() {
             Photo evidence
           </h2>
 
-          {photos.length > 0 ? (
+          {photosLoading ? (
+            <p className="text-sm text-black/60">Loading photos…</p>
+          ) : signedPhotoUrls.length > 0 ? (
             <div className="grid grid-cols-2 gap-4">
-              {photos.map((src, i) => (
+              {signedPhotoUrls.map((src, i) => (
                 <figure key={i} className="print-card space-y-1">
                   <img
                     src={src}
