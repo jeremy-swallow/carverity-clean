@@ -106,7 +106,10 @@ export default function Pricing() {
   );
 
   // NEW: capture scanId so we can send user back to where they came from
-  const scanId = useMemo(() => asSafeScanId(params.get("scanId") || ""), [params]);
+  const scanId = useMemo(
+    () => asSafeScanId(params.get("scanId") || ""),
+    [params]
+  );
 
   // Determine best return target after purchase
   const returnTo = useMemo(() => {
@@ -204,14 +207,15 @@ export default function Pricing() {
     const safeCredits = typeof credits === "number" ? credits : 0;
     if (safeCredits <= 0) return;
 
-    // Persist resume route so Home / flow stays consistent after return
+    // Persist resume state so Home / flow stays consistent after return
+    // IMPORTANT: step must be a step key (not a URL)
     try {
       const current: any = loadProgress() ?? {};
       saveProgress({
         ...(current ?? {}),
         type: "in-person",
         scanId: scanId || current?.scanId,
-        step: returnTo,
+        step: "analyzing",
       });
     } catch {
       // ignore

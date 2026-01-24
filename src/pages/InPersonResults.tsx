@@ -926,31 +926,36 @@ export default function InPersonResults() {
               </div>
             </div>
 
-            {/* MAJOR CTA: PRICE POSITIONING */}
+            {/* BIG PRIMARY CTA: PRICE POSITIONING */}
             <div className="pt-2">
               <button
                 onClick={() =>
                   navigate(`/scan/in-person/price-positioning/${scanIdSafe}`)
                 }
-                className="w-full rounded-2xl bg-black/30 border border-white/15 hover:border-white/25 hover:bg-black/40 transition px-6 py-5 flex items-center justify-between gap-4"
+                className="w-full rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-5 flex items-center justify-between gap-4 shadow"
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-11 w-11 rounded-2xl bg-emerald-500/15 border border-emerald-400/20 flex items-center justify-center">
-                    <BadgeDollarSign className="h-5 w-5 text-emerald-200" />
+                  <div className="h-11 w-11 rounded-2xl bg-black/10 border border-black/10 flex items-center justify-center">
+                    <BadgeDollarSign className="h-5 w-5 text-black" />
                   </div>
                   <div className="text-left">
-                    <p className="text-base font-semibold text-white">
+                    <p className="text-base font-semibold">
                       Price positioning & negotiation
                     </p>
-                    <p className="text-sm text-slate-200/80 leading-relaxed">
-                      See your offer range + how to ask (even if the car looks
+                    <p className="text-sm text-black/70 leading-relaxed">
+                      Your offer range + how to ask (even if the car looks
                       clean).
                     </p>
                   </div>
                 </div>
 
-                <ArrowRight className="h-5 w-5 text-slate-200 shrink-0" />
+                <ArrowRight className="h-5 w-5 text-black/70 shrink-0" />
               </button>
+
+              <p className="mt-2 text-xs text-slate-400">
+                This is the most valuable part of the report if you’re buying
+                from a dealer.
+              </p>
             </div>
 
             {/* KEY SIGNALS */}
@@ -1180,17 +1185,6 @@ export default function InPersonResults() {
               <BulletList items={nextSteps} />
 
               <div className="pt-2 flex flex-wrap gap-3">
-                <button
-                  onClick={() =>
-                    navigate(`/scan/in-person/price-positioning/${scanIdSafe}`)
-                  }
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
-                >
-                  <BadgeDollarSign className="h-4 w-4" />
-                  Price positioning & negotiation
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-
                 <button
                   onClick={() => navigate("/scan/in-person/decision")}
                   className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
@@ -1440,17 +1434,6 @@ export default function InPersonResults() {
 
           {/* PRIMARY BUTTONS */}
           <section className="space-y-4 pt-2">
-            <button
-              onClick={() =>
-                navigate(`/scan/in-person/price-positioning/${scanIdSafe}`)
-              }
-              className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 text-base inline-flex items-center justify-center gap-2"
-            >
-              <BadgeDollarSign className="h-5 w-5" />
-              Price positioning & negotiation
-              <ArrowRight className="h-5 w-5" />
-            </button>
-
             <button
               onClick={() => navigate("/scan/in-person/decision")}
               className="w-full rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold px-6 py-4 text-base"
