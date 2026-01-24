@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   Scale,
   Printer,
+  Calculator,
+  Handshake,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
@@ -67,6 +69,19 @@ function shortBandMeaning(key: "conservative" | "balanced" | "aggressive") {
   return "Reasonable middle ground for most buyers.";
 }
 
+type DeductionRow = {
+  label: string;
+  low: number;
+  high: number;
+  note?: string;
+};
+
+function safeNum(v: unknown): number | null {
+  if (typeof v !== "number") return null;
+  if (!Number.isFinite(v)) return null;
+  return v;
+}
+
 export default function InPersonPricePositioning() {
   const navigate = useNavigate();
   const { scanId } = useParams<{ scanId: string }>();
@@ -105,11 +120,11 @@ export default function InPersonPricePositioning() {
 
   const priceGuidance: any = (analysis as any).priceGuidance ?? null;
 
-  const adjustedLow = priceGuidance?.adjustedPriceLowAud ?? null;
-  const adjustedHigh = priceGuidance?.adjustedPriceHighAud ?? null;
+  const adjustedLow = safeNum(priceGuidance?.adjustedPriceLowAud);
+  const adjustedHigh = safeNum(priceGuidance?.adjustedPriceHighAud);
 
-  const redLow = priceGuidance?.suggestedReductionLowAud ?? null;
-  const redHigh = priceGuidance?.suggestedReductionHighAud ?? null;
+  const redLow = safeNum(priceGuidance?.suggestedReductionLowAud);
+  const redHigh = safeNum(priceGuidance?.suggestedReductionHighAud);
 
   const positioning = analysis.negotiationPositioning;
 
@@ -125,7 +140,7 @@ export default function InPersonPricePositioning() {
     if (!hasAskingPrice) return "Add the advertised price to get a range";
     if (postureTone === "warn") return "You have strong price leverage";
     if (postureTone === "info") return "You have some price leverage";
-    return "Even if it looks fine, you can still position the price";
+    return "Even if it looks fine, you can still negotiate";
   }, [hasAskingPrice, postureTone]);
 
   const postureBody = useMemo(() => {
@@ -134,14 +149,14 @@ export default function InPersonPricePositioning() {
     }
 
     if (postureTone === "warn") {
-      return "Based on what you recorded, it’s reasonable to ask for a meaningful reduction — or require proof before you pay full price.";
+      return "Based on what you recorded, it’s reasonable to push for a meaningful reduction — or require proof before you pay full price.";
     }
 
     if (postureTone === "info") {
       return "You recorded a few items worth clarifying. That uncertainty supports a modest reduction or a conditional agreement.";
     }
 
-    return "Car yards often price with negotiation in mind. You can ask for a small reduction based on normal buyer expectations — even if nothing stood out.";
+    return "Most yards price expecting negotiation. If the car looks clean, your leverage comes from being ready to buy and having alternatives.";
   }, [hasAskingPrice, postureTone]);
 
   const headlineNumbers = useMemo(() => {
@@ -157,34 +172,6 @@ export default function InPersonPricePositioning() {
           : null,
     };
   }, [hasAskingPrice, askingPrice, adjustedLow, adjustedHigh, redLow, redHigh]);
-
-  const buyerSafeTalkingPoints = useMemo(() => {
-    const points: string[] = [];
-
-    points.push(
-      "Keep it calm and factual. You’re not accusing the seller — you’re reducing uncertainty."
-    );
-
-    if (criticalCount > 0) {
-      points.push(
-        "Start with the biggest recorded items first. Ask for proof (invoice, inspection note, written confirmation)."
-      );
-    } else if (moderateCount > 0 || unsureCount > 0) {
-      points.push(
-        "Use the items you recorded as a reason to either reduce the price or make the deal conditional."
-      );
-    } else {
-      points.push(
-        "If the car looks fine, ask for a small reduction based on market norms and the fact you’re ready to buy today."
-      );
-    }
-
-    points.push(
-      "If the seller won’t move, ask for value instead (fresh service, tyres, detailing, warranty extension)."
-    );
-
-    return points.slice(0, 4);
-  }, [criticalCount, moderateCount, unsureCount]);
 
   const leverageBullets = useMemo(() => {
     const bullets: string[] = [];
@@ -219,6 +206,149 @@ export default function InPersonPricePositioning() {
     return bullets;
   }, [criticalCount, moderateCount, unsureCount, confidence, coverage]);
 
+  const guidanceRationale: string[] = useMemo(() => {
+    const r = Array.isArray(priceGuidance?.rationale)
+      ? (priceGuidance.rationale as string[])
+      : [];
+    return r.map((x) => asText(x)).filter(Boolean).slice(0, 6);
+  }, [priceGuidance]);
+
+  const offerMathRows: DeductionRow[] = useMemo(() => {
+    const rows: DeductionRow[] = [];
+
+    if (typeof redLow === "number" && typeof redHigh === "number") {
+      rows.push({
+        label: "Recorded items (concerns + unsure)",
+        low: redLow,
+        high: redHigh,
+        note:
+          postureTone === "good"
+            ? "If nothing stood out, this is usually small (or zero)."
+            : "This reflects what you recorded during the inspection.",
+      });
+      return rows;
+    }
+
+    // Fallback if priceGuidance isn't present (still show guidance)
+    if (postureTone === "warn") {
+      rows.push({
+        label: "Recorded items (high leverage)",
+        low: 800,
+        high: 2500,
+        note: "Fallback estimate (asking price missing or guidance unavailable).",
+      });
+    } else if (postureTone === "info") {
+      rows.push({
+        label: "Recorded items (some leverage)",
+        low: 300,
+        high: 1200,
+        note: "Fallback estimate (asking price missing or guidance unavailable).",
+      });
+    } else {
+      rows.push({
+        label: "Normal negotiation margin",
+        low: 200,
+        high: 800,
+        note: "Even clean cars are often priced with wiggle room.",
+      });
+    }
+
+    return rows;
+  }, [redLow, redHigh, postureTone]);
+
+  const offerSummary = useMemo(() => {
+    if (!hasAskingPrice || typeof askingPrice !== "number") return null;
+
+    const totalLow = offerMathRows.reduce((acc, r) => acc + r.low, 0);
+    const totalHigh = offerMathRows.reduce((acc, r) => acc + r.high, 0);
+
+    const adjustedOfferHigh = Math.max(0, askingPrice - totalLow); // best case for buyer
+    const adjustedOfferLow = Math.max(0, askingPrice - totalHigh); // more aggressive
+
+    return {
+      asking: askingPrice,
+      totalReductionLow: totalLow,
+      totalReductionHigh: totalHigh,
+      offerLow: adjustedOfferLow,
+      offerHigh: adjustedOfferHigh,
+    };
+  }, [hasAskingPrice, askingPrice, offerMathRows]);
+
+  const runningSubtotals = useMemo(() => {
+    if (!offerSummary) return [];
+
+    let currentHigh = offerSummary.asking;
+    let currentLow = offerSummary.asking;
+
+    const steps = offerMathRows.map((r) => {
+      // Low reduction = small move (higher offer)
+      // High reduction = bigger move (lower offer)
+      currentHigh = Math.max(0, currentHigh - r.low);
+      currentLow = Math.max(0, currentLow - r.high);
+
+      return {
+        label: r.label,
+        low: r.low,
+        high: r.high,
+        subtotalLow: currentLow,
+        subtotalHigh: currentHigh,
+        note: r.note,
+      };
+    });
+
+    return steps;
+  }, [offerSummary, offerMathRows]);
+
+  const negotiationGuidance = useMemo(() => {
+    // This is intentionally NOT a script.
+    // It's guidance + examples of calm phrasing.
+    if (!hasAskingPrice) {
+      return {
+        title: "How to negotiate (even without a number yet)",
+        body: "Once you add the asking price, CarVerity will calculate a suggested offer range. Until then, keep it simple: be ready to buy, stay calm, and anchor with a reasonable offer.",
+        bullets: [
+          "Ask: “Is there any flexibility on the price?”",
+          "If yes: “What’s the best you can do today?”",
+          "If no: ask for value instead (service, tyres, rego, detailing).",
+        ],
+      };
+    }
+
+    if (postureTone === "good") {
+      return {
+        title: "If the car looks clean: negotiate using readiness + alternatives",
+        body: "Your leverage isn’t faults — it’s being ready to buy and having other options. Dealerships often price expecting negotiation.",
+        bullets: [
+          "Anchor calmly: “I like it. If we can land at this number, I’ll do it today.”",
+          "Use comparisons: “I’m looking at a couple of similar cars this week.”",
+          "If they won’t move: ask for value instead (service, rego, tyres, detailing).",
+        ],
+      };
+    }
+
+    if (postureTone === "info") {
+      return {
+        title: "Negotiate using uncertainty (without sounding accusatory)",
+        body: "You recorded items worth clarifying. That uncertainty supports a modest reduction or a conditional agreement.",
+        bullets: [
+          "Frame it as unknowns: “A couple of things I’m unsure about — I’d need room in the price.”",
+          "Ask for proof: service history, invoices, written confirmation.",
+          "If they won’t move: ask for value (service / tyres / warranty).",
+        ],
+      };
+    }
+
+    return {
+      title: "You have leverage: push for proof or a meaningful reduction",
+      body: "You recorded high-impact signals. It’s reasonable to ask for a stronger adjustment, or require proof before paying full price.",
+      bullets: [
+        "Lead with the biggest items first (keep it factual).",
+        "Ask for proof (invoice, written confirmation, mechanic check).",
+        "If they resist: “No worries — I’ll keep looking.”",
+      ],
+    };
+  }, [hasAskingPrice, postureTone]);
+
   const printHint = useMemo(() => {
     if (!hasAskingPrice) {
       return "Tip: enter the asking price on the Summary page to generate a range.";
@@ -226,29 +356,22 @@ export default function InPersonPricePositioning() {
     return "Tip: you can print/save the report as a PDF if you want to share it with someone.";
   }, [hasAskingPrice]);
 
-  const guidanceRationale: string[] = useMemo(() => {
-    const r = Array.isArray(priceGuidance?.rationale)
-      ? (priceGuidance.rationale as string[])
-      : [];
-    return r.map((x) => asText(x)).filter(Boolean).slice(0, 5);
-  }, [priceGuidance]);
-
   return (
     <div className="max-w-5xl mx-auto px-6 py-16 space-y-12">
       {/* Header */}
       <header className="space-y-4">
         <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-          CarVerity · Price positioning
+          CarVerity · Price positioning & negotiation
         </span>
 
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-[260px]">
             <h1 className="text-3xl font-semibold text-white leading-tight">
-              Price positioning
+              Price positioning &amp; negotiation
             </h1>
             <p className="text-slate-400 mt-2 leading-relaxed max-w-2xl">
-              A grounded way to ask for a better price — based on what you
-              recorded, without hype or pressure.
+              A buyer-safe way to ask for a better price — with clear math, and
+              calm guidance you can actually use in the moment.
             </p>
           </div>
 
@@ -322,7 +445,7 @@ export default function InPersonPricePositioning() {
             </p>
             <p className="text-sm text-slate-300 mt-1 leading-relaxed">
               Go back to Summary and enter the advertised asking price. Then
-              return here for a calculated range.
+              return here for a calculated offer range.
             </p>
 
             <div className="mt-3">
@@ -337,7 +460,159 @@ export default function InPersonPricePositioning() {
         )}
       </section>
 
-      {/* Leverage snapshot */}
+      {/* Offer builder (math + running subtotals) */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-3 text-slate-300">
+          <Calculator className="h-5 w-5 text-slate-400" />
+          <h2 className="text-lg font-semibold">Guided offer builder</h2>
+        </div>
+
+        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-5">
+          {!offerSummary ? (
+            <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+              <p className="text-sm text-slate-300 leading-relaxed">
+                Add the asking price on Summary to generate the full calculation
+                here.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    Asking price
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold text-white tabular-nums">
+                    {formatMoney(offerSummary.asking)}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    Total suggested adjustment
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold text-white tabular-nums">
+                    {formatMoney(offerSummary.totalReductionHigh)}–
+                    {formatMoney(offerSummary.totalReductionLow)}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Higher adjustment = firmer negotiation
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    Suggested offer range
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold text-white tabular-nums">
+                    {formatMoney(offerSummary.offerLow)}–
+                    {formatMoney(offerSummary.offerHigh)}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    This is your “start here” range
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Step-by-step calculation
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {runningSubtotals.map((s, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-xl border border-white/10 bg-slate-900/30 px-4 py-3"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-[220px]">
+                          <p className="text-sm font-semibold text-white">
+                            {s.label}
+                          </p>
+                          {s.note ? (
+                            <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                              {s.note}
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-xs text-slate-500">
+                            Adjustment (low → high)
+                          </p>
+                          <p className="text-sm font-semibold text-white tabular-nums">
+                            −{formatMoney(s.low)} to −{formatMoney(s.high)}
+                          </p>
+
+                          <p className="text-xs text-slate-500 mt-2">
+                            New subtotal range
+                          </p>
+                          <p className="text-sm font-semibold text-slate-200 tabular-nums">
+                            {formatMoney(s.subtotalLow)}–{formatMoney(s.subtotalHigh)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-xs text-slate-500 mt-4">
+                  This is guidance only. It does not estimate repair costs or
+                  represent a market valuation.
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* Negotiation guidance (works even if clean) */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-3 text-slate-300">
+          <Handshake className="h-5 w-5 text-slate-400" />
+          <h2 className="text-lg font-semibold">How to ask (buyer-safe)</h2>
+        </div>
+
+        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-4">
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+            <p className="text-sm font-semibold text-white">
+              {negotiationGuidance.title}
+            </p>
+            <p className="text-sm text-slate-400 mt-1 leading-relaxed">
+              {negotiationGuidance.body}
+            </p>
+          </div>
+
+          <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
+            {negotiationGuidance.bullets.map((t: string, i: number) => (
+              <li key={i}>{t}</li>
+            ))}
+          </ul>
+
+          {guidanceRationale.length > 0 && (
+            <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                Why this range exists
+              </div>
+              <ul className="mt-2 list-disc list-inside space-y-1.5 text-sm text-slate-300">
+                {guidanceRationale.map((t, i) => (
+                  <li key={i}>{t}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+            <p className="text-sm text-slate-300 leading-relaxed">
+              <span className="text-slate-200 font-semibold">Tip:</span>{" "}
+              {printHint}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Evidence snapshot */}
       <section className="space-y-4">
         <div className="flex items-center gap-3 text-slate-300">
           <ShieldCheck className="h-5 w-5 text-slate-400" />
@@ -358,7 +633,7 @@ export default function InPersonPricePositioning() {
         </div>
       </section>
 
-      {/* Positioning bands */}
+      {/* Firmness bands */}
       <section className="space-y-4">
         <div className="flex items-center gap-3 text-slate-300">
           <Scale className="h-5 w-5 text-slate-400" />
@@ -367,11 +642,9 @@ export default function InPersonPricePositioning() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {(
-            [
-              "conservative",
-              "balanced",
-              "aggressive",
-            ] as Array<"conservative" | "balanced" | "aggressive">
+            ["conservative", "balanced", "aggressive"] as Array<
+              "conservative" | "balanced" | "aggressive"
+            >
           ).map((k) => {
             const band = positioning[k];
             return (
@@ -405,45 +678,9 @@ export default function InPersonPricePositioning() {
         </div>
 
         <p className="text-xs text-slate-500">
-          These numbers are guidance only. They do not estimate repair costs or
-          represent a market valuation.
+          These bands help you choose your posture. The “offer builder” above
+          shows the actual math in plain English.
         </p>
-      </section>
-
-      {/* Buyer-safe approach */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-3 text-slate-300">
-          <Info className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold">Buyer-safe approach</h2>
-        </div>
-
-        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-4">
-          <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
-            {buyerSafeTalkingPoints.map((t, i) => (
-              <li key={i}>{t}</li>
-            ))}
-          </ul>
-
-          {guidanceRationale.length > 0 && (
-            <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                Why this range exists
-              </div>
-              <ul className="mt-2 list-disc list-inside space-y-1.5 text-sm text-slate-300">
-                {guidanceRationale.map((t, i) => (
-                  <li key={i}>{t}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-            <p className="text-sm text-slate-300 leading-relaxed">
-              <span className="text-slate-200 font-semibold">Tip:</span>{" "}
-              {printHint}
-            </p>
-          </div>
-        </div>
       </section>
 
       {/* Actions */}
@@ -457,7 +694,7 @@ export default function InPersonPricePositioning() {
         </button>
 
         <button
-          onClick={() => navigate("/scan/in-person/print")}
+          onClick={() => navigate(`/scan/in-person/print/${scanId}`)}
           className="w-full rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-3 flex items-center justify-center gap-2 text-sm"
         >
           <Printer className="h-4 w-4" />
