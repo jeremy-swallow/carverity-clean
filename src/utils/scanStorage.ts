@@ -7,6 +7,8 @@
    NEVER store base64 photos in saved scans.
 ========================================================= */
 
+// src/utils/scanStorage.ts
+
 import type { AnalysisResult } from "./inPersonAnalysis";
 import type { ScanProgress } from "./scanProgress";
 
@@ -31,7 +33,7 @@ export interface SavedInspection {
     variant?: string;
   };
 
-  // Sale context (dealership or private)
+  // Sale context (dealership OR private)
   sale?: {
     type?: "dealership" | "private";
     name?: string;
@@ -104,19 +106,19 @@ function stripPhotosFromProgress(
     (next as any).photos = (next as any).photos.map((p: any) => ({
       id: p?.id,
       stepId: p?.stepId,
-      storagePath: p?.storagePath,
-      // dataUrl intentionally removed
+      // storagePath intentionally kept (no base64)
     }));
   }
 
   // Follow-up photos (captured after scan)
   if (Array.isArray((next as any).followUpPhotos)) {
-    (next as any).followUpPhotos = (next as any).followUpPhotos.map((p: any) => ({
-      id: p?.id,
-      note: p?.note,
-      storagePath: p?.storagePath,
-      // dataUrl intentionally removed
-    }));
+    (next as any).followUpPhotos = (next as any).followUpPhotos.map(
+      (p: any) => ({
+        id: p?.id,
+        note: p?.note,
+        // storagePath intentionally kept (no base64)
+      })
+    );
   }
 
   return next;
@@ -243,10 +245,10 @@ export function saveScan(inspection: SavedInspection) {
       createdAt: inspection.createdAt || safeNowIso(),
       completed: inspection.completed ?? false,
       history: inspection.history ?? [],
+      sale: inspection.sale ?? undefined,
       thumbnail: safeThumbnail(inspection.thumbnail ?? null),
       analysis: inspection.analysis ?? undefined,
       progressSnapshot: safeProgressSnapshot ?? undefined,
-      sale: inspection.sale ?? undefined,
     },
     ...existing,
   ];

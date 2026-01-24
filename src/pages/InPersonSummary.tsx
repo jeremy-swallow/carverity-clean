@@ -13,11 +13,7 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import {
-  loadProgress,
-  clearProgress,
-  saveProgress,
-} from "../utils/scanProgress";
+import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
 
 type PricingVerdict = "missing" | "info" | "room" | "concern";

@@ -56,7 +56,7 @@ export interface ScanProgress {
   kilometres?: number;
 
   /* =====================
-     In-person: sale context (dealership or private)
+     In-person: sale context (dealership/private)
   ====================== */
   saleType?: "dealership" | "private";
   saleName?: string;
