@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+// src/pages/InPersonPhotos.tsx
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { saveProgress, loadProgress } from "../utils/scanProgress";
 import { generateScanId } from "../utils/scanStorage";
@@ -37,8 +39,19 @@ const MAX_PHOTOS = 15;
 // Supabase Storage bucket
 const PHOTO_BUCKET = "scan-photos";
 
+// Signed URL settings for thumbnails
+const SIGNED_URL_TTL = 60 * 60; // 1 hour
+
 // ✅ IMPORTANT: this must match your real first checks route
 const FIRST_CHECKS_ROUTE = "/scan/in-person/checks/intro";
+
+/**
+ * Compression targets (CarVerity defaults)
+ * - Keeps photos sharp enough for inspection context
+ * - Dramatically reduces Supabase storage usage
+ */
+const COMPRESS_MAX_WIDTH = 1280;
+const COMPRESS_QUALITY = 0.72;
 
 function makeId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -46,14 +59,126 @@ function makeId(): string {
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function extFromFile(file: File): "jpg" | "jpeg" | "png" | "webp" {
-  const t = (file.type || "").toLowerCase();
-  if (t.includes("png")) return "png";
-  if (t.includes("webp")) return "webp";
-  if (t.includes("jpeg")) return "jpeg";
-  if (t.includes("jpg")) return "jpg";
-  // fallback
-  return "jpg";
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onerror = () => reject(new Error("Could not read image file."));
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        reject(new Error("Could not read image file."));
+        return;
+      }
+      resolve(result);
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImageFromDataUrl(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Could not load image."));
+    img.src = dataUrl;
+  });
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality: number
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("Could not compress image."));
+          return;
+        }
+        resolve(blob);
+      },
+      type,
+      quality
+    );
+  });
+}
+
+/**
+ * Compress a user photo before uploading:
+ * - Resizes to max width
+ * - Re-encodes as JPEG (strips metadata)
+ */
+async function compressImageToJpeg(
+  file: File,
+  maxWidth: number,
+  quality: number
+): Promise<File> {
+  const dataUrl = await readFileAsDataUrl(file);
+  const img = await loadImageFromDataUrl(dataUrl);
+
+  const srcW = img.naturalWidth || img.width;
+  const srcH = img.naturalHeight || img.height;
+
+  if (!srcW || !srcH) {
+    throw new Error("Could not read image dimensions.");
+  }
+
+  // Only downscale (never upscale)
+  const scale = Math.min(1, maxWidth / srcW);
+  const outW = Math.max(1, Math.round(srcW * scale));
+  const outH = Math.max(1, Math.round(srcH * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = outW;
+  canvas.height = outH;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Could not compress image.");
+  }
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  ctx.drawImage(img, 0, 0, outW, outH);
+
+  const blob = await canvasToBlob(canvas, "image/jpeg", quality);
+
+  const safeBase =
+    (file.name || "photo")
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[^\w-]+/g, "-")
+      .slice(0, 40) || "photo";
+
+  const outName = `${safeBase}.jpg`;
+
+  return new File([blob], outName, { type: "image/jpeg" });
+}
+
+async function createSignedUrlSafe(
+  bucket: string,
+  path: string,
+  ttlSeconds: number
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, ttlSeconds);
+
+    if (error) {
+      console.warn("[InPersonPhotos] createSignedUrl failed:", error.message);
+      return null;
+    }
+
+    return data?.signedUrl ?? null;
+  } catch (e) {
+    console.warn("[InPersonPhotos] createSignedUrl exception:", e);
+    return null;
+  }
 }
 
 export default function InPersonPhotos() {
@@ -88,6 +213,10 @@ export default function InPersonPhotos() {
 
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Thumbnail state (signed URLs)
+  const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
+  const [thumbLoading, setThumbLoading] = useState(false);
 
   const atHardLimit = photos.length >= MAX_PHOTOS;
 
@@ -213,7 +342,55 @@ export default function InPersonPhotos() {
   }, [stepIndex]);
 
   /* =========================================================
-     Upload to Supabase Storage
+     Load signed URL thumbnails for current step
+  ========================================================== */
+
+  const stepPhotoPathsKey = useMemo(() => {
+    // stable dependency key to trigger thumbnail refresh
+    return stepPhotos.map((p) => p.storagePath).join("|");
+  }, [stepPhotos]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadThumbsForStep() {
+      if (stepPhotos.length === 0) return;
+
+      setThumbLoading(true);
+
+      try {
+        const next: Record<string, string> = { ...thumbUrls };
+
+        for (const p of stepPhotos) {
+          if (next[p.storagePath]) continue;
+
+          const url = await createSignedUrlSafe(
+            PHOTO_BUCKET,
+            p.storagePath,
+            SIGNED_URL_TTL
+          );
+
+          if (url) next[p.storagePath] = url;
+        }
+
+        if (!cancelled) setThumbUrls(next);
+      } catch (e) {
+        console.warn("[InPersonPhotos] thumbnail load failed:", e);
+      } finally {
+        if (!cancelled) setThumbLoading(false);
+      }
+    }
+
+    void loadThumbsForStep();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepPhotoPathsKey]);
+
+  /* =========================================================
+     Upload to Supabase Storage (with compression)
   ========================================================== */
 
   async function uploadPhotoToStorage(file: File): Promise<StepPhoto> {
@@ -230,16 +407,22 @@ export default function InPersonPhotos() {
     }
 
     const photoId = makeId();
-    const ext = extFromFile(file);
 
-    const objectPath = `users/${user.id}/scans/${scanId}/steps/${step.id}/${photoId}.${ext}`;
+    // ✅ Compress before upload
+    const compressed = await compressImageToJpeg(
+      file,
+      COMPRESS_MAX_WIDTH,
+      COMPRESS_QUALITY
+    );
+
+    const objectPath = `users/${user.id}/scans/${scanId}/steps/${step.id}/${photoId}.jpg`;
 
     const { error: uploadErr } = await supabase.storage
       .from(PHOTO_BUCKET)
-      .upload(objectPath, file, {
+      .upload(objectPath, compressed, {
         cacheControl: "3600",
         upsert: false,
-        contentType: file.type || "image/jpeg",
+        contentType: "image/jpeg",
       });
 
     if (uploadErr) {
@@ -263,9 +446,23 @@ export default function InPersonPhotos() {
       const uploaded = await uploadPhotoToStorage(file);
 
       setPhotos((prev) => [...prev, uploaded]);
-    } catch (e: any) {
+
+      // Preload signed URL for immediate thumbnail display
+      const url = await createSignedUrlSafe(
+        PHOTO_BUCKET,
+        uploaded.storagePath,
+        SIGNED_URL_TTL
+      );
+      if (url) {
+        setThumbUrls((prev) => ({
+          ...prev,
+          [uploaded.storagePath]: url,
+        }));
+      }
+    } catch (e: unknown) {
       console.error("[InPersonPhotos] upload error:", e);
-      setUploadError(e?.message || "Could not upload photo.");
+      const msg = e instanceof Error ? e.message : "Could not upload photo.";
+      setUploadError(msg);
     } finally {
       setUploading(false);
     }
@@ -301,6 +498,13 @@ export default function InPersonPhotos() {
 
     // Optimistic UI remove first
     setPhotos((prev) => prev.filter((p) => p.id !== id));
+
+    // Remove thumb URL entry
+    setThumbUrls((prev) => {
+      const next = { ...prev };
+      delete next[target.storagePath];
+      return next;
+    });
 
     try {
       const { error } = await supabase.storage
@@ -538,28 +742,48 @@ export default function InPersonPhotos() {
 
         {/* Step photos */}
         {stepPhotos.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
-            {stepPhotos.map((p) => (
-              <div
-                key={p.id}
-                className="relative rounded-2xl border border-white/10 bg-slate-950/40 overflow-hidden"
-              >
-                {/* We do NOT store base64 anymore.
-                    We intentionally show a placeholder tile instead.
-                    Photos will display in the Results page reliably. */}
-                <div className="h-28 w-full flex items-center justify-center text-slate-400 text-xs">
-                  Uploaded
-                </div>
+          <div className="space-y-3 pt-1">
+            {thumbLoading && (
+              <p className="text-xs text-slate-500">Loading previews…</p>
+            )}
 
-                <button
-                  onClick={() => void removePhoto(p.id)}
-                  className="absolute top-2 right-2 rounded-full bg-black/70 hover:bg-black/80 text-white p-2"
-                  aria-label="Remove photo"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {stepPhotos.map((p) => {
+                const thumb = thumbUrls[p.storagePath];
+
+                return (
+                  <div
+                    key={p.id}
+                    className="relative rounded-2xl border border-white/10 bg-slate-950/40 overflow-hidden"
+                  >
+                    {thumb ? (
+                      <img
+                        src={thumb}
+                        alt="Uploaded inspection photo"
+                        className="w-full h-28 object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="h-28 w-full flex items-center justify-center text-slate-400 text-xs">
+                        Uploaded
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => void removePhoto(p.id)}
+                      className="absolute top-2 right-2 rounded-full bg-black/70 hover:bg-black/80 text-white p-2"
+                      aria-label="Remove photo"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              Photos are stored securely and will appear in your report.
+            </p>
           </div>
         ) : (
           <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
