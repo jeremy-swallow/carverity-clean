@@ -221,14 +221,12 @@ function extractPhotoRefs(progress: any): {
   const storagePaths: string[] = [];
 
   for (const item of photosRaw) {
-    // If someone stored plain strings
     if (typeof item === "string") {
       if (isProbablyBase64Image(item)) legacyUrls.push(item);
       else storagePaths.push(item);
       continue;
     }
 
-    // If stored as objects
     if (isRecord(item)) {
       const maybe = item as StoredPhoto;
 
@@ -245,7 +243,6 @@ function extractPhotoRefs(progress: any): {
     }
   }
 
-  // de-dupe while preserving order
   const dedupe = (arr: string[]) => Array.from(new Set(arr));
 
   return {
@@ -367,8 +364,6 @@ export default function InPersonResults() {
 
   /* -------------------------------------------------------
      Load saved scan (preferred) + progress fallback
-     NOTE: These hooks must ALWAYS run (no early returns above),
-     otherwise React throws hooks-order error (#310).
   ------------------------------------------------------- */
   const saved = useMemo(() => {
     if (!scanIdSafe) return null;
@@ -404,7 +399,6 @@ export default function InPersonResults() {
     }
   }, [saved, progress]);
 
-  // If analysis is missing/invalid, recover gracefully
   useEffect(() => {
     if (!scanIdSafe) return;
     if (checkingUnlock) return;
@@ -435,8 +429,6 @@ export default function InPersonResults() {
     return extractPhotoRefs(progress);
   }, [progress]);
 
-  // This is the "photos captured" count shown to the user.
-  // We treat either legacy base64 URLs OR storage paths as "captured".
   const capturedPhotoCount = legacyUrls.length + storagePaths.length;
 
   const criticalRisks = risksSafe.filter((r) => r?.severity === "critical");
@@ -467,10 +459,23 @@ export default function InPersonResults() {
   );
 
   /* -------------------------------------------------------
-     Load signed URLs for photos (reliable rendering)
-     - Supports new format: storage paths in progress.photos[*].storagePath
-     - Supports legacy format: base64 dataUrl (renders directly)
-     - Uses signed URLs (bucket is private)
+     Detect whether drive checks were done
+  ------------------------------------------------------- */
+  const driveWasDone = useMemo(() => {
+    const checks = progress?.checks ?? {};
+    if (!checks || typeof checks !== "object") return false;
+
+    const driveIds = ["steering", "noise-hesitation", "adas-systems"];
+
+    return driveIds.some((id) => {
+      const v = (checks as any)?.[id]?.value;
+      const note = (checks as any)?.[id]?.note;
+      return Boolean(v) || Boolean(note);
+    });
+  }, [progress]);
+
+  /* -------------------------------------------------------
+     Load signed URLs for photos
   ------------------------------------------------------- */
   useEffect(() => {
     let cancelled = false;
@@ -480,7 +485,6 @@ export default function InPersonResults() {
       if (checkingUnlock) return;
       if (unlockError) return;
 
-      // If we have only legacy base64 photos, just render them.
       if (storagePaths.length === 0) {
         if (!cancelled) setPhotoUrls(legacyUrls);
         return;
@@ -491,8 +495,6 @@ export default function InPersonResults() {
       try {
         const signed: string[] = [];
 
-        // Keep order stable: legacy first, then signed paths
-        // (you can flip this if you prefer)
         for (const path of storagePaths) {
           const url = await createSignedUrlSafe(
             PHOTO_BUCKET,
@@ -637,14 +639,20 @@ export default function InPersonResults() {
   }, [verdictKey]);
 
   /* -------------------------------------------------------
-     Next steps
+     Next steps (guidance-led)
   ------------------------------------------------------- */
   const nextSteps = useMemo(() => {
     const steps: string[] = [];
 
-    steps.push(
-      "Take a short test drive if possible. If you’re planning to buy the car, this is strongly recommended."
-    );
+    if (!driveWasDone) {
+      steps.push(
+        "If possible, do a short test drive. Even 5 minutes can reveal steering pull, vibration, or hesitation."
+      );
+    } else {
+      steps.push(
+        "You’ve already done a short drive — now focus on clarifying anything you marked as unsure or a concern."
+      );
+    }
 
     if (criticalRisks.length > 0) {
       steps.push(
@@ -654,22 +662,27 @@ export default function InPersonResults() {
 
     if (moderateRisks.length > 0) {
       steps.push(
-        "Ask the seller to explain the concerns you recorded. Don’t guess — confirm."
+        "Ask the seller to explain the items you recorded. Don’t guess — confirm."
       );
     }
 
     if (uncertaintyFactors.length > 0) {
       steps.push(
-        "Anything marked “unsure” should be treated as unknown. Try to verify it before buying."
+        "Anything marked “unsure” should be treated as unknown. Try to verify it before you buy."
       );
     }
 
     steps.push(
-      "Do the basics: match paperwork to the car, check service history, and watch for warning lights."
+      "If you still like the car, open Price positioning & negotiation to see a realistic offer range and how to ask."
     );
 
     return steps.slice(0, 5);
-  }, [criticalRisks.length, moderateRisks.length, uncertaintyFactors.length]);
+  }, [
+    driveWasDone,
+    criticalRisks.length,
+    moderateRisks.length,
+    uncertaintyFactors.length,
+  ]);
 
   const clarifyQuestions = useMemo(() => {
     const qs: string[] = [];
@@ -836,7 +849,7 @@ export default function InPersonResults() {
   }
 
   /* =======================================================
-     UI (NO EARLY RETURNS — prevents React #310)
+     UI
   ======================================================= */
   const showLoading = !scanIdSafe || checkingUnlock;
   const showError = Boolean(unlockError);
@@ -911,6 +924,33 @@ export default function InPersonResults() {
 
                 <Paragraph value={whyThisVerdict} />
               </div>
+            </div>
+
+            {/* MAJOR CTA: PRICE POSITIONING */}
+            <div className="pt-2">
+              <button
+                onClick={() =>
+                  navigate(`/scan/in-person/price-positioning/${scanIdSafe}`)
+                }
+                className="w-full rounded-2xl bg-black/30 border border-white/15 hover:border-white/25 hover:bg-black/40 transition px-6 py-5 flex items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-11 w-11 rounded-2xl bg-emerald-500/15 border border-emerald-400/20 flex items-center justify-center">
+                    <BadgeDollarSign className="h-5 w-5 text-emerald-200" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-base font-semibold text-white">
+                      Price positioning & negotiation
+                    </p>
+                    <p className="text-sm text-slate-200/80 leading-relaxed">
+                      See your offer range + how to ask (even if the car looks
+                      clean).
+                    </p>
+                  </div>
+                </div>
+
+                <ArrowRight className="h-5 w-5 text-slate-200 shrink-0" />
+              </button>
             </div>
 
             {/* KEY SIGNALS */}
@@ -1134,37 +1174,29 @@ export default function InPersonResults() {
 
             <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6 space-y-4">
               <p className="text-sm text-slate-400">
-                This guidance is based only on what you recorded today.
+                This is a simple plan based only on what you recorded today.
               </p>
 
               <BulletList items={nextSteps} />
 
               <div className="pt-2 flex flex-wrap gap-3">
                 <button
-                  onClick={() => navigate("/scan/in-person/decision")}
+                  onClick={() =>
+                    navigate(`/scan/in-person/price-positioning/${scanIdSafe}`)
+                  }
                   className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
                 >
-                  Open decision guide
+                  <BadgeDollarSign className="h-4 w-4" />
+                  Price positioning & negotiation
                   <ArrowRight className="h-4 w-4" />
                 </button>
 
                 <button
-                  onClick={() =>
-                    navigate(`/scan/in-person/price-positioning/${scanIdSafe}`)
-                  }
+                  onClick={() => navigate("/scan/in-person/decision")}
                   className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
                 >
-                  <BadgeDollarSign className="h-4 w-4" />
-                  Price positioning
-                </button>
-
-                <button
-                  onClick={() =>
-                    navigate(`/scan/in-person/summary/${scanIdSafe}`)
-                  }
-                  className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
-                >
-                  Back to summary
+                  Open decision guide
+                  <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -1403,28 +1435,25 @@ export default function InPersonResults() {
                   Start a new scan
                 </button>
               </div>
-
-              <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                  Quick how-to
-                </p>
-                <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-                  1) Tap <strong>Print / Save as PDF</strong>
-                  <br />
-                  2) Save the PDF
-                  <br />
-                  3) Tap <strong>Email this report</strong> and attach the PDF
-                  (optional)
-                </p>
-              </div>
             </div>
           </section>
 
           {/* PRIMARY BUTTONS */}
           <section className="space-y-4 pt-2">
             <button
+              onClick={() =>
+                navigate(`/scan/in-person/price-positioning/${scanIdSafe}`)
+              }
+              className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 text-base inline-flex items-center justify-center gap-2"
+            >
+              <BadgeDollarSign className="h-5 w-5" />
+              Price positioning & negotiation
+              <ArrowRight className="h-5 w-5" />
+            </button>
+
+            <button
               onClick={() => navigate("/scan/in-person/decision")}
-              className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-6 py-4 text-base"
+              className="w-full rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold px-6 py-4 text-base"
             >
               Decision & next steps
             </button>
