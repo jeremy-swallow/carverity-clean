@@ -127,20 +127,20 @@ function extractEvidenceBullets(evidence: unknown): string[] {
   return [];
 }
 
-function UncertaintyText({ value }: { value: unknown }) {
-  if (typeof value === "string") return <>{value}</>;
+function uncertaintyLabel(value: unknown): string {
+  if (typeof value === "string" && value.trim()) return value.trim();
+
   if (isRecord(value)) {
     return (
-      <>
-        {asCleanText(value.label) ||
-          asCleanText(value.title) ||
-          asCleanText(value.reason) ||
-          asCleanText(value.description) ||
-          "You marked something as unsure."}
-      </>
+      asCleanText(value.label) ||
+      asCleanText(value.title) ||
+      asCleanText(value.reason) ||
+      asCleanText(value.description) ||
+      "You marked something as unsure."
     );
   }
-  return <>You marked something as unsure.</>;
+
+  return "You marked something as unsure.";
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -345,6 +345,7 @@ export default function InPersonResults() {
   const [photoLoading, setPhotoLoading] = useState(false);
 
   const [showWhyScore, setShowWhyScore] = useState(true);
+  const [showConfidenceExplainer, setShowConfidenceExplainer] = useState(false);
 
   /* -------------------------------------------------------
      Routing safety
@@ -1207,6 +1208,106 @@ export default function InPersonResults() {
                 </div>
               )}
             </div>
+
+            {/* PREMIUM ACCORDION: CONFIDENCE EXPLAINED */}
+            <div className="pt-3">
+              <button
+                type="button"
+                onClick={() => setShowConfidenceExplainer((v) => !v)}
+                className="w-full rounded-2xl border border-white/12 bg-slate-950/25 hover:bg-slate-900/40 px-6 py-5 flex items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-2xl border border-white/12 bg-white/5 flex items-center justify-center">
+                    <BarChart3 className="h-5 w-5 text-slate-200" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-base font-semibold text-white">
+                      Confidence explained
+                    </p>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      What it means, what affects it, and how to improve it.
+                    </p>
+                  </div>
+                </div>
+
+                {showConfidenceExplainer ? (
+                  <ChevronUp className="h-5 w-5 text-slate-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-slate-400" />
+                )}
+              </button>
+
+              {showConfidenceExplainer && (
+                <div className="mt-3 rounded-2xl border border-white/12 bg-slate-900/45 px-6 py-6 space-y-5">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <MiniCard
+                      title="What confidence means"
+                      body="Confidence is how strongly this result is supported by what you actually recorded. It is not a promise the car is “good”."
+                      icon={<ShieldCheck className="h-5 w-5 text-slate-300" />}
+                    />
+                    <MiniCard
+                      title="What affects it"
+                      body="It goes up with more checks, clearer notes, and photos. It goes down when there are unknowns, missing steps, or unsure items."
+                      icon={<Eye className="h-5 w-5 text-slate-300" />}
+                    />
+                    <MiniCard
+                      title="How to improve it"
+                      body="Confirm unsure items, add short notes, and capture proof photos (dash lights, tyres, service stickers, damage close-ups)."
+                      icon={<Camera className="h-5 w-5 text-slate-300" />}
+                    />
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-4 space-y-3">
+                    <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                      Practical tips (fast)
+                    </div>
+
+                    <ul className="space-y-2 text-[15px] text-slate-300">
+                      <li className="flex gap-2">
+                        <span className="mt-[2px] inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs text-slate-200">
+                          1
+                        </span>
+                        <span>
+                          <span className="text-white font-semibold">
+                            Turn “unsure” into “confirmed”
+                          </span>{" "}
+                          by asking for proof (invoice, photo, written
+                          confirmation).
+                        </span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-[2px] inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs text-slate-200">
+                          2
+                        </span>
+                        <span>
+                          <span className="text-white font-semibold">
+                            Add one sentence notes
+                          </span>{" "}
+                          on anything you flagged (what you saw, heard, or felt).
+                        </span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="mt-[2px] inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs text-slate-200">
+                          3
+                        </span>
+                        <span>
+                          <span className="text-white font-semibold">
+                            Capture proof photos
+                          </span>{" "}
+                          that someone else can understand later.
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Confidence is about evidence quality — not optimism. A lower
+                    confidence score is still useful because it tells you what
+                    to clarify before you commit.
+                  </p>
+                </div>
+              )}
+            </div>
           </section>
 
           {/* CLEAN SCAN VALUE (PREMIUM, NEVER EMPTY) */}
@@ -1458,9 +1559,7 @@ export default function InPersonResults() {
               <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6">
                 <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
                   {uncertaintyFactors.map((u, i) => (
-                    <li key={i}>
-                      <UncertaintyText value={u} />
-                    </li>
+                    <li key={i}>{uncertaintyLabel(u)}</li>
                   ))}
                 </ul>
 
