@@ -30,6 +30,7 @@ import CreditsHistory from "./pages/CreditsHistory";
    In-person scan flow
 ======================= */
 import InPersonStart from "./pages/InPersonStart";
+import InPersonSaleContext from "./pages/InPersonSaleContext";
 import InPersonVehicleDetails from "./pages/InPersonVehicleDetails";
 import InPersonAskingPrice from "./pages/InPersonAskingPrice";
 import InPersonPhotos from "./pages/InPersonPhotos";
@@ -83,6 +84,10 @@ export default function App() {
            In-person scan flow
         ======================= */}
         <Route path="/scan/in-person/start" element={<InPersonStart />} />
+
+        {/* NEW: Sale context setup (optional) */}
+        <Route path="/scan/in-person/sale" element={<InPersonSaleContext />} />
+
         <Route
           path="/scan/in-person/vehicle-details"
           element={<InPersonVehicleDetails />}
