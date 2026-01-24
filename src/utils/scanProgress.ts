@@ -56,10 +56,11 @@ export interface ScanProgress {
   kilometres?: number;
 
   /* =====================
-     In-person: yard context
+     In-person: sale context (dealership or private)
   ====================== */
-  yardName?: string;
-  yardSuburb?: string;
+  saleType?: "dealership" | "private";
+  saleName?: string;
+  saleSuburb?: string;
 
   /* =====================
      In-person: pricing context

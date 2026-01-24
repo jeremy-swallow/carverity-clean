@@ -309,10 +309,14 @@ export default function InPersonSummary() {
   const photos = progress?.photos ?? [];
   const fromOnlineScan = Boolean(progress?.fromOnlineScan);
 
-  const yardName =
-    typeof progress?.yardName === "string" ? progress.yardName : "";
-  const yardSuburb =
-    typeof progress?.yardSuburb === "string" ? progress.yardSuburb : "";
+  const saleType =
+    progress?.saleType === "dealership" || progress?.saleType === "private"
+      ? progress.saleType
+      : undefined;
+
+  const saleName = typeof progress?.saleName === "string" ? progress.saleName : "";
+  const saleSuburb =
+    typeof progress?.saleSuburb === "string" ? progress.saleSuburb : "";
 
   const askingPrice: number | null =
     typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
@@ -475,11 +479,12 @@ export default function InPersonSummary() {
             undefined,
         },
 
-        yard:
-          yardName || yardSuburb
+        sale:
+          saleType || saleName || saleSuburb
             ? {
-                name: yardName || undefined,
-                suburb: yardSuburb || undefined,
+                type: saleType,
+                name: saleName || undefined,
+                suburb: saleSuburb || undefined,
               }
             : undefined,
 

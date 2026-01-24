@@ -31,8 +31,9 @@ export interface SavedInspection {
     variant?: string;
   };
 
-  // Yard / dealership context (used for grouping + shortlist workflows)
-  yard?: {
+  // Sale context (dealership or private)
+  sale?: {
+    type?: "dealership" | "private";
     name?: string;
     suburb?: string;
   };
@@ -103,19 +104,19 @@ function stripPhotosFromProgress(
     (next as any).photos = (next as any).photos.map((p: any) => ({
       id: p?.id,
       stepId: p?.stepId,
-      // storagePath intentionally not needed for local snapshot
+      storagePath: p?.storagePath,
+      // dataUrl intentionally removed
     }));
   }
 
   // Follow-up photos (captured after scan)
   if (Array.isArray((next as any).followUpPhotos)) {
-    (next as any).followUpPhotos = (next as any).followUpPhotos.map(
-      (p: any) => ({
-        id: p?.id,
-        note: p?.note,
-        // storagePath intentionally not needed for local snapshot
-      })
-    );
+    (next as any).followUpPhotos = (next as any).followUpPhotos.map((p: any) => ({
+      id: p?.id,
+      note: p?.note,
+      storagePath: p?.storagePath,
+      // dataUrl intentionally removed
+    }));
   }
 
   return next;
@@ -150,7 +151,7 @@ function normaliseInspections(records: any[]): SavedInspection[] {
     thumbnail: record.thumbnail ?? null,
     analysis: record.analysis ?? undefined,
     progressSnapshot: record.progressSnapshot ?? undefined,
-    yard: record.yard ?? undefined,
+    sale: record.sale ?? undefined,
   })) as SavedInspection[];
 }
 
@@ -230,7 +231,9 @@ export function saveScan(inspection: SavedInspection) {
 
   const existing = loadScans().filter((i) => i.id !== inspection.id);
 
-  const safeProgressSnapshot = stripPhotosFromProgress(inspection.progressSnapshot);
+  const safeProgressSnapshot = stripPhotosFromProgress(
+    inspection.progressSnapshot
+  );
 
   const updated: SavedInspection[] = [
     {
@@ -243,7 +246,7 @@ export function saveScan(inspection: SavedInspection) {
       thumbnail: safeThumbnail(inspection.thumbnail ?? null),
       analysis: inspection.analysis ?? undefined,
       progressSnapshot: safeProgressSnapshot ?? undefined,
-      yard: inspection.yard ?? undefined,
+      sale: inspection.sale ?? undefined,
     },
     ...existing,
   ];
