@@ -330,7 +330,16 @@ export default function InPersonResults() {
     ? ((analysis as any).risks as any[])
     : [];
 
-  const photos: string[] = Array.isArray(progress?.photos)
+  // IMPORTANT:
+  // progressSnapshot stored in localStorage intentionally strips photo dataUrls.
+  // So:
+  // - photoCount should come from progress.photos.length
+  // - renderablePhotos should come from photos[].dataUrl (if present)
+  const capturedPhotoCount = Array.isArray(progress?.photos)
+    ? progress.photos.length
+    : 0;
+
+  const renderablePhotos: string[] = Array.isArray(progress?.photos)
     ? progress.photos
         .map((p: any) => p?.dataUrl)
         .filter((x: any) => typeof x === "string" && x.length > 0)
@@ -576,7 +585,6 @@ export default function InPersonResults() {
   const evidenceHeadline = useMemo(() => {
     const concernCount = risksSafe.filter((r) => r?.severity !== "info").length;
     const imperfectionCount = recordedImperfections.length;
-    const photoCount = photos.length;
 
     const parts: string[] = [];
 
@@ -586,8 +594,10 @@ export default function InPersonResults() {
       parts.push(
         `${imperfectionCount} imperfection${imperfectionCount === 1 ? "" : "s"}`
       );
-    if (photoCount > 0)
-      parts.push(`${photoCount} photo${photoCount === 1 ? "" : "s"}`);
+    if (capturedPhotoCount > 0)
+      parts.push(
+        `${capturedPhotoCount} photo${capturedPhotoCount === 1 ? "" : "s"}`
+      );
 
     if (parts.length === 0) {
       return "This report is based on the information recorded during your inspection.";
@@ -596,7 +606,7 @@ export default function InPersonResults() {
     return `This report was generated from ${parts.join(
       ", "
     )} recorded during your inspection.`;
-  }, [risksSafe, recordedImperfections.length, photos.length]);
+  }, [risksSafe, recordedImperfections.length, capturedPhotoCount]);
 
   const evidenceNotes = useMemo(() => {
     const lines: string[] = [];
@@ -611,12 +621,18 @@ export default function InPersonResults() {
       );
     }
 
+    if (capturedPhotoCount > 0 && renderablePhotos.length === 0) {
+      lines.push(
+        "Photos were captured during the inspection, but they aren’t stored inside this report to prevent storage issues on your device."
+      );
+    }
+
     lines.push(
       "This is not a mechanical certification. If you’re close to buying, consider an independent pre-purchase inspection."
     );
 
     return lines;
-  }, [uncertaintyFactors.length]);
+  }, [uncertaintyFactors.length, capturedPhotoCount, renderablePhotos.length]);
 
   /* -------------------------------------------------------
      Email report (opens user's own email client)
@@ -645,6 +661,7 @@ export default function InPersonResults() {
       }`
     );
     lines.push(`• Unsure items: ${uncertaintyFactors.length}`);
+    lines.push(`• Photos captured: ${capturedPhotoCount}`);
     lines.push("");
     lines.push("Tip: You can print/save the PDF and attach it to this email.");
     lines.push("");
@@ -663,6 +680,7 @@ export default function InPersonResults() {
     coverage,
     risksSafe,
     uncertaintyFactors.length,
+    capturedPhotoCount,
   ]);
 
   function startNewScan() {
@@ -823,7 +841,9 @@ export default function InPersonResults() {
               <div>
                 <div className="flex items-center gap-2 text-slate-400">
                   <HelpCircle className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wide">Unsure</span>
+                  <span className="text-xs uppercase tracking-wide">
+                    Unsure
+                  </span>
                 </div>
                 <p className="mt-1 text-2xl font-semibold text-white">
                   {uncertaintyFactors.length}
@@ -991,9 +1011,7 @@ export default function InPersonResults() {
                 </button>
 
                 <button
-                  onClick={() =>
-                    navigate(`/scan/in-person/summary/${scanIdSafe}`)
-                  }
+                  onClick={() => navigate(`/scan/in-person/summary/${scanIdSafe}`)}
                   className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
                 >
                   Back to summary
@@ -1082,8 +1100,8 @@ export default function InPersonResults() {
                 </ul>
 
                 <p className="text-xs text-slate-500 mt-4">
-                  “Unsure” just means you couldn’t confirm it today. If it
-                  matters, try to verify it before buying.
+                  “Unsure” just means you couldn’t confirm it today. If it matters,
+                  try to verify it before buying.
                 </p>
               </div>
             </section>
@@ -1128,7 +1146,9 @@ export default function InPersonResults() {
                 <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm text-slate-300">
                   <div>
                     <div className="text-slate-500 text-xs">Photos</div>
-                    <div className="text-white font-semibold">{photos.length}</div>
+                    <div className="text-white font-semibold">
+                      {capturedPhotoCount}
+                    </div>
                   </div>
                   <div>
                     <div className="text-slate-500 text-xs">Flagged items</div>
@@ -1167,9 +1187,9 @@ export default function InPersonResults() {
               <h2 className="text-lg font-semibold">Photos</h2>
             </div>
 
-            {photos.length > 0 ? (
+            {renderablePhotos.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {photos.map((src, i) => (
+                {renderablePhotos.map((src, i) => (
                   <img
                     key={i}
                     src={src}
@@ -1178,6 +1198,14 @@ export default function InPersonResults() {
                   />
                 ))}
               </div>
+            ) : capturedPhotoCount > 0 ? (
+              <p className="text-sm text-slate-400">
+                You captured {capturedPhotoCount} photo
+                {capturedPhotoCount === 1 ? "" : "s"} during this inspection.
+                <br />
+                Photos aren’t stored inside the report to prevent storage issues
+                on your device.
+              </p>
             ) : (
               <p className="text-sm text-slate-400">
                 You didn’t take any photos during this inspection.
@@ -1192,9 +1220,9 @@ export default function InPersonResults() {
                 Finished — save or share this report
               </p>
               <p className="mt-2 text-sm text-slate-400 leading-relaxed max-w-3xl">
-                If you want to share this with someone (partner, family,
-                mechanic), the easiest way is to save it as a PDF, then email it
-                from your own email app.
+                If you want to share this with someone (partner, family, mechanic),
+                the easiest way is to save it as a PDF, then email it from your own
+                email app.
               </p>
 
               <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
