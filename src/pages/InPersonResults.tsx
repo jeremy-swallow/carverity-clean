@@ -19,8 +19,10 @@ import {
   Flag,
   Wrench,
   BadgeDollarSign,
-  Check,
-  CircleDashed,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Info,
 } from "lucide-react";
 
 import { supabase } from "../supabaseClient";
@@ -125,18 +127,20 @@ function extractEvidenceBullets(evidence: unknown): string[] {
   return [];
 }
 
-function UncertaintyText(u: unknown): string {
-  if (typeof u === "string") return u;
-  if (isRecord(u)) {
+function UncertaintyText({ value }: { value: unknown }) {
+  if (typeof value === "string") return <>{value}</>;
+  if (isRecord(value)) {
     return (
-      asCleanText(u.label) ||
-      asCleanText(u.title) ||
-      asCleanText(u.reason) ||
-      asCleanText(u.description) ||
-      "You marked something as unsure."
+      <>
+        {asCleanText(value.label) ||
+          asCleanText(value.title) ||
+          asCleanText(value.reason) ||
+          asCleanText(value.description) ||
+          "You marked something as unsure."}
+      </>
     );
   }
-  return "You marked something as unsure.";
+  return <>You marked something as unsure.</>;
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -276,6 +280,57 @@ async function createSignedUrlSafe(
 }
 
 /* =======================================================
+   Premium UI helpers
+======================================================= */
+
+function ScorePill({
+  label,
+  icon,
+  value,
+  sub,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  value: string;
+  sub: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/12 bg-slate-950/25 px-5 py-4">
+      <div className="flex items-center gap-2 text-slate-400">
+        <span className="text-slate-400">{icon}</span>
+        <span className="text-xs uppercase tracking-wide">{label}</span>
+      </div>
+      <p className="mt-1 text-2xl font-semibold text-white tabular-nums">
+        {value}
+      </p>
+      <p className="mt-1 text-xs text-slate-500 leading-relaxed">{sub}</p>
+    </div>
+  );
+}
+
+function MiniCard({
+  title,
+  body,
+  icon,
+}: {
+  title: string;
+  body: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/12 bg-slate-900/45 px-6 py-5">
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 text-slate-300">{icon}</div>
+        <div className="min-w-0">
+          <p className="text-base font-semibold text-white">{title}</p>
+          <p className="mt-1 text-sm text-slate-400 leading-relaxed">{body}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =======================================================
    Page
 ======================================================= */
 export default function InPersonResults() {
@@ -288,6 +343,8 @@ export default function InPersonResults() {
 
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [photoLoading, setPhotoLoading] = useState(false);
+
+  const [showWhyScore, setShowWhyScore] = useState(true);
 
   /* -------------------------------------------------------
      Routing safety
@@ -601,62 +658,6 @@ export default function InPersonResults() {
   }, [progress]);
 
   /* -------------------------------------------------------
-     VERIFIED TODAY (clean scan must still feel valuable)
-  ------------------------------------------------------- */
-  const verifiedToday = useMemo(() => {
-    const checks = progress?.checks ?? {};
-    if (!checks || typeof checks !== "object") return [];
-
-    const entries = Object.entries(checks)
-      .map(([id, v]: any) => {
-        const value = v?.value as "ok" | "concern" | "unsure" | undefined;
-        const note = (v?.note ?? "").trim();
-
-        if (!value && !note) return null;
-
-        const label = titleFromId(id);
-
-        // If user typed a note but didn’t select value, treat as "recorded"
-        const status: "ok" | "concern" | "unsure" | "recorded" =
-          value === "ok" || value === "concern" || value === "unsure"
-            ? value
-            : "recorded";
-
-        return { id, label, status, note };
-      })
-      .filter(Boolean) as Array<{
-      id: string;
-      label: string;
-      status: "ok" | "concern" | "unsure" | "recorded";
-      note: string;
-    }>;
-
-    // Prefer showing OK + Recorded on clean scans
-    // Sort: concern, unsure, recorded, ok
-    const rank = (s: string) =>
-      s === "concern" ? 0 : s === "unsure" ? 1 : s === "recorded" ? 2 : 3;
-
-    entries.sort((a, b) => rank(a.status) - rank(b.status));
-
-    return entries;
-  }, [progress]);
-
-  const cleanScan = useMemo(() => {
-    const anyFlags =
-      flaggedChecks.length > 0 ||
-      recordedImperfections.length > 0 ||
-      risksSafe.filter((r) => r?.severity !== "info").length > 0 ||
-      uncertaintyFactors.length > 0;
-
-    return !anyFlags;
-  }, [
-    flaggedChecks.length,
-    recordedImperfections.length,
-    risksSafe,
-    uncertaintyFactors.length,
-  ]);
-
-  /* -------------------------------------------------------
      Verdict meta (safe fallback)
   ------------------------------------------------------- */
   const verdictKey = (analysis as any)?.verdict as
@@ -708,31 +709,43 @@ export default function InPersonResults() {
       );
     } else {
       steps.push(
-        "You’ve already done a short drive — now focus on confirming the paperwork and final details."
+        "You’ve already done a short drive — now focus on clarifying anything you marked as unsure or a concern."
       );
     }
 
-    if (!cleanScan) {
+    if (criticalRisks.length > 0) {
       steps.push(
-        "Start with the biggest items you recorded. Ask for proof (invoice, photos, written confirmation)."
+        "Start with the biggest concerns first. Ask for proof (invoice, photos, written confirmation)."
       );
-    } else {
+    }
+
+    if (moderateRisks.length > 0) {
       steps.push(
-        "Even if the car looks clean, confirm the basics: service history, keys, tyres, and warranty terms."
+        "Ask the seller to explain the items you recorded. Don’t guess — confirm."
+      );
+    }
+
+    if (uncertaintyFactors.length > 0) {
+      steps.push(
+        "Anything marked “unsure” should be treated as unknown. Try to verify it before you buy."
       );
     }
 
     steps.push(
-      "Open Price positioning & negotiation to see a realistic offer range and how to ask without sounding difficult."
+      "If you still like the car, open Price positioning & negotiation to see a realistic offer range and how to ask."
     );
 
     return steps.slice(0, 5);
-  }, [driveWasDone, cleanScan]);
+  }, [
+    driveWasDone,
+    criticalRisks.length,
+    moderateRisks.length,
+    uncertaintyFactors.length,
+  ]);
 
   const clarifyQuestions = useMemo(() => {
     const qs: string[] = [];
 
-    // If user flagged things, ask targeted proof questions
     for (const r of [...criticalRisks, ...moderateRisks]) {
       const label = (r?.label || "").trim();
       if (!label) continue;
@@ -742,16 +755,19 @@ export default function InPersonResults() {
       );
     }
 
-    // Otherwise: clean scan questions (still valuable)
+    if (qs.length === 0 && uncertaintyFactors.length > 0) {
+      qs.push(
+        "Can you confirm the things I couldn’t check today (service history, repairs, warnings, faults) in writing?"
+      );
+    }
+
     if (qs.length === 0) {
-      qs.push("Can you show the latest service invoice and full service history?");
-      qs.push("Do you have two keys, and are they both working?");
-      qs.push("Has the car had any accident damage or insurance repairs?");
-      qs.push("Are there any warning lights or known faults at the moment?");
+      qs.push("Can you show the latest service invoice and any repair history?");
+      qs.push("Are there any known faults or warning lights?");
     }
 
     return qs.slice(0, 4);
-  }, [criticalRisks, moderateRisks]);
+  }, [criticalRisks, moderateRisks, uncertaintyFactors.length]);
 
   const whyThisVerdict =
     (analysis as any)?.whyThisVerdict || (analysis as any)?.verdictReason || "";
@@ -776,13 +792,8 @@ export default function InPersonResults() {
       });
     }
 
-    if (signals.length === 0 && cleanScan) {
-      signals.push({ label: "No major red flags recorded", tone: "unknown" });
-      signals.push({ label: "Negotiation room still likely", tone: "unknown" });
-    }
-
     return signals.slice(0, 4);
-  }, [criticalRisks, moderateRisks, uncertaintyFactors.length, cleanScan]);
+  }, [criticalRisks, moderateRisks, uncertaintyFactors.length]);
 
   const scoreBlurb = useMemo(() => {
     if (coverage < 40) {
@@ -791,11 +802,36 @@ export default function InPersonResults() {
     if (confidence < 45) {
       return "Some things need checking. Use the questions below to get clearer answers.";
     }
-    if (cleanScan) {
-      return "This is a clean report based on what you recorded today — it’s still worth using the negotiation section to avoid overpaying.";
-    }
     return "This is based only on what you recorded. It doesn’t assume anything you didn’t check.";
-  }, [coverage, confidence, cleanScan]);
+  }, [coverage, confidence]);
+
+  /* -------------------------------------------------------
+     Premium: clean-scan value (so report never feels empty)
+  ------------------------------------------------------- */
+  const cleanScanValueCards = useMemo(() => {
+    const cards: Array<{ title: string; body: string; icon: React.ReactNode }> =
+      [];
+
+    cards.push({
+      title: "You captured a buyer-proof record",
+      body: "This report documents what was checked today. That alone reduces “unknowns” — and helps you avoid paying full sticker price without evidence.",
+      icon: <ShieldCheck className="h-5 w-5 text-slate-300" />,
+    });
+
+    cards.push({
+      title: "You can still negotiate on a clean car",
+      body: "Dealers often price expecting negotiation. If the car looks clean, you negotiate on readiness to buy + market norms (not faults).",
+      icon: <Sparkles className="h-5 w-5 text-slate-300" />,
+    });
+
+    cards.push({
+      title: "You now have a clear next step",
+      body: "If you’re close to buying, a pre-purchase inspection is the final risk-reducer. If you’re not close yet, compare this report against other cars.",
+      icon: <Wrench className="h-5 w-5 text-slate-300" />,
+    });
+
+    return cards;
+  }, []);
 
   /* -------------------------------------------------------
      Professional evidence copy
@@ -1004,8 +1040,8 @@ export default function InPersonResults() {
               </button>
 
               <p className="mt-2 text-xs text-slate-400">
-                Even clean cars usually have negotiation room. This helps you
-                ask without sounding difficult.
+                This is the most valuable part of the report if you’re buying
+                from a dealer.
               </p>
             </div>
 
@@ -1044,153 +1080,172 @@ export default function InPersonResults() {
               </div>
             )}
 
-            {/* SCORES */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-2">
-              <div>
-                <div className="flex items-center gap-2 text-slate-400">
-                  <BarChart3 className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wide">
-                    Confidence
-                  </span>
-                </div>
-                <p className="mt-1 text-2xl font-semibold text-white">
-                  {confidence}%
-                </p>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 text-slate-400">
-                  <Eye className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wide">
-                    Coverage
-                  </span>
-                </div>
-                <p className="mt-1 text-2xl font-semibold text-white">
-                  {coverage}%
-                </p>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 text-slate-400">
-                  <AlertTriangle className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wide">
-                    Concerns
-                  </span>
-                </div>
-                <p className="mt-1 text-2xl font-semibold text-white">
-                  {risksSafe.filter((r) => r?.severity !== "info").length}
-                </p>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 text-slate-400">
-                  <HelpCircle className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wide">
-                    Unsure
-                  </span>
-                </div>
-                <p className="mt-1 text-2xl font-semibold text-white">
-                  {uncertaintyFactors.length}
-                </p>
-              </div>
+            {/* PREMIUM SCORE GRID */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+              <ScorePill
+                label="Confidence"
+                icon={<BarChart3 className="h-4 w-4" />}
+                value={`${confidence}%`}
+                sub="How strongly the result is supported by what you recorded."
+              />
+              <ScorePill
+                label="Coverage"
+                icon={<Eye className="h-4 w-4" />}
+                value={`${coverage}%`}
+                sub="How much of the inspection flow you completed."
+              />
+              <ScorePill
+                label="Concerns"
+                icon={<AlertTriangle className="h-4 w-4" />}
+                value={`${risksSafe.filter((r) => r?.severity !== "info").length}`}
+                sub="Items you marked as stood out or needing attention."
+              />
+              <ScorePill
+                label="Unsure"
+                icon={<HelpCircle className="h-4 w-4" />}
+                value={`${uncertaintyFactors.length}`}
+                sub="Unknowns that should be confirmed before buying."
+              />
             </div>
 
             <p className="text-xs text-slate-400">{scoreBlurb}</p>
-          </section>
 
-          {/* VERIFIED TODAY (replaces empty-feeling clean scans) */}
-          <section className="space-y-6">
-            <div className="flex items-center gap-3 text-slate-300">
-              <Check className="h-5 w-5 text-slate-400" />
-              <h2 className="text-lg font-semibold">What you verified today</h2>
-            </div>
+            {/* PREMIUM ACCORDION: WHY THIS SCORE */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowWhyScore((v) => !v)}
+                className="w-full rounded-2xl border border-white/12 bg-slate-950/25 hover:bg-slate-900/40 px-6 py-5 flex items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-2xl border border-white/12 bg-white/5 flex items-center justify-center">
+                    <Info className="h-5 w-5 text-slate-200" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-base font-semibold text-white">
+                      Why this score?
+                    </p>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      A clear explanation of how CarVerity arrived at this
+                      result.
+                    </p>
+                  </div>
+                </div>
 
-            <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-4">
-              {verifiedToday.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {verifiedToday.slice(0, 10).map((item) => {
-                    const tone =
-                      item.status === "concern"
-                        ? "border-red-400/25 bg-red-500/10"
-                        : item.status === "unsure"
-                        ? "border-amber-400/25 bg-amber-500/10"
-                        : "border-white/10 bg-slate-950/30";
+                {showWhyScore ? (
+                  <ChevronUp className="h-5 w-5 text-slate-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-slate-400" />
+                )}
+              </button>
 
-                    const icon =
-                      item.status === "concern" ? (
-                        <AlertTriangle className="h-4 w-4 text-amber-300" />
-                      ) : item.status === "unsure" ? (
-                        <CircleDashed className="h-4 w-4 text-amber-300" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                      );
+              {showWhyScore && (
+                <div className="mt-3 rounded-2xl border border-white/12 bg-slate-900/45 px-6 py-6 space-y-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <MiniCard
+                      title="Confidence is not a guess"
+                      body="Confidence increases when you record clear observations. It drops when there are unknowns or unanswered items."
+                      icon={<ShieldCheck className="h-5 w-5 text-slate-300" />}
+                    />
+                    <MiniCard
+                      title="Coverage drives reliability"
+                      body="Higher coverage means the result is based on more checks. Low coverage makes the outcome more cautious."
+                      icon={<Eye className="h-5 w-5 text-slate-300" />}
+                    />
+                    <MiniCard
+                      title="Concerns & unsure items matter"
+                      body="Concerns raise risk. Unsure items are treated as unknowns — they should be clarified before committing."
+                      icon={<AlertTriangle className="h-5 w-5 text-slate-300" />}
+                    />
+                  </div>
 
-                    const tag =
-                      item.status === "concern"
-                        ? "Concern"
-                        : item.status === "unsure"
-                        ? "Unsure"
-                        : item.status === "recorded"
-                        ? "Recorded"
-                        : "OK";
+                  {evidenceText ? (
+                    <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                      <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                        What you recorded (summary)
+                      </div>
+                      <div className="mt-2">
+                        <Paragraph value={evidenceText} />
+                      </div>
+                    </div>
+                  ) : null}
 
-                    return (
-                      <div
-                        key={item.id}
-                        className={`rounded-2xl border px-4 py-3 ${tone}`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              {icon}
-                              <p className="text-sm font-semibold text-white">
-                                {item.label}
-                              </p>
-                            </div>
-                            {item.note ? (
-                              <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-                                {item.note}
-                              </p>
-                            ) : (
-                              <p className="mt-2 text-xs text-slate-400">
-                                No notes added.
-                              </p>
-                            )}
-                          </div>
-
-                          <span className="shrink-0 inline-flex items-center rounded-full border border-white/15 bg-slate-950/30 px-3 py-1 text-xs text-slate-200">
-                            {tag}
-                          </span>
+                  <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                    <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                      Snapshot
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm text-slate-300">
+                      <div>
+                        <div className="text-slate-500 text-xs">Photos</div>
+                        <div className="text-white font-semibold">
+                          {capturedPhotoCount}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-slate-400">
-                  Nothing was recorded in checks for this scan.
-                </p>
-              )}
+                      <div>
+                        <div className="text-slate-500 text-xs">Flagged items</div>
+                        <div className="text-white font-semibold">
+                          {risksSafe.filter((r) => r?.severity !== "info").length}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500 text-xs">Unsure</div>
+                        <div className="text-white font-semibold">
+                          {uncertaintyFactors.length}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500 text-xs">Coverage</div>
+                        <div className="text-white font-semibold">{coverage}%</div>
+                      </div>
+                    </div>
+                  </div>
 
-              <p className="text-xs text-slate-500 max-w-3xl">
-                This section shows what you actually recorded — including OK
-                items — so clean scans still feel complete.
-              </p>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    CarVerity does not assume anything you didn’t check. If it
+                    wasn’t recorded, it’s treated as unknown — not good or bad.
+                  </p>
+                </div>
+              )}
             </div>
           </section>
 
-          {/* RECORDED ISSUES (single source of truth, no duplication) */}
+          {/* CLEAN SCAN VALUE (PREMIUM, NEVER EMPTY) */}
+          {flaggedChecks.length === 0 &&
+            recordedImperfections.length === 0 &&
+            uncertaintyFactors.length === 0 && (
+              <section className="space-y-6">
+                <div className="flex items-center gap-3 text-slate-300">
+                  <Sparkles className="h-5 w-5 text-slate-400" />
+                  <h2 className="text-lg font-semibold">
+                    Why this is still valuable (even on a clean scan)
+                  </h2>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {cleanScanValueCards.map((c) => (
+                    <MiniCard
+                      key={c.title}
+                      title={c.title}
+                      body={c.body}
+                      icon={c.icon}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+          {/* WHAT YOU FLAGGED */}
           <section className="space-y-6">
             <div className="flex items-center gap-3 text-slate-300">
               <Flag className="h-5 w-5 text-slate-400" />
-              <h2 className="text-lg font-semibold">Recorded issues</h2>
+              <h2 className="text-lg font-semibold">What you flagged</h2>
             </div>
 
             <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-6">
-              {/* Flagged checks */}
+              {/* Checks */}
               <div className="space-y-3">
                 <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                  Checks you marked as concern / unsure
+                  Checks (concerns + unsure)
                 </div>
 
                 {flaggedChecks.length > 0 ? (
@@ -1235,7 +1290,7 @@ export default function InPersonResults() {
                   </div>
                 ) : (
                   <p className="text-sm text-slate-400">
-                    No check items were marked as concern or unsure.
+                    You didn’t flag any check items as “stood out” or “unsure”.
                   </p>
                 )}
               </div>
@@ -1243,7 +1298,7 @@ export default function InPersonResults() {
               {/* Imperfections */}
               <div className="space-y-3">
                 <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                  Imperfections you recorded
+                  Imperfections
                 </div>
 
                 {recordedImperfections.length > 0 ? (
@@ -1295,28 +1350,9 @@ export default function InPersonResults() {
                 )}
               </div>
 
-              {uncertaintyFactors.length > 0 && (
-                <div className="space-y-3">
-                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                    Things you weren’t sure about
-                  </div>
-
-                  <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
-                    {uncertaintyFactors.slice(0, 6).map((u, i) => (
-                      <li key={i}>{UncertaintyText(u)}</li>
-                    ))}
-                  </ul>
-
-                  <p className="text-xs text-slate-500">
-                    “Unsure” just means you couldn’t confirm it today. If it
-                    matters, verify it before buying.
-                  </p>
-                </div>
-              )}
-
               <p className="text-xs text-slate-500 max-w-3xl">
-                This section is the source of truth. Other sections won’t repeat
-                the same items.
+                This section is the exact list of what you recorded — nothing is
+                inferred.
               </p>
             </div>
           </section>
@@ -1362,6 +1398,80 @@ export default function InPersonResults() {
             </div>
           </section>
 
+          {/* BIG CONCERNS */}
+          {criticalRisks.length > 0 && (
+            <section className="space-y-6">
+              <h2 className="text-lg font-semibold text-slate-200">
+                Biggest concerns
+              </h2>
+
+              <div className="space-y-4">
+                {criticalRisks.map((r: any) => (
+                  <div
+                    key={String(r?.id ?? r?.label ?? Math.random())}
+                    className="rounded-2xl border border-white/10 bg-slate-900/60 px-6 py-5"
+                  >
+                    <p className="text-base font-semibold text-white">
+                      {r?.label ?? "Concern"}
+                    </p>
+                    <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
+                      {r?.explanation ?? ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* OTHER ITEMS */}
+          {moderateRisks.length > 0 && (
+            <section className="space-y-6">
+              <h2 className="text-lg font-semibold text-slate-200">
+                Things worth checking
+              </h2>
+
+              <div className="space-y-4">
+                {moderateRisks.map((r: any) => (
+                  <div
+                    key={String(r?.id ?? r?.label ?? Math.random())}
+                    className="rounded-2xl border border-white/10 bg-slate-900/50 px-6 py-5"
+                  >
+                    <p className="text-base font-medium text-slate-100">
+                      {r?.label ?? "Item"}
+                    </p>
+                    <p className="mt-2 text-[15px] text-slate-300 leading-relaxed">
+                      {r?.explanation ?? ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* UNSURE */}
+          {uncertaintyFactors.length > 0 && (
+            <section className="space-y-6">
+              <h2 className="text-lg font-semibold text-slate-200">
+                Things you weren’t sure about
+              </h2>
+
+              <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6">
+                <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
+                  {uncertaintyFactors.map((u, i) => (
+                    <li key={i}>
+                      <UncertaintyText value={u} />
+                    </li>
+                  ))}
+                </ul>
+
+                <p className="text-xs text-slate-500 mt-4">
+                  “Unsure” just means you couldn’t confirm it today. If it
+                  matters, try to verify it before buying.
+                </p>
+              </div>
+            </section>
+          )}
+
           {/* EVIDENCE CONSIDERED */}
           <section className="space-y-6">
             <div className="flex items-center gap-3 text-slate-300">
@@ -1374,17 +1484,6 @@ export default function InPersonResults() {
                 {evidenceHeadline}
               </p>
 
-              {evidenceText ? (
-                <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                    Summary
-                  </div>
-                  <div className="mt-2">
-                    <Paragraph value={evidenceText} />
-                  </div>
-                </div>
-              ) : null}
-
               {evidenceBullets.length > 0 && (
                 <div className="pt-1">
                   <div className="text-xs uppercase tracking-[0.18em] text-slate-500 mb-2">
@@ -1393,36 +1492,6 @@ export default function InPersonResults() {
                   <BulletList items={evidenceBullets} />
                 </div>
               )}
-
-              <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                  Inspection snapshot
-                </div>
-                <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm text-slate-300">
-                  <div>
-                    <div className="text-slate-500 text-xs">Photos</div>
-                    <div className="text-white font-semibold">
-                      {capturedPhotoCount}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-slate-500 text-xs">Flagged items</div>
-                    <div className="text-white font-semibold">
-                      {risksSafe.filter((r) => r?.severity !== "info").length}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-slate-500 text-xs">Unsure</div>
-                    <div className="text-white font-semibold">
-                      {uncertaintyFactors.length}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-slate-500 text-xs">Coverage</div>
-                    <div className="text-white font-semibold">{coverage}%</div>
-                  </div>
-                </div>
-              </div>
 
               <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
                 <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
@@ -1462,7 +1531,7 @@ export default function InPersonResults() {
                 {capturedPhotoCount === 1 ? "" : "s"} during this inspection.
                 <br />
                 Photos exist, but they could not be loaded right now. Please
-                refresh and try again.
+                check your connection and refresh.
               </p>
             ) : (
               <p className="text-sm text-slate-400">
