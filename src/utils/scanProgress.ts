@@ -56,6 +56,12 @@ export interface ScanProgress {
   kilometres?: number;
 
   /* =====================
+     In-person: yard context
+  ====================== */
+  yardName?: string;
+  yardSuburb?: string;
+
+  /* =====================
      In-person: pricing context
   ====================== */
   askingPrice?: number | null;

@@ -31,6 +31,12 @@ export interface SavedInspection {
     variant?: string;
   };
 
+  // Yard / dealership context (used for grouping + shortlist workflows)
+  yard?: {
+    name?: string;
+    suburb?: string;
+  };
+
   // Thumbnail image (base64 dataUrl) — KEEP SMALL OR OMIT
   thumbnail?: string | null;
 
@@ -85,7 +91,9 @@ function isProbablyBase64DataUrl(value: unknown): value is string {
  * localStorage is tiny. A single base64 photo can be >1MB.
  * We strip all dataUrl fields before saving progressSnapshot.
  */
-function stripPhotosFromProgress(progress?: ScanProgress): ScanProgress | undefined {
+function stripPhotosFromProgress(
+  progress?: ScanProgress
+): ScanProgress | undefined {
   if (!progress) return undefined;
 
   const next: ScanProgress = { ...progress };
@@ -95,17 +103,19 @@ function stripPhotosFromProgress(progress?: ScanProgress): ScanProgress | undefi
     (next as any).photos = (next as any).photos.map((p: any) => ({
       id: p?.id,
       stepId: p?.stepId,
-      // dataUrl intentionally removed
+      // storagePath intentionally not needed for local snapshot
     }));
   }
 
   // Follow-up photos (captured after scan)
   if (Array.isArray((next as any).followUpPhotos)) {
-    (next as any).followUpPhotos = (next as any).followUpPhotos.map((p: any) => ({
-      id: p?.id,
-      note: p?.note,
-      // dataUrl intentionally removed
-    }));
+    (next as any).followUpPhotos = (next as any).followUpPhotos.map(
+      (p: any) => ({
+        id: p?.id,
+        note: p?.note,
+        // storagePath intentionally not needed for local snapshot
+      })
+    );
   }
 
   return next;
@@ -140,6 +150,7 @@ function normaliseInspections(records: any[]): SavedInspection[] {
     thumbnail: record.thumbnail ?? null,
     analysis: record.analysis ?? undefined,
     progressSnapshot: record.progressSnapshot ?? undefined,
+    yard: record.yard ?? undefined,
   })) as SavedInspection[];
 }
 
@@ -232,6 +243,7 @@ export function saveScan(inspection: SavedInspection) {
       thumbnail: safeThumbnail(inspection.thumbnail ?? null),
       analysis: inspection.analysis ?? undefined,
       progressSnapshot: safeProgressSnapshot ?? undefined,
+      yard: inspection.yard ?? undefined,
     },
     ...existing,
   ];
