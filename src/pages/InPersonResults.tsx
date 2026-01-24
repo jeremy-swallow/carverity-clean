@@ -213,6 +213,38 @@ function isProbablyBase64Image(s: unknown): s is string {
   );
 }
 
+/**
+ * Normalise a storage object path to the *inside-bucket* path.
+ * This fixes common bugs like:
+ * - "scan-photos/users/..." (bucket accidentally included)
+ * - "/users/..." (leading slash)
+ * - "public/scan-photos/users/..." (public prefix)
+ */
+function normaliseStoragePath(raw: string): string {
+  let p = String(raw || "").trim();
+  if (!p) return "";
+
+  // Remove leading slashes
+  p = p.replace(/^\/+/, "");
+
+  // Remove common "public/" prefix patterns
+  p = p.replace(/^public\//, "");
+
+  // Remove bucket name if mistakenly included
+  if (p.startsWith(`${PHOTO_BUCKET}/`)) {
+    p = p.slice(PHOTO_BUCKET.length + 1);
+  }
+
+  // Also handle "storage/v1/object/public/scan-photos/..."
+  const publicPrefix = `storage/v1/object/public/${PHOTO_BUCKET}/`;
+  if (p.includes(publicPrefix)) {
+    const idx = p.indexOf(publicPrefix);
+    p = p.slice(idx + publicPrefix.length);
+  }
+
+  return p.trim();
+}
+
 function extractPhotoRefs(progress: any): {
   legacyUrls: string[];
   storagePaths: string[];
@@ -229,7 +261,7 @@ function extractPhotoRefs(progress: any): {
   for (const item of photosRaw) {
     if (typeof item === "string") {
       if (isProbablyBase64Image(item)) legacyUrls.push(item);
-      else storagePaths.push(item);
+      else storagePaths.push(normaliseStoragePath(item));
       continue;
     }
 
@@ -244,12 +276,13 @@ function extractPhotoRefs(progress: any): {
       const du =
         (typeof maybe.dataUrl === "string" && maybe.dataUrl.trim()) || "";
 
-      if (sp) storagePaths.push(sp);
+      if (sp) storagePaths.push(normaliseStoragePath(sp));
       else if (du && isProbablyBase64Image(du)) legacyUrls.push(du);
     }
   }
 
-  const dedupe = (arr: string[]) => Array.from(new Set(arr));
+  const dedupe = (arr: string[]) =>
+    Array.from(new Set(arr.filter(Boolean).map((x) => x.trim())));
 
   return {
     legacyUrls: dedupe(legacyUrls),
@@ -263,12 +296,15 @@ async function createSignedUrlSafe(
   ttlSeconds: number
 ): Promise<string | null> {
   try {
+    const cleaned = normaliseStoragePath(path);
+    if (!cleaned) return null;
+
     const { data, error } = await supabase.storage
       .from(bucket)
-      .createSignedUrl(path, ttlSeconds);
+      .createSignedUrl(cleaned, ttlSeconds);
 
     if (error) {
-      console.warn("[Results] createSignedUrl failed:", error.message);
+      console.warn("[Results] createSignedUrl failed:", error.message, cleaned);
       return null;
     }
 
