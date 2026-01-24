@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { saveProgress, loadProgress } from "../utils/scanProgress";
 import { generateScanId } from "../utils/scanStorage";
+import { supabase } from "../supabaseClient";
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,11 +13,12 @@ import {
   Image as ImageIcon,
   X,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 
 type StepPhoto = {
   id: string;
-  dataUrl: string;
+  storagePath: string;
   stepId: string;
 };
 
@@ -32,8 +34,27 @@ type PhotoStep = {
 
 const MAX_PHOTOS = 15;
 
+// Supabase Storage bucket
+const PHOTO_BUCKET = "scan-photos";
+
 // ✅ IMPORTANT: this must match your real first checks route
 const FIRST_CHECKS_ROUTE = "/scan/in-person/checks/intro";
+
+function makeId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function extFromFile(file: File): "jpg" | "jpeg" | "png" | "webp" {
+  const t = (file.type || "").toLowerCase();
+  if (t.includes("png")) return "png";
+  if (t.includes("webp")) return "webp";
+  if (t.includes("jpeg")) return "jpeg";
+  if (t.includes("jpg")) return "jpg";
+  // fallback
+  return "jpg";
+}
 
 export default function InPersonPhotos() {
   const navigate = useNavigate();
@@ -64,6 +85,9 @@ export default function InPersonPhotos() {
 
   const [stepIndex, setStepIndex] = useState(0);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const atHardLimit = photos.length >= MAX_PHOTOS;
 
@@ -189,32 +213,69 @@ export default function InPersonPhotos() {
   }, [stepIndex]);
 
   /* =========================================================
-     Photo handling
+     Upload to Supabase Storage
   ========================================================== */
 
-  function savePhotoFromFile(file: File) {
+  async function uploadPhotoToStorage(file: File): Promise<StepPhoto> {
+    const {
+      data: { user },
+      error: userErr,
+    } = await supabase.auth.getUser();
+
+    if (userErr) {
+      throw new Error(userErr.message || "Could not verify user session.");
+    }
+    if (!user) {
+      throw new Error("You must be signed in to upload photos.");
+    }
+
+    const photoId = makeId();
+    const ext = extFromFile(file);
+
+    const objectPath = `users/${user.id}/scans/${scanId}/steps/${step.id}/${photoId}.${ext}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from(PHOTO_BUCKET)
+      .upload(objectPath, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || "image/jpeg",
+      });
+
+    if (uploadErr) {
+      throw new Error(uploadErr.message || "Upload failed.");
+    }
+
+    return {
+      id: photoId,
+      storagePath: objectPath,
+      stepId: step.id,
+    };
+  }
+
+  async function handleAddFile(file: File) {
     if (atHardLimit) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPhotos((prev) => [
-        ...prev,
-        {
-          id:
-            typeof crypto !== "undefined" && "randomUUID" in crypto
-              ? crypto.randomUUID()
-              : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-          dataUrl: reader.result as string,
-          stepId: step.id,
-        },
-      ]);
-    };
-    reader.readAsDataURL(file);
+    setUploadError(null);
+    setUploading(true);
+
+    try {
+      const uploaded = await uploadPhotoToStorage(file);
+
+      setPhotos((prev) => [...prev, uploaded]);
+    } catch (e: any) {
+      console.error("[InPersonPhotos] upload error:", e);
+      setUploadError(e?.message || "Could not upload photo.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   function handleUploadFromGallery(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) savePhotoFromFile(file);
+    if (file) {
+      void handleAddFile(file);
+    }
     e.target.value = "";
   }
 
@@ -225,13 +286,33 @@ export default function InPersonPhotos() {
     (input as any).capture = "environment";
     input.onchange = () => {
       const file = input.files?.[0];
-      if (file) savePhotoFromFile(file);
+      if (file) {
+        void handleAddFile(file);
+      }
     };
     input.click();
   }
 
-  function removePhoto(id: string) {
+  async function removePhoto(id: string) {
+    const target = photos.find((p) => p.id === id);
+    if (!target) return;
+
+    setUploadError(null);
+
+    // Optimistic UI remove first
     setPhotos((prev) => prev.filter((p) => p.id !== id));
+
+    try {
+      const { error } = await supabase.storage
+        .from(PHOTO_BUCKET)
+        .remove([target.storagePath]);
+
+      if (error) {
+        console.warn("[InPersonPhotos] remove storage error:", error.message);
+      }
+    } catch (e) {
+      console.warn("[InPersonPhotos] remove exception:", e);
+    }
   }
 
   /* =========================================================
@@ -254,6 +335,7 @@ export default function InPersonPhotos() {
 
   function nextStep() {
     if (!canContinue) return;
+    if (uploading) return;
 
     if (stepIndex < steps.length - 1) {
       setStepIndex((i) => i + 1);
@@ -274,6 +356,7 @@ export default function InPersonPhotos() {
 
   function skipStep() {
     if (step.required) return;
+    if (uploading) return;
     setStepIndex((i) => Math.min(steps.length - 1, i + 1));
   }
 
@@ -328,7 +411,8 @@ export default function InPersonPhotos() {
         </h1>
 
         <p className="text-sm text-slate-400 leading-relaxed">
-          These photos are for your report context and memory — not for diagnosing faults.
+          These photos are for your report context and memory — not for
+          diagnosing faults.
         </p>
       </div>
 
@@ -373,7 +457,9 @@ export default function InPersonPhotos() {
             <div className="flex items-start gap-3">
               <ShieldCheck className="h-4 w-4 text-slate-300 mt-0.5" />
               <p className="text-xs text-slate-400 leading-relaxed">
-                <span className="text-slate-200 font-medium">Why this matters: </span>
+                <span className="text-slate-200 font-medium">
+                  Why this matters:{" "}
+                </span>
                 {step.whyItMatters}
               </p>
             </div>
@@ -394,13 +480,30 @@ export default function InPersonPhotos() {
           </div>
         )}
 
+        {uploadError && (
+          <div className="rounded-xl border border-red-400/25 bg-red-500/10 px-4 py-3">
+            <p className="text-sm text-red-200 leading-relaxed">
+              {uploadError}
+            </p>
+          </div>
+        )}
+
+        {uploading && (
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm text-slate-300">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Uploading photo…
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             onClick={handleTakePhoto}
-            disabled={atHardLimit}
+            disabled={atHardLimit || uploading}
             className={[
               "rounded-xl px-4 py-3 font-semibold transition inline-flex items-center justify-center gap-2",
-              atHardLimit
+              atHardLimit || uploading
                 ? "bg-slate-800 text-slate-400 cursor-not-allowed"
                 : "bg-emerald-500 hover:bg-emerald-400 text-black",
             ].join(" ")}
@@ -409,7 +512,11 @@ export default function InPersonPhotos() {
             Take photo
           </button>
 
-          <label className={atHardLimit ? "opacity-60 cursor-not-allowed" : ""}>
+          <label
+            className={
+              atHardLimit || uploading ? "opacity-60 cursor-not-allowed" : ""
+            }
+          >
             <span
               className={[
                 "w-full rounded-xl px-4 py-3 font-semibold transition inline-flex items-center justify-center gap-2",
@@ -424,7 +531,7 @@ export default function InPersonPhotos() {
               accept="image/*"
               className="hidden"
               onChange={handleUploadFromGallery}
-              disabled={atHardLimit}
+              disabled={atHardLimit || uploading}
             />
           </label>
         </div>
@@ -437,14 +544,15 @@ export default function InPersonPhotos() {
                 key={p.id}
                 className="relative rounded-2xl border border-white/10 bg-slate-950/40 overflow-hidden"
               >
-                <img
-                  src={p.dataUrl}
-                  className="h-28 w-full object-cover"
-                  alt="Captured"
-                />
+                {/* We do NOT store base64 anymore.
+                    We intentionally show a placeholder tile instead.
+                    Photos will display in the Results page reliably. */}
+                <div className="h-28 w-full flex items-center justify-center text-slate-400 text-xs">
+                  Uploaded
+                </div>
 
                 <button
-                  onClick={() => removePhoto(p.id)}
+                  onClick={() => void removePhoto(p.id)}
                   className="absolute top-2 right-2 rounded-full bg-black/70 hover:bg-black/80 text-white p-2"
                   aria-label="Remove photo"
                 >
@@ -483,7 +591,8 @@ export default function InPersonPhotos() {
         {!step.required && (
           <button
             onClick={skipStep}
-            className="flex-1 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-slate-200"
+            disabled={uploading}
+            className="flex-1 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-slate-200 disabled:opacity-60"
           >
             Skip
           </button>
@@ -491,7 +600,7 @@ export default function InPersonPhotos() {
 
         <button
           onClick={nextStep}
-          disabled={!canContinue}
+          disabled={!canContinue || uploading}
           className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 px-4 py-3 font-semibold text-black inline-flex items-center justify-center gap-2"
         >
           Continue
@@ -500,7 +609,8 @@ export default function InPersonPhotos() {
       </div>
 
       <p className="text-[11px] text-slate-500 text-center">
-        CarVerity helps you document observations — it does not diagnose mechanical faults.
+        CarVerity helps you document observations — it does not diagnose
+        mechanical faults.
       </p>
 
       {/* Exit confirm */}
@@ -509,7 +619,7 @@ export default function InPersonPhotos() {
           <div className="bg-slate-900 border border-white/20 rounded-2xl px-6 py-5 space-y-3 max-w-md w-full">
             <h3 className="font-semibold text-white">Leave the photo step?</h3>
             <p className="text-sm text-slate-300">
-              You can return later — your photos will remain on this device.
+              You can return later — your photos will remain in your report.
             </p>
 
             <div className="flex gap-2">

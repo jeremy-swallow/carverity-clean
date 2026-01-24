@@ -11,13 +11,20 @@ export type CheckAnswer = {
 
 export type StepPhoto = {
   id: string;
-  dataUrl: string;
+  /**
+   * Supabase Storage object path (NOT a public URL)
+   * Example: users/{userId}/scans/{scanId}/steps/{stepId}/{photoId}.jpg
+   */
+  storagePath: string;
   stepId: string;
 };
 
 export type FollowUpPhoto = {
   id: string;
-  dataUrl: string;
+  /**
+   * Supabase Storage object path (NOT a public URL)
+   */
+  storagePath: string;
   note?: string;
 };
 

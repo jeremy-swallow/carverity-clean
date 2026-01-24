@@ -27,6 +27,12 @@ import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadScanById } from "../utils/scanStorage";
 
 /* =======================================================
+   Storage config
+======================================================= */
+const PHOTO_BUCKET = "scan-photos";
+const SIGNED_URL_TTL = 60 * 60; // 1 hour
+
+/* =======================================================
    Small rendering helpers (visual-only, type-safe)
 ======================================================= */
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -179,6 +185,98 @@ function titleFromId(id: string) {
 }
 
 /* =======================================================
+   Photo helpers (supports base64 + storage paths)
+======================================================= */
+
+type StoredPhoto = {
+  id?: string;
+  stepId?: string;
+  dataUrl?: string; // legacy
+  storagePath?: string; // new
+  path?: string; // possible alt key
+  bucket?: string; // optional override
+};
+
+function isProbablyBase64Image(s: unknown): s is string {
+  if (typeof s !== "string") return false;
+  return (
+    s.startsWith("data:image/") ||
+    s.startsWith("blob:") ||
+    s.startsWith("http://") ||
+    s.startsWith("https://")
+  );
+}
+
+function extractPhotoRefs(progress: any): {
+  legacyUrls: string[];
+  storagePaths: string[];
+} {
+  const photosRaw: unknown = progress?.photos;
+
+  if (!Array.isArray(photosRaw)) {
+    return { legacyUrls: [], storagePaths: [] };
+  }
+
+  const legacyUrls: string[] = [];
+  const storagePaths: string[] = [];
+
+  for (const item of photosRaw) {
+    // If someone stored plain strings
+    if (typeof item === "string") {
+      if (isProbablyBase64Image(item)) legacyUrls.push(item);
+      else storagePaths.push(item);
+      continue;
+    }
+
+    // If stored as objects
+    if (isRecord(item)) {
+      const maybe = item as StoredPhoto;
+
+      const sp =
+        (typeof maybe.storagePath === "string" && maybe.storagePath.trim()) ||
+        (typeof maybe.path === "string" && maybe.path.trim()) ||
+        "";
+
+      const du =
+        (typeof maybe.dataUrl === "string" && maybe.dataUrl.trim()) || "";
+
+      if (sp) storagePaths.push(sp);
+      else if (du && isProbablyBase64Image(du)) legacyUrls.push(du);
+    }
+  }
+
+  // de-dupe while preserving order
+  const dedupe = (arr: string[]) => Array.from(new Set(arr));
+
+  return {
+    legacyUrls: dedupe(legacyUrls),
+    storagePaths: dedupe(storagePaths),
+  };
+}
+
+async function createSignedUrlSafe(
+  bucket: string,
+  path: string,
+  ttlSeconds: number
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, ttlSeconds);
+
+    if (error) {
+      console.warn("[Results] createSignedUrl failed:", error.message);
+      return null;
+    }
+
+    return data?.signedUrl ?? null;
+  } catch (e) {
+    console.warn("[Results] createSignedUrl exception:", e);
+    return null;
+  }
+}
+
+/* =======================================================
    Page
 ======================================================= */
 export default function InPersonResults() {
@@ -188,6 +286,9 @@ export default function InPersonResults() {
 
   const [checkingUnlock, setCheckingUnlock] = useState(true);
   const [unlockError, setUnlockError] = useState<string | null>(null);
+
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+  const [photoLoading, setPhotoLoading] = useState(false);
 
   /* -------------------------------------------------------
      Routing safety
@@ -249,7 +350,7 @@ export default function InPersonResults() {
           }
           return;
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error("[Results] Unlock check exception:", e);
         if (!cancelled) setUnlockError("Could not verify unlock status.");
       } finally {
@@ -257,7 +358,7 @@ export default function InPersonResults() {
       }
     }
 
-    checkUnlock();
+    void checkUnlock();
 
     return () => {
       cancelled = true;
@@ -330,20 +431,13 @@ export default function InPersonResults() {
     ? ((analysis as any).risks as any[])
     : [];
 
-  // IMPORTANT:
-  // progressSnapshot stored in localStorage intentionally strips photo dataUrls.
-  // So:
-  // - photoCount should come from progress.photos.length
-  // - renderablePhotos should come from photos[].dataUrl (if present)
-  const capturedPhotoCount = Array.isArray(progress?.photos)
-    ? progress.photos.length
-    : 0;
+  const { legacyUrls, storagePaths } = useMemo(() => {
+    return extractPhotoRefs(progress);
+  }, [progress]);
 
-  const renderablePhotos: string[] = Array.isArray(progress?.photos)
-    ? progress.photos
-        .map((p: any) => p?.dataUrl)
-        .filter((x: any) => typeof x === "string" && x.length > 0)
-    : [];
+  // This is the "photos captured" count shown to the user.
+  // We treat either legacy base64 URLs OR storage paths as "captured".
+  const capturedPhotoCount = legacyUrls.length + storagePaths.length;
 
   const criticalRisks = risksSafe.filter((r) => r?.severity === "critical");
   const moderateRisks = risksSafe.filter((r) => r?.severity === "moderate");
@@ -361,8 +455,70 @@ export default function InPersonResults() {
   const askingPrice =
     typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
 
-  const confidence = clamp(Number((analysis as any)?.confidenceScore ?? 0), 0, 100);
-  const coverage = clamp(Number((analysis as any)?.completenessScore ?? 0), 0, 100);
+  const confidence = clamp(
+    Number((analysis as any)?.confidenceScore ?? 0),
+    0,
+    100
+  );
+  const coverage = clamp(
+    Number((analysis as any)?.completenessScore ?? 0),
+    0,
+    100
+  );
+
+  /* -------------------------------------------------------
+     Load signed URLs for photos (reliable rendering)
+     - Supports new format: storage paths in progress.photos[*].storagePath
+     - Supports legacy format: base64 dataUrl (renders directly)
+     - Uses signed URLs (bucket is private)
+  ------------------------------------------------------- */
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPhotos() {
+      if (!scanIdSafe) return;
+      if (checkingUnlock) return;
+      if (unlockError) return;
+
+      // If we have only legacy base64 photos, just render them.
+      if (storagePaths.length === 0) {
+        if (!cancelled) setPhotoUrls(legacyUrls);
+        return;
+      }
+
+      setPhotoLoading(true);
+
+      try {
+        const signed: string[] = [];
+
+        // Keep order stable: legacy first, then signed paths
+        // (you can flip this if you prefer)
+        for (const path of storagePaths) {
+          const url = await createSignedUrlSafe(
+            PHOTO_BUCKET,
+            path,
+            SIGNED_URL_TTL
+          );
+          if (url) signed.push(url);
+        }
+
+        const combined = [...legacyUrls, ...signed];
+
+        if (!cancelled) setPhotoUrls(combined);
+      } catch (e) {
+        console.warn("[Results] photo load failed:", e);
+        if (!cancelled) setPhotoUrls(legacyUrls);
+      } finally {
+        if (!cancelled) setPhotoLoading(false);
+      }
+    }
+
+    void loadPhotos();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [scanIdSafe, checkingUnlock, unlockError, storagePaths, legacyUrls]);
 
   /* -------------------------------------------------------
      Explicit evidence lists
@@ -542,9 +698,7 @@ export default function InPersonResults() {
   }, [criticalRisks, moderateRisks, uncertaintyFactors.length]);
 
   const whyThisVerdict =
-    (analysis as any)?.whyThisVerdict ||
-    (analysis as any)?.verdictReason ||
-    "";
+    (analysis as any)?.whyThisVerdict || (analysis as any)?.verdictReason || "";
 
   const topSignals = useMemo(() => {
     const signals: Array<{
@@ -621,18 +775,12 @@ export default function InPersonResults() {
       );
     }
 
-    if (capturedPhotoCount > 0 && renderablePhotos.length === 0) {
-      lines.push(
-        "Photos were captured during the inspection, but they aren’t stored inside this report to prevent storage issues on your device."
-      );
-    }
-
     lines.push(
       "This is not a mechanical certification. If you’re close to buying, consider an independent pre-purchase inspection."
     );
 
     return lines;
-  }, [uncertaintyFactors.length, capturedPhotoCount, renderablePhotos.length]);
+  }, [uncertaintyFactors.length]);
 
   /* -------------------------------------------------------
      Email report (opens user's own email client)
@@ -1011,7 +1159,9 @@ export default function InPersonResults() {
                 </button>
 
                 <button
-                  onClick={() => navigate(`/scan/in-person/summary/${scanIdSafe}`)}
+                  onClick={() =>
+                    navigate(`/scan/in-person/summary/${scanIdSafe}`)
+                  }
                   className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200"
                 >
                   Back to summary
@@ -1100,8 +1250,8 @@ export default function InPersonResults() {
                 </ul>
 
                 <p className="text-xs text-slate-500 mt-4">
-                  “Unsure” just means you couldn’t confirm it today. If it matters,
-                  try to verify it before buying.
+                  “Unsure” just means you couldn’t confirm it today. If it
+                  matters, try to verify it before buying.
                 </p>
               </div>
             </section>
@@ -1187,14 +1337,17 @@ export default function InPersonResults() {
               <h2 className="text-lg font-semibold">Photos</h2>
             </div>
 
-            {renderablePhotos.length > 0 ? (
+            {photoLoading ? (
+              <p className="text-sm text-slate-400">Loading photos…</p>
+            ) : photoUrls.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {renderablePhotos.map((src, i) => (
+                {photoUrls.map((src, i) => (
                   <img
                     key={i}
                     src={src}
                     alt={`Inspection photo ${i + 1}`}
                     className="rounded-xl border border-white/10 object-cover aspect-square"
+                    loading="lazy"
                   />
                 ))}
               </div>
@@ -1203,8 +1356,8 @@ export default function InPersonResults() {
                 You captured {capturedPhotoCount} photo
                 {capturedPhotoCount === 1 ? "" : "s"} during this inspection.
                 <br />
-                Photos aren’t stored inside the report to prevent storage issues
-                on your device.
+                Photos exist, but they could not be loaded right now. Please
+                check your connection and refresh.
               </p>
             ) : (
               <p className="text-sm text-slate-400">
@@ -1220,9 +1373,9 @@ export default function InPersonResults() {
                 Finished — save or share this report
               </p>
               <p className="mt-2 text-sm text-slate-400 leading-relaxed max-w-3xl">
-                If you want to share this with someone (partner, family, mechanic),
-                the easiest way is to save it as a PDF, then email it from your own
-                email app.
+                If you want to share this with someone (partner, family,
+                mechanic), the easiest way is to save it as a PDF, then email it
+                from your own email app.
               </p>
 
               <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
