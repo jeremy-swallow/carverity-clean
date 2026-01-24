@@ -152,14 +152,12 @@ export default function InPersonUnlock() {
       step: "unlock",
     });
 
-    const safeCredits = typeof credits === "number" ? credits : 0;
-
-    // Fast client-side gate (nice UX)
-    if (!loadingCredits && safeCredits <= 0) {
-      setUnlocking(false);
-      navigate(`/pricing?reason=no_credits&scanId=${encodeURIComponent(scanId)}`);
-      return;
-    }
+    /**
+     * IMPORTANT:
+     * Do NOT client-gate based on cached credit state.
+     * Credits can be stale right after Stripe purchase / webhook timing.
+     * Always let the server decide.
+     */
 
     try {
       const res = await fetch("/api/mark-in-person-scan-completed", {
@@ -177,6 +175,7 @@ export default function InPersonUnlock() {
 
         console.error("[Unlock] API error:", data);
 
+        // Only redirect to pricing if SERVER confirms no credits
         if (res.status === 402 || serverError === "NO_CREDITS") {
           setUnlocking(false);
           navigate(
@@ -250,8 +249,7 @@ export default function InPersonUnlock() {
 
         {!loadingCredits && (credits ?? 0) <= 0 && (
           <p className="text-xs text-slate-500">
-            You don’t have any credits available. Buy credits to unlock this
-            report.
+            If you just bought credits, wait a few seconds and try unlock again.
           </p>
         )}
       </div>
@@ -270,10 +268,10 @@ export default function InPersonUnlock() {
 
       <button
         onClick={unlockReport}
-        disabled={unlocking || !scanId || loadingCredits}
+        disabled={unlocking || !scanId}
         className={[
           "w-full rounded-xl px-4 py-3 font-semibold shadow transition",
-          unlocking || !scanId || loadingCredits
+          unlocking || !scanId
             ? "bg-emerald-500/60 text-black/70 cursor-not-allowed"
             : "bg-emerald-500 hover:bg-emerald-400 text-black",
         ].join(" ")}
