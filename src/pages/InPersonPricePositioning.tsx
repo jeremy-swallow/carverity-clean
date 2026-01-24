@@ -15,12 +15,17 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  Receipt,
+  TrendingDown,
 } from "lucide-react";
 
 import { loadProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadScanById } from "../utils/scanStorage";
 
+/* =========================================================
+   Small helpers
+========================================================= */
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
@@ -124,6 +129,18 @@ function toneForLeverage(args: {
   return "good" as const;
 }
 
+/**
+ * “Clean car” negotiation band:
+ * - this is the missing piece that makes the page valuable even if no faults were recorded.
+ * - dealer pricing usually has room; this provides a grounded, non-crazy starting range.
+ */
+function cleanCarReductionBand(askingPrice: number): Range {
+  // 1%–3% is “normal buyer expectation” without being silly.
+  const low = Math.max(150, Math.round(askingPrice * 0.01));
+  const high = Math.max(low + 150, Math.round(askingPrice * 0.03));
+  return { low, high };
+}
+
 function buildCleanCarNegotiationTips(args: {
   hasAskingPrice: boolean;
   askingPrice: number | null;
@@ -143,14 +160,13 @@ function buildCleanCarNegotiationTips(args: {
   );
 
   if (hasAskingPrice && typeof askingPrice === "number") {
-    // A small, realistic discount band for “clean car” negotiation
-    const smallLow = Math.round(askingPrice * 0.01);
-    const smallHigh = Math.round(askingPrice * 0.03);
-
+    const band = cleanCarReductionBand(askingPrice);
     tips.push(
       `A normal starting ask (even with no faults) is often around ${formatMoney(
-        smallLow
-      )}–${formatMoney(smallHigh)} off, depending on the market and how long it’s been listed.`
+        band.low
+      )}–${formatMoney(
+        band.high
+      )} off, depending on the market and how long it’s been listed.`
     );
   }
 
@@ -167,6 +183,9 @@ function buildCleanCarNegotiationTips(args: {
   return tips.slice(0, 4);
 }
 
+/* =========================================================
+   Page
+========================================================= */
 export default function InPersonPricePositioning() {
   const navigate = useNavigate();
   const { scanId } = useParams<{ scanId: string }>();
@@ -191,21 +210,20 @@ export default function InPersonPricePositioning() {
   const askingPrice =
     typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
 
-  const confidence = clamp(Number(analysis.confidenceScore ?? 0), 0, 100);
-  const coverage = clamp(Number(analysis.completenessScore ?? 0), 0, 100);
+  const confidence = clamp(Number((analysis as any)?.confidenceScore ?? 0), 0, 100);
+  const coverage = clamp(Number((analysis as any)?.completenessScore ?? 0), 0, 100);
 
-  const criticalCount = analysis.risks.filter((r) => r.severity === "critical")
-    .length;
-  const moderateCount = analysis.risks.filter((r) => r.severity === "moderate")
-    .length;
+  const risks = Array.isArray((analysis as any)?.risks) ? (analysis as any).risks : [];
+  const criticalCount = risks.filter((r: any) => r?.severity === "critical").length;
+  const moderateCount = risks.filter((r: any) => r?.severity === "moderate").length;
 
-  const unsureCount = Array.isArray((analysis as any).uncertaintyFactors)
+  const unsureCount = Array.isArray((analysis as any)?.uncertaintyFactors)
     ? (analysis as any).uncertaintyFactors.length
     : 0;
 
   const hasAskingPrice = Boolean(askingPrice && askingPrice > 0);
 
-  const priceGuidance: any = (analysis as any).priceGuidance ?? null;
+  const priceGuidance: any = (analysis as any)?.priceGuidance ?? null;
 
   const adjustedLow = priceGuidance?.adjustedPriceLowAud ?? null;
   const adjustedHigh = priceGuidance?.adjustedPriceHighAud ?? null;
@@ -213,7 +231,7 @@ export default function InPersonPricePositioning() {
   const redLow = priceGuidance?.suggestedReductionLowAud ?? null;
   const redHigh = priceGuidance?.suggestedReductionHighAud ?? null;
 
-  const positioning = analysis.negotiationPositioning;
+  const positioning: any = (analysis as any)?.negotiationPositioning ?? null;
 
   const postureTone = useMemo(() => {
     return toneForLeverage({
@@ -246,88 +264,6 @@ export default function InPersonPricePositioning() {
     return "Car yards often price with negotiation in mind. You can ask for a small reduction based on normal buyer expectations — even if nothing stood out.";
   }, [hasAskingPrice, postureTone]);
 
-  const headlineNumbers = useMemo(() => {
-    if (!hasAskingPrice || !Number.isFinite(Number(askingPrice))) return null;
-    if (typeof adjustedLow !== "number" || typeof adjustedHigh !== "number")
-      return null;
-
-    return {
-      adjustedRange: `${formatMoney(adjustedLow)}–${formatMoney(adjustedHigh)}`,
-      reductionRange:
-        typeof redLow === "number" && typeof redHigh === "number"
-          ? `${formatMoney(redLow)}–${formatMoney(redHigh)}`
-          : null,
-    };
-  }, [hasAskingPrice, askingPrice, adjustedLow, adjustedHigh, redLow, redHigh]);
-
-  const buyerSafeTalkingPoints = useMemo(() => {
-    const points: string[] = [];
-
-    points.push(
-      "Keep it calm and factual. You’re not accusing the seller — you’re reducing uncertainty."
-    );
-
-    if (criticalCount > 0) {
-      points.push(
-        "Start with the biggest recorded items first. Ask for proof (invoice, inspection note, written confirmation)."
-      );
-    } else if (moderateCount > 0 || unsureCount > 0) {
-      points.push(
-        "Use the items you recorded as a reason to either reduce the price or make the deal conditional."
-      );
-    } else {
-      points.push(
-        "If the car looks fine, ask for a small reduction based on market norms and the fact you’re ready to buy today."
-      );
-    }
-
-    points.push(
-      "If the seller won’t move, ask for value instead (fresh service, tyres, detailing, warranty extension)."
-    );
-
-    return points.slice(0, 4);
-  }, [criticalCount, moderateCount, unsureCount]);
-
-  const leverageBullets = useMemo(() => {
-    const bullets: string[] = [];
-
-    if (criticalCount > 0) {
-      bullets.push(
-        criticalCount === 1
-          ? "1 high-impact item was recorded."
-          : `${criticalCount} high-impact items were recorded.`
-      );
-    }
-
-    if (moderateCount > 0) {
-      bullets.push(
-        moderateCount === 1
-          ? "1 meaningful item was recorded."
-          : `${moderateCount} meaningful items were recorded.`
-      );
-    }
-
-    if (unsureCount > 0) {
-      bullets.push(
-        unsureCount === 1
-          ? "1 item was marked as unsure (unknown)."
-          : `${unsureCount} items were marked as unsure (unknown).`
-      );
-    }
-
-    bullets.push(`Confidence: ${confidence}%`);
-    bullets.push(`Coverage: ${coverage}%`);
-
-    return bullets;
-  }, [criticalCount, moderateCount, unsureCount, confidence, coverage]);
-
-  const printHint = useMemo(() => {
-    if (!hasAskingPrice) {
-      return "Tip: enter the asking price on the Summary page to generate a range.";
-    }
-    return "Tip: you can print/save the report as a PDF if you want to share it with someone.";
-  }, [hasAskingPrice]);
-
   const guidanceRationale: string[] = useMemo(() => {
     const r = Array.isArray(priceGuidance?.rationale)
       ? (priceGuidance.rationale as string[])
@@ -336,7 +272,7 @@ export default function InPersonPricePositioning() {
   }, [priceGuidance]);
 
   /* =========================================================
-     NEW: Maths breakdown (step-by-step)
+     Maths breakdown (step-by-step)
   ========================================================= */
 
   const askingRange: Range | null = useMemo(() => {
@@ -344,23 +280,49 @@ export default function InPersonPricePositioning() {
     return { low: askingPrice, high: askingPrice };
   }, [hasAskingPrice, askingPrice]);
 
-  const reductionRange: Range | null = useMemo(() => {
+  const reductionRangeFromAnalysis: Range | null = useMemo(() => {
     return normaliseRangeFromGuidance(redLow, redHigh);
   }, [redLow, redHigh]);
 
-  const adjustedRange: Range | null = useMemo(() => {
+  const adjustedRangeFromAnalysis: Range | null = useMemo(() => {
     return normaliseRangeFromGuidance(adjustedLow, adjustedHigh);
   }, [adjustedLow, adjustedHigh]);
 
   /**
-   * If analysis provides section-level reductions, use them.
-   * Otherwise, we fall back to a single “overall” reduction.
-   *
-   * Expected shape (optional):
+   * If there are no recorded faults, we still want a meaningful “math result”.
+   * So we compute a standard dealer negotiation band (1%–3%) as a fallback.
+   */
+  const cleanCarReduction: Range | null = useMemo(() => {
+    if (!hasAskingPrice || typeof askingPrice !== "number") return null;
+    return cleanCarReductionBand(askingPrice);
+  }, [hasAskingPrice, askingPrice]);
+
+  const effectiveReductionRange: Range | null = useMemo(() => {
+    // Prefer evidence-based reduction from analysis.
+    if (reductionRangeFromAnalysis) return reductionRangeFromAnalysis;
+
+    // Otherwise fall back to a “clean car negotiation” reduction.
+    if (cleanCarReduction) return cleanCarReduction;
+
+    return null;
+  }, [reductionRangeFromAnalysis, cleanCarReduction]);
+
+  const effectiveAdjustedRange: Range | null = useMemo(() => {
+    // Prefer analysis-provided adjusted range.
+    if (adjustedRangeFromAnalysis) return adjustedRangeFromAnalysis;
+
+    // If we have asking price + reduction range, compute adjusted = asking - reduction.
+    if (askingRange && effectiveReductionRange) {
+      return rangeSubtract(askingRange, effectiveReductionRange);
+    }
+
+    return null;
+  }, [adjustedRangeFromAnalysis, askingRange, effectiveReductionRange]);
+
+  /**
+   * Optional breakdown from analysis:
    * priceGuidance.breakdown = [
-   *   { label: "Critical risks", lowAud: 800, highAud: 2200, reason: "..." },
-   *   { label: "Moderate risks", lowAud: 200, highAud: 800, reason: "..." },
-   *   { label: "Uncertainty buffer", lowAud: 150, highAud: 500, reason: "..." },
+   *   { label: "...", lowAud: 800, highAud: 2200, reason: "..." },
    * ]
    */
   const breakdownSections = useMemo(() => {
@@ -380,7 +342,6 @@ export default function InPersonPricePositioning() {
         const r = normaliseRangeFromGuidance(lowAud, highAud);
         if (!r) return null;
 
-        // Ignore empty sections
         if (r.low <= 0 && r.high <= 0) return null;
 
         return {
@@ -391,20 +352,29 @@ export default function InPersonPricePositioning() {
       })
       .filter(Boolean) as Array<{ label: string; range: Range; reason: string }>;
 
-    // If no sections provided, fall back to one section using the overall reduction
-    if (cleaned.length === 0 && reductionRange) {
+    // If we don't have breakdown sections, create one section using effective reduction
+    if (cleaned.length === 0 && effectiveReductionRange) {
+      const label =
+        reductionRangeFromAnalysis != null
+          ? "Evidence-based adjustment"
+          : "Standard dealer negotiation range";
+
+      const reason =
+        reductionRangeFromAnalysis != null
+          ? "This reduction window is based on what you recorded (concerns, unsure items, and coverage)."
+          : "Even clean cars are usually priced with room. This is a realistic starting reduction for a smooth deal.";
+
       return [
         {
-          label: "Evidence-based adjustment",
-          range: reductionRange,
-          reason:
-            "This is a practical reduction window based on what you recorded (concerns, unsure items, and coverage).",
+          label,
+          range: effectiveReductionRange,
+          reason,
         },
       ];
     }
 
     return cleaned;
-  }, [priceGuidance, reductionRange]);
+  }, [priceGuidance, effectiveReductionRange, reductionRangeFromAnalysis]);
 
   const breakdownTotal = useMemo(() => {
     const ranges = breakdownSections.map((s) => s.range);
@@ -450,6 +420,134 @@ export default function InPersonPricePositioning() {
       coverage,
     });
   }, [hasAskingPrice, askingPrice, confidence, coverage]);
+
+  const leverageBullets = useMemo(() => {
+    const bullets: string[] = [];
+
+    if (criticalCount > 0) {
+      bullets.push(
+        criticalCount === 1
+          ? "1 high-impact item was recorded."
+          : `${criticalCount} high-impact items were recorded.`
+      );
+    }
+
+    if (moderateCount > 0) {
+      bullets.push(
+        moderateCount === 1
+          ? "1 meaningful item was recorded."
+          : `${moderateCount} meaningful items were recorded.`
+      );
+    }
+
+    if (unsureCount > 0) {
+      bullets.push(
+        unsureCount === 1
+          ? "1 item was marked as unsure (unknown)."
+          : `${unsureCount} items were marked as unsure (unknown).`
+      );
+    }
+
+    bullets.push(`Confidence: ${confidence}%`);
+    bullets.push(`Coverage: ${coverage}%`);
+
+    return bullets;
+  }, [criticalCount, moderateCount, unsureCount, confidence, coverage]);
+
+  const buyerSafeTalkingPoints = useMemo(() => {
+    const points: string[] = [];
+
+    points.push(
+      "Keep it calm and factual. You’re not accusing the seller — you’re reducing uncertainty."
+    );
+
+    if (criticalCount > 0) {
+      points.push(
+        "Start with the biggest recorded items first. Ask for proof (invoice, inspection note, written confirmation)."
+      );
+    } else if (moderateCount > 0 || unsureCount > 0) {
+      points.push(
+        "Use the items you recorded as a reason to either reduce the price or make the deal conditional."
+      );
+    } else {
+      points.push(
+        "If the car looks fine, ask for a small reduction based on market norms and the fact you’re ready to buy today."
+      );
+    }
+
+    points.push(
+      "If the seller won’t move, ask for value instead (fresh service, tyres, detailing, warranty extension)."
+    );
+
+    return points.slice(0, 4);
+  }, [criticalCount, moderateCount, unsureCount]);
+
+  const printHint = useMemo(() => {
+    if (!hasAskingPrice) {
+      return "Tip: enter the asking price on the Summary page to generate a range.";
+    }
+    return "Tip: you can print/save the report as a PDF if you want to share it with someone.";
+  }, [hasAskingPrice]);
+
+  /**
+   * Firmness bands:
+   * - If we have an adjusted range, derive conservative/balanced/aggressive around it.
+   * - Otherwise fall back to analysis.negotiationPositioning (existing logic).
+   */
+  const firmnessBands = useMemo(() => {
+    const fallback = positioning;
+
+    if (!effectiveAdjustedRange || !hasAskingPrice || typeof askingPrice !== "number") {
+      return fallback;
+    }
+
+    // Build three bands around the effective adjusted range:
+    // Conservative: near top of range
+    // Balanced: middle of range
+    // Aggressive: near bottom of range
+    const low = effectiveAdjustedRange.low;
+    const high = effectiveAdjustedRange.high;
+
+    const spread = Math.max(0, high - low);
+
+    const conservative: Range = {
+      low: Math.round(high - spread * 0.35),
+      high: Math.round(high),
+    };
+
+    const balanced: Range = {
+      low: Math.round(low + spread * 0.25),
+      high: Math.round(high - spread * 0.15),
+    };
+
+    const aggressive: Range = {
+      low: Math.round(low),
+      high: Math.round(low + spread * 0.45),
+    };
+
+    const safe = (r: Range) => ({
+      audLow: Math.min(r.low, r.high),
+      audHigh: Math.max(r.low, r.high),
+    });
+
+    return {
+      conservative: {
+        ...safe(conservative),
+        rationale:
+          "Closer to asking price. Works well if the car is in demand or you want a smooth, fast deal.",
+      },
+      balanced: {
+        ...safe(balanced),
+        rationale:
+          "A reasonable middle position. Best default for most dealer negotiations.",
+      },
+      aggressive: {
+        ...safe(aggressive),
+        rationale:
+          "A firmer offer. Use only if you’re comfortable walking away if they won’t meet you.",
+      },
+    };
+  }, [positioning, effectiveAdjustedRange, hasAskingPrice, askingPrice]);
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-16 space-y-12">
@@ -505,17 +603,18 @@ export default function InPersonPricePositioning() {
           </div>
         </div>
 
-        {headlineNumbers && (
+        {/* Headline numbers */}
+        {hasAskingPrice && (
           <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
               <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
                 Buyer-safe target range
               </div>
               <div className="mt-2 text-2xl font-semibold text-white tabular-nums">
-                {headlineNumbers.adjustedRange}
+                {effectiveAdjustedRange ? formatRange(effectiveAdjustedRange) : "—"}
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                Based on the evidence you recorded
+                Based on your inspection + normal dealer pricing behaviour
               </div>
             </div>
 
@@ -524,10 +623,10 @@ export default function InPersonPricePositioning() {
                 Suggested reduction window
               </div>
               <div className="mt-2 text-2xl font-semibold text-white tabular-nums">
-                {headlineNumbers.reductionRange ?? "—"}
+                {effectiveReductionRange ? formatRange(effectiveReductionRange) : "—"}
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                A practical starting point
+                A practical starting point (not a “lowball”)
               </div>
             </div>
           </div>
@@ -539,8 +638,8 @@ export default function InPersonPricePositioning() {
               Asking price missing
             </p>
             <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-              Go back to Summary and enter the advertised asking price. Then
-              return here for a calculated range.
+              Enter the advertised asking price on Summary. Then return here for
+              a calculated range.
             </p>
 
             <div className="mt-3">
@@ -555,7 +654,7 @@ export default function InPersonPricePositioning() {
         )}
       </section>
 
-      {/* NEW: Maths breakdown */}
+      {/* Maths breakdown */}
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 text-slate-300">
@@ -583,15 +682,20 @@ export default function InPersonPricePositioning() {
         {showMath && (
           <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-5">
             <p className="text-sm text-slate-400 leading-relaxed max-w-3xl">
-              This is a simple “start price → subtract a reduction” calculation.
-              You don’t need to do the maths yourself — CarVerity shows the
-              numbers step-by-step.
+              This is a simple calculation: <span className="text-slate-200 font-semibold">Asking price</span>{" "}
+              minus a <span className="text-slate-200 font-semibold">reduction window</span>.
+              <br />
+              CarVerity shows the numbers step-by-step so you don’t have to do the maths yourself.
             </p>
 
             <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-4">
-              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                Starting point
+              <div className="flex items-center gap-2 text-slate-300">
+                <Receipt className="h-4 w-4 text-slate-400" />
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                  Starting point
+                </div>
               </div>
+
               <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm text-slate-400">Asking price</div>
                 <div className="text-lg font-semibold text-white tabular-nums">
@@ -624,7 +728,11 @@ export default function InPersonPricePositioning() {
                       </div>
 
                       <div className="min-w-[220px] text-right">
-                        <div className="text-xs text-slate-500">Subtract</div>
+                        <div className="flex items-center justify-end gap-2 text-xs text-slate-500">
+                          <TrendingDown className="h-3.5 w-3.5" />
+                          Subtract
+                        </div>
+
                         <div className="mt-1 text-base font-semibold text-slate-100 tabular-nums">
                           {row.reduction
                             ? `${formatMoney(row.reduction.low)}–${formatMoney(
@@ -668,21 +776,9 @@ export default function InPersonPricePositioning() {
                     Buyer-safe target range
                   </div>
                   <div className="mt-1 text-base font-semibold text-white tabular-nums">
-                    {adjustedRange ? formatRange(adjustedRange) : "—"}
+                    {effectiveAdjustedRange ? formatRange(effectiveAdjustedRange) : "—"}
                   </div>
                 </div>
-              </div>
-
-              {/* NEW: optional mechanical inspection suggestion (calm + small) */}
-              <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/30 px-4 py-3">
-                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                  Optional next step
-                </div>
-                <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-                  If you’re close to buying, an independent pre-purchase
-                  inspection can reduce risk — especially if anything was marked
-                  as “unsure”.
-                </p>
               </div>
 
               <p className="mt-3 text-xs text-slate-500 leading-relaxed">
@@ -715,7 +811,7 @@ export default function InPersonPricePositioning() {
         </div>
       </section>
 
-      {/* NEW: Clean car negotiation */}
+      {/* Clean car negotiation */}
       <section className="space-y-4">
         <div className="flex items-center gap-3 text-slate-300">
           <Sparkles className="h-5 w-5 text-slate-400" />
@@ -764,7 +860,24 @@ export default function InPersonPricePositioning() {
               "aggressive",
             ] as Array<"conservative" | "balanced" | "aggressive">
           ).map((k) => {
-            const band = positioning[k];
+            const band = firmnessBands?.[k];
+
+            if (!band) {
+              return (
+                <div
+                  key={k}
+                  className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-3"
+                >
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    {labelForBandKey(k)}
+                  </div>
+                  <div className="text-sm text-slate-400">
+                    Enter the asking price to generate this band.
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div
                 key={k}
