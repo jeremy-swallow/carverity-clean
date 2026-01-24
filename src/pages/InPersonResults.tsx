@@ -198,12 +198,12 @@ type StoredPhoto = {
   id?: string;
   stepId?: string;
   dataUrl?: string; // legacy
-  storagePath?: string; // new
+  storagePath?: string; // NEW (confirmed in your JSON)
   path?: string; // possible alt key
   bucket?: string; // optional override
 };
 
-function isProbablyBase64Image(s: unknown): s is string {
+function isProbablyBase64OrRemoteImage(s: unknown): s is string {
   if (typeof s !== "string") return false;
   return (
     s.startsWith("data:image/") ||
@@ -213,36 +213,18 @@ function isProbablyBase64Image(s: unknown): s is string {
   );
 }
 
-/**
- * Normalise a storage object path to the *inside-bucket* path.
- * This fixes common bugs like:
- * - "scan-photos/users/..." (bucket accidentally included)
- * - "/users/..." (leading slash)
- * - "public/scan-photos/users/..." (public prefix)
- */
-function normaliseStoragePath(raw: string): string {
-  let p = String(raw || "").trim();
-  if (!p) return "";
+function normaliseStoragePath(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  let p = value.trim();
+  if (!p) return null;
 
-  // Remove leading slashes
-  p = p.replace(/^\/+/, "");
+  if (p.startsWith("/")) p = p.slice(1);
 
-  // Remove common "public/" prefix patterns
-  p = p.replace(/^public\//, "");
+  // Some callers accidentally store "scan-photos/..." or "public/..."
+  if (p.startsWith(`${PHOTO_BUCKET}/`)) p = p.replace(`${PHOTO_BUCKET}/`, "");
+  if (p.startsWith("public/")) p = p.replace("public/", "");
 
-  // Remove bucket name if mistakenly included
-  if (p.startsWith(`${PHOTO_BUCKET}/`)) {
-    p = p.slice(PHOTO_BUCKET.length + 1);
-  }
-
-  // Also handle "storage/v1/object/public/scan-photos/..."
-  const publicPrefix = `storage/v1/object/public/${PHOTO_BUCKET}/`;
-  if (p.includes(publicPrefix)) {
-    const idx = p.indexOf(publicPrefix);
-    p = p.slice(idx + publicPrefix.length);
-  }
-
-  return p.trim();
+  return p || null;
 }
 
 function extractPhotoRefs(progress: any): {
@@ -260,15 +242,21 @@ function extractPhotoRefs(progress: any): {
 
   for (const item of photosRaw) {
     if (typeof item === "string") {
-      if (isProbablyBase64Image(item)) legacyUrls.push(item);
-      else storagePaths.push(normaliseStoragePath(item));
+      const s = item.trim();
+      if (!s) continue;
+
+      if (isProbablyBase64OrRemoteImage(s)) legacyUrls.push(s);
+      else {
+        const norm = normaliseStoragePath(s);
+        if (norm) storagePaths.push(norm);
+      }
       continue;
     }
 
     if (isRecord(item)) {
       const maybe = item as StoredPhoto;
 
-      const sp =
+      const spRaw =
         (typeof maybe.storagePath === "string" && maybe.storagePath.trim()) ||
         (typeof maybe.path === "string" && maybe.path.trim()) ||
         "";
@@ -276,13 +264,16 @@ function extractPhotoRefs(progress: any): {
       const du =
         (typeof maybe.dataUrl === "string" && maybe.dataUrl.trim()) || "";
 
-      if (sp) storagePaths.push(normaliseStoragePath(sp));
-      else if (du && isProbablyBase64Image(du)) legacyUrls.push(du);
+      if (spRaw) {
+        const norm = normaliseStoragePath(spRaw);
+        if (norm) storagePaths.push(norm);
+      } else if (du && isProbablyBase64OrRemoteImage(du)) {
+        legacyUrls.push(du);
+      }
     }
   }
 
-  const dedupe = (arr: string[]) =>
-    Array.from(new Set(arr.filter(Boolean).map((x) => x.trim())));
+  const dedupe = (arr: string[]) => Array.from(new Set(arr));
 
   return {
     legacyUrls: dedupe(legacyUrls),
@@ -296,15 +287,12 @@ async function createSignedUrlSafe(
   ttlSeconds: number
 ): Promise<string | null> {
   try {
-    const cleaned = normaliseStoragePath(path);
-    if (!cleaned) return null;
-
     const { data, error } = await supabase.storage
       .from(bucket)
-      .createSignedUrl(cleaned, ttlSeconds);
+      .createSignedUrl(path, ttlSeconds);
 
     if (error) {
-      console.warn("[Results] createSignedUrl failed:", error.message, cleaned);
+      console.warn("[Results] createSignedUrl failed:", error.message);
       return null;
     }
 
@@ -480,7 +468,25 @@ export default function InPersonResults() {
     }
   }, []);
 
-  const progress: any = saved?.progressSnapshot ?? progressFallback ?? {};
+  // IMPORTANT:
+  // Some users have photos in local progress but older saved snapshots.
+  // Merge them so the report never "loses" photos.
+  const progress: any = useMemo(() => {
+    const base = (saved?.progressSnapshot ?? {}) as any;
+    const fallback = (progressFallback ?? {}) as any;
+
+    const basePhotos = Array.isArray(base?.photos) ? base.photos : [];
+    const fallbackPhotos = Array.isArray(fallback?.photos) ? fallback.photos : [];
+
+    const mergedPhotos =
+      basePhotos.length >= fallbackPhotos.length ? basePhotos : fallbackPhotos;
+
+    return {
+      ...fallback,
+      ...base,
+      photos: mergedPhotos,
+    };
+  }, [saved, progressFallback]);
 
   /* -------------------------------------------------------
      Analysis (prefer persisted analysis)
@@ -581,6 +587,7 @@ export default function InPersonResults() {
       if (checkingUnlock) return;
       if (unlockError) return;
 
+      // If no storage paths, we can still show legacy urls
       if (storagePaths.length === 0) {
         if (!cancelled) setPhotoUrls(legacyUrls);
         return;
@@ -617,6 +624,8 @@ export default function InPersonResults() {
       cancelled = true;
     };
   }, [scanIdSafe, checkingUnlock, unlockError, storagePaths, legacyUrls]);
+
+  const photoResolvedCount = photoUrls.length;
 
   /* -------------------------------------------------------
      Explicit evidence lists
@@ -1648,18 +1657,25 @@ export default function InPersonResults() {
 
             {photoLoading ? (
               <p className="text-sm text-slate-400">Loading photos…</p>
-            ) : photoUrls.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {photoUrls.map((src, i) => (
-                  <img
-                    key={i}
-                    src={src}
-                    alt={`Inspection photo ${i + 1}`}
-                    className="rounded-xl border border-white/10 object-cover aspect-square"
-                    loading="lazy"
-                  />
-                ))}
-              </div>
+            ) : photoResolvedCount > 0 ? (
+              <>
+                <div className="text-xs text-slate-500">
+                  Showing {photoResolvedCount} of {capturedPhotoCount} captured
+                  photo{capturedPhotoCount === 1 ? "" : "s"}.
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {photoUrls.map((src, i) => (
+                    <img
+                      key={i}
+                      src={src}
+                      alt={`Inspection photo ${i + 1}`}
+                      className="rounded-xl border border-white/10 object-cover aspect-square"
+                      loading="lazy"
+                    />
+                  ))}
+                </div>
+              </>
             ) : capturedPhotoCount > 0 ? (
               <p className="text-sm text-slate-400">
                 You captured {capturedPhotoCount} photo
