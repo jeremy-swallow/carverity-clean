@@ -13,7 +13,12 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
-import { loadProgress, clearProgress, saveProgress } from "../utils/scanProgress";
+import {
+  loadProgress,
+  clearProgress,
+  saveProgress,
+  type ScanProgress,
+} from "../utils/scanProgress";
 import { saveScan, generateScanId } from "../utils/scanStorage";
 
 type PricingVerdict = "missing" | "info" | "room" | "concern";
@@ -125,15 +130,13 @@ function parseAskingPrice(raw: string): number | null {
   return clamp(rounded, 1, 5_000_000);
 }
 
-function buildTitleFromProgress(progress: any): string {
-  const make =
-    progress?.vehicle?.make || progress?.make || progress?.vehicleMake;
-  const model =
-    progress?.vehicle?.model || progress?.model || progress?.vehicleModel;
-  const year =
-    progress?.vehicle?.year || progress?.year || progress?.vehicleYear;
+function buildTitleFromProgress(progress: ScanProgress) {
+  const parts = [
+    progress?.vehicleYear,
+    progress?.vehicleMake,
+    progress?.vehicleModel,
+  ].filter(Boolean);
 
-  const parts = [year, make, model].filter(Boolean);
   if (parts.length) return parts.join(" ");
   return "In-person inspection";
 }
@@ -174,6 +177,20 @@ function toneClasses(tone: "good" | "info" | "warn" | "danger") {
   };
 }
 
+/**
+ * Drive completion must NOT be inferred from default check fills.
+ * It should reflect whether the user actually went through the Drive step.
+ */
+function hasVisitedDriveStep(progress: ScanProgress | null) {
+  const step = String(progress?.step ?? "");
+  return (
+    step.includes("/scan/in-person/checks/drive") ||
+    step.includes("checks/drive") ||
+    step === "checks_drive" ||
+    step === "drive"
+  );
+}
+
 function hasAnyDriveAnswers(checks: Record<string, any>) {
   const driveIds = ["steering", "noise-hesitation", "adas-systems"];
   return driveIds.some((id) =>
@@ -182,6 +199,8 @@ function hasAnyDriveAnswers(checks: Record<string, any>) {
 }
 
 function getThumbnailFromPhotos(photos: any[]): string | null {
+  // Photos are now stored as { storagePath }, not dataUrl.
+  // Keep backwards compatibility only (older builds might still have dataUrl).
   if (!Array.isArray(photos) || photos.length === 0) return null;
 
   const first = photos[0];
@@ -195,11 +214,18 @@ function getThumbnailFromPhotos(photos: any[]): string | null {
 
 /**
  * Ensure checks have explicit stored defaults.
- * - UI shows "Looks fine" by default, so we persist "ok" for any missing items.
+ * - UI shows "Looks fine" by default, so we persist "ok" for missing items.
  * - Never overwrites an existing user choice.
+ *
+ * IMPORTANT:
+ * - We DO NOT default-fill Drive checks unless the Drive step was actually visited,
+ *   otherwise Summary would incorrectly mark Drive as "done".
  */
-function ensureDefaultChecks(progress: any) {
-  const allCheckIds = [
+function ensureDefaultChecks(
+  progress: ScanProgress,
+  includeDriveDefaults: boolean
+) {
+  const baseCheckIds = [
     // Around the car
     "body-panels-paint",
     "tyre-wear",
@@ -210,12 +236,18 @@ function ensureDefaultChecks(progress: any) {
     "interior-condition",
     "seatbelts-trim",
     "aircon",
+  ];
 
+  const driveCheckIds = [
     // During the drive
     "steering",
     "noise-hesitation",
     "adas-systems",
   ];
+
+  const allCheckIds = includeDriveDefaults
+    ? [...baseCheckIds, ...driveCheckIds]
+    : baseCheckIds;
 
   const existingChecks =
     progress?.checks && typeof progress.checks === "object"
@@ -249,7 +281,7 @@ function ensureDefaultChecks(progress: any) {
     next: {
       ...(progress ?? {}),
       checks: nextChecks,
-    },
+    } as ScanProgress,
   };
 }
 
@@ -289,46 +321,56 @@ export default function InPersonSummary() {
   const [askingPriceInput, setAskingPriceInput] = useState<string>("");
   const [askingPriceTouched, setAskingPriceTouched] = useState(false);
 
-  // Always read progress fresh (avoid stale values after redirects)
-  const progress: any = loadProgress() ?? {};
+  // Reactive copy so Summary reflects saved defaults immediately
+  const [progressState, setProgressState] = useState<ScanProgress>(() => {
+    return loadProgress() ?? {};
+  });
 
-  // Ensure scanId always exists for this flow (fixes broken loops / missing id)
+  // Ensure scanId always exists for this flow
   const activeScanId: string = useMemo(() => {
-    const existing = progress?.scanId || routeScanId;
+    const existing = progressState?.scanId || routeScanId;
     if (existing && typeof existing === "string") return existing;
     return generateScanId();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [routeScanId, progressState?.scanId]);
 
-  const followUps = progress?.followUpPhotos ?? [];
-  const checks = progress?.checks ?? {};
-  const photos = progress?.photos ?? [];
-  const fromOnlineScan = Boolean(progress?.fromOnlineScan);
+  const followUps = progressState?.followUpPhotos ?? [];
+  const checks = progressState?.checks ?? {};
+  const photos = progressState?.photos ?? [];
+  const fromOnlineScan = Boolean(progressState?.fromOnlineScan);
 
   const saleType =
-    progress?.saleType === "dealership" || progress?.saleType === "private"
-      ? progress.saleType
+    progressState?.saleType === "dealership" ||
+    progressState?.saleType === "private"
+      ? progressState.saleType
       : undefined;
 
-  const saleName = typeof progress?.saleName === "string" ? progress.saleName : "";
+  const saleName =
+    typeof progressState?.saleName === "string" ? progressState.saleName : "";
   const saleSuburb =
-    typeof progress?.saleSuburb === "string" ? progress.saleSuburb : "";
+    typeof progressState?.saleSuburb === "string" ? progressState.saleSuburb : "";
 
   const askingPrice: number | null =
-    typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
+    typeof progressState?.askingPrice === "number" ? progressState.askingPrice : null;
 
   useEffect(() => {
-    // Persist scanId + step immediately so resume never bounces to Home
-    const latest: any = loadProgress() ?? {};
-    const merged = {
+    const latest = loadProgress() ?? {};
+
+    const merged: ScanProgress = {
       ...(latest ?? {}),
-      type: "in-person",
+      type: "in-person" as const,
       scanId: activeScanId,
       step: "summary",
     };
 
-    const { changed, next } = ensureDefaultChecks(merged);
-    saveProgress(changed ? next : merged);
+    const visitedDrive =
+      hasVisitedDriveStep(latest) || hasAnyDriveAnswers(latest?.checks ?? {});
+    const { changed, next } = ensureDefaultChecks(merged, visitedDrive);
+
+    const finalProgress = changed ? next : merged;
+
+    saveProgress(finalProgress);
+    setProgressState(finalProgress);
 
     // Initialise asking price input from stored value (once)
     setAskingPriceInput((prev) => {
@@ -346,19 +388,22 @@ export default function InPersonSummary() {
 
   // Persist asking price into progress as user types
   useEffect(() => {
-    const latest: any = loadProgress() ?? {};
+    const latest = loadProgress() ?? {};
     const current =
       typeof latest?.askingPrice === "number" ? latest.askingPrice : null;
 
     if (parsedAskingPrice === current) return;
 
-    saveProgress({
+    const next: ScanProgress = {
       ...(latest ?? {}),
-      type: "in-person",
+      type: "in-person" as const,
       scanId: activeScanId,
       step: "summary",
       askingPrice: parsedAskingPrice,
-    });
+    };
+
+    saveProgress(next);
+    setProgressState(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsedAskingPrice, activeScanId]);
 
@@ -424,21 +469,24 @@ export default function InPersonSummary() {
         return;
       }
 
-      const latest: any = loadProgress() ?? {};
-      const merged = {
+      const latest = loadProgress() ?? {};
+
+      const merged: ScanProgress = {
         ...(latest ?? {}),
-        type: "in-person",
+        type: "in-person" as const,
         scanId: activeScanId,
         step: "summary",
         askingPrice: parsedAskingPrice,
       };
 
-      const { changed, next } = ensureDefaultChecks(merged);
-
-      if (changed) saveProgress(next);
-      else saveProgress(merged);
+      const visitedDrive =
+        hasVisitedDriveStep(latest) || hasAnyDriveAnswers(latest?.checks ?? {});
+      const { changed, next } = ensureDefaultChecks(merged, visitedDrive);
 
       const progressForSave = changed ? next : merged;
+
+      saveProgress(progressForSave);
+      setProgressState(progressForSave);
 
       const title = buildTitleFromProgress(progressForSave);
       const thumbnail = getThumbnailFromPhotos(progressForSave?.photos ?? []);
@@ -456,23 +504,13 @@ export default function InPersonSummary() {
         createdAt: new Date().toISOString(),
 
         vehicle: {
-          make:
-            progressForSave?.vehicle?.make ||
-            progressForSave?.make ||
-            progressForSave?.vehicleMake,
-          model:
-            progressForSave?.vehicle?.model ||
-            progressForSave?.model ||
-            progressForSave?.vehicleModel,
+          make: progressForSave?.vehicleMake,
+          model: progressForSave?.vehicleModel,
           year:
-            progressForSave?.vehicle?.year ||
-            progressForSave?.year ||
-            progressForSave?.vehicleYear,
-          variant:
-            progressForSave?.vehicle?.variant ||
-            progressForSave?.variant ||
-            progressForSave?.vehicleVariant ||
-            undefined,
+            typeof progressForSave?.vehicleYear === "number"
+              ? String(progressForSave.vehicleYear)
+              : undefined,
+          variant: progressForSave?.vehicleVariant || undefined,
         },
 
         sale:
@@ -497,28 +535,32 @@ export default function InPersonSummary() {
         fromOnlineScan,
       });
 
-      // If already unlocked, go straight to analyzing (never Home)
       const unlocked = await hasUnlockForScan(activeScanId);
 
       if (unlocked) {
-        saveProgress({
+        const nextProg: ScanProgress = {
           ...(loadProgress() ?? {}),
-          type: "in-person",
+          type: "in-person" as const,
           scanId: activeScanId,
           step: "analyzing",
-        });
+        };
+
+        saveProgress(nextProg);
+        setProgressState(nextProg);
 
         navigate(`/scan/in-person/analyzing/${activeScanId}`, { replace: true });
         return;
       }
 
-      // Otherwise, enforce unlock route (consistent)
-      saveProgress({
+      const nextProg: ScanProgress = {
         ...(loadProgress() ?? {}),
-        type: "in-person",
+        type: "in-person" as const,
         scanId: activeScanId,
         step: "unlock",
-      });
+      };
+
+      saveProgress(nextProg);
+      setProgressState(nextProg);
 
       navigate(`/scan/in-person/unlock/${activeScanId}`, { replace: true });
     } catch (e) {
@@ -534,16 +576,21 @@ export default function InPersonSummary() {
       return;
     }
     clearProgress();
+    setProgressState({});
     navigate("/scan/in-person/start", { replace: true });
   }
 
   function handleDoDriveNow() {
-    saveProgress({
+    const nextProg: ScanProgress = {
       ...(loadProgress() ?? {}),
-      type: "in-person",
+      type: "in-person" as const,
       scanId: activeScanId,
       step: "checks_drive",
-    });
+    };
+
+    saveProgress(nextProg);
+    setProgressState(nextProg);
+
     navigate("/scan/in-person/checks/drive-intro");
   }
 
@@ -554,7 +601,12 @@ export default function InPersonSummary() {
     askingPriceInput.trim().length > 0 &&
     !parsedAskingPrice;
 
-  const driveWasSkippedOrMissing = !hasAnyDriveAnswers(checks);
+  const driveWasSkippedOrMissing = useMemo(() => {
+    const visitedDrive =
+      hasVisitedDriveStep(progressState) ||
+      hasAnyDriveAnswers(progressState?.checks ?? {});
+    return !visitedDrive;
+  }, [progressState]);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-16">
@@ -891,12 +943,14 @@ export default function InPersonSummary() {
 
             <button
               onClick={() => {
-                saveProgress({
+                const nextProg: ScanProgress = {
                   ...(loadProgress() ?? {}),
-                  type: "in-person",
+                  type: "in-person" as const,
                   scanId: activeScanId,
                   step: "checks_intro",
-                });
+                };
+                saveProgress(nextProg);
+                setProgressState(nextProg);
                 navigate("/scan/in-person/checks/intro");
               }}
               className="rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-2 text-sm text-slate-200 inline-flex items-center gap-2"
