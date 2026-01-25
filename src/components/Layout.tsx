@@ -276,10 +276,7 @@ export default function Layout() {
 
             {/* Desktop nav */}
             <nav className="hidden md:flex items-center gap-6 text-sm">
-              <NavLink
-                to="/start-scan"
-                className="text-slate-300 hover:text-white"
-              >
+              <NavLink to="/start" className="text-slate-300 hover:text-white">
                 Start scan
               </NavLink>
               <NavLink
@@ -299,6 +296,9 @@ export default function Layout() {
                 className="text-slate-300 hover:text-white"
               >
                 What to expect
+              </NavLink>
+              <NavLink to="/about" className="text-slate-300 hover:text-white">
+                About
               </NavLink>
             </nav>
 
@@ -456,6 +456,13 @@ export default function Layout() {
             >
               What to expect
             </NavLink>
+            <NavLink
+              to="/about"
+              onClick={() => setMobileOpen(false)}
+              className="block py-1"
+            >
+              About
+            </NavLink>
           </nav>
 
           {/* Account / Sign in */}
@@ -493,6 +500,20 @@ export default function Layout() {
           {/* Mobile footer links */}
           <div className="pt-6 border-t border-slate-800 space-y-3 text-xs text-slate-500">
             <div className="flex flex-wrap gap-x-4 gap-y-2">
+              <NavLink
+                to="/about"
+                onClick={() => setMobileOpen(false)}
+                className="hover:text-slate-200 underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
+              >
+                About
+              </NavLink>
+              <NavLink
+                to="/what-to-expect"
+                onClick={() => setMobileOpen(false)}
+                className="hover:text-slate-200 underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
+              >
+                What to expect
+              </NavLink>
               <NavLink
                 to="/terms"
                 onClick={() => setMobileOpen(false)}
@@ -543,6 +564,18 @@ export default function Layout() {
             </div>
 
             <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-300">
+              <NavLink
+                to="/about"
+                className="hover:text-white underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
+              >
+                About
+              </NavLink>
+              <NavLink
+                to="/what-to-expect"
+                className="hover:text-white underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
+              >
+                What to expect
+              </NavLink>
               <NavLink
                 to="/terms"
                 className="hover:text-white underline underline-offset-4 decoration-white/10 hover:decoration-white/30"

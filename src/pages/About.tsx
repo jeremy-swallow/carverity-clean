@@ -19,14 +19,17 @@ export default function About() {
           CarVerity · About
         </p>
 
-        <h1 className="text-2xl md:text-3xl font-semibold">
-          About CarVerity
-        </h1>
+        <h1 className="text-2xl md:text-3xl font-semibold">About CarVerity</h1>
 
         <p className="text-slate-300 leading-relaxed">
           CarVerity helps everyday buyers inspect a used car in-person and
           produce a clear, shareable report — so you can slow down, stay calm,
           and make a decision based on what you actually observed.
+        </p>
+
+        <p className="text-slate-400 leading-relaxed text-sm">
+          It’s designed for real inspections (dealership or private sale), and
+          focuses on documenting what you can see, check, and verify on the spot.
         </p>
       </header>
 
@@ -36,9 +39,7 @@ export default function About() {
           <div className="flex items-start gap-3">
             <ShieldCheck className="h-5 w-5 text-emerald-400 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-white">
-                Built for buyers
-              </p>
+              <p className="text-sm font-semibold text-white">Built for buyers</p>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                 Calm guidance that reduces pressure and regret.
               </p>
@@ -50,9 +51,7 @@ export default function About() {
           <div className="flex items-start gap-3">
             <Camera className="h-5 w-5 text-emerald-400 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-white">
-                Evidence-based
-              </p>
+              <p className="text-sm font-semibold text-white">Evidence-based</p>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                 Your report reflects your photos and notes.
               </p>
@@ -117,14 +116,16 @@ export default function About() {
                 <li>It does not diagnose mechanical faults</li>
                 <li>It does not guarantee vehicle condition</li>
                 <li>It does not replace a professional inspection</li>
-                <li>
-                  It is not a government vehicle history service or database
-                </li>
+                <li>It is not a government vehicle history database</li>
               </ul>
 
               <p className="text-slate-300 leading-relaxed mt-3">
-                For extra peace of mind, we recommend completing a PPSR check
-                separately before buying any used vehicle in Australia.
+                If you want extra peace of mind before buying, we recommend doing
+                a separate PPSR check as part of your purchase process.
+              </p>
+
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                CarVerity does not provide PPSR results inside the app.
               </p>
             </div>
           </div>
