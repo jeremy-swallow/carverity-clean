@@ -1,7 +1,14 @@
 // src/pages/About.tsx
 
 import { Link } from "react-router-dom";
-import { ShieldCheck, Info, Mail, MapPin } from "lucide-react";
+import {
+  ShieldCheck,
+  ClipboardCheck,
+  Camera,
+  MapPin,
+  Info,
+  Mail,
+} from "lucide-react";
 
 export default function About() {
   return (
@@ -17,120 +24,204 @@ export default function About() {
         </h1>
 
         <p className="text-slate-300 leading-relaxed">
-          CarVerity is a buyer-support tool designed to help you inspect a used
-          car in-person and record what you actually observe — calmly, clearly,
-          and without pressure.
+          CarVerity helps everyday buyers inspect a used car in-person and
+          produce a clear, shareable report — so you can slow down, stay calm,
+          and make a decision based on what you actually observed.
         </p>
       </header>
 
-      {/* WHAT IT IS */}
-      <section className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 space-y-3">
-        <div className="flex items-start gap-3">
-          <Info className="h-5 w-5 text-slate-400 mt-0.5" />
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold">What CarVerity is</h2>
-            <p className="text-slate-300 leading-relaxed mt-1">
-              A guided inspection flow that helps you capture key photos, mark
-              concerns or unknowns, and generate a structured report you can
-              review later.
-            </p>
+      {/* TRUST STRIP */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="h-5 w-5 text-emerald-400 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-white">
+                Built for buyers
+              </p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                Calm guidance that reduces pressure and regret.
+              </p>
+            </div>
           </div>
         </div>
 
-        <ul className="text-slate-300 list-disc list-inside space-y-1">
-          <li>Guided photo capture</li>
-          <li>Simple tap-to-answer checks</li>
-          <li>Clear summary of what you recorded</li>
-          <li>Decision support that stays grounded in your inputs</li>
-        </ul>
-      </section>
-
-      {/* WHAT IT IS NOT */}
-      <section className="rounded-2xl border border-white/10 bg-slate-950/30 p-5 space-y-3">
-        <div className="flex items-start gap-3">
-          <ShieldCheck className="h-5 w-5 text-slate-400 mt-0.5" />
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold">What CarVerity is not</h2>
-            <p className="text-slate-300 leading-relaxed mt-1">
-              CarVerity does not diagnose mechanical faults, guarantee vehicle
-              condition, or replace a professional inspection.
-            </p>
+        <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
+          <div className="flex items-start gap-3">
+            <Camera className="h-5 w-5 text-emerald-400 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-white">
+                Evidence-based
+              </p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                Your report reflects your photos and notes.
+              </p>
+            </div>
           </div>
         </div>
 
-        <ul className="text-slate-300 list-disc list-inside space-y-1">
-          <li>Not a mechanic inspection</li>
-          <li>Not a guarantee or certification</li>
-          <li>Not a market valuation tool</li>
-          <li>Not legal advice</li>
-        </ul>
-
-        <p className="text-slate-300 leading-relaxed">
-          If you’re unsure about anything important, the safest option is to
-          have the vehicle inspected by a qualified professional.
-        </p>
+        <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-4">
+          <div className="flex items-start gap-3">
+            <ClipboardCheck className="h-5 w-5 text-emerald-400 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-white">
+                Structured outcome
+              </p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                Clear summary of concerns and unknowns.
+              </p>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* TRUST + PRIVACY */}
+      {/* MISSION */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Privacy and data</h2>
+        <h2 className="text-lg font-semibold">Our mission</h2>
 
         <p className="text-slate-300 leading-relaxed">
-          CarVerity is designed to stay lightweight and practical. Where
-          possible, inspections are stored locally on your device unless
-          otherwise stated.
+          Australia’s used car market can be fast-moving and stressful. CarVerity
+          exists to eliminate the guesswork during an inspection — helping you
+          spot red flags, record them properly, and make a safer decision with
+          less uncertainty.
         </p>
+      </section>
 
-        <p className="text-slate-300 leading-relaxed">
-          If you change devices, change browsers, or clear site data, saved scans
-          may not appear. For important purchases, it’s a good idea to export or
-          print your report after completing the inspection.
-        </p>
+      {/* WHAT IT IS / ISN'T */}
+      <section className="space-y-6">
+        <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-slate-300 mt-0.5" />
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold">What CarVerity is</h2>
+              <ul className="mt-3 text-slate-300 list-disc list-inside space-y-1">
+                <li>A guided in-person inspection flow</li>
+                <li>Photo capture + simple tap-to-answer checks</li>
+                <li>A structured report you can save, share, or print</li>
+                <li>
+                  Decision support based on your recorded concerns and unknowns
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="h-5 w-5 text-amber-300 mt-0.5" />
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold">
+                What CarVerity deliberately does not do
+              </h2>
+              <ul className="mt-3 text-slate-300 list-disc list-inside space-y-1">
+                <li>It does not diagnose mechanical faults</li>
+                <li>It does not guarantee vehicle condition</li>
+                <li>It does not replace a professional inspection</li>
+                <li>
+                  It is not a government vehicle history service or database
+                </li>
+              </ul>
+
+              <p className="text-slate-300 leading-relaxed mt-3">
+                For extra peace of mind, we recommend completing a PPSR check
+                separately before buying any used vehicle in Australia.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* AUSTRALIA */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Built for Australia</h2>
+
+        <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-slate-900/40 p-5">
+          <MapPin className="h-5 w-5 text-emerald-400 mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-slate-300 leading-relaxed">
+              CarVerity is designed specifically for Australian used-car buyers,
+              with a practical inspection style that fits how people actually
+              buy cars here — private sale, dealership, and everything in
+              between.
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* CONTACT */}
-      <section className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 space-y-4">
+      <section className="space-y-3">
         <h2 className="text-lg font-semibold">Contact</h2>
 
-        <div className="space-y-3">
+        <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5">
           <div className="flex items-start gap-3">
-            <Mail className="h-5 w-5 text-slate-400 mt-0.5" />
+            <Mail className="h-5 w-5 text-slate-300 mt-0.5" />
             <div className="min-w-0">
-              <p className="text-sm text-slate-200 font-semibold">
-                Support email
+              <p className="text-slate-300 leading-relaxed">
+                Questions, feedback, or a feature request?
               </p>
-              <p className="text-sm text-slate-300">
+
+              <p className="text-slate-300 leading-relaxed mt-2">
+                Email:{" "}
                 <a
                   href="mailto:support@carverity.com.au"
-                  className="underline"
+                  className="underline text-slate-200"
                 >
                   support@carverity.com.au
                 </a>
               </p>
-              <p className="text-xs text-slate-500 mt-1">
-                (Replace this with your real support email if different.)
-              </p>
-            </div>
-          </div>
 
-          <div className="flex items-start gap-3">
-            <MapPin className="h-5 w-5 text-slate-400 mt-0.5" />
-            <div className="min-w-0">
-              <p className="text-sm text-slate-200 font-semibold">Built in</p>
-              <p className="text-sm text-slate-300">Australia</p>
+              <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+                (If you don’t have this email set up yet, you can replace it
+                with your real address for now.)
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="pt-6 border-t border-white/10 flex flex-col gap-3">
-        <Link to="/what-to-expect" className="text-slate-300 underline text-sm">
-          ← What to expect
-        </Link>
+      {/* LINKS */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Helpful links</h2>
 
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to="/what-to-expect"
+            className="text-xs px-3 py-1 rounded-full border border-white/10 bg-slate-900/40 text-slate-300 hover:bg-white/5 transition"
+          >
+            What to expect
+          </Link>
+
+          <Link
+            to="/faq"
+            className="text-xs px-3 py-1 rounded-full border border-white/10 bg-slate-900/40 text-slate-300 hover:bg-white/5 transition"
+          >
+            FAQ
+          </Link>
+
+          <Link
+            to="/privacy"
+            className="text-xs px-3 py-1 rounded-full border border-white/10 bg-slate-900/40 text-slate-300 hover:bg-white/5 transition"
+          >
+            Privacy
+          </Link>
+
+          <Link
+            to="/terms"
+            className="text-xs px-3 py-1 rounded-full border border-white/10 bg-slate-900/40 text-slate-300 hover:bg-white/5 transition"
+          >
+            Terms
+          </Link>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="pt-6 border-t border-white/10 flex items-center justify-between">
         <Link to="/" className="text-slate-300 underline text-sm">
           ← Back to home
+        </Link>
+
+        <Link to="/what-to-expect" className="text-slate-300 underline text-sm">
+          What to expect →
         </Link>
       </footer>
     </div>

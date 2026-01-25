@@ -114,16 +114,14 @@ export default function WhatToExpect() {
       </section>
 
       {/* FOOTER */}
-      <footer className="pt-6 border-t border-white/10">
-        <div className="flex flex-col gap-2">
-          <Link to="/about" className="text-slate-300 underline text-sm">
-            About CarVerity
-          </Link>
+      <footer className="pt-6 border-t border-white/10 flex items-center justify-between">
+        <Link to="/" className="text-slate-300 underline text-sm">
+          ← Back to home
+        </Link>
 
-          <Link to="/" className="text-slate-300 underline text-sm">
-            ← Back to home
-          </Link>
-        </div>
+        <Link to="/about" className="text-slate-300 underline text-sm">
+          About CarVerity →
+        </Link>
       </footer>
     </div>
   );

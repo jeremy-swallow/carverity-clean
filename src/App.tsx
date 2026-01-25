@@ -316,10 +316,7 @@ export default function App() {
         />
 
         {/* Back-compat: if something links to /print without id, send home */}
-        <Route
-          path="/scan/in-person/print"
-          element={<Navigate to="/" replace />}
-        />
+        <Route path="/scan/in-person/print" element={<Navigate to="/" replace />} />
 
         {/* -----------------------
            Legacy routes (keep so old links don't break)
