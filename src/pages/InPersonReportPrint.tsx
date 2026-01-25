@@ -6,7 +6,6 @@ import { loadProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadScanById } from "../utils/scanStorage";
 import { supabase } from "../supabaseClient";
-import QRCode from "qrcode";
 
 /* -------------------------------------------------------
    Small helpers (print-safe, no JSX namespace)
@@ -384,34 +383,10 @@ export default function InPersonReportPrint() {
   const APP_URL = "https://carverity.com.au";
   const SUPPORT_EMAIL = "support@carverity.com.au";
 
-  /* =========================================================
-     QR code (local generation so it always prints)
-  ========================================================== */
-  const [qrSrc, setQrSrc] = useState<string>("");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function makeQr() {
-      try {
-        const dataUrl = await QRCode.toDataURL(APP_URL, {
-          margin: 1,
-          width: 220,
-          errorCorrectionLevel: "M",
-        });
-
-        if (!cancelled) setQrSrc(dataUrl);
-      } catch (e) {
-        console.warn("[Print] QR generation failed:", e);
-        if (!cancelled) setQrSrc("");
-      }
-    }
-
-    void makeQr();
-
-    return () => {
-      cancelled = true;
-    };
+  const qrSrc = useMemo(() => {
+    const size = 180;
+    const data = encodeURIComponent(APP_URL);
+    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&qzone=2&format=png&data=${data}`;
   }, [APP_URL]);
 
   function triggerPrint() {
@@ -570,18 +545,11 @@ export default function InPersonReportPrint() {
                   <br />
                   CarVerity
                 </div>
-
-                {qrSrc ? (
-                  <img
-                    src={qrSrc}
-                    alt="CarVerity QR code"
-                    className="h-16 w-16 border border-black/15 rounded-md"
-                  />
-                ) : (
-                  <div className="h-16 w-16 border border-black/15 rounded-md flex items-center justify-center text-[10px] text-black/45">
-                    QR
-                  </div>
-                )}
+                <img
+                  src={qrSrc}
+                  alt="CarVerity QR code"
+                  className="h-16 w-16 border border-black/15 rounded-md"
+                />
               </div>
             </div>
           </div>
@@ -622,18 +590,11 @@ export default function InPersonReportPrint() {
               <br />
               CarVerity
             </div>
-
-            {qrSrc ? (
-              <img
-                src={qrSrc}
-                alt="CarVerity QR code"
-                className="h-12 w-12 border border-black/15 rounded-sm"
-              />
-            ) : (
-              <div className="h-12 w-12 border border-black/15 rounded-sm flex items-center justify-center text-[10px] text-black/45">
-                QR
-              </div>
-            )}
+            <img
+              src={qrSrc}
+              alt="CarVerity QR code"
+              className="h-12 w-12 border border-black/15 rounded-sm"
+            />
           </div>
         </div>
       </div>
@@ -723,7 +684,7 @@ export default function InPersonReportPrint() {
           </div>
         </header>
 
-        <section className="print-block space-y-3">
+        <section className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Executive verdict
           </h2>
@@ -753,7 +714,7 @@ export default function InPersonReportPrint() {
           </div>
         </section>
 
-        <section className="print-block space-y-3">
+        <section className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Evidence considered
           </h2>
@@ -766,7 +727,7 @@ export default function InPersonReportPrint() {
           </p>
         </section>
 
-        <section className="print-block space-y-3">
+        <section className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Priority findings
           </h2>
@@ -797,7 +758,7 @@ export default function InPersonReportPrint() {
           )}
         </section>
 
-        <section className="print-block space-y-3">
+        <section className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Items worth clarifying
           </h2>
@@ -828,7 +789,7 @@ export default function InPersonReportPrint() {
           )}
         </section>
 
-        <section className="print-block space-y-3">
+        <section className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Buyer-declared uncertainty
           </h2>
@@ -852,7 +813,7 @@ export default function InPersonReportPrint() {
           )}
         </section>
 
-        <section className="print-block space-y-3">
+        <section className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             How risk was weighed
           </h2>
@@ -860,7 +821,7 @@ export default function InPersonReportPrint() {
           <Paragraph value={(analysis as any).riskWeightingExplanation} />
         </section>
 
-        <section className="print-block space-y-3">
+        <section className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Buyer-safe posture
           </h2>
@@ -882,9 +843,9 @@ export default function InPersonReportPrint() {
         </section>
 
         {/* =====================================================
-            PHOTO EVIDENCE (force new page)
+            PHOTO EVIDENCE (always starts on a new printed page)
         ===================================================== */}
-        <section className="print-block space-y-3 print-photo-section">
+        <section className="space-y-3 print-page-break-before">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Photo evidence
           </h2>
@@ -892,15 +853,21 @@ export default function InPersonReportPrint() {
           {photosLoading ? (
             <p className="text-sm text-black/60">Loading photos…</p>
           ) : signedPhotoUrls.length > 0 ? (
-            <div className="print-photo-grid">
+            <div className="print-photo-grid grid grid-cols-2 gap-4">
               {signedPhotoUrls.map((src, i) => (
-                <figure key={i} className="print-photo-tile">
-                  <img
-                    src={src}
-                    alt={`Inspection photo ${i + 1}`}
-                    className="print-photo-img"
-                  />
-                  <figcaption className="print-photo-caption">
+                <figure
+                  key={i}
+                  className="print-photo-card rounded-2xl border border-black/15 bg-white overflow-hidden"
+                >
+                  <div className="print-photo-frame">
+                    <img
+                      src={src}
+                      alt={`Inspection photo ${i + 1}`}
+                      className="print-photo-img"
+                    />
+                  </div>
+
+                  <figcaption className="px-3 py-2 text-[11px] text-black/55">
                     Buyer-captured inspection photo {i + 1}
                   </figcaption>
                 </figure>
@@ -913,7 +880,7 @@ export default function InPersonReportPrint() {
           )}
         </section>
 
-        <div className="print-block rounded-2xl border border-black/20 bg-black/5 px-6 py-4 text-xs leading-relaxed">
+        <div className="rounded-2xl border border-black/20 bg-black/5 px-6 py-4 text-xs leading-relaxed">
           This document is not a mechanical inspection, defect report, or
           valuation. It reflects buyer-recorded observations only and should be
           used alongside professional inspections and independent checks.
@@ -941,12 +908,12 @@ export default function InPersonReportPrint() {
         * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .brand-strip { background: rgba(0,0,0,0.02); }
 
-        :root { --print-footer-reserve: 34mm; }
+        /* We reduce the reserved footer space to stop giant blank gaps */
+        :root { --print-footer-reserve: 20mm; }
 
-        @page { size: A4; margin: 16mm 16mm 24mm 16mm; }
+        @page { size: A4; margin: 16mm 16mm 22mm 16mm; }
 
         .print-footer { display: none; }
-        .print-block { break-inside: avoid; page-break-inside: avoid; }
 
         .print-cover {
           max-width: 210mm;
@@ -974,34 +941,22 @@ export default function InPersonReportPrint() {
         .print-cover-top { flex: 1; min-width: 0; }
         .print-cover-bottom { border-top: 1px solid rgba(0,0,0,0.12); padding-top: 8mm; }
 
-        /* Photo grid (screen) */
-        .print-photo-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 16px;
-        }
-
-        .print-photo-tile {
-          border: 1px solid rgba(0,0,0,0.18);
-          border-radius: 14px;
-          padding: 10px;
-          background: rgba(0,0,0,0.02);
-        }
-
-        .print-photo-img {
+        /* Photo grid */
+        .print-photo-grid { width: 100%; }
+        .print-photo-frame {
           width: 100%;
           aspect-ratio: 1 / 1;
-          object-fit: cover;
-          border-radius: 10px;
-          border: 1px solid rgba(0,0,0,0.18);
-          display: block;
+          background: rgba(0,0,0,0.03);
+          border-bottom: 1px solid rgba(0,0,0,0.10);
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
-
-        .print-photo-caption {
-          margin-top: 6px;
-          font-size: 11px;
-          color: rgba(0,0,0,0.55);
-          line-height: 1.25;
+        .print-photo-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
         }
 
         @media print {
@@ -1012,9 +967,9 @@ export default function InPersonReportPrint() {
           .print-cover { page-break-after: always; break-after: page; }
 
           .print-page {
-            max-width: none !important;
-            margin: 0 auto !important;
             padding: 0 !important;
+            margin: 0 auto !important;
+            max-width: none !important;
             padding-bottom: var(--print-footer-reserve) !important;
           }
 
@@ -1045,7 +1000,17 @@ export default function InPersonReportPrint() {
             gap: 7mm;
           }
 
-          .print-block, .print-card, section, figure, img {
+          /* IMPORTANT:
+             We allow normal sections to split across pages.
+             Only protect small "cards" and photos from splitting.
+          */
+          section { break-inside: auto !important; page-break-inside: auto !important; }
+          p, li { orphans: 3; widows: 3; }
+
+          .print-card,
+          .print-photo-card,
+          figure,
+          img {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
@@ -1055,35 +1020,10 @@ export default function InPersonReportPrint() {
             page-break-after: avoid !important;
           }
 
-          p, li { orphans: 3; widows: 3; }
-
-          /* FORCE a new page before Photo evidence */
-          .print-photo-section {
+          /* Force new page before Photo Evidence */
+          .print-page-break-before {
             break-before: page !important;
             page-break-before: always !important;
-          }
-
-          .print-photo-grid {
-            display: grid !important;
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            gap: 10px !important;
-          }
-
-          .print-photo-tile {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-            border-color: rgba(0,0,0,0.20) !important;
-            background: rgba(0,0,0,0.02) !important;
-            padding: 8px !important;
-          }
-
-          .print-photo-img {
-            border-color: rgba(0,0,0,0.20) !important;
-          }
-
-          .print-photo-grid, .print-photo-tile {
-            -webkit-column-break-inside: avoid;
-            break-inside: avoid;
           }
         }
       `}</style>
