@@ -23,7 +23,7 @@ export default function About() {
 
         <p className="text-slate-300 leading-relaxed">
           CarVerity helps everyday buyers inspect a used car in-person and
-          produce a clear, shareable report — so you can slow down, stay calm,
+          produce a clear, shareable report — so you can slow down, stay focused,
           and make a decision based on what you actually observed.
         </p>
 
@@ -41,7 +41,7 @@ export default function About() {
             <div>
               <p className="text-sm font-semibold text-white">Built for buyers</p>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Calm guidance that reduces pressure and regret.
+                Clear guidance that reduces pressure and regret.
               </p>
             </div>
           </div>
@@ -169,11 +169,6 @@ export default function About() {
                 >
                   support@carverity.com.au
                 </a>
-              </p>
-
-              <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-                (If you don’t have this email set up yet, you can replace it
-                with your real address for now.)
               </p>
             </div>
           </div>
