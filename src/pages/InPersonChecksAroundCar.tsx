@@ -57,14 +57,18 @@ function splitLines(note?: string) {
 }
 
 /**
- * Build progress.imperfections[] from existing progress.checks
- * WITHOUT asking the user to enter anything twice.
+ * Build progress.imperfections[] from THIS STEP'S checks only.
  *
  * Rule:
  * - Only "concern" answers become imperfections
  * - label = check title
  * - note = check note (if any)
  * - severity = minor (default)
+ *
+ * CRITICAL FIX:
+ * - Only consider check IDs that exist in checkConfigs for this step.
+ *   (Prevents "Around car" step from generating imperfections for
+ *    inside-cabin or drive checks, and vice versa.)
  */
 function buildImperfectionsFromChecks(
   checks: Record<string, CheckAnswer>,
@@ -74,15 +78,16 @@ function buildImperfectionsFromChecks(
   const byId = new Map<string, CheckConfig>();
   for (const c of checkConfigs) byId.set(c.id, c);
 
-  const imperfections = Object.entries(checks || [])
-    .filter(([_, a]) => a?.value === "concern")
+  const imperfections = Object.entries(checks || {})
+    // ✅ Only build imperfections for check IDs that belong to this step
+    .filter(([id, a]) => byId.has(id) && a?.value === "concern")
     .map(([id, a]) => {
-      const cfg = byId.get(id);
-      const label = cfg?.title || id;
+      const cfg = byId.get(id)!;
 
       return {
-        id: `imp:${id}`,
-        label,
+        // Include location in the id so we never collide across steps
+        id: `imp:${locationLabel.toLowerCase().replace(/\s+/g, "-")}:${id}`,
+        label: cfg.title,
         severity: "minor" as const,
         location: locationLabel,
         note: (a?.note ?? "").trim() || undefined,
@@ -159,8 +164,7 @@ export default function InPersonChecksAroundCar() {
   );
 
   /* -------------------------------------------------------
-     NEW: Auto-save defaults so "Looks fine" isn't just visual
-     - If user doesn't tap anything, we still treat it as recorded
+     Auto-save defaults so "Looks fine" isn't just visual
      - Only fills missing answers (never overwrites user choices)
   ------------------------------------------------------- */
   useEffect(() => {
@@ -171,7 +175,6 @@ export default function InPersonChecksAroundCar() {
       for (const c of checks) {
         const existing = next[c.id];
 
-        // If there is no stored answer, set the default to "ok"
         if (!existing || !existing.value) {
           next[c.id] = { ...(existing ?? {}), value: "ok" };
           changed = true;
