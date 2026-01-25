@@ -1,19 +1,46 @@
 // src/pages/AuthCallback.tsx
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
+
+function safeRedirectPath(raw: string | null): string {
+  const fallback = "/start";
+  if (!raw) return fallback;
+
+  const v = raw.trim();
+  // Only allow same-origin app routes
+  if (!v.startsWith("/")) return fallback;
+  if (v.startsWith("//")) return fallback;
+  return v;
+}
 
 export default function AuthCallback() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
 
-  const [status, setStatus] = useState<
-    "working" | "success" | "error"
-  >("working");
-  const [message, setMessage] = useState<string>(
-    "Signing you in…"
+  const [status, setStatus] = useState<"working" | "success" | "error">(
+    "working"
   );
+  const [message, setMessage] = useState<string>("Signing you in…");
+
+  // Priority order for redirect target:
+  // 1) sessionStorage saved by SignIn before OAuth redirect
+  // 2) explicit ?next= param (legacy)
+  // 3) fallback
+  const redirectTarget = useMemo(() => {
+    const stored = safeRedirectPath(
+      sessionStorage.getItem("carverity_redirect_after_auth")
+    );
+
+    const nextParam = safeRedirectPath(params.get("next"));
+
+    // If we have a stored redirect, prefer it (OAuth flow)
+    if (stored && stored !== "/start") return stored;
+
+    // Otherwise, fall back to ?next=
+    return nextParam || "/start";
+  }, [params]);
 
   useEffect(() => {
     let cancelled = false;
@@ -29,9 +56,6 @@ export default function AuthCallback() {
          * detectSessionInUrl=true in supabaseClient helps,
          * but we still do a session check loop to be safe.
          */
-
-        // Optional next route
-        const next = params.get("next") || "/my-scans";
 
         // Small retry loop because session hydration can lag on first load
         const delays = [0, 150, 300, 600, 1000];
@@ -55,17 +79,18 @@ export default function AuthCallback() {
             setStatus("success");
             setMessage("Signed in. Redirecting…");
 
+            // Clear stored redirect so it doesn't affect future logins
+            sessionStorage.removeItem("carverity_redirect_after_auth");
+
             // Replace so callback URL doesn't stay in history
-            navigate(next, { replace: true });
+            navigate(redirectTarget, { replace: true });
             return;
           }
         }
 
         // If we still don't have a session, treat as failure
         setStatus("error");
-        setMessage(
-          "We couldn’t complete sign-in. Please try again."
-        );
+        setMessage("We couldn’t complete sign-in. Please try again.");
 
         // Give user a moment to read, then send to sign-in
         setTimeout(() => {
@@ -77,9 +102,7 @@ export default function AuthCallback() {
 
         if (cancelled) return;
         setStatus("error");
-        setMessage(
-          "Something went wrong during sign-in. Please try again."
-        );
+        setMessage("Something went wrong during sign-in. Please try again.");
 
         setTimeout(() => {
           if (cancelled) return;
@@ -93,7 +116,7 @@ export default function AuthCallback() {
     return () => {
       cancelled = true;
     };
-  }, [navigate, params]);
+  }, [navigate, redirectTarget]);
 
   return (
     <div className="max-w-md mx-auto px-6 py-24 text-white">
@@ -110,8 +133,8 @@ export default function AuthCallback() {
       {status === "error" && (
         <div className="mt-6 rounded-2xl border border-white/10 bg-slate-900/40 p-4">
           <p className="text-sm text-slate-300">
-            If you’re using Outlook/Hotmail and email links don’t arrive,
-            use Google sign-in or password instead.
+            If you’re using Outlook/Hotmail and email links don’t arrive, use
+            Google sign-in or password instead.
           </p>
         </div>
       )}

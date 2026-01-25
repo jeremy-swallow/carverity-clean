@@ -1,14 +1,35 @@
 // src/pages/SignIn.tsx
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { signInWithGoogle } from "../supabaseAuth";
 import { supabase } from "../supabaseClient";
 
 type EmailMode = "signin" | "signup" | "reset";
 
+function safeRedirectPath(raw: string | null): string {
+  const fallback = "/start";
+  if (!raw) return fallback;
+
+  const v = raw.trim();
+  // Only allow same-origin app routes
+  if (!v.startsWith("/")) return fallback;
+  if (v.startsWith("//")) return fallback;
+  return v;
+}
+
 export default function SignIn() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const redirectPath = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return safeRedirectPath(params.get("redirect"));
+  }, [location.search]);
+
+  function goAfterAuth() {
+    navigate(redirectPath, { replace: true });
+  }
 
   // OAuth
   const [sendingGoogle, setSendingGoogle] = useState(false);
@@ -26,11 +47,36 @@ export default function SignIn() {
   const [resending, setResending] = useState(false);
   const [resendMsg, setResendMsg] = useState<string | null>(null);
 
+  // If already signed in, bounce them back to where they intended to go
+  useEffect(() => {
+    let mounted = true;
+
+    async function check() {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      if (data.session) {
+        goAfterAuth();
+      }
+    }
+
+    check();
+
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [redirectPath]);
+
   async function handleGoogle() {
     setOauthError(null);
 
     try {
       setSendingGoogle(true);
+
+      // Save redirect for AuthCallback (OAuth returns there, not here)
+      sessionStorage.setItem("carverity_redirect_after_auth", redirectPath);
+
       await signInWithGoogle();
       // Redirect happens automatically
     } catch (err) {
@@ -76,7 +122,7 @@ export default function SignIn() {
         }
 
         setEmailSuccess("Signed in successfully.");
-        navigate("/start-scan");
+        goAfterAuth();
         return;
       }
 
@@ -390,7 +436,7 @@ export default function SignIn() {
 
       <button
         type="button"
-        onClick={() => navigate("/start-scan")}
+        onClick={() => navigate("/start")}
         className="w-full mt-6 rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 text-slate-200 font-semibold px-4 py-3 transition"
       >
         Back to start scan

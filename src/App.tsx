@@ -1,7 +1,9 @@
 // src/App.tsx
 
-import { Routes, Route, Navigate } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
+import { supabase } from "./supabaseClient";
 
 /* Core pages */
 import Home from "./pages/Home";
@@ -53,6 +55,56 @@ import InPersonPricePositioning from "./pages/InPersonPricePositioning";
 import InPersonScan from "./pages/InPersonScan";
 import InPersonChecks from "./pages/InPersonChecks";
 
+/* =======================================================
+   Protected route wrapper (for scan flow)
+   - Redirects to /signin with ?redirect=<original path>
+   - Uses getSession() (fast/local) so it doesn’t depend on network
+======================================================= */
+function RequireAuth({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const [loading, setLoading] = useState(true);
+  const [hasSession, setHasSession] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function init() {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      setHasSession(Boolean(data?.session));
+      setLoading(false);
+    }
+
+    init();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      setHasSession(Boolean(session));
+    });
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-16">
+        <p className="text-sm text-slate-400">Checking sign-in…</p>
+      </div>
+    );
+  }
+
+  if (!hasSession) {
+    const redirect = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/signin?redirect=${redirect}`} replace />;
+  }
+
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -75,90 +127,194 @@ export default function App() {
         <Route path="/deploy-test" element={<DeployTest />} />
 
         {/* Credits */}
-        <Route path="/credits/history" element={<CreditsHistory />} />
+        <Route
+          path="/credits/history"
+          element={
+            <RequireAuth>
+              <CreditsHistory />
+            </RequireAuth>
+          }
+        />
 
         {/* Admin */}
-        <Route path="/admin" element={<Admin />} />
+        <Route
+          path="/admin"
+          element={
+            <RequireAuth>
+              <Admin />
+            </RequireAuth>
+          }
+        />
 
         {/* =======================
            In-person scan flow
         ======================= */}
-        <Route path="/scan/in-person/start" element={<InPersonStart />} />
+        <Route
+          path="/scan/in-person/start"
+          element={
+            <RequireAuth>
+              <InPersonStart />
+            </RequireAuth>
+          }
+        />
 
-        {/* NEW: Sale context setup (optional) */}
-        <Route path="/scan/in-person/sale" element={<InPersonSaleContext />} />
+        <Route
+          path="/scan/in-person/sale"
+          element={
+            <RequireAuth>
+              <InPersonSaleContext />
+            </RequireAuth>
+          }
+        />
 
         <Route
           path="/scan/in-person/vehicle-details"
-          element={<InPersonVehicleDetails />}
+          element={
+            <RequireAuth>
+              <InPersonVehicleDetails />
+            </RequireAuth>
+          }
         />
         <Route
           path="/scan/in-person/asking-price"
-          element={<InPersonAskingPrice />}
+          element={
+            <RequireAuth>
+              <InPersonAskingPrice />
+            </RequireAuth>
+          }
         />
-        <Route path="/scan/in-person/photos" element={<InPersonPhotos />} />
-        <Route path="/scan/in-person/owners" element={<InPersonOwners />} />
+        <Route
+          path="/scan/in-person/photos"
+          element={
+            <RequireAuth>
+              <InPersonPhotos />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/scan/in-person/owners"
+          element={
+            <RequireAuth>
+              <InPersonOwners />
+            </RequireAuth>
+          }
+        />
 
         <Route
           path="/scan/in-person/checks/intro"
-          element={<InPersonChecksIntro />}
+          element={
+            <RequireAuth>
+              <InPersonChecksIntro />
+            </RequireAuth>
+          }
         />
         <Route
           path="/scan/in-person/checks/around"
-          element={<InPersonChecksAroundCar />}
+          element={
+            <RequireAuth>
+              <InPersonChecksAroundCar />
+            </RequireAuth>
+          }
         />
         <Route
           path="/scan/in-person/checks/inside"
-          element={<InPersonChecksInsideCabin />}
+          element={
+            <RequireAuth>
+              <InPersonChecksInsideCabin />
+            </RequireAuth>
+          }
         />
         <Route
           path="/scan/in-person/checks/drive-intro"
-          element={<InPersonChecksDriveIntro />}
+          element={
+            <RequireAuth>
+              <InPersonChecksDriveIntro />
+            </RequireAuth>
+          }
         />
         <Route
           path="/scan/in-person/checks/drive"
-          element={<InPersonChecksDrive />}
+          element={
+            <RequireAuth>
+              <InPersonChecksDrive />
+            </RequireAuth>
+          }
         />
 
-        <Route path="/scan/in-person/summary" element={<InPersonSummary />} />
+        <Route
+          path="/scan/in-person/summary"
+          element={
+            <RequireAuth>
+              <InPersonSummary />
+            </RequireAuth>
+          }
+        />
 
         <Route
           path="/scan/in-person/analyzing/:scanId"
-          element={<InPersonAnalyzing />}
+          element={
+            <RequireAuth>
+              <InPersonAnalyzing />
+            </RequireAuth>
+          }
         />
         <Route
           path="/scan/in-person/results/:scanId"
-          element={<InPersonResults />}
+          element={
+            <RequireAuth>
+              <InPersonResults />
+            </RequireAuth>
+          }
         />
 
         {/* Unlock */}
         <Route
           path="/scan/in-person/unlock/:scanId"
-          element={<InPersonUnlock />}
+          element={
+            <RequireAuth>
+              <InPersonUnlock />
+            </RequireAuth>
+          }
         />
         <Route
           path="/scan/in-person/unlock/success"
-          element={<InPersonUnlockSuccess />}
+          element={
+            <RequireAuth>
+              <InPersonUnlockSuccess />
+            </RequireAuth>
+          }
         />
 
         {/* Decision + price positioning */}
-        <Route path="/scan/in-person/decision" element={<InPersonDecision />} />
+        <Route
+          path="/scan/in-person/decision"
+          element={
+            <RequireAuth>
+              <InPersonDecision />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/scan/in-person/price-positioning/:scanId"
-          element={<InPersonPricePositioning />}
+          element={
+            <RequireAuth>
+              <InPersonPricePositioning />
+            </RequireAuth>
+          }
         />
 
-        {/* Print (FIXED) */}
+        {/* Print */}
         <Route
           path="/scan/in-person/print/:scanId"
-          element={<InPersonReportPrint />}
+          element={
+            <RequireAuth>
+              <InPersonReportPrint />
+            </RequireAuth>
+          }
         />
 
         {/* Back-compat: if something links to /print without id, send home */}
-        <Route
-          path="/scan/in-person/print"
-          element={<Navigate to="/" replace />}
-        />
+        <Route path="/scan/in-person/print" element={<Navigate to="/" replace />} />
 
         {/* -----------------------
            Legacy routes (keep so old links don't break)
