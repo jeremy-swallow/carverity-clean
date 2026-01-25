@@ -365,6 +365,71 @@ function extractImperfectionPhotoPaths(progress: ScanProgress): string[] {
   return Array.from(new Set(paths));
 }
 
+/* =======================================================
+   Deduping helpers (prevents duplicate report rows)
+======================================================= */
+
+function dedupeByKey<T>(items: T[], keyFn: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+
+  for (const item of items) {
+    const key = keyFn(item);
+    if (!key) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+
+  return out;
+}
+
+function normaliseProgressForDisplay(progress: ScanProgress): ScanProgress {
+  const next: any = { ...(progress ?? {}) };
+
+  // Step photos
+  if (Array.isArray(next.photos)) {
+    next.photos = dedupeByKey(next.photos, (p: any) => {
+      const sp = String(p?.storagePath ?? "").trim();
+      if (sp) return `sp:${sp}`;
+      const id = String(p?.id ?? "").trim();
+      if (id) return `id:${id}`;
+      return "";
+    });
+  }
+
+  // Follow-up photos
+  if (Array.isArray(next.followUpPhotos)) {
+    next.followUpPhotos = dedupeByKey(next.followUpPhotos, (p: any) => {
+      const sp = String(p?.storagePath ?? "").trim();
+      if (sp) return `sp:${sp}`;
+      const id = String(p?.id ?? "").trim();
+      if (id) return `id:${id}`;
+      return "";
+    });
+  }
+
+  // Imperfections
+  if (Array.isArray(next.imperfections)) {
+    next.imperfections = dedupeByKey(next.imperfections, (imp: any) => {
+      const id = String(imp?.id ?? "").trim();
+      if (id) return `id:${id}`;
+
+      const label = String(imp?.label ?? "").trim().toLowerCase();
+      const location = String(imp?.location ?? "").trim().toLowerCase();
+      const note = String(imp?.note ?? "").trim().toLowerCase();
+      const sev = String(imp?.severity ?? "").trim().toLowerCase();
+
+      const composite = [sev, label, location, note].filter(Boolean).join("|");
+      if (composite) return `c:${composite}`;
+
+      return "";
+    });
+  }
+
+  return next as ScanProgress;
+}
+
 export default function InPersonSummary() {
   const navigate = useNavigate();
   const { scanId: routeScanId } = useParams<{ scanId?: string }>();
@@ -406,21 +471,21 @@ export default function InPersonSummary() {
       Array.isArray((local as any)?.followUpPhotos) &&
       (local as any).followUpPhotos.length > 0;
 
-    if (hasPhotos || hasFollowUps) return local;
+    let chosen: ScanProgress = local;
 
-    if (!activeScanId) return local;
+    if (!hasPhotos && !hasFollowUps && activeScanId) {
+      const saved = loadScanById(activeScanId);
+      const snap = saved?.progressSnapshot;
 
-    const saved = loadScanById(activeScanId);
-    const snap = saved?.progressSnapshot;
-
-    if (snap && typeof snap === "object") {
-      return {
-        ...snap,
-        scanId: snap.scanId ?? activeScanId,
-      } as ScanProgress;
+      if (snap && typeof snap === "object") {
+        chosen = {
+          ...snap,
+          scanId: (snap as any).scanId ?? activeScanId,
+        } as ScanProgress;
+      }
     }
 
-    return local;
+    return normaliseProgressForDisplay(chosen);
   }, [progressState, activeScanId]);
 
   const followUps = progressForDisplay?.followUpPhotos ?? [];
@@ -773,10 +838,13 @@ export default function InPersonSummary() {
   );
 
   const displayFollowUpPhotos = (followUps ?? []).filter(
-    (p: any) => typeof (p as any)?.storagePath === "string" && (p as any).storagePath.length > 0
+    (p: any) =>
+      typeof (p as any)?.storagePath === "string" &&
+      (p as any).storagePath.length > 0
   );
 
-  const displayImperfectionPaths = extractImperfectionPhotoPaths(progressForDisplay);
+  const displayImperfectionPaths =
+    extractImperfectionPhotoPaths(progressForDisplay);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-16">
