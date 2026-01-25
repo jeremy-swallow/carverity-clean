@@ -11,6 +11,7 @@ import Landing from "./pages/Landing";
 import StartScan from "./pages/StartScan";
 import ScanMode from "./pages/ScanMode";
 import WhatToExpect from "./pages/WhatToExpect";
+import About from "./pages/About";
 import MyScans from "./pages/MyScans";
 import Pricing from "./pages/Pricing";
 import FAQ from "./pages/FAQ";
@@ -115,6 +116,7 @@ export default function App() {
         <Route path="/start" element={<StartScan />} />
         <Route path="/scan-mode" element={<ScanMode />} />
         <Route path="/what-to-expect" element={<WhatToExpect />} />
+        <Route path="/about" element={<About />} />
         <Route path="/my-scans" element={<MyScans />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/faq" element={<FAQ />} />
@@ -314,7 +316,10 @@ export default function App() {
         />
 
         {/* Back-compat: if something links to /print without id, send home */}
-        <Route path="/scan/in-person/print" element={<Navigate to="/" replace />} />
+        <Route
+          path="/scan/in-person/print"
+          element={<Navigate to="/" replace />}
+        />
 
         {/* -----------------------
            Legacy routes (keep so old links don't break)

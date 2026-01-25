@@ -1,3 +1,5 @@
+// src/pages/WhatToExpect.tsx
+
 import { Link } from "react-router-dom";
 
 export default function WhatToExpect() {
@@ -113,9 +115,15 @@ export default function WhatToExpect() {
 
       {/* FOOTER */}
       <footer className="pt-6 border-t border-white/10">
-        <Link to="/" className="text-slate-300 underline text-sm">
-          ← Back to home
-        </Link>
+        <div className="flex flex-col gap-2">
+          <Link to="/about" className="text-slate-300 underline text-sm">
+            About CarVerity
+          </Link>
+
+          <Link to="/" className="text-slate-300 underline text-sm">
+            ← Back to home
+          </Link>
+        </div>
       </footer>
     </div>
   );
