@@ -1,4 +1,5 @@
 // src/pages/InPersonUnlockSuccess.tsx
+
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -14,14 +15,19 @@ export default function InPersonUnlockSuccess() {
       return;
     }
 
-    // No preview flow. No local unlock flag.
-    // Unlocking must happen via the server endpoint that consumes credits.
-    navigate(`/scan/in-person/results/${scanId}`, { replace: true });
+    // After purchase, we should send them back to unlock.
+    // Unlock page will:
+    // - refresh credits
+    // - consume 1 credit via server
+    // - then move into analyzing/results
+    navigate(`/scan/in-person/unlock/${encodeURIComponent(scanId)}`, {
+      replace: true,
+    });
   }, [scanId, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100">
-      <p className="text-sm text-slate-400">Opening your report…</p>
+      <p className="text-sm text-slate-400">Finalising your purchase…</p>
     </div>
   );
 }

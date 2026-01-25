@@ -115,13 +115,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const origin = getRequestOrigin(req);
 
-    const successParams = new URLSearchParams();
-    successParams.set("success", "1");
-    successParams.set("restore", "1");
-    successParams.set("session_id", "{CHECKOUT_SESSION_ID}");
-
     // IMPORTANT:
-    // Preserve scanId so Pricing can send the user back into their scan flow.
+    // Stripe should return to a dedicated "success" route (not Pricing),
+    // so the user continues their scan reliably.
+    const successParams = new URLSearchParams();
+    successParams.set("restore", "1");
     if (safeScanId) {
       successParams.set("scanId", safeScanId);
     }
@@ -138,8 +136,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // IMPORTANT:
       // 1) Use SAME origin as the current app session (prevents “logged out” look)
-      // 2) Include CHECKOUT_SESSION_ID for debugging / future reconciliation
-      success_url: `${origin}/pricing?${successParams.toString()}`,
+      // 2) Route back to unlock success so the user continues the scan flow
+      success_url: `${origin}/scan/in-person/unlock/success?${successParams.toString()}`,
       cancel_url: `${origin}/pricing?${cancelParams.toString()}`,
 
       metadata: {
