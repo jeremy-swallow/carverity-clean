@@ -56,47 +56,6 @@ function splitLines(note?: string) {
     .filter(Boolean);
 }
 
-/**
- * Build progress.imperfections[] from THIS STEP'S checks only.
- *
- * Rule:
- * - Only "concern" answers become imperfections
- * - label = check title
- * - note = check note (if any)
- * - severity = minor (default)
- *
- * CRITICAL FIX:
- * - Only consider check IDs that exist in checkConfigs for this step.
- *   (Prevents "Around car" step from generating imperfections for
- *    inside-cabin or drive checks, and vice versa.)
- */
-function buildImperfectionsFromChecks(
-  checks: Record<string, CheckAnswer>,
-  checkConfigs: CheckConfig[],
-  locationLabel: string
-) {
-  const byId = new Map<string, CheckConfig>();
-  for (const c of checkConfigs) byId.set(c.id, c);
-
-  const imperfections = Object.entries(checks || {})
-    // ✅ Only build imperfections for check IDs that belong to this step
-    .filter(([id, a]) => byId.has(id) && a?.value === "concern")
-    .map(([id, a]) => {
-      const cfg = byId.get(id)!;
-
-      return {
-        // Include location in the id so we never collide across steps
-        id: `imp:${locationLabel.toLowerCase().replace(/\s+/g, "-")}:${id}`,
-        label: cfg.title,
-        severity: "minor" as const,
-        location: locationLabel,
-        note: (a?.note ?? "").trim() || undefined,
-      };
-    });
-
-  return imperfections;
-}
-
 export default function InPersonChecksAroundCar() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
@@ -186,34 +145,21 @@ export default function InPersonChecksAroundCar() {
   }, [checks]);
 
   /* -------------------------------------------------------
-     Persist progress + auto-build imperfections
-     - Replace only "Around the car" derived imperfections
-     - Keep everything else untouched (inside cabin, drive, photos, etc)
+     Persist progress (CHECKS ONLY)
+     IMPORTANT:
+     - We do NOT auto-generate imperfections from checks anymore.
+     - Otherwise the Results page shows duplicates:
+         - Once in "Checks"
+         - Again in "Imperfections"
   ------------------------------------------------------- */
   useEffect(() => {
-    const existingImperfections = Array.isArray(progress?.imperfections)
-      ? progress.imperfections
-      : [];
-
-    const kept = existingImperfections.filter((imp: any) => {
-      const loc = String(imp?.location ?? "").toLowerCase();
-      return !loc.includes("around the car");
-    });
-
-    const aroundImperfections = buildImperfectionsFromChecks(
-      answers,
-      checks,
-      "Around the car"
-    );
-
     saveProgress({
       ...(progress ?? {}),
       step: "/scan/in-person/checks/around",
       checks: answers,
-      imperfections: [...kept, ...aroundImperfections],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answers, checks]);
+  }, [answers]);
 
   function setAnswer(id: string, value: AnswerValue) {
     setAnswers((p) => {

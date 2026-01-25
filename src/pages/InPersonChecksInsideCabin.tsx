@@ -56,49 +56,6 @@ function splitLines(note?: string) {
     .filter(Boolean);
 }
 
-function slugifyLocation(label: string) {
-  return label.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-}
-
-/**
- * Build progress.imperfections[] from THIS STEP'S checks only.
- *
- * Rule:
- * - Only "concern" answers become imperfections
- * - label = check title
- * - note = check note (if any)
- * - severity = minor (default)
- *
- * CRITICAL FIX:
- * - Only consider check IDs that exist in checkConfigs for this step.
- */
-function buildImperfectionsFromChecks(
-  checks: Record<string, CheckAnswer>,
-  checkConfigs: CheckItem[],
-  locationLabel: string
-) {
-  const byId = new Map<string, CheckItem>();
-  for (const c of checkConfigs) byId.set(c.id, c);
-
-  const locationSlug = slugifyLocation(locationLabel);
-
-  const imperfections = Object.entries(checks || {})
-    .filter(([id, a]) => byId.has(id) && a?.value === "concern")
-    .map(([id, a]) => {
-      const cfg = byId.get(id)!;
-
-      return {
-        id: `imp:${locationSlug}:${id}`,
-        label: cfg.title,
-        severity: "minor" as const,
-        location: locationLabel,
-        note: (a?.note ?? "").trim() || undefined,
-      };
-    });
-
-  return imperfections;
-}
-
 export default function InPersonChecksInsideCabin() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
@@ -202,34 +159,19 @@ export default function InPersonChecksInsideCabin() {
   }, [checks]);
 
   /* -------------------------------------------------------
-     Persist progress + auto-build imperfections
-     - Replace only "Inside the cabin" derived imperfections
-     - Keep everything else untouched (around car, drive, photos, etc)
+     Persist progress (CHECKS ONLY)
+     IMPORTANT:
+     - We do NOT auto-generate imperfections from checks anymore.
+     - Otherwise the Results page shows duplicates.
   ------------------------------------------------------- */
   useEffect(() => {
-    const existingImperfections = Array.isArray(progress?.imperfections)
-      ? progress.imperfections
-      : [];
-
-    const kept = existingImperfections.filter((imp: any) => {
-      const loc = String(imp?.location ?? "").toLowerCase();
-      return !loc.includes("inside the cabin");
-    });
-
-    const insideImperfections = buildImperfectionsFromChecks(
-      answers,
-      checks,
-      "Inside the cabin"
-    );
-
     saveProgress({
       ...(progress ?? {}),
       step: "/scan/in-person/checks/inside",
       checks: answers,
-      imperfections: [...kept, ...insideImperfections],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answers, checks]);
+  }, [answers]);
 
   function setAnswer(id: string, value: AnswerValue) {
     setAnswers((p) => {

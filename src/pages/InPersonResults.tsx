@@ -244,7 +244,8 @@ function extractPhotoRefs(progress: any): {
     sources.push(...progress.followUpPhotos);
 
   // 3) Imperfection photos (if your Imperfection objects ever include storagePath/dataUrl)
-  if (Array.isArray(progress?.imperfections)) sources.push(...progress.imperfections);
+  if (Array.isArray(progress?.imperfections))
+    sources.push(...progress.imperfections);
 
   if (sources.length === 0) {
     return { legacyUrls: [], storagePaths: [] };
@@ -271,8 +272,7 @@ function extractPhotoRefs(progress: any): {
         (typeof maybe.path === "string" && maybe.path.trim()) ||
         "";
 
-      const du =
-        (typeof maybe.dataUrl === "string" && maybe.dataUrl.trim()) || "";
+      const du = (typeof maybe.dataUrl === "string" && maybe.dataUrl.trim()) || "";
 
       if (spRaw) {
         const norm = normaliseStoragePath(spRaw);
@@ -362,6 +362,129 @@ function MiniCard({
       </div>
     </div>
   );
+}
+
+/* =======================================================
+   Imperfection sanitiser (fixes old duplicate data)
+======================================================= */
+
+type CleanImperfection = {
+  id: string;
+  label: string;
+  location: string;
+  note: string;
+  severity: "minor" | "moderate" | "major";
+};
+
+function normaliseImperfectionLabel(label: string): string {
+  const t = String(label ?? "").trim();
+  if (!t) return "";
+  // If it looks like a raw id (body-panels-paint), make it human
+  if (/^[a-z0-9]+(?:[-_][a-z0-9]+)+$/i.test(t)) {
+    return titleFromId(t);
+  }
+  return t;
+}
+
+function normaliseLocation(loc: string): string {
+  const t = String(loc ?? "").trim();
+  if (!t) return "";
+
+  const lower = t.toLowerCase();
+
+  if (lower.includes("around")) return "Around the car";
+  if (lower.includes("inside")) return "Inside the cabin";
+  if (lower.includes("drive")) return "During the drive";
+
+  return t;
+}
+
+function severitySafe(sev: unknown): "minor" | "moderate" | "major" {
+  if (sev === "major") return "major";
+  if (sev === "moderate") return "moderate";
+  return "minor";
+}
+
+/**
+ * This makes old scans render correctly even if older logic created duplicates.
+ * Strategy:
+ * - Clean each entry
+ * - Remove empty junk
+ * - De-dupe by (label + note) primarily (location duplicates are almost always a bug)
+ * - Prefer entries that have a "real" location label
+ */
+function sanitiseImperfections(raw: any[]): CleanImperfection[] {
+  const list = Array.isArray(raw) ? raw : [];
+
+  const cleaned = list
+    .map((imp: any) => {
+      const id = String(imp?.id ?? "").trim();
+      const label = normaliseImperfectionLabel(String(imp?.label ?? "").trim());
+      const location = normaliseLocation(String(imp?.location ?? "").trim());
+      const note = String(imp?.note ?? "").trim();
+      const severity = severitySafe(imp?.severity);
+
+      // Ignore totally empty objects
+      if (!id && !label && !location && !note) return null;
+
+      // Ignore legacy "bad" items that are basically check ids with no label
+      const looksLikeRawCheckId =
+        !label && /^[a-z0-9]+(?:[-_][a-z0-9]+)+$/i.test(id);
+
+      if (looksLikeRawCheckId) return null;
+
+      const stableId =
+        id ||
+        `imp:${severity}:${label}:${location}:${note}`.slice(0, 80) ||
+        `imp:${Date.now()}`;
+
+      return {
+        id: stableId,
+        label: label || "Imperfection",
+        location,
+        note,
+        severity,
+      } satisfies CleanImperfection;
+    })
+    .filter(Boolean) as CleanImperfection[];
+
+  // De-dupe by (label + note) first — location duplicates are almost always wrong
+  const byKey = new Map<string, CleanImperfection>();
+
+  for (const imp of cleaned) {
+    const key = `${imp.label.toLowerCase()}||${imp.note.toLowerCase()}`;
+
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, imp);
+      continue;
+    }
+
+    // Prefer the one with a better location (non-empty)
+    const existingHasLoc = Boolean(existing.location);
+    const nextHasLoc = Boolean(imp.location);
+
+    if (!existingHasLoc && nextHasLoc) {
+      byKey.set(key, imp);
+      continue;
+    }
+
+    // Prefer higher severity if conflict
+    const weight = (s: string) => (s === "major" ? 0 : s === "moderate" ? 1 : 2);
+
+    if (weight(imp.severity) < weight(existing.severity)) {
+      byKey.set(key, imp);
+      continue;
+    }
+  }
+
+  const result = Array.from(byKey.values());
+
+  // Sort by severity (major first)
+  const weight = (s: string) => (s === "major" ? 0 : s === "moderate" ? 1 : 2);
+  result.sort((a, b) => weight(a.severity) - weight(b.severity));
+
+  return result;
 }
 
 /* =======================================================
@@ -688,42 +811,7 @@ export default function InPersonResults() {
   }, [progress]);
 
   const recordedImperfections = useMemo(() => {
-    const list = Array.isArray(progress?.imperfections)
-      ? progress.imperfections
-      : [];
-
-    const cleaned = list
-      .map((imp: any) => {
-        const id = String(imp?.id ?? "");
-        const label = (imp?.label ?? "").trim();
-        const location = (imp?.location ?? "").trim();
-        const note = (imp?.note ?? "").trim();
-        const severity = imp?.severity ?? "minor";
-
-        if (!id && !label && !location && !note) return null;
-
-        return {
-          id: id || `${severity}-${label}-${location}-${note}`.slice(0, 60),
-          label: label || "Imperfection",
-          location,
-          note,
-          severity,
-        };
-      })
-      .filter(Boolean) as Array<{
-      id: string;
-      label: string;
-      location: string;
-      note: string;
-      severity: "minor" | "moderate" | "major";
-    }>;
-
-    const weight = (sev: string) =>
-      sev === "major" ? 0 : sev === "moderate" ? 1 : 2;
-
-    cleaned.sort((a, b) => weight(a.severity) - weight(b.severity));
-
-    return cleaned;
+    return sanitiseImperfections(progress?.imperfections ?? []);
   }, [progress]);
 
   /* -------------------------------------------------------

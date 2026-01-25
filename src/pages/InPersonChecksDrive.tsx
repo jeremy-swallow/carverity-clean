@@ -55,43 +55,6 @@ function splitLines(note?: string) {
     .filter(Boolean);
 }
 
-function slugifyLocation(label: string) {
-  return label.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-}
-
-/**
- * Build progress.imperfections[] from THIS STEP'S checks only.
- *
- * CRITICAL FIX:
- * - Only consider check IDs that exist in checkConfigs for this step.
- */
-function buildImperfectionsFromChecks(
-  checks: Record<string, CheckAnswer>,
-  checkConfigs: CheckConfig[],
-  locationLabel: string
-) {
-  const byId = new Map<string, CheckConfig>();
-  for (const c of checkConfigs) byId.set(c.id, c);
-
-  const locationSlug = slugifyLocation(locationLabel);
-
-  const imperfections = Object.entries(checks || {})
-    .filter(([id, a]) => byId.has(id) && a?.value === "concern")
-    .map(([id, a]) => {
-      const cfg = byId.get(id)!;
-
-      return {
-        id: `imp:${locationSlug}:${id}`,
-        label: cfg.title,
-        severity: "minor" as const,
-        location: locationLabel,
-        note: (a?.note ?? "").trim() || undefined,
-      };
-    });
-
-  return imperfections;
-}
-
 export default function InPersonChecksDrive() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
@@ -187,34 +150,19 @@ export default function InPersonChecksDrive() {
   }, [checks]);
 
   /* -------------------------------------------------------
-     Persist progress + auto-build imperfections
-     - Replace only "During the drive" derived imperfections
-     - Keep everything else untouched
+     Persist progress (CHECKS ONLY)
+     IMPORTANT:
+     - We do NOT auto-generate imperfections from checks anymore.
+     - Otherwise the Results page shows duplicates.
   ------------------------------------------------------- */
   useEffect(() => {
-    const existingImperfections = Array.isArray(progress?.imperfections)
-      ? progress.imperfections
-      : [];
-
-    const kept = existingImperfections.filter((imp: any) => {
-      const loc = String(imp?.location ?? "").toLowerCase();
-      return !loc.includes("during the drive");
-    });
-
-    const driveImperfections = buildImperfectionsFromChecks(
-      answers,
-      checks,
-      "During the drive"
-    );
-
     saveProgress({
       ...(progress ?? {}),
       step: "/scan/in-person/checks/drive",
       checks: answers,
-      imperfections: [...kept, ...driveImperfections],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answers, checks]);
+  }, [answers]);
 
   function setAnswer(id: string, value: AnswerValue) {
     setAnswers((p) => {
