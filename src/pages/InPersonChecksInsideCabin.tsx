@@ -56,15 +56,21 @@ function splitLines(note?: string) {
     .filter(Boolean);
 }
 
+function slugifyLocation(label: string) {
+  return label.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+}
+
 /**
- * Build progress.imperfections[] from existing progress.checks
- * WITHOUT asking the user to enter anything twice.
+ * Build progress.imperfections[] from THIS STEP'S checks only.
  *
  * Rule:
  * - Only "concern" answers become imperfections
  * - label = check title
  * - note = check note (if any)
  * - severity = minor (default)
+ *
+ * CRITICAL FIX:
+ * - Only consider check IDs that exist in checkConfigs for this step.
  */
 function buildImperfectionsFromChecks(
   checks: Record<string, CheckAnswer>,
@@ -74,15 +80,16 @@ function buildImperfectionsFromChecks(
   const byId = new Map<string, CheckItem>();
   for (const c of checkConfigs) byId.set(c.id, c);
 
-  const imperfections = Object.entries(checks || [])
-    .filter(([_, a]) => a?.value === "concern")
+  const locationSlug = slugifyLocation(locationLabel);
+
+  const imperfections = Object.entries(checks || {})
+    .filter(([id, a]) => byId.has(id) && a?.value === "concern")
     .map(([id, a]) => {
-      const cfg = byId.get(id);
-      const label = cfg?.title || id;
+      const cfg = byId.get(id)!;
 
       return {
-        id: `imp:${id}`,
-        label,
+        id: `imp:${locationSlug}:${id}`,
+        label: cfg.title,
         severity: "minor" as const,
         location: locationLabel,
         note: (a?.note ?? "").trim() || undefined,
@@ -173,8 +180,7 @@ export default function InPersonChecksInsideCabin() {
   );
 
   /* -------------------------------------------------------
-     NEW: Auto-save defaults so "Looks fine" isn't just visual
-     - If user doesn't tap anything, we still treat it as recorded
+     Auto-save defaults so "Looks fine" isn't just visual
      - Only fills missing answers (never overwrites user choices)
   ------------------------------------------------------- */
   useEffect(() => {
@@ -185,7 +191,6 @@ export default function InPersonChecksInsideCabin() {
       for (const c of checks) {
         const existing = next[c.id];
 
-        // If there is no stored answer, set the default to "ok"
         if (!existing || !existing.value) {
           next[c.id] = { ...(existing ?? {}), value: "ok" };
           changed = true;
