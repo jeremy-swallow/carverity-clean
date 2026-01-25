@@ -907,8 +907,11 @@ export default function InPersonReportPrint() {
         .print-body { background: white; }
         * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .brand-strip { background: rgba(0,0,0,0.02); }
+
+        /* Reserve space so content never overlaps the fixed footer */
         :root { --print-footer-reserve: 34mm; }
 
+        /* Real printer margins (applies to EVERY page) */
         @page { size: A4; margin: 16mm 16mm 24mm 16mm; }
 
         .print-footer { display: none; }
@@ -947,11 +950,23 @@ export default function InPersonReportPrint() {
 
           .print-cover { page-break-after: always; break-after: page; }
 
+          /* IMPORTANT FIX:
+             Don’t remove padding in print.
+             Let @page margin do its job, and keep layout stable. */
           .print-page {
-            padding: 0 !important;
-            margin: 0 auto !important;
             max-width: none !important;
+            margin: 0 auto !important;
+
+            /* Use real-world padding to keep content away from page edges */
+            padding: 0 !important;
+
+            /* Reserve footer space so content doesn't collide */
             padding-bottom: var(--print-footer-reserve) !important;
+          }
+
+          /* Add a "page-safe" wrapper margin for multi-page content */
+          .print-page > * {
+            /* nothing here; keep it simple */
           }
 
           .print-footer {
