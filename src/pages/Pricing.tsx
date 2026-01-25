@@ -17,8 +17,6 @@ import {
   Timer,
 } from "lucide-react";
 
-import { loadProgress, saveProgress } from "../utils/scanProgress";
-
 type PackKey = "single" | "three" | "five";
 
 type PackOption = {
@@ -105,19 +103,16 @@ export default function Pricing() {
     [params]
   );
 
-  // NEW: capture scanId so we can send user back to where they came from
+  // If the user came here from unlock due to no credits, we preserve scanId
   const scanId = useMemo(
     () => asSafeScanId(params.get("scanId") || ""),
     [params]
   );
 
-  // Determine best return target after purchase
-  const returnTo = useMemo(() => {
+  // If Stripe returns to Pricing (cancel_url), we should offer a “Return to scan”
+  const returnToUnlock = useMemo(() => {
     if (!scanId) return "";
-
-    // If we have a scanId, prefer continuing the report-generation flow.
-    // If user already unlocked, analyzing will immediately take them to results.
-    return `/scan/in-person/analyzing/${encodeURIComponent(scanId)}`;
+    return `/scan/in-person/unlock/${encodeURIComponent(scanId)}`;
   }, [scanId]);
 
   async function refreshAuthAndCredits() {
@@ -167,8 +162,13 @@ export default function Pricing() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // If we returned from Stripe with success=1, do an extra refresh loop
-  // so the UI feels instant (credits appear without user reloading).
+  // If we returned from Stripe with success=1 (legacy / fallback),
+  // do an extra refresh loop so credits show quickly.
+  //
+  // NOTE:
+  // Our preferred flow is to return to /scan/in-person/unlock/success,
+  // not Pricing. But this keeps the page resilient if Stripe config
+  // or old sessions still return here.
   useEffect(() => {
     if (!success) return;
 
@@ -195,39 +195,6 @@ export default function Pricing() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [success]);
-
-  // NEW: After successful checkout, if we have credits and a return target,
-  // automatically take the user back into their scan flow.
-  useEffect(() => {
-    if (!success) return;
-    if (!sessionReady) return;
-    if (!isLoggedIn) return;
-    if (!returnTo) return;
-
-    const safeCredits = typeof credits === "number" ? credits : 0;
-    if (safeCredits <= 0) return;
-
-    // Persist resume state so Home / flow stays consistent after return
-    // IMPORTANT: step must be a step key (not a URL)
-    try {
-      const current: any = loadProgress() ?? {};
-      saveProgress({
-        ...(current ?? {}),
-        type: "in-person",
-        scanId: scanId || current?.scanId,
-        step: "analyzing",
-      });
-    } catch {
-      // ignore
-    }
-
-    // Small delay so the success UI is visible briefly
-    const t = setTimeout(() => {
-      navigate(returnTo, { replace: true });
-    }, 650);
-
-    return () => clearTimeout(t);
-  }, [success, sessionReady, isLoggedIn, credits, returnTo, navigate, scanId]);
 
   // “Restore” UI fallback
   const inRestoreWindow =
@@ -256,7 +223,7 @@ export default function Pricing() {
         },
         body: JSON.stringify({
           pack,
-          // pass scanId so Stripe success returns with scanId preserved
+          // preserve scanId so cancel_url keeps the user connected to their scan
           scanId: scanId || null,
         }),
       });
@@ -297,7 +264,7 @@ export default function Pricing() {
 
         <p className="text-slate-400 text-base leading-relaxed">
           Start the in-person inspection for free. A credit is used only when
-          you begin report generation (the moment the analysis starts).
+          report generation begins (the moment analysis starts).
         </p>
       </header>
 
@@ -445,7 +412,7 @@ export default function Pricing() {
         </div>
       </section>
 
-      {/* Success / Cancel banners */}
+      {/* Success / Cancel banners (Pricing should rarely get success now, but keep it safe) */}
       {success && (
         <section className="mb-10 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-6 py-5 space-y-2">
           <div className="flex items-start gap-3">
@@ -458,29 +425,19 @@ export default function Pricing() {
               <p className="text-sm text-slate-300 mt-1">
                 {inRestoreWindow
                   ? "Finalising your purchase… (if this doesn’t update in a few seconds, tap Refresh)"
-                  : returnTo
-                  ? "Credits added — returning you to your scan…"
                   : "Your credits should now be available on your account."}
               </p>
             </div>
           </div>
 
           <div className="pt-2 flex flex-wrap items-center gap-3">
-            {returnTo ? (
-              <button
-                onClick={() => navigate(returnTo)}
-                className="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
-              >
-                Return to scan
-              </button>
-            ) : (
-              <button
-                onClick={() => navigate("/start")}
-                className="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
-              >
-                Start scan
-              </button>
-            )}
+            <button
+              onClick={() => refreshAuthAndCredits()}
+              className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm inline-flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
 
             <button
               onClick={() => navigate("/my-scans")}
@@ -489,15 +446,12 @@ export default function Pricing() {
               View My Scans
             </button>
 
-            {inRestoreWindow && (
-              <button
-                onClick={() => refreshAuthAndCredits()}
-                className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm inline-flex items-center gap-2"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </button>
-            )}
+            <button
+              onClick={() => navigate("/start")}
+              className="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
+            >
+              Start scan
+            </button>
           </div>
 
           {showCreditsLine && (
@@ -535,11 +489,22 @@ export default function Pricing() {
       )}
 
       {cancelled && (
-        <section className="mb-10 rounded-2xl border border-amber-400/25 bg-amber-500/10 px-6 py-5 space-y-2">
+        <section className="mb-10 rounded-2xl border border-amber-400/25 bg-amber-500/10 px-6 py-5 space-y-3">
           <p className="text-amber-200 font-semibold">Checkout cancelled</p>
           <p className="text-sm text-slate-300">
             No payment was taken. You can try again anytime.
           </p>
+
+          {returnToUnlock && (
+            <div className="pt-1">
+              <button
+                onClick={() => navigate(returnToUnlock)}
+                className="rounded-xl bg-slate-900/60 hover:bg-slate-800 text-slate-200 border border-white/10 px-4 py-2 text-sm font-semibold"
+              >
+                Return to scan
+              </button>
+            </div>
+          )}
         </section>
       )}
 
