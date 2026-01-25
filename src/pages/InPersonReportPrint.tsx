@@ -6,6 +6,7 @@ import { loadProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadScanById } from "../utils/scanStorage";
 import { supabase } from "../supabaseClient";
+import QRCode from "qrcode";
 
 /* -------------------------------------------------------
    Small helpers (print-safe, no JSX namespace)
@@ -156,15 +157,12 @@ function normaliseStoragePath(value: unknown): string | null {
   let p = value.trim();
   if (!p) return null;
 
-  // remove leading slash
   if (p.startsWith("/")) p = p.slice(1);
 
-  // if someone stored bucket name in the path, strip it
   if (p.startsWith(`${PHOTO_BUCKET}/`)) {
     p = p.replace(`${PHOTO_BUCKET}/`, "");
   }
 
-  // also strip "public/" if present
   if (p.startsWith("public/")) {
     p = p.replace("public/", "");
   }
@@ -224,7 +222,6 @@ export default function InPersonReportPrint() {
 
   const progress: any = saved?.progressSnapshot ?? progressFallback ?? {};
 
-  // Guard: if user refreshes this page without scan data, bounce safely.
   useEffect(() => {
     if (scanIdSafe && !saved) {
       navigate("/my-scans", { replace: true });
@@ -236,7 +233,6 @@ export default function InPersonReportPrint() {
     }
   }, [scanIdSafe, saved, progress, navigate]);
 
-  // analyseInPersonInspection expects followUpPhotos to include stepId.
   const progressForAnalysis = useMemo(() => {
     const base: any = progress ?? {};
 
@@ -288,7 +284,6 @@ export default function InPersonReportPrint() {
     const out: string[] = [];
 
     for (const p of rawPhotoEntries) {
-      // allow legacy base64 dataUrl (rare)
       if (isDataUrl(p?.dataUrl)) {
         out.push(p.dataUrl);
         continue;
@@ -298,7 +293,6 @@ export default function InPersonReportPrint() {
       if (normalised) out.push(normalised);
     }
 
-    // de-dupe
     return Array.from(new Set(out));
   }, [rawPhotoEntries]);
 
@@ -320,7 +314,6 @@ export default function InPersonReportPrint() {
         const urls: string[] = [];
 
         for (const pathOrData of storagePaths) {
-          // If it's already a dataUrl, keep it.
           if (isDataUrl(pathOrData)) {
             urls.push(pathOrData);
             continue;
@@ -382,7 +375,6 @@ export default function InPersonReportPrint() {
     ? ((analysis as any).uncertaintyFactors as unknown[])
     : [];
 
-  // Print report must NOT include negotiation scripts or negotiation ranges.
   const buyerPositioningText =
     (analysis as any)?.buyerPositioning ??
     (analysis as any)?.positioning ??
@@ -392,10 +384,34 @@ export default function InPersonReportPrint() {
   const APP_URL = "https://carverity.com.au";
   const SUPPORT_EMAIL = "support@carverity.com.au";
 
-  const qrSrc = useMemo(() => {
-    const size = 180;
-    const data = encodeURIComponent(APP_URL);
-    return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&qzone=2&format=png&data=${data}`;
+  /* =========================================================
+     QR code (local generation so it always prints)
+  ========================================================== */
+  const [qrSrc, setQrSrc] = useState<string>("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function makeQr() {
+      try {
+        const dataUrl = await QRCode.toDataURL(APP_URL, {
+          margin: 1,
+          width: 220,
+          errorCorrectionLevel: "M",
+        });
+
+        if (!cancelled) setQrSrc(dataUrl);
+      } catch (e) {
+        console.warn("[Print] QR generation failed:", e);
+        if (!cancelled) setQrSrc("");
+      }
+    }
+
+    void makeQr();
+
+    return () => {
+      cancelled = true;
+    };
   }, [APP_URL]);
 
   function triggerPrint() {
@@ -554,11 +570,18 @@ export default function InPersonReportPrint() {
                   <br />
                   CarVerity
                 </div>
-                <img
-                  src={qrSrc}
-                  alt="CarVerity QR code"
-                  className="h-16 w-16 border border-black/15 rounded-md"
-                />
+
+                {qrSrc ? (
+                  <img
+                    src={qrSrc}
+                    alt="CarVerity QR code"
+                    className="h-16 w-16 border border-black/15 rounded-md"
+                  />
+                ) : (
+                  <div className="h-16 w-16 border border-black/15 rounded-md flex items-center justify-center text-[10px] text-black/45">
+                    QR
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -599,11 +622,18 @@ export default function InPersonReportPrint() {
               <br />
               CarVerity
             </div>
-            <img
-              src={qrSrc}
-              alt="CarVerity QR code"
-              className="h-12 w-12 border border-black/15 rounded-sm"
-            />
+
+            {qrSrc ? (
+              <img
+                src={qrSrc}
+                alt="CarVerity QR code"
+                className="h-12 w-12 border border-black/15 rounded-sm"
+              />
+            ) : (
+              <div className="h-12 w-12 border border-black/15 rounded-sm flex items-center justify-center text-[10px] text-black/45">
+                QR
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -851,7 +881,10 @@ export default function InPersonReportPrint() {
           </div>
         </section>
 
-        <section className="print-block space-y-3">
+        {/* =====================================================
+            PHOTO EVIDENCE (force new page)
+        ===================================================== */}
+        <section className="print-block space-y-3 print-photo-section">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Photo evidence
           </h2>
@@ -859,15 +892,15 @@ export default function InPersonReportPrint() {
           {photosLoading ? (
             <p className="text-sm text-black/60">Loading photos…</p>
           ) : signedPhotoUrls.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="print-photo-grid">
               {signedPhotoUrls.map((src, i) => (
-                <figure key={i} className="print-card space-y-1">
+                <figure key={i} className="print-photo-tile">
                   <img
                     src={src}
                     alt={`Inspection photo ${i + 1}`}
-                    className="border border-black/20 object-cover aspect-square w-full rounded-xl"
+                    className="print-photo-img"
                   />
-                  <figcaption className="text-[11px] text-black/55">
+                  <figcaption className="print-photo-caption">
                     Buyer-captured inspection photo {i + 1}
                   </figcaption>
                 </figure>
@@ -908,10 +941,8 @@ export default function InPersonReportPrint() {
         * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .brand-strip { background: rgba(0,0,0,0.02); }
 
-        /* Reserve space so content never overlaps the fixed footer */
         :root { --print-footer-reserve: 34mm; }
 
-        /* Real printer margins (applies to EVERY page) */
         @page { size: A4; margin: 16mm 16mm 24mm 16mm; }
 
         .print-footer { display: none; }
@@ -943,6 +974,36 @@ export default function InPersonReportPrint() {
         .print-cover-top { flex: 1; min-width: 0; }
         .print-cover-bottom { border-top: 1px solid rgba(0,0,0,0.12); padding-top: 8mm; }
 
+        /* Photo grid (screen) */
+        .print-photo-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 16px;
+        }
+
+        .print-photo-tile {
+          border: 1px solid rgba(0,0,0,0.18);
+          border-radius: 14px;
+          padding: 10px;
+          background: rgba(0,0,0,0.02);
+        }
+
+        .print-photo-img {
+          width: 100%;
+          aspect-ratio: 1 / 1;
+          object-fit: cover;
+          border-radius: 10px;
+          border: 1px solid rgba(0,0,0,0.18);
+          display: block;
+        }
+
+        .print-photo-caption {
+          margin-top: 6px;
+          font-size: 11px;
+          color: rgba(0,0,0,0.55);
+          line-height: 1.25;
+        }
+
         @media print {
           html, body { background: white !important; }
           header, footer, nav { display: none !important; }
@@ -950,23 +1011,11 @@ export default function InPersonReportPrint() {
 
           .print-cover { page-break-after: always; break-after: page; }
 
-          /* IMPORTANT FIX:
-             Don’t remove padding in print.
-             Let @page margin do its job, and keep layout stable. */
           .print-page {
             max-width: none !important;
             margin: 0 auto !important;
-
-            /* Use real-world padding to keep content away from page edges */
             padding: 0 !important;
-
-            /* Reserve footer space so content doesn't collide */
             padding-bottom: var(--print-footer-reserve) !important;
-          }
-
-          /* Add a "page-safe" wrapper margin for multi-page content */
-          .print-page > * {
-            /* nothing here; keep it simple */
           }
 
           .print-footer {
@@ -1008,8 +1057,34 @@ export default function InPersonReportPrint() {
 
           p, li { orphans: 3; widows: 3; }
 
-          figure { break-inside: avoid !important; }
-          .print-card { border-color: rgba(0,0,0,0.18) !important; }
+          /* FORCE a new page before Photo evidence */
+          .print-photo-section {
+            break-before: page !important;
+            page-break-before: always !important;
+          }
+
+          .print-photo-grid {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 10px !important;
+          }
+
+          .print-photo-tile {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            border-color: rgba(0,0,0,0.20) !important;
+            background: rgba(0,0,0,0.02) !important;
+            padding: 8px !important;
+          }
+
+          .print-photo-img {
+            border-color: rgba(0,0,0,0.20) !important;
+          }
+
+          .print-photo-grid, .print-photo-tile {
+            -webkit-column-break-inside: avoid;
+            break-inside: avoid;
+          }
         }
       `}</style>
     </div>
