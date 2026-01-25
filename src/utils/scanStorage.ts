@@ -93,6 +93,10 @@ function isProbablyBase64DataUrl(value: unknown): value is string {
 /**
  * localStorage is tiny. A single base64 photo can be >1MB.
  * We strip all dataUrl fields before saving progressSnapshot.
+ *
+ * IMPORTANT FIX:
+ * We MUST keep storagePath so we can rehydrate photos after refresh.
+ * storagePath is tiny and safe to store.
  */
 function stripPhotosFromProgress(
   progress?: ScanProgress
@@ -106,7 +110,7 @@ function stripPhotosFromProgress(
     (next as any).photos = (next as any).photos.map((p: any) => ({
       id: p?.id,
       stepId: p?.stepId,
-      // storagePath intentionally kept (no base64)
+      storagePath: p?.storagePath, // ✅ KEEP THIS
     }));
   }
 
@@ -116,9 +120,40 @@ function stripPhotosFromProgress(
       (p: any) => ({
         id: p?.id,
         note: p?.note,
-        // storagePath intentionally kept (no base64)
+        storagePath: p?.storagePath, // ✅ KEEP THIS
       })
     );
+  }
+
+  /**
+   * Imperfections:
+   * Current type doesn't include photos, but we keep any photo refs if present.
+   * (Future-safe + backwards-compatible)
+   */
+  if (Array.isArray((next as any).imperfections)) {
+    (next as any).imperfections = (next as any).imperfections.map((imp: any) => {
+      const cleaned: any = { ...imp };
+
+      // Remove accidental base64 fields if they exist
+      if (isProbablyBase64DataUrl(cleaned?.dataUrl)) delete cleaned.dataUrl;
+
+      // If imperfection has embedded photos array, strip base64 but keep storagePath
+      if (Array.isArray(cleaned?.photos)) {
+        cleaned.photos = cleaned.photos.map((p: any) => ({
+          id: p?.id,
+          note: p?.note,
+          stepId: p?.stepId,
+          storagePath: p?.storagePath,
+        }));
+      }
+
+      // If single photo reference
+      if (isProbablyBase64DataUrl(cleaned?.storagePath)) {
+        delete cleaned.storagePath;
+      }
+
+      return cleaned;
+    });
   }
 
   return next;
@@ -278,7 +313,7 @@ export function updateScanTitle(inspectionId: string, title: string) {
 export function deleteScan(inspectionId: string) {
   if (typeof window === "undefined") return;
 
-  const filtered = loadScans().filter((i) => i.id !== inspectionId);
+  const filtered = loadScans().filter((i) => i.id === inspectionId ? false : true);
 
   try {
     writeWithPrune(filtered);

@@ -11,6 +11,7 @@ import {
   Sparkles,
   RefreshCcw,
   ClipboardCheck,
+  Image as ImageIcon,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import {
@@ -19,9 +20,15 @@ import {
   saveProgress,
   type ScanProgress,
 } from "../utils/scanProgress";
-import { saveScan, generateScanId } from "../utils/scanStorage";
+import { saveScan, generateScanId, loadScanById } from "../utils/scanStorage";
 
 type PricingVerdict = "missing" | "info" | "room" | "concern";
+
+/* =======================================================
+   Storage config
+======================================================= */
+const PHOTO_BUCKET = "scan-photos";
+const SIGNED_URL_TTL = 60 * 60; // 1 hour
 
 function formatMoney(n: number | null | undefined) {
   if (n == null || Number.isNaN(n)) return "—";
@@ -310,6 +317,54 @@ async function hasUnlockForScan(scanId: string): Promise<boolean> {
   return Array.isArray(data) && data.length > 0;
 }
 
+async function createSignedUrlSafe(
+  bucket: string,
+  path: string,
+  ttlSeconds: number
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(path, ttlSeconds);
+
+    if (error) {
+      console.warn("[InPersonSummary] createSignedUrl failed:", error.message);
+      return null;
+    }
+
+    return data?.signedUrl ?? null;
+  } catch (e) {
+    console.warn("[InPersonSummary] createSignedUrl exception:", e);
+    return null;
+  }
+}
+
+function extractImperfectionPhotoPaths(progress: ScanProgress): string[] {
+  const imps: any[] = Array.isArray((progress as any)?.imperfections)
+    ? ((progress as any).imperfections as any[])
+    : [];
+
+  const paths: string[] = [];
+
+  for (const imp of imps) {
+    // Support: imp.storagePath
+    if (typeof imp?.storagePath === "string" && imp.storagePath.length > 0) {
+      paths.push(imp.storagePath);
+    }
+
+    // Support: imp.photos[]
+    if (Array.isArray(imp?.photos)) {
+      for (const p of imp.photos) {
+        if (typeof p?.storagePath === "string" && p.storagePath.length > 0) {
+          paths.push(p.storagePath);
+        }
+      }
+    }
+  }
+
+  return Array.from(new Set(paths));
+}
+
 export default function InPersonSummary() {
   const navigate = useNavigate();
   const { scanId: routeScanId } = useParams<{ scanId?: string }>();
@@ -326,6 +381,10 @@ export default function InPersonSummary() {
     return loadProgress() ?? {};
   });
 
+  // Signed URLs for display (results-safe)
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+  const [photoUrlsLoading, setPhotoUrlsLoading] = useState(false);
+
   // Ensure scanId always exists for this flow
   const activeScanId: string = useMemo(() => {
     const existing = progressState?.scanId || routeScanId;
@@ -334,24 +393,60 @@ export default function InPersonSummary() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeScanId, progressState?.scanId]);
 
-  const followUps = progressState?.followUpPhotos ?? [];
-  const checks = progressState?.checks ?? {};
-  const photos = progressState?.photos ?? [];
-  const fromOnlineScan = Boolean(progressState?.fromOnlineScan);
+  /**
+   * IMPORTANT:
+   * After refresh, progressState might not contain photos if the user is viewing
+   * a saved scan entry. We rehydrate from scanStorage.progressSnapshot.
+   */
+  const progressForDisplay: ScanProgress = useMemo(() => {
+    const local = progressState ?? {};
+    const hasPhotos =
+      Array.isArray((local as any)?.photos) && (local as any).photos.length > 0;
+    const hasFollowUps =
+      Array.isArray((local as any)?.followUpPhotos) &&
+      (local as any).followUpPhotos.length > 0;
+
+    if (hasPhotos || hasFollowUps) return local;
+
+    if (!activeScanId) return local;
+
+    const saved = loadScanById(activeScanId);
+    const snap = saved?.progressSnapshot;
+
+    if (snap && typeof snap === "object") {
+      return {
+        ...snap,
+        scanId: snap.scanId ?? activeScanId,
+      } as ScanProgress;
+    }
+
+    return local;
+  }, [progressState, activeScanId]);
+
+  const followUps = progressForDisplay?.followUpPhotos ?? [];
+  const checks = progressForDisplay?.checks ?? {};
+  const photos = progressForDisplay?.photos ?? [];
+  const fromOnlineScan = Boolean(progressForDisplay?.fromOnlineScan);
 
   const saleType =
-    progressState?.saleType === "dealership" ||
-    progressState?.saleType === "private"
-      ? progressState.saleType
+    progressForDisplay?.saleType === "dealership" ||
+    progressForDisplay?.saleType === "private"
+      ? progressForDisplay.saleType
       : undefined;
 
   const saleName =
-    typeof progressState?.saleName === "string" ? progressState.saleName : "";
+    typeof progressForDisplay?.saleName === "string"
+      ? progressForDisplay.saleName
+      : "";
   const saleSuburb =
-    typeof progressState?.saleSuburb === "string" ? progressState.saleSuburb : "";
+    typeof progressForDisplay?.saleSuburb === "string"
+      ? progressForDisplay.saleSuburb
+      : "";
 
   const askingPrice: number | null =
-    typeof progressState?.askingPrice === "number" ? progressState.askingPrice : null;
+    typeof progressForDisplay?.askingPrice === "number"
+      ? progressForDisplay.askingPrice
+      : null;
 
   useEffect(() => {
     const latest = loadProgress() ?? {};
@@ -406,6 +501,70 @@ export default function InPersonSummary() {
     setProgressState(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsedAskingPrice, activeScanId]);
+
+  // Load signed URLs for all photo paths we can display
+  const allPhotoPathsKey = useMemo(() => {
+    const stepPaths = (photos ?? [])
+      .map((p: any) => String(p?.storagePath ?? ""))
+      .filter(Boolean);
+
+    const followPaths = (followUps ?? [])
+      .map((p: any) => String(p?.storagePath ?? ""))
+      .filter(Boolean);
+
+    const impPaths = extractImperfectionPhotoPaths(progressForDisplay);
+
+    return [...stepPaths, ...followPaths, ...impPaths].sort().join("|");
+  }, [photos, followUps, progressForDisplay]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSignedUrls() {
+      const stepPaths = (photos ?? [])
+        .map((p: any) => String(p?.storagePath ?? ""))
+        .filter(Boolean);
+
+      const followPaths = (followUps ?? [])
+        .map((p: any) => String(p?.storagePath ?? ""))
+        .filter(Boolean);
+
+      const impPaths = extractImperfectionPhotoPaths(progressForDisplay);
+
+      const all = Array.from(new Set([...stepPaths, ...followPaths, ...impPaths]));
+
+      if (all.length === 0) return;
+
+      setPhotoUrlsLoading(true);
+
+      try {
+        const next: Record<string, string> = { ...photoUrls };
+
+        for (const path of all) {
+          if (next[path]) continue;
+
+          const url = await createSignedUrlSafe(
+            PHOTO_BUCKET,
+            path,
+            SIGNED_URL_TTL
+          );
+
+          if (url) next[path] = url;
+        }
+
+        if (!cancelled) setPhotoUrls(next);
+      } finally {
+        if (!cancelled) setPhotoUrlsLoading(false);
+      }
+    }
+
+    void loadSignedUrls();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allPhotoPathsKey]);
 
   const concerns = useMemo(() => countConcerns(checks), [checks]);
   const unsure = useMemo(() => countUnsure(checks), [checks]);
@@ -533,6 +692,7 @@ export default function InPersonSummary() {
 
         photosCount: (progressForSave?.photos ?? []).length,
         fromOnlineScan,
+        progressSnapshot: progressForSave, // ✅ critical: persist photo storagePath refs
       });
 
       const unlocked = await hasUnlockForScan(activeScanId);
@@ -607,6 +767,16 @@ export default function InPersonSummary() {
       hasAnyDriveAnswers(progressState?.checks ?? {});
     return !visitedDrive;
   }, [progressState]);
+
+  const displayStepPhotos = (photos ?? []).filter(
+    (p: any) => typeof p?.storagePath === "string" && p.storagePath.length > 0
+  );
+
+  const displayFollowUpPhotos = (followUps ?? []).filter(
+    (p: any) => typeof (p as any)?.storagePath === "string" && (p as any).storagePath.length > 0
+  );
+
+  const displayImperfectionPaths = extractImperfectionPhotoPaths(progressForDisplay);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-16">
@@ -876,6 +1046,140 @@ export default function InPersonSummary() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Photos preview (NEW) */}
+          <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/30 p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-slate-300" />
+                <p className="text-sm font-semibold text-white">
+                  Photos captured
+                </p>
+              </div>
+              <p className="text-xs text-slate-500 tabular-nums">
+                {displayStepPhotos.length +
+                  displayFollowUpPhotos.length +
+                  displayImperfectionPaths.length}{" "}
+                total
+              </p>
+            </div>
+
+            {photoUrlsLoading && (
+              <p className="text-xs text-slate-500 mt-3">Loading previews…</p>
+            )}
+
+            {displayStepPhotos.length === 0 &&
+            displayFollowUpPhotos.length === 0 &&
+            displayImperfectionPaths.length === 0 ? (
+              <div className="mt-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-sm text-slate-300">
+                  No photos were captured for this scan.
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  That’s okay — your report will still be generated from your
+                  recorded answers and notes.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-5">
+                {displayStepPhotos.length > 0 && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                      Inspection photos
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {displayStepPhotos.map((p: any) => {
+                        const url = photoUrls[p.storagePath];
+                        return (
+                          <div
+                            key={p.id}
+                            className="rounded-2xl border border-white/10 bg-slate-950/40 overflow-hidden"
+                          >
+                            {url ? (
+                              <img
+                                src={url}
+                                alt="Inspection photo"
+                                className="w-full h-28 object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="h-28 w-full flex items-center justify-center text-slate-400 text-xs">
+                                Uploaded
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {displayFollowUpPhotos.length > 0 && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                      Follow-up photos
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {displayFollowUpPhotos.map((p: any) => {
+                        const url = photoUrls[p.storagePath];
+                        return (
+                          <div
+                            key={p.id}
+                            className="rounded-2xl border border-white/10 bg-slate-950/40 overflow-hidden"
+                          >
+                            {url ? (
+                              <img
+                                src={url}
+                                alt="Follow-up photo"
+                                className="w-full h-28 object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="h-28 w-full flex items-center justify-center text-slate-400 text-xs">
+                                Uploaded
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {displayImperfectionPaths.length > 0 && (
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                      Imperfection photos
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {displayImperfectionPaths.map((path) => {
+                        const url = photoUrls[path];
+                        return (
+                          <div
+                            key={path}
+                            className="rounded-2xl border border-white/10 bg-slate-950/40 overflow-hidden"
+                          >
+                            {url ? (
+                              <img
+                                src={url}
+                                alt="Imperfection photo"
+                                className="w-full h-28 object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="h-28 w-full flex items-center justify-center text-slate-400 text-xs">
+                                Uploaded
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">

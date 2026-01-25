@@ -231,16 +231,26 @@ function extractPhotoRefs(progress: any): {
   legacyUrls: string[];
   storagePaths: string[];
 } {
-  const photosRaw: unknown = progress?.photos;
-
-  if (!Array.isArray(photosRaw)) {
-    return { legacyUrls: [], storagePaths: [] };
-  }
-
   const legacyUrls: string[] = [];
   const storagePaths: string[] = [];
 
-  for (const item of photosRaw) {
+  const sources: unknown[] = [];
+
+  // 1) Main step photos (during scan)
+  if (Array.isArray(progress?.photos)) sources.push(...progress.photos);
+
+  // 2) Follow-up photos (after scan)
+  if (Array.isArray(progress?.followUpPhotos))
+    sources.push(...progress.followUpPhotos);
+
+  // 3) Imperfection photos (if your Imperfection objects ever include storagePath/dataUrl)
+  if (Array.isArray(progress?.imperfections)) sources.push(...progress.imperfections);
+
+  if (sources.length === 0) {
+    return { legacyUrls: [], storagePaths: [] };
+  }
+
+  for (const item of sources) {
     if (typeof item === "string") {
       const s = item.trim();
       if (!s) continue;
@@ -481,10 +491,23 @@ export default function InPersonResults() {
     const mergedPhotos =
       basePhotos.length >= fallbackPhotos.length ? basePhotos : fallbackPhotos;
 
+    const baseFollowUps = Array.isArray(base?.followUpPhotos)
+      ? base.followUpPhotos
+      : [];
+    const fallbackFollowUps = Array.isArray(fallback?.followUpPhotos)
+      ? fallback.followUpPhotos
+      : [];
+
+    const mergedFollowUps =
+      baseFollowUps.length >= fallbackFollowUps.length
+        ? baseFollowUps
+        : fallbackFollowUps;
+
     return {
       ...fallback,
       ...base,
       photos: mergedPhotos,
+      followUpPhotos: mergedFollowUps,
     };
   }, [saved, progressFallback]);
 
