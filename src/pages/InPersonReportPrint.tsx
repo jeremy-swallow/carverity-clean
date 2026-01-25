@@ -156,12 +156,15 @@ function normaliseStoragePath(value: unknown): string | null {
   let p = value.trim();
   if (!p) return null;
 
+  // remove leading slash
   if (p.startsWith("/")) p = p.slice(1);
 
+  // if someone stored bucket name in the path, strip it
   if (p.startsWith(`${PHOTO_BUCKET}/`)) {
     p = p.replace(`${PHOTO_BUCKET}/`, "");
   }
 
+  // also strip "public/" if present
   if (p.startsWith("public/")) {
     p = p.replace("public/", "");
   }
@@ -221,6 +224,7 @@ export default function InPersonReportPrint() {
 
   const progress: any = saved?.progressSnapshot ?? progressFallback ?? {};
 
+  // Guard: if user refreshes this page without scan data, bounce safely.
   useEffect(() => {
     if (scanIdSafe && !saved) {
       navigate("/my-scans", { replace: true });
@@ -232,6 +236,7 @@ export default function InPersonReportPrint() {
     }
   }, [scanIdSafe, saved, progress, navigate]);
 
+  // analyseInPersonInspection expects followUpPhotos to include stepId.
   const progressForAnalysis = useMemo(() => {
     const base: any = progress ?? {};
 
@@ -283,6 +288,7 @@ export default function InPersonReportPrint() {
     const out: string[] = [];
 
     for (const p of rawPhotoEntries) {
+      // allow legacy base64 dataUrl (rare)
       if (isDataUrl(p?.dataUrl)) {
         out.push(p.dataUrl);
         continue;
@@ -292,6 +298,7 @@ export default function InPersonReportPrint() {
       if (normalised) out.push(normalised);
     }
 
+    // de-dupe
     return Array.from(new Set(out));
   }, [rawPhotoEntries]);
 
@@ -313,6 +320,7 @@ export default function InPersonReportPrint() {
         const urls: string[] = [];
 
         for (const pathOrData of storagePaths) {
+          // If it's already a dataUrl, keep it.
           if (isDataUrl(pathOrData)) {
             urls.push(pathOrData);
             continue;
@@ -374,6 +382,7 @@ export default function InPersonReportPrint() {
     ? ((analysis as any).uncertaintyFactors as unknown[])
     : [];
 
+  // Print report must NOT include negotiation scripts or negotiation ranges.
   const buyerPositioningText =
     (analysis as any)?.buyerPositioning ??
     (analysis as any)?.positioning ??
@@ -684,7 +693,7 @@ export default function InPersonReportPrint() {
           </div>
         </header>
 
-        <section className="space-y-3">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Executive verdict
           </h2>
@@ -714,7 +723,7 @@ export default function InPersonReportPrint() {
           </div>
         </section>
 
-        <section className="space-y-3">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Evidence considered
           </h2>
@@ -727,7 +736,7 @@ export default function InPersonReportPrint() {
           </p>
         </section>
 
-        <section className="space-y-3">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Priority findings
           </h2>
@@ -758,7 +767,7 @@ export default function InPersonReportPrint() {
           )}
         </section>
 
-        <section className="space-y-3">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Items worth clarifying
           </h2>
@@ -789,7 +798,7 @@ export default function InPersonReportPrint() {
           )}
         </section>
 
-        <section className="space-y-3">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Buyer-declared uncertainty
           </h2>
@@ -813,7 +822,7 @@ export default function InPersonReportPrint() {
           )}
         </section>
 
-        <section className="space-y-3">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             How risk was weighed
           </h2>
@@ -821,7 +830,7 @@ export default function InPersonReportPrint() {
           <Paragraph value={(analysis as any).riskWeightingExplanation} />
         </section>
 
-        <section className="space-y-3">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Buyer-safe posture
           </h2>
@@ -842,10 +851,7 @@ export default function InPersonReportPrint() {
           </div>
         </section>
 
-        {/* =====================================================
-            PHOTO EVIDENCE (always starts on a new printed page)
-        ===================================================== */}
-        <section className="space-y-3 print-page-break-before">
+        <section className="print-block space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-black/60">
             Photo evidence
           </h2>
@@ -853,21 +859,15 @@ export default function InPersonReportPrint() {
           {photosLoading ? (
             <p className="text-sm text-black/60">Loading photos…</p>
           ) : signedPhotoUrls.length > 0 ? (
-            <div className="print-photo-grid grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               {signedPhotoUrls.map((src, i) => (
-                <figure
-                  key={i}
-                  className="print-photo-card rounded-2xl border border-black/15 bg-white overflow-hidden"
-                >
-                  <div className="print-photo-frame">
-                    <img
-                      src={src}
-                      alt={`Inspection photo ${i + 1}`}
-                      className="print-photo-img"
-                    />
-                  </div>
-
-                  <figcaption className="px-3 py-2 text-[11px] text-black/55">
+                <figure key={i} className="print-card space-y-1">
+                  <img
+                    src={src}
+                    alt={`Inspection photo ${i + 1}`}
+                    className="border border-black/20 object-cover aspect-square w-full rounded-xl"
+                  />
+                  <figcaption className="text-[11px] text-black/55">
                     Buyer-captured inspection photo {i + 1}
                   </figcaption>
                 </figure>
@@ -880,7 +880,7 @@ export default function InPersonReportPrint() {
           )}
         </section>
 
-        <div className="rounded-2xl border border-black/20 bg-black/5 px-6 py-4 text-xs leading-relaxed">
+        <div className="print-block rounded-2xl border border-black/20 bg-black/5 px-6 py-4 text-xs leading-relaxed">
           This document is not a mechanical inspection, defect report, or
           valuation. It reflects buyer-recorded observations only and should be
           used alongside professional inspections and independent checks.
@@ -907,13 +907,13 @@ export default function InPersonReportPrint() {
         .print-body { background: white; }
         * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .brand-strip { background: rgba(0,0,0,0.02); }
+        :root { --print-footer-reserve: 34mm; }
 
-        /* We reduce the reserved footer space to stop giant blank gaps */
-        :root { --print-footer-reserve: 20mm; }
-
-        @page { size: A4; margin: 16mm 16mm 22mm 16mm; }
+        /* Slightly larger side margins for safer printing */
+        @page { size: A4; margin: 18mm 18mm 24mm 18mm; }
 
         .print-footer { display: none; }
+        .print-block { break-inside: avoid; page-break-inside: avoid; }
 
         .print-cover {
           max-width: 210mm;
@@ -941,24 +941,6 @@ export default function InPersonReportPrint() {
         .print-cover-top { flex: 1; min-width: 0; }
         .print-cover-bottom { border-top: 1px solid rgba(0,0,0,0.12); padding-top: 8mm; }
 
-        /* Photo grid */
-        .print-photo-grid { width: 100%; }
-        .print-photo-frame {
-          width: 100%;
-          aspect-ratio: 1 / 1;
-          background: rgba(0,0,0,0.03);
-          border-bottom: 1px solid rgba(0,0,0,0.10);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .print-photo-img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-
         @media print {
           html, body { background: white !important; }
           header, footer, nav { display: none !important; }
@@ -967,9 +949,15 @@ export default function InPersonReportPrint() {
           .print-cover { page-break-after: always; break-after: page; }
 
           .print-page {
-            padding: 0 !important;
             margin: 0 auto !important;
             max-width: none !important;
+
+            /* KEEP SAFE INTERNAL PADDING so text never hits edges */
+            padding-left: 16mm !important;
+            padding-right: 16mm !important;
+            padding-top: 10mm !important;
+
+            /* keep room for footer */
             padding-bottom: var(--print-footer-reserve) !important;
           }
 
@@ -1000,17 +988,7 @@ export default function InPersonReportPrint() {
             gap: 7mm;
           }
 
-          /* IMPORTANT:
-             We allow normal sections to split across pages.
-             Only protect small "cards" and photos from splitting.
-          */
-          section { break-inside: auto !important; page-break-inside: auto !important; }
-          p, li { orphans: 3; widows: 3; }
-
-          .print-card,
-          .print-photo-card,
-          figure,
-          img {
+          .print-block, .print-card, section, figure, img {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
           }
@@ -1020,11 +998,10 @@ export default function InPersonReportPrint() {
             page-break-after: avoid !important;
           }
 
-          /* Force new page before Photo Evidence */
-          .print-page-break-before {
-            break-before: page !important;
-            page-break-before: always !important;
-          }
+          p, li { orphans: 3; widows: 3; }
+
+          figure { break-inside: avoid !important; }
+          .print-card { border-color: rgba(0,0,0,0.18) !important; }
         }
       `}</style>
     </div>
