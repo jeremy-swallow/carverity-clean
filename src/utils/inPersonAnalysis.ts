@@ -283,6 +283,8 @@ const KEY_CHECK_IDS = [
   /* New (current) */
   // Around car
   "body-panels-paint",
+  "headlights-condition",
+  "windscreen-damage",
   "tyre-wear",
   "brakes-visible",
 
@@ -318,6 +320,8 @@ const DEFAULT_FILL_CHECK_IDS = [...new Set(KEY_CHECK_IDS)];
 const CHECK_LABELS: Record<string, string> = {
   /* New (current) */
   "body-panels-paint": "Body panels & paint",
+  "headlights-condition": "Headlights condition",
+  "windscreen-damage": "Windscreen damage",
   "tyre-wear": "Tyre wear & tread",
   "brakes-visible": "Brake discs (if visible)",
 
@@ -972,6 +976,44 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
       });
     }
   };
+
+  // NEW: Headlights + windscreen checks
+  pushConcern(
+    "headlights-condition",
+    "Headlights condition stood out",
+    "Cloudy/yellow headlights, cracks, or moisture inside can reduce night visibility and may require restoration or replacement.",
+    "moderate"
+  );
+
+  // Windscreen can be moderate or critical depending on what the note implies.
+  // If the user recorded a crack or a driver-view chip, we treat it as critical.
+  const windscreenRawNote = (rawChecks["windscreen-damage"]?.note ?? "").trim();
+  const windscreenNote = normKey(windscreenRawNote);
+
+  const windscreenIsConcern = checks["windscreen-damage"]?.value === "concern";
+  if (windscreenIsConcern) {
+    const criticalSignals = [
+      "crack",
+      "drivers view",
+      "driver view",
+      "in drivers view",
+      "in driver view",
+      "line crack",
+      "long crack",
+    ];
+
+    const isCritical = criticalSignals.some((s) => windscreenNote.includes(s));
+
+    risks.push({
+      id: "check-windscreen-damage",
+      label: "Windscreen damage recorded",
+      explanation:
+        isCritical
+          ? "A crack or damage in the driver’s view can be a safety issue and may require replacement. Treat this as a high-impact item until confirmed."
+          : "Windscreen chips can spread and become more expensive to fix. Clarify size/location and whether repair is possible.",
+      severity: isCritical ? "critical" : "moderate",
+    });
+  }
 
   pushConcern(
     "noise-hesitation",
