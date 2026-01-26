@@ -81,6 +81,42 @@ export default function InPersonChecksAroundCar() {
         ],
       },
       {
+        id: "headlights-condition",
+        title: "Headlights condition",
+        guidance:
+          "Look for cloudy/yellow lenses, cracks, or moisture inside. Poor headlights reduce night visibility and can be costly to fix.",
+        quickConcerns: [
+          "Slightly cloudy / hazy",
+          "Very cloudy / yellow",
+          "Cracked lens",
+          "Moisture / fogging inside",
+          "One headlight looks different",
+        ],
+        quickUnsure: [
+          "Hard to tell in this lighting",
+          "Headlights were dirty",
+          "Couldn’t get close enough",
+        ],
+      },
+      {
+        id: "windscreen-damage",
+        title: "Windscreen damage",
+        guidance:
+          "Check for chips or cracks. Even small chips can spread, and cracks can be a safety issue (and expensive to replace).",
+        quickConcerns: [
+          "Small chip",
+          "Multiple chips",
+          "Crack (any size)",
+          "Chip/crack in driver’s view",
+          "Windscreen looks heavily pitted",
+        ],
+        quickUnsure: [
+          "Glare made it hard to see",
+          "Windscreen was dirty",
+          "Couldn’t inspect closely",
+        ],
+      },
+      {
         id: "tyre-wear",
         title: "Tyre wear & tread",
         guidance: "Look for even wear across each tyre and reasonable tread.",
