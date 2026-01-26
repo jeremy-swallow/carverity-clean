@@ -8,7 +8,6 @@ import {
   User,
   Coins,
   CheckCircle2,
-  XCircle,
   ArrowLeft,
   RefreshCcw,
   MinusCircle,
@@ -18,10 +17,17 @@ import {
   Undo2,
   LockOpen,
   CreditCard,
+  Trash2,
+  Archive,
+  RotateCcw,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
 
 const ADMIN_EMAIL = "jeremy.swallow@gmail.com";
+
+/* =========================================================
+   Types
+========================================================= */
 
 type LedgerRow = {
   id: string;
@@ -55,6 +61,23 @@ type LookupResponse = {
   ledger: LedgerRow[];
   access: AccessRow | null;
 };
+
+/* =========================================================
+   Scan manager types
+========================================================= */
+
+type ScanRow = {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  vehicle_title: string | null;
+  created_at: string;
+  deleted_at: string | null;
+};
+
+/* =========================================================
+   Helpers
+========================================================= */
 
 function normaliseEmail(email: string | null | undefined) {
   return String(email ?? "").trim().toLowerCase();
@@ -99,6 +122,26 @@ function isFiniteIntString(s: string) {
   return Number.isFinite(n) && String(n) === t.replace(/^\+/, "");
 }
 
+function scanMatchesQuery(scan: ScanRow, q: string) {
+  const t = q.trim().toLowerCase();
+  if (!t) return true;
+
+  const hay = [
+    scan.id,
+    scan.user_email ?? "",
+    scan.vehicle_title ?? "",
+    scan.user_id ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return hay.includes(t);
+}
+
+/* =========================================================
+   Page
+========================================================= */
+
 export default function Admin() {
   const navigate = useNavigate();
 
@@ -129,10 +172,33 @@ export default function Admin() {
   const [forceScanId, setForceScanId] = useState("");
   const [forceReason, setForceReason] = useState("");
 
-  // NEW: Stripe refund tool (credit pack purchase)
+  // Stripe refund tool (credit pack purchase)
   const [stripeRefundWorking, setStripeRefundWorking] = useState(false);
   const [stripeSessionId, setStripeSessionId] = useState("");
   const [stripeRefundReason, setStripeRefundReason] = useState("");
+
+  /* =========================================================
+     Scan Manager state
+  ========================================================== */
+
+  const [scanQuery, setScanQuery] = useState("");
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scans, setScans] = useState<ScanRow[]>([]);
+  const [scanErr, setScanErr] = useState<string | null>(null);
+
+  const [scanActionWorkingId, setScanActionWorkingId] = useState<string | null>(
+    null
+  );
+
+  const [confirmDeleteScanId, setConfirmDeleteScanId] = useState<string | null>(
+    null
+  );
+  const [confirmDeleteText, setConfirmDeleteText] = useState("");
+
+  const filteredScans = useMemo(() => {
+    const q = scanQuery.trim();
+    return scans.filter((s) => scanMatchesQuery(s, q));
+  }, [scans, scanQuery]);
 
   useEffect(() => {
     async function guard() {
@@ -465,18 +531,22 @@ export default function Admin() {
           return;
         }
 
-        if (code === "NOT_AUTHORIZED" || code === "FORBIDDEN") {
-          navigate("/account");
+        if (!res.ok) {
+          const code2 = data?.error || "FORCE_UNLOCK_FAILED";
+
+          if (code2 === "NOT_AUTHORIZED" || code2 === "FORBIDDEN") {
+            navigate("/account");
+            return;
+          }
+
+          if (code2 === "SCAN_NOT_FOUND") {
+            setMsg("Scan not found. Check the scanId and try again.");
+            return;
+          }
+
+          setMsg("Force unlock failed. Please try again.");
           return;
         }
-
-        if (code === "SCAN_NOT_FOUND") {
-          setMsg("Scan not found. Check the scanId and try again.");
-          return;
-        }
-
-        setMsg("Force unlock failed. Please try again.");
-        return;
       }
 
       if (data?.alreadyUnlocked) {
@@ -601,6 +671,144 @@ export default function Admin() {
     }, 50);
   }
 
+  /* =========================================================
+     Scan manager actions
+  ========================================================== */
+
+  async function refreshScans() {
+    setScanErr(null);
+    setScanLoading(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("scans")
+        .select("id,user_id,user_email,vehicle_title,created_at,deleted_at")
+        .order("created_at", { ascending: false })
+        .limit(250);
+
+      if (error) {
+        console.warn("[Admin] scans query error:", error);
+        setScanErr("Failed to load scans. Check table name/permissions.");
+        setScans([]);
+        return;
+      }
+
+      setScans((data as any[]) as ScanRow[]);
+    } catch (e) {
+      console.warn("[Admin] refreshScans exception:", e);
+      setScanErr("Failed to load scans.");
+      setScans([]);
+    } finally {
+      setScanLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!allowed) return;
+    refreshScans();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowed]);
+
+  async function archiveScan(scanId: string) {
+    setMsg(null);
+    setScanErr(null);
+    setScanActionWorkingId(scanId);
+
+    try {
+      const { error } = await supabase
+        .from("scans")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", scanId);
+
+      if (error) {
+        console.warn("[Admin] archive scan error:", error);
+        setScanErr("Archive failed. Check permissions/columns.");
+        return;
+      }
+
+      setMsg("Scan archived.");
+      await refreshScans();
+    } finally {
+      setScanActionWorkingId(null);
+    }
+  }
+
+  async function restoreScan(scanId: string) {
+    setMsg(null);
+    setScanErr(null);
+    setScanActionWorkingId(scanId);
+
+    try {
+      const { error } = await supabase
+        .from("scans")
+        .update({ deleted_at: null })
+        .eq("id", scanId);
+
+      if (error) {
+        console.warn("[Admin] restore scan error:", error);
+        setScanErr("Restore failed. Check permissions/columns.");
+        return;
+      }
+
+      setMsg("Scan restored.");
+      await refreshScans();
+    } finally {
+      setScanActionWorkingId(null);
+    }
+  }
+
+  async function purgeScan(scanId: string) {
+    setMsg(null);
+    setScanErr(null);
+    setScanActionWorkingId(scanId);
+
+    try {
+      const { error } = await supabase.from("scans").delete().eq("id", scanId);
+
+      if (error) {
+        console.warn("[Admin] purge scan error:", error);
+        setScanErr("Permanent delete failed. Check permissions/columns.");
+        return;
+      }
+
+      setMsg("Scan permanently deleted.");
+      await refreshScans();
+    } finally {
+      setScanActionWorkingId(null);
+    }
+  }
+
+  async function archiveAllScansForEmail(email: string) {
+    const e = normaliseEmail(email);
+    if (!e) {
+      setScanErr("Enter a user email first.");
+      return;
+    }
+
+    setMsg(null);
+    setScanErr(null);
+    setScanLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from("scans")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("user_email", e)
+        .is("deleted_at", null);
+
+      if (error) {
+        console.warn("[Admin] archive all scans error:", error);
+        setScanErr("Bulk archive failed. Check permissions/columns.");
+        return;
+      }
+
+      setMsg("Archived all active scans for that user.");
+      await refreshScans();
+    } finally {
+      setScanLoading(false);
+    }
+  }
+
   if (checking) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-16 text-slate-300">
@@ -620,7 +828,9 @@ export default function Admin() {
     whitelistWorking ||
     refundWorking ||
     forceUnlockWorking ||
-    stripeRefundWorking;
+    stripeRefundWorking ||
+    scanLoading ||
+    Boolean(scanActionWorkingId);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-8 sm:space-y-10">
@@ -752,7 +962,9 @@ export default function Admin() {
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
-                      onClick={() => quickAdjustCredits(-1, "Admin quick adjust")}
+                      onClick={() =>
+                        quickAdjustCredits(-1, "Admin quick adjust")
+                      }
                       disabled={disableAllActions}
                       className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-3 py-3"
                     >
@@ -762,7 +974,9 @@ export default function Admin() {
 
                     <button
                       type="button"
-                      onClick={() => quickAdjustCredits(+1, "Admin quick adjust")}
+                      onClick={() =>
+                        quickAdjustCredits(+1, "Admin quick adjust")
+                      }
                       disabled={disableAllActions}
                       className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-3 py-3"
                     >
@@ -772,7 +986,9 @@ export default function Admin() {
 
                     <button
                       type="button"
-                      onClick={() => quickAdjustCredits(+5, "Admin quick adjust")}
+                      onClick={() =>
+                        quickAdjustCredits(+5, "Admin quick adjust")
+                      }
                       disabled={disableAllActions}
                       className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-3 py-3"
                     >
@@ -890,7 +1106,7 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* NEW: STRIPE REFUND CREDIT PACK */}
+            {/* STRIPE REFUND CREDIT PACK */}
             <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div className="space-y-1">
@@ -902,9 +1118,7 @@ export default function Admin() {
                   </div>
 
                   <div className="text-slate-300 text-sm">
-                    Refunds the Stripe payment and restores the pack credits
-                    (1 / 3 / 5). This is for genuine technical failures or
-                    duplicate charges.
+                    Refunds the Stripe payment and restores the pack credits.
                   </div>
                 </div>
 
@@ -938,10 +1152,6 @@ export default function Admin() {
                     className="w-full rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="cs_test_..."
                   />
-                  <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                    Tip: You can find this in Stripe → Payments → Checkout
-                    Session.
-                  </p>
                 </div>
 
                 <div>
@@ -959,9 +1169,7 @@ export default function Admin() {
 
               <div className="rounded-xl border border-white/10 bg-slate-950/30 px-4 py-3">
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Safety: This action is idempotent per Stripe session (it won’t
-                  refund the same session twice). Refunds are blocked if the
-                  credits have already been used.
+                  Safety: This action won’t refund the same session twice.
                 </p>
               </div>
             </div>
@@ -980,11 +1188,7 @@ export default function Admin() {
                   <div className="text-slate-300 text-sm">
                     Adds{" "}
                     <span className="text-slate-200 font-semibold">+1</span>{" "}
-                    credit and logs an{" "}
-                    <span className="text-slate-200 font-semibold">
-                      admin_refund
-                    </span>{" "}
-                    entry.
+                    credit and logs an admin_refund entry.
                   </div>
                 </div>
 
@@ -1018,11 +1222,6 @@ export default function Admin() {
                   placeholder="e.g. User paid but app crashed"
                 />
               </div>
-
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Safety: this action is idempotent per unlock reference (can’t be
-                refunded twice).
-              </p>
             </div>
 
             {/* FORCE UNLOCK */}
@@ -1037,11 +1236,7 @@ export default function Admin() {
                   </div>
 
                   <div className="text-slate-300 text-sm">
-                    Inserts an unlock marker in{" "}
-                    <span className="text-slate-200 font-semibold">
-                      credit_ledger
-                    </span>{" "}
-                    so the scan counts as unlocked.
+                    Inserts an unlock marker in credit_ledger.
                   </div>
                 </div>
 
@@ -1089,10 +1284,6 @@ export default function Admin() {
                   />
                 </div>
               </div>
-
-              <p className="text-xs text-slate-500 leading-relaxed">
-                This does not change the user’s credit balance.
-              </p>
             </div>
 
             {/* LEDGER */}
@@ -1108,17 +1299,6 @@ export default function Admin() {
                       Last {lookup.ledger.length} events
                     </div>
                   </div>
-                </div>
-
-                <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500">
-                  <span className="inline-flex items-center gap-1">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                    Credit add
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <XCircle className="h-3.5 w-3.5 text-red-400" />
-                    Credit spend
-                  </span>
                 </div>
               </div>
 
@@ -1240,6 +1420,217 @@ export default function Admin() {
         )}
       </section>
 
+      {/* SCAN MANAGER */}
+      <section className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 sm:p-6 space-y-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Scan manager</h2>
+            <p className="text-slate-400 text-sm mt-1">
+              Archive, restore, or permanently delete saved scans.
+            </p>
+          </div>
+
+          <button
+            onClick={refreshScans}
+            disabled={disableAllActions}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            {scanLoading ? "Loading…" : "Refresh"}
+          </button>
+        </div>
+
+        {scanErr && (
+          <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-5 py-4 text-sm text-amber-200">
+            {scanErr}
+          </div>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm text-slate-300 mb-1">
+              Search scans
+            </label>
+            <input
+              value={scanQuery}
+              onChange={(e) => setScanQuery(e.target.value)}
+              className="w-full rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="scanId, email, vehicle…"
+            />
+          </div>
+
+          <div className="flex items-end">
+            <button
+              onClick={() => archiveAllScansForEmail(cleanTargetEmail)}
+              disabled={disableAllActions || !cleanTargetEmail}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
+            >
+              <Archive className="h-4 w-4" />
+              Archive all scans for looked-up user
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 overflow-hidden">
+          <div className="bg-slate-900 px-4 py-3 flex items-center justify-between">
+            <div className="text-slate-200 font-semibold">Latest scans</div>
+            <div className="text-xs text-slate-500">
+              Showing {filteredScans.length} of {scans.length}
+            </div>
+          </div>
+
+          {filteredScans.length === 0 ? (
+            <div className="px-4 py-4 text-sm text-slate-400">
+              No scans found.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-950/40 text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Scan</th>
+                    <th className="px-4 py-3 text-left">User</th>
+                    <th className="px-4 py-3 text-left">Vehicle</th>
+                    <th className="px-4 py-3 text-left">Created</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredScans.map((s) => {
+                    const archived = Boolean(s.deleted_at);
+                    const busy = scanActionWorkingId === s.id;
+
+                    return (
+                      <tr
+                        key={s.id}
+                        className="border-t border-white/10 text-slate-300 align-top"
+                      >
+                        <td className="px-4 py-3 font-mono text-xs">{s.id}</td>
+                        <td className="px-4 py-3 text-xs">
+                          <div className="text-slate-200">
+                            {s.user_email || "—"}
+                          </div>
+                          <div className="text-slate-500">
+                            {s.user_id ? `uid: ${s.user_id}` : ""}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-200">
+                          {s.vehicle_title || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
+                          {formatDateTime(s.created_at)}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          {archived ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-amber-200">
+                              <Archive className="h-3.5 w-3.5" />
+                              Archived
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-emerald-200">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Active
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2">
+                            {!archived ? (
+                              <button
+                                onClick={() => archiveScan(s.id)}
+                                disabled={disableAllActions || busy}
+                                className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-3 py-2"
+                              >
+                                <Archive className="h-4 w-4" />
+                                Archive
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => restoreScan(s.id)}
+                                disabled={disableAllActions || busy}
+                                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-black font-semibold px-3 py-2"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                                Restore
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => {
+                                setConfirmDeleteScanId(s.id);
+                                setConfirmDeleteText("");
+                              }}
+                              disabled={disableAllActions || busy}
+                              className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 hover:bg-red-500/15 disabled:opacity-60 text-red-200 font-semibold px-3 py-2"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Confirm permanent delete */}
+        {confirmDeleteScanId && (
+          <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-5 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-red-100">
+                  Permanently delete scan
+                </p>
+                <p className="text-xs text-red-200/80 mt-1">
+                  This cannot be undone. Type <strong>DELETE</strong> to confirm.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setConfirmDeleteScanId(null);
+                  setConfirmDeleteText("");
+                }}
+                className="text-xs text-red-200 underline"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="grid sm:grid-cols-[1fr_auto] gap-3">
+              <input
+                value={confirmDeleteText}
+                onChange={(e) => setConfirmDeleteText(e.target.value)}
+                className="w-full rounded-xl bg-slate-900 border border-red-400/30 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="Type DELETE"
+              />
+
+              <button
+                onClick={async () => {
+                  if (confirmDeleteText.trim() !== "DELETE") return;
+                  const id = confirmDeleteScanId;
+                  setConfirmDeleteScanId(null);
+                  setConfirmDeleteText("");
+                  await purgeScan(id);
+                }}
+                disabled={
+                  disableAllActions || confirmDeleteText.trim() !== "DELETE"
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 hover:bg-red-400 disabled:opacity-60 text-black font-semibold px-4 py-3"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete forever
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
       {/* IDEAS */}
       <section className="rounded-2xl border border-white/10 bg-slate-900/40 p-5 sm:p-6 space-y-3">
         <h2 className="text-lg font-semibold text-white">Premium admin ideas</h2>
@@ -1248,15 +1639,10 @@ export default function Admin() {
             Refund credit pack purchase by Stripe Checkout Session ID (money back
             + credit restore).
           </li>
-          <li>
-            “Refund last unlock” for in-person report generation failures.
-          </li>
-          <li>
-            “Force unlock scan” by scanId for support cases (no credit spend).
-          </li>
-          <li>
-            Basic fraud signals: repeated unlock attempts, frequent refunds.
-          </li>
+          <li>Refund last unlock for in-person report generation failures.</li>
+          <li>Force unlock scan by scanId for support cases (no credit spend).</li>
+          <li>Basic fraud signals: repeated unlock attempts, frequent refunds.</li>
+          <li>Scan manager: archive/restore/purge scans.</li>
         </ul>
       </section>
     </div>
