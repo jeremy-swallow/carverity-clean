@@ -20,6 +20,9 @@ import {
   Trash2,
   Archive,
   RotateCcw,
+  EyeOff,
+  Eye,
+  AlertTriangle,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
 
@@ -63,7 +66,7 @@ type LookupResponse = {
 };
 
 /* =========================================================
-   Scan manager types (MATCHES YOUR SUPABASE TABLE)
+   Scan manager types (UPDATED FOR ARCHIVE/RESTORE VIA RPC)
 ========================================================= */
 
 type ScanRow = {
@@ -73,7 +76,10 @@ type ScanRow = {
   scan_type: string; // text
   created_at: string; // timestamptz
   user_id: string; // uuid
-  deleted_at: string | null; // timestamptz | null (added by you)
+
+  // NEW (recommended)
+  archived_at?: string | null; // timestamptz | null
+  archived_by?: string | null; // uuid | null
 };
 
 /* =========================================================
@@ -127,11 +133,22 @@ function scanMatchesQuery(scan: ScanRow, q: string) {
   const t = q.trim().toLowerCase();
   if (!t) return true;
 
-  const hay = [scan.id, scan.scan_id, scan.user_id, scan.plan, scan.scan_type]
+  const hay = [
+    scan.id,
+    scan.scan_id,
+    scan.user_id,
+    scan.plan,
+    scan.scan_type,
+    scan.archived_at ? "archived" : "active",
+  ]
     .join(" ")
     .toLowerCase();
 
   return hay.includes(t);
+}
+
+function isArchived(scan: ScanRow) {
+  return Boolean(scan.archived_at);
 }
 
 /* =========================================================
@@ -186,6 +203,8 @@ export default function Admin() {
     null
   );
 
+  const [showArchived, setShowArchived] = useState(false);
+
   const [confirmDeleteScanPkId, setConfirmDeleteScanPkId] = useState<
     string | null
   >(null);
@@ -193,8 +212,10 @@ export default function Admin() {
 
   const filteredScans = useMemo(() => {
     const q = scanQuery.trim();
-    return scans.filter((s) => scanMatchesQuery(s, q));
-  }, [scans, scanQuery]);
+    const base = scans.filter((s) => scanMatchesQuery(s, q));
+    if (showArchived) return base;
+    return base.filter((s) => !isArchived(s));
+  }, [scans, scanQuery, showArchived]);
 
   useEffect(() => {
     async function guard() {
@@ -664,7 +685,7 @@ export default function Admin() {
   }
 
   /* =========================================================
-     Scan manager actions (MATCHES YOUR SUPABASE TABLE)
+     Scan manager actions (ADMIN RPC)
   ========================================================== */
 
   async function refreshScans() {
@@ -672,15 +693,23 @@ export default function Admin() {
     setScanLoading(true);
 
     try {
+      // IMPORTANT:
+      // For "B - all scans for all users", your DB should have:
+      // archived_at, archived_by columns
+      // + admin RPC functions for archive/restore/delete
       const { data, error } = await supabase
         .from("scans")
-        .select("id,scan_id,plan,scan_type,created_at,user_id,deleted_at")
+        .select(
+          "id,scan_id,plan,scan_type,created_at,user_id,archived_at,archived_by"
+        )
         .order("created_at", { ascending: false })
         .limit(250);
 
       if (error) {
         console.warn("[Admin] scans query error:", error);
-        setScanErr("Failed to load scans. Check table name/permissions.");
+        setScanErr(
+          "Failed to load scans. Ensure scans has archived_at/archived_by columns and admin policies allow SELECT."
+        );
         setScans([]);
         return;
       }
@@ -707,14 +736,15 @@ export default function Admin() {
     setScanActionWorkingId(pkId);
 
     try {
-      const { error } = await supabase
-        .from("scans")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", pkId);
+      const { error } = await supabase.rpc("admin_archive_scan", {
+        p_scan_id: pkId,
+      });
 
       if (error) {
         console.warn("[Admin] archive scan error:", error);
-        setScanErr("Archive failed. Check permissions/columns.");
+        setScanErr(
+          "Archive failed. Confirm the RPC admin_archive_scan exists and you are authorized."
+        );
         return;
       }
 
@@ -731,14 +761,15 @@ export default function Admin() {
     setScanActionWorkingId(pkId);
 
     try {
-      const { error } = await supabase
-        .from("scans")
-        .update({ deleted_at: null })
-        .eq("id", pkId);
+      const { error } = await supabase.rpc("admin_restore_scan", {
+        p_scan_id: pkId,
+      });
 
       if (error) {
         console.warn("[Admin] restore scan error:", error);
-        setScanErr("Restore failed. Check permissions/columns.");
+        setScanErr(
+          "Restore failed. Confirm the RPC admin_restore_scan exists and you are authorized."
+        );
         return;
       }
 
@@ -755,11 +786,15 @@ export default function Admin() {
     setScanActionWorkingId(pkId);
 
     try {
-      const { error } = await supabase.from("scans").delete().eq("id", pkId);
+      const { error } = await supabase.rpc("admin_delete_scan", {
+        p_scan_id: pkId,
+      });
 
       if (error) {
         console.warn("[Admin] purge scan error:", error);
-        setScanErr("Permanent delete failed. Check permissions/columns.");
+        setScanErr(
+          "Permanent delete failed. Confirm the RPC admin_delete_scan exists and you are authorized."
+        );
         return;
       }
 
@@ -782,15 +817,17 @@ export default function Admin() {
     setScanLoading(true);
 
     try {
-      const { error } = await supabase
-        .from("scans")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("user_id", u)
-        .is("deleted_at", null);
+      // We keep this as a client-side bulk action ONLY IF you have an admin bulk RPC.
+      // Otherwise it will be blocked by RLS for other users.
+      const { error } = await supabase.rpc("admin_archive_scans_for_user", {
+        p_user_id: u,
+      });
 
       if (error) {
         console.warn("[Admin] archive all scans error:", error);
-        setScanErr("Bulk archive failed. Check permissions/columns.");
+        setScanErr(
+          "Bulk archive failed. Create RPC admin_archive_scans_for_user(user_id) or remove this button."
+        );
         return;
       }
 
@@ -823,6 +860,9 @@ export default function Admin() {
     stripeRefundWorking ||
     scanLoading ||
     Boolean(scanActionWorkingId);
+
+  const totalArchived = scans.filter((s) => isArchived(s)).length;
+  const totalActive = scans.length - totalArchived;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-8 sm:space-y-10">
@@ -1453,6 +1493,46 @@ export default function Admin() {
 
           <div className="flex items-end">
             <button
+              type="button"
+              onClick={() => setShowArchived((v) => !v)}
+              disabled={disableAllActions}
+              className={[
+                "w-full inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition",
+              ].join(" ")}
+            >
+              {showArchived ? (
+                <>
+                  <EyeOff className="h-4 w-4" />
+                  Hide archived
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4" />
+                  Show archived
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Bulk archive is only safe via RPC */}
+        <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-300 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-slate-200">
+                Bulk actions require an RPC
+              </p>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Because this Admin manages scans across all users, archive /
+                restore / delete must run via database RPC functions (admin-only)
+                with RLS enabled.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <button
               onClick={() => archiveAllScansForUserId(lookup?.profile?.id ?? "")}
               disabled={disableAllActions || !lookup?.profile?.id}
               className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
@@ -1467,12 +1547,15 @@ export default function Admin() {
           <div className="bg-slate-900 px-4 py-3 flex items-center justify-between">
             <div className="text-slate-200 font-semibold">Latest scans</div>
             <div className="text-xs text-slate-500">
-              Showing {filteredScans.length} of {scans.length}
+              Showing {filteredScans.length} of {scans.length} · Active{" "}
+              {totalActive} · Archived {totalArchived}
             </div>
           </div>
 
           {filteredScans.length === 0 ? (
-            <div className="px-4 py-4 text-sm text-slate-400">No scans found.</div>
+            <div className="px-4 py-4 text-sm text-slate-400">
+              No scans found.
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -1489,7 +1572,7 @@ export default function Admin() {
                 </thead>
                 <tbody>
                   {filteredScans.map((s) => {
-                    const archived = Boolean(s.deleted_at);
+                    const archived = isArchived(s);
                     const busy = scanActionWorkingId === s.id;
 
                     return (
