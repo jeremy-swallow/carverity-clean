@@ -63,16 +63,17 @@ type LookupResponse = {
 };
 
 /* =========================================================
-   Scan manager types
+   Scan manager types (MATCHES YOUR SUPABASE TABLE)
 ========================================================= */
 
 type ScanRow = {
-  id: string;
-  user_id: string | null;
-  user_email: string | null;
-  vehicle_title: string | null;
-  created_at: string;
-  deleted_at: string | null;
+  id: string; // uuid PK
+  scan_id: string; // text
+  plan: string; // text
+  scan_type: string; // text
+  created_at: string; // timestamptz
+  user_id: string; // uuid
+  deleted_at: string | null; // timestamptz | null (added by you)
 };
 
 /* =========================================================
@@ -126,12 +127,7 @@ function scanMatchesQuery(scan: ScanRow, q: string) {
   const t = q.trim().toLowerCase();
   if (!t) return true;
 
-  const hay = [
-    scan.id,
-    scan.user_email ?? "",
-    scan.vehicle_title ?? "",
-    scan.user_id ?? "",
-  ]
+  const hay = [scan.id, scan.scan_id, scan.user_id, scan.plan, scan.scan_type]
     .join(" ")
     .toLowerCase();
 
@@ -190,9 +186,9 @@ export default function Admin() {
     null
   );
 
-  const [confirmDeleteScanId, setConfirmDeleteScanId] = useState<string | null>(
-    null
-  );
+  const [confirmDeleteScanPkId, setConfirmDeleteScanPkId] = useState<
+    string | null
+  >(null);
   const [confirmDeleteText, setConfirmDeleteText] = useState("");
 
   const filteredScans = useMemo(() => {
@@ -531,22 +527,18 @@ export default function Admin() {
           return;
         }
 
-        if (!res.ok) {
-          const code2 = data?.error || "FORCE_UNLOCK_FAILED";
-
-          if (code2 === "NOT_AUTHORIZED" || code2 === "FORBIDDEN") {
-            navigate("/account");
-            return;
-          }
-
-          if (code2 === "SCAN_NOT_FOUND") {
-            setMsg("Scan not found. Check the scanId and try again.");
-            return;
-          }
-
-          setMsg("Force unlock failed. Please try again.");
+        if (code === "NOT_AUTHORIZED" || code === "FORBIDDEN") {
+          navigate("/account");
           return;
         }
+
+        if (code === "SCAN_NOT_FOUND") {
+          setMsg("Scan not found. Check the scanId and try again.");
+          return;
+        }
+
+        setMsg("Force unlock failed. Please try again.");
+        return;
       }
 
       if (data?.alreadyUnlocked) {
@@ -672,7 +664,7 @@ export default function Admin() {
   }
 
   /* =========================================================
-     Scan manager actions
+     Scan manager actions (MATCHES YOUR SUPABASE TABLE)
   ========================================================== */
 
   async function refreshScans() {
@@ -682,7 +674,7 @@ export default function Admin() {
     try {
       const { data, error } = await supabase
         .from("scans")
-        .select("id,user_id,user_email,vehicle_title,created_at,deleted_at")
+        .select("id,scan_id,plan,scan_type,created_at,user_id,deleted_at")
         .order("created_at", { ascending: false })
         .limit(250);
 
@@ -709,16 +701,16 @@ export default function Admin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allowed]);
 
-  async function archiveScan(scanId: string) {
+  async function archiveScan(pkId: string) {
     setMsg(null);
     setScanErr(null);
-    setScanActionWorkingId(scanId);
+    setScanActionWorkingId(pkId);
 
     try {
       const { error } = await supabase
         .from("scans")
         .update({ deleted_at: new Date().toISOString() })
-        .eq("id", scanId);
+        .eq("id", pkId);
 
       if (error) {
         console.warn("[Admin] archive scan error:", error);
@@ -733,16 +725,16 @@ export default function Admin() {
     }
   }
 
-  async function restoreScan(scanId: string) {
+  async function restoreScan(pkId: string) {
     setMsg(null);
     setScanErr(null);
-    setScanActionWorkingId(scanId);
+    setScanActionWorkingId(pkId);
 
     try {
       const { error } = await supabase
         .from("scans")
         .update({ deleted_at: null })
-        .eq("id", scanId);
+        .eq("id", pkId);
 
       if (error) {
         console.warn("[Admin] restore scan error:", error);
@@ -757,13 +749,13 @@ export default function Admin() {
     }
   }
 
-  async function purgeScan(scanId: string) {
+  async function purgeScan(pkId: string) {
     setMsg(null);
     setScanErr(null);
-    setScanActionWorkingId(scanId);
+    setScanActionWorkingId(pkId);
 
     try {
-      const { error } = await supabase.from("scans").delete().eq("id", scanId);
+      const { error } = await supabase.from("scans").delete().eq("id", pkId);
 
       if (error) {
         console.warn("[Admin] purge scan error:", error);
@@ -778,10 +770,10 @@ export default function Admin() {
     }
   }
 
-  async function archiveAllScansForEmail(email: string) {
-    const e = normaliseEmail(email);
-    if (!e) {
-      setScanErr("Enter a user email first.");
+  async function archiveAllScansForUserId(userId: string) {
+    const u = String(userId ?? "").trim();
+    if (!u) {
+      setScanErr("Enter a user_id first.");
       return;
     }
 
@@ -793,7 +785,7 @@ export default function Admin() {
       const { error } = await supabase
         .from("scans")
         .update({ deleted_at: new Date().toISOString() })
-        .eq("user_email", e)
+        .eq("user_id", u)
         .is("deleted_at", null);
 
       if (error) {
@@ -1455,14 +1447,14 @@ export default function Admin() {
               value={scanQuery}
               onChange={(e) => setScanQuery(e.target.value)}
               className="w-full rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="scanId, email, vehicle…"
+              placeholder="scan_id, user_id, plan, type…"
             />
           </div>
 
           <div className="flex items-end">
             <button
-              onClick={() => archiveAllScansForEmail(cleanTargetEmail)}
-              disabled={disableAllActions || !cleanTargetEmail}
+              onClick={() => archiveAllScansForUserId(lookup?.profile?.id ?? "")}
+              disabled={disableAllActions || !lookup?.profile?.id}
               className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-slate-950/40 hover:bg-slate-900 disabled:opacity-60 text-slate-200 font-semibold px-4 py-3 transition"
             >
               <Archive className="h-4 w-4" />
@@ -1480,17 +1472,16 @@ export default function Admin() {
           </div>
 
           {filteredScans.length === 0 ? (
-            <div className="px-4 py-4 text-sm text-slate-400">
-              No scans found.
-            </div>
+            <div className="px-4 py-4 text-sm text-slate-400">No scans found.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-slate-950/40 text-slate-400">
                   <tr>
-                    <th className="px-4 py-3 text-left">Scan</th>
+                    <th className="px-4 py-3 text-left">scan_id</th>
+                    <th className="px-4 py-3 text-left">Type</th>
+                    <th className="px-4 py-3 text-left">Plan</th>
                     <th className="px-4 py-3 text-left">User</th>
-                    <th className="px-4 py-3 text-left">Vehicle</th>
                     <th className="px-4 py-3 text-left">Created</th>
                     <th className="px-4 py-3 text-left">Status</th>
                     <th className="px-4 py-3 text-right">Actions</th>
@@ -1506,21 +1497,31 @@ export default function Admin() {
                         key={s.id}
                         className="border-t border-white/10 text-slate-300 align-top"
                       >
-                        <td className="px-4 py-3 font-mono text-xs">{s.id}</td>
-                        <td className="px-4 py-3 text-xs">
-                          <div className="text-slate-200">
-                            {s.user_email || "—"}
-                          </div>
-                          <div className="text-slate-500">
-                            {s.user_id ? `uid: ${s.user_id}` : ""}
+                        <td className="px-4 py-3 font-mono text-xs">
+                          {s.scan_id}
+                          <div className="text-[10px] text-slate-500 mt-1">
+                            pk: {s.id}
                           </div>
                         </td>
+
                         <td className="px-4 py-3 text-xs text-slate-200">
-                          {s.vehicle_title || "—"}
+                          {s.scan_type}
                         </td>
+
+                        <td className="px-4 py-3 text-xs text-slate-200">
+                          {s.plan}
+                        </td>
+
+                        <td className="px-4 py-3 text-xs">
+                          <div className="text-slate-200 font-mono">
+                            {s.user_id}
+                          </div>
+                        </td>
+
                         <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
                           {formatDateTime(s.created_at)}
                         </td>
+
                         <td className="px-4 py-3 text-xs">
                           {archived ? (
                             <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-amber-200">
@@ -1534,6 +1535,7 @@ export default function Admin() {
                             </span>
                           )}
                         </td>
+
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-2">
                             {!archived ? (
@@ -1558,7 +1560,7 @@ export default function Admin() {
 
                             <button
                               onClick={() => {
-                                setConfirmDeleteScanId(s.id);
+                                setConfirmDeleteScanPkId(s.id);
                                 setConfirmDeleteText("");
                               }}
                               disabled={disableAllActions || busy}
@@ -1579,7 +1581,7 @@ export default function Admin() {
         </div>
 
         {/* Confirm permanent delete */}
-        {confirmDeleteScanId && (
+        {confirmDeleteScanPkId && (
           <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-5 space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -1593,7 +1595,7 @@ export default function Admin() {
 
               <button
                 onClick={() => {
-                  setConfirmDeleteScanId(null);
+                  setConfirmDeleteScanPkId(null);
                   setConfirmDeleteText("");
                 }}
                 className="text-xs text-red-200 underline"
@@ -1613,8 +1615,8 @@ export default function Admin() {
               <button
                 onClick={async () => {
                   if (confirmDeleteText.trim() !== "DELETE") return;
-                  const id = confirmDeleteScanId;
-                  setConfirmDeleteScanId(null);
+                  const id = confirmDeleteScanPkId;
+                  setConfirmDeleteScanPkId(null);
                   setConfirmDeleteText("");
                   await purgeScan(id);
                 }}
