@@ -1015,6 +1015,56 @@ export function analyseInPersonInspection(progress: ScanProgress): AnalysisResul
     });
   }
 
+  /* -----------------------------
+     NEW: AIRCON RISK LOGIC
+     - Concern + note implies no cooling / blowing hot / failed / compressor -> CRITICAL
+     - Otherwise -> MODERATE
+     - Unsure -> handled only via uncertainty (no explicit risk)
+     - Ok -> no risk
+  ----------------------------- */
+  const airconRawNote = (rawChecks["aircon"]?.note ?? "").trim();
+  const airconNote = normKey(airconRawNote);
+  const airconIsConcern = checks["aircon"]?.value === "concern";
+
+  if (airconIsConcern) {
+    const criticalSignals = [
+      "no cooling",
+      "not cooling",
+      "no cold",
+      "not cold",
+      "blowing hot",
+      "blows hot",
+      "hot air",
+      "warm air",
+      "failed",
+      "not working",
+      "doesnt work",
+      "does not work",
+      "compressor",
+      "compressor issue",
+      "compressor failed",
+      "ac compressor",
+      "aircon compressor",
+    ];
+
+    const isCritical = criticalSignals.some((s) => airconNote.includes(s));
+
+    risks.push({
+      id: "check-aircon",
+      label: "Air-conditioning concern recorded",
+      explanation: airconRawNote
+        ? isCritical
+          ? `Air-conditioning appears to have failed to cool effectively — ${asOneLine(
+              airconRawNote
+            )}.`
+          : `Air-conditioning stood out during use — ${asOneLine(airconRawNote)}.`
+        : isCritical
+        ? "Air-conditioning appears to have failed to cool effectively. Loss of cooling can indicate a failed system or costly repairs."
+        : "Air-conditioning stood out during use. Clarify whether it cools properly, any warning lights, and whether it has been serviced recently.",
+      severity: isCritical ? "critical" : "moderate",
+    });
+  }
+
   pushConcern(
     "noise-hesitation",
     "Engine / drivetrain behaviour stood out",
