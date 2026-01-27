@@ -27,7 +27,6 @@ function mergeNote(existing: string | undefined, addition: string) {
     .map((p) => p.trim())
     .filter(Boolean);
 
-  // Prevent duplicates
   if (parts.some((p) => p.toLowerCase() === add.toLowerCase())) return base;
 
   return [...parts, add].join("\n");
@@ -42,11 +41,9 @@ function removeLine(existing: string | undefined, lineToRemove: string) {
     .map((p) => p.trim())
     .filter(Boolean);
 
-  const next = parts.filter(
-    (p) => p.toLowerCase() !== lineToRemove.trim().toLowerCase()
-  );
-
-  return next.join("\n");
+  return parts
+    .filter((p) => p.toLowerCase() !== lineToRemove.toLowerCase())
+    .join("\n");
 }
 
 function splitLines(note?: string) {
@@ -112,15 +109,28 @@ export default function InPersonChecksInsideCabin() {
         quickUnsure: ["Didn’t adjust seat", "Power not available"],
       },
       {
-        id: "windows-mirrors",
-        title: "Windows & mirrors",
+        id: "windows-operation",
+        title: "Window operation",
         guidance:
-          "If easy, test a window or mirror. You’re just checking basic response.",
+          "If easy, test a window to confirm it moves smoothly without noises or sticking.",
         quickConcerns: [
-          "Window slow or stuck",
+          "Window slow",
+          "Window stuck",
+          "Grinding noise",
+          "Regulator issue",
+        ],
+        quickUnsure: ["Didn’t test", "Power not available"],
+      },
+      {
+        id: "mirrors-operation",
+        title: "Mirror operation",
+        guidance:
+          "If fitted, check mirrors adjust correctly and feel secure.",
+        quickConcerns: [
           "Mirror won’t adjust",
-          "Grinding or clicking noise",
-          "Control unresponsive",
+          "Mirror loose",
+          "Folding mirror not working",
+          "Cracked housing",
         ],
         quickUnsure: ["Didn’t test", "Power not available"],
       },
@@ -148,20 +158,14 @@ export default function InPersonChecksInsideCabin() {
     progress?.checks ?? {}
   );
 
-  /* -------------------------------------------------------
-     Auto-save defaults so "Looks fine" isn't just visual
-     - Only fills missing answers (never overwrites user choices)
-  ------------------------------------------------------- */
   useEffect(() => {
     setAnswers((prev) => {
       let changed = false;
       const next: Record<string, CheckAnswer> = { ...(prev ?? {}) };
 
       for (const c of checks) {
-        const existing = next[c.id];
-
-        if (!existing || !existing.value) {
-          next[c.id] = { ...(existing ?? {}), value: "ok" };
+        if (!next[c.id]?.value) {
+          next[c.id] = { ...(next[c.id] ?? {}), value: "ok" };
           changed = true;
         }
       }
@@ -170,26 +174,16 @@ export default function InPersonChecksInsideCabin() {
     });
   }, [checks]);
 
-  /* -------------------------------------------------------
-     Persist progress (CHECKS ONLY)
-     IMPORTANT:
-     - We do NOT auto-generate imperfections from checks anymore.
-     - Otherwise the Results page shows duplicates.
-  ------------------------------------------------------- */
   useEffect(() => {
     saveProgress({
       ...(progress ?? {}),
       step: "/scan/in-person/checks/inside",
       checks: answers,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers]);
 
   function setAnswer(id: string, value: AnswerValue) {
-    setAnswers((p) => {
-      const prev = p[id];
-      return { ...p, [id]: { ...prev, value } };
-    });
+    setAnswers((p) => ({ ...p, [id]: { ...p[id], value } }));
   }
 
   function setNote(id: string, note: string) {
@@ -200,7 +194,6 @@ export default function InPersonChecksInsideCabin() {
     setAnswers((p) => {
       const prev = p[id] ?? { value: "ok" as AnswerValue, note: "" };
       const lines = splitLines(prev.note);
-
       const already = lines.some(
         (l) => l.toLowerCase() === chipText.toLowerCase()
       );
@@ -216,15 +209,11 @@ export default function InPersonChecksInsideCabin() {
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-8">
       <div className="flex items-start gap-3">
-        <div className="mt-1">
-          <Sofa className="h-5 w-5 text-slate-400" />
-        </div>
-
-        <div className="min-w-0">
+        <Sofa className="h-5 w-5 text-slate-400 mt-1" />
+        <div>
           <h1 className="text-2xl font-semibold text-white">Inside the cabin</h1>
-          <p className="text-sm text-slate-400 mt-1 leading-relaxed">
-            Quick checks that help you spot wear, odd smells, and anything that
-            feels inconsistent with the asking price.
+          <p className="text-sm text-slate-400 mt-1">
+            Quick checks for comfort, wear, and usability that can affect value.
           </p>
         </div>
       </div>
@@ -232,139 +221,99 @@ export default function InPersonChecksInsideCabin() {
       <div className="space-y-5">
         {checks.map((c) => {
           const current = answers[c.id];
-          const selectedLines = splitLines(current?.note);
-
-          const selectedValue: AnswerValue = current?.value ?? "ok";
-
+          const selected = current?.value ?? "ok";
           const chips =
-            selectedValue === "concern"
+            selected === "concern"
               ? c.quickConcerns
-              : selectedValue === "unsure"
+              : selected === "unsure"
               ? c.quickUnsure
               : [];
+
+          const selectedLines = splitLines(current?.note);
 
           return (
             <section
               key={c.id}
               className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-5 space-y-4"
             >
-              <div className="space-y-1">
-                <div className="text-sm text-white font-semibold">{c.title}</div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  {c.guidance}
-                </p>
+              <div>
+                <div className="text-sm font-semibold text-white">{c.title}</div>
+                <p className="text-xs text-slate-400">{c.guidance}</p>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAnswer(c.id, "ok")}
-                  className={[
-                    "rounded-xl px-3 py-2 text-xs font-semibold transition border",
-                    selectedValue === "ok"
-                      ? "bg-emerald-500 text-black border-emerald-400/30"
-                      : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
-                  ].join(" ")}
-                >
-                  Looks fine
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAnswer(c.id, "concern")}
-                  className={[
-                    "rounded-xl px-3 py-2 text-xs font-semibold transition border",
-                    selectedValue === "concern"
-                      ? "bg-amber-400 text-black border-amber-300/40"
-                      : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
-                  ].join(" ")}
-                >
-                  Something off
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAnswer(c.id, "unsure")}
-                  className={[
-                    "rounded-xl px-3 py-2 text-xs font-semibold transition border",
-                    selectedValue === "unsure"
-                      ? "bg-slate-600 text-white border-slate-400/30"
-                      : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
-                  ].join(" ")}
-                >
-                  Couldn’t check
-                </button>
+                {(["ok", "concern", "unsure"] as AnswerValue[]).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setAnswer(c.id, v)}
+                    className={[
+                      "rounded-xl px-3 py-2 text-xs font-semibold border transition",
+                      selected === v
+                        ? v === "ok"
+                          ? "bg-emerald-500 text-black"
+                          : v === "concern"
+                          ? "bg-amber-400 text-black"
+                          : "bg-slate-600 text-white"
+                        : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
+                    ].join(" ")}
+                  >
+                    {v === "ok"
+                      ? "Looks fine"
+                      : v === "concern"
+                      ? "Something off"
+                      : "Couldn’t check"}
+                  </button>
+                ))}
               </div>
 
               {chips.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                    Quick notes
-                  </p>
-
-                  <div className="flex flex-wrap gap-2">
-                    {chips.map((chip) => {
-                      const active = selectedLines.some(
-                        (l) => l.toLowerCase() === chip.toLowerCase()
-                      );
-
-                      return (
-                        <button
-                          key={chip}
-                          type="button"
-                          onClick={() => toggleChip(c.id, chip)}
-                          className={[
-                            "rounded-full border px-3 py-1 text-xs transition",
-                            active
-                              ? selectedValue === "concern"
-                                ? "bg-amber-400/20 border-amber-300/40 text-amber-100"
-                                : "bg-slate-500/40 border-slate-300/30 text-white"
-                              : "bg-white/5 border-white/10 text-slate-200 hover:bg-white/10",
-                          ].join(" ")}
-                        >
-                          {chip}
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div className="flex flex-wrap gap-2">
+                  {chips.map((chip) => {
+                    const active = selectedLines.some(
+                      (l) => l.toLowerCase() === chip.toLowerCase()
+                    );
+                    return (
+                      <button
+                        key={chip}
+                        onClick={() => toggleChip(c.id, chip)}
+                        className={[
+                          "rounded-full px-3 py-1 text-xs border transition",
+                          active
+                            ? "bg-amber-400/20 border-amber-300/40 text-amber-100"
+                            : "bg-white/5 border-white/10 text-slate-200 hover:bg-white/10",
+                        ].join(" ")}
+                      >
+                        {chip}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
-              {(selectedValue === "concern" ||
-                selectedValue === "unsure" ||
-                Boolean(current?.note)) && (
-                <div className="space-y-2">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                    Optional detail
-                  </p>
-
-                  <textarea
-                    value={current?.note ?? ""}
-                    onChange={(e) => setNote(c.id, e.target.value)}
-                    placeholder="Add a short note (optional)…"
-                    className="w-full rounded-xl bg-slate-950/40 border border-white/10 px-3 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-400/30"
-                    rows={3}
-                  />
-                </div>
+              {(selected !== "ok" || current?.note) && (
+                <textarea
+                  value={current?.note ?? ""}
+                  onChange={(e) => setNote(c.id, e.target.value)}
+                  placeholder="Optional note…"
+                  className="w-full rounded-xl bg-slate-950/40 border border-white/10 px-3 py-2 text-xs text-slate-200"
+                  rows={3}
+                />
               )}
             </section>
           );
         })}
       </div>
 
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-3 pt-4">
         <button
-          type="button"
           onClick={() => navigate("/scan/in-person/checks/around")}
-          className="flex-1 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-slate-200 font-semibold transition"
+          className="flex-1 rounded-2xl border border-white/15 bg-slate-950/30 px-4 py-3 text-slate-200"
         >
           Back
         </button>
-
         <button
-          type="button"
           onClick={() => navigate("/scan/in-person/checks/drive-intro")}
-          className="flex-1 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 transition"
+          className="flex-1 rounded-2xl bg-emerald-500 px-4 py-3 font-semibold text-black"
         >
           Continue
         </button>
