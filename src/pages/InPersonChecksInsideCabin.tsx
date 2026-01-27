@@ -99,6 +99,32 @@ export default function InPersonChecksInsideCabin() {
         ],
       },
       {
+        id: "seat-adjustment",
+        title: "Seat adjustment & stability",
+        guidance:
+          "Adjust the driver’s seat slightly and check it feels secure and locks into position.",
+        quickConcerns: [
+          "Seat won’t adjust",
+          "Seat rocks or feels loose",
+          "Adjustment stuck",
+          "Electric seat not responding",
+        ],
+        quickUnsure: ["Didn’t adjust seat", "Power not available"],
+      },
+      {
+        id: "windows-mirrors",
+        title: "Windows & mirrors",
+        guidance:
+          "If easy, test a window or mirror. You’re just checking basic response.",
+        quickConcerns: [
+          "Window slow or stuck",
+          "Mirror won’t adjust",
+          "Grinding or clicking noise",
+          "Control unresponsive",
+        ],
+        quickUnsure: ["Didn’t test", "Power not available"],
+      },
+      {
         id: "seatbelts-trim",
         title: "Seatbelts & airbag trim",
         guidance:
