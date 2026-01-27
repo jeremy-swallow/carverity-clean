@@ -91,6 +91,24 @@ export default function InPersonChecksDrive() {
         ],
       },
       {
+        id: "aircon-drive",
+        title: "Air conditioning (during drive)",
+        guidance:
+          "After a few minutes of driving, turn the aircon on full cold. Then briefly test warm. You’re checking cooling strength, smells, and noise under load.",
+        quickConcerns: [
+          "Not blowing cold after a few minutes",
+          "Weak cooling",
+          "Bad / musty smell",
+          "Loud fan or compressor noise",
+          "Takes a long time to cool",
+        ],
+        quickUnsure: [
+          "Didn’t drive long enough",
+          "Forgot to test",
+          "Weather made it hard to tell",
+        ],
+      },
+      {
         id: "adas-systems",
         title: "Driver-assist systems (if fitted)",
         guidance:
@@ -129,7 +147,6 @@ export default function InPersonChecksDrive() {
 
   /* -------------------------------------------------------
      Auto-save defaults so "Looks fine" isn't just visual
-     - Only fills missing answers (never overwrites user choices)
   ------------------------------------------------------- */
   useEffect(() => {
     setAnswers((prev) => {
@@ -138,7 +155,6 @@ export default function InPersonChecksDrive() {
 
       for (const c of checks) {
         const existing = next[c.id];
-
         if (!existing || !existing.value) {
           next[c.id] = { ...(existing ?? {}), value: "ok" };
           changed = true;
@@ -151,9 +167,6 @@ export default function InPersonChecksDrive() {
 
   /* -------------------------------------------------------
      Persist progress (CHECKS ONLY)
-     IMPORTANT:
-     - We do NOT auto-generate imperfections from checks anymore.
-     - Otherwise the Results page shows duplicates.
   ------------------------------------------------------- */
   useEffect(() => {
     saveProgress({
@@ -247,7 +260,6 @@ export default function InPersonChecksDrive() {
         {checks.map((c) => {
           const current = answers[c.id];
           const selectedLines = splitLines(current?.note);
-
           const selectedValue: AnswerValue = current?.value ?? "ok";
 
           const chips =
