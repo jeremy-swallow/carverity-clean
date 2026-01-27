@@ -60,9 +60,6 @@ export default function InPersonChecksDriveIntro() {
   }, []);
 
   function startDriveChecks() {
-    // ✅ Do NOT wipe previous drive answers automatically.
-    // Preserve them so "Back" doesn't feel punishing.
-    // Only wipe if the user explicitly taps "Start over".
     const latest: any = loadProgress();
 
     saveProgress({
@@ -74,7 +71,6 @@ export default function InPersonChecksDriveIntro() {
   }
 
   function startOverDriveChecks() {
-    // Explicit reset (user chose it)
     const latest: any = loadProgress();
 
     const cleaned = removeDriveChecksFromProgress(latest);
@@ -88,8 +84,6 @@ export default function InPersonChecksDriveIntro() {
   }
 
   function cantTestDriveRightNow() {
-    // If user can't / won't drive, do not force them into drive checks.
-    // Also do NOT wipe anything automatically — we preserve prior work.
     const latest: any = loadProgress();
 
     saveProgress({
@@ -142,7 +136,7 @@ export default function InPersonChecksDriveIntro() {
               <span className="text-slate-200 font-medium">
                 big decision signals
               </span>{" "}
-              — not chasing perfection.
+              — how the car behaves while running, not chasing perfection.
             </p>
           </div>
         </div>
@@ -169,8 +163,8 @@ export default function InPersonChecksDriveIntro() {
               </p>
               <p className="text-sm text-slate-300 mt-1 leading-relaxed">
                 You’re watching for warning lights, listening for unusual
-                noises, and feeling for harsh shifts, steering pull, odd
-                braking, or anything that feels “off”.
+                noises, and noticing how the car responds once it’s fully
+                running.
               </p>
             </div>
           </div>
@@ -183,7 +177,8 @@ export default function InPersonChecksDriveIntro() {
               </p>
               <p className="text-sm text-slate-300 mt-1 leading-relaxed">
                 Smooth idle, normal steering, predictable braking, no warning
-                lights, and no obvious clunks/knocks.
+                lights, and nothing that feels inconsistent or unreliable in
+                use.
               </p>
             </div>
           </div>
