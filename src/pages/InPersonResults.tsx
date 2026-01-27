@@ -191,6 +191,38 @@ function titleFromId(id: string) {
 }
 
 /* =======================================================
+   CHECK LABELS (fixes Results check labels)
+   - Keeps wording consistent with the guided flows
+======================================================= */
+const CHECK_LABELS: Record<string, string> = {
+  "body-panels-paint": "Body panels & paint",
+  "headlights-condition": "Headlights condition",
+  "windscreen-damage": "Windscreen damage",
+  "tyre-wear": "Tyre wear & tread",
+  "brakes-visible": "Brake discs (if visible)",
+
+  "seatbelts-trim": "Seatbelts & airbag trim",
+
+  "interior-smell": "Smell or moisture",
+  "interior-condition": "General interior condition",
+  aircon: "Air-conditioning",
+  steering: "Steering & handling feel",
+  "noise-hesitation": "Noise / hesitation under power",
+  "adas-systems": "Driver-assist systems (if fitted)",
+
+  // Legacy ids (if they still exist in old scans)
+  "body-panels": "Body panels & alignment",
+  paint: "Paint condition",
+  "glass-lights": "Glass & lights",
+  tyres: "Tyres condition",
+  "underbody-leaks": "Visible fluid leaks (if noticed)",
+};
+
+function labelForCheckId(id: string) {
+  return CHECK_LABELS[id] || titleFromId(id);
+}
+
+/* =======================================================
    Photo helpers (supports base64 + storage paths)
 ======================================================= */
 
@@ -272,7 +304,8 @@ function extractPhotoRefs(progress: any): {
         (typeof maybe.path === "string" && maybe.path.trim()) ||
         "";
 
-      const du = (typeof maybe.dataUrl === "string" && maybe.dataUrl.trim()) || "";
+      const du =
+        (typeof maybe.dataUrl === "string" && maybe.dataUrl.trim()) || "";
 
       if (spRaw) {
         const norm = normaliseStoragePath(spRaw);
@@ -470,7 +503,8 @@ function sanitiseImperfections(raw: any[]): CleanImperfection[] {
     }
 
     // Prefer higher severity if conflict
-    const weight = (s: string) => (s === "major" ? 0 : s === "moderate" ? 1 : 2);
+    const weight = (s: string) =>
+      s === "major" ? 0 : s === "moderate" ? 1 : 2;
 
     if (weight(imp.severity) < weight(existing.severity)) {
       byKey.set(key, imp);
@@ -787,7 +821,9 @@ export default function InPersonResults() {
 
         if (value !== "concern" && value !== "unsure") return null;
 
-        const label = titleFromId(id);
+        // ✅ FIX: use our consistent label map first
+        const label = labelForCheckId(id);
+
         return {
           id,
           label,
