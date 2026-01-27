@@ -114,20 +114,6 @@ export default function InPersonChecksInsideCabin() {
           "Trim hard to inspect quickly",
         ],
       },
-      {
-        id: "aircon",
-        title: "Air-conditioning",
-        guidance:
-          "Weak airflow, warm air, or strange smells are worth noting before purchase.",
-        quickConcerns: [
-          "Not cold",
-          "Weak airflow",
-          "Noisy fan",
-          "Bad smell on AC",
-          "Takes too long to cool",
-        ],
-        quickUnsure: ["Didn’t run long enough", "Couldn’t test (seller rushed)"],
-      },
     ],
     []
   );
