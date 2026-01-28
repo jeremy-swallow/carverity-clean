@@ -27,6 +27,42 @@ function uid() {
   return Math.random().toString(36).slice(2);
 }
 
+function splitLines(note?: string) {
+  return (note ?? "")
+    .split("\n")
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
+function mergeNote(existing: string | undefined, addition: string) {
+  const base = (existing ?? "").trim();
+  const add = addition.trim();
+  if (!add) return base;
+  if (!base) return add;
+
+  const parts = base
+    .split("\n")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  if (parts.some((p) => p.toLowerCase() === add.toLowerCase())) return base;
+
+  return [...parts, add].join("\n");
+}
+
+function removeLine(existing: string | undefined, lineToRemove: string) {
+  const base = (existing ?? "").trim();
+  if (!base) return "";
+
+  return base
+    .split("\n")
+    .map((p) => p.trim())
+    .filter(
+      (p) => p.toLowerCase() !== lineToRemove.trim().toLowerCase()
+    )
+    .join("\n");
+}
+
 export default function InPersonChecksAroundCar() {
   const navigate = useNavigate();
   const progress: any = loadProgress();
@@ -38,8 +74,14 @@ export default function InPersonChecksAroundCar() {
         title: "Body panels & paint",
         guidance:
           "Walk around the car and look for mismatched paint, uneven gaps, or signs of repair.",
-        quickConcerns: [],
-        quickUnsure: [],
+        quickConcerns: [
+          "Scratches or scuffs",
+          "Dents",
+          "Paint mismatch",
+          "Overspray",
+          "Panel gaps uneven",
+        ],
+        quickUnsure: ["Poor lighting", "Car dirty", "Hard to see clearly"],
       },
       {
         id: "headlights-condition",
@@ -47,8 +89,12 @@ export default function InPersonChecksAroundCar() {
         guidance:
           "Look for cloudy/yellow lenses, cracks, or moisture inside.",
         allowPhoto: true,
-        quickConcerns: [],
-        quickUnsure: [],
+        quickConcerns: [
+          "Cloudy / yellowed",
+          "Cracked lens",
+          "Moisture inside",
+        ],
+        quickUnsure: ["Hard to tell in shade", "Didn’t inspect closely"],
       },
       {
         id: "windscreen-damage",
@@ -56,23 +102,35 @@ export default function InPersonChecksAroundCar() {
         guidance:
           "Check for chips or cracks. Even small chips can spread.",
         allowPhoto: true,
-        quickConcerns: [],
-        quickUnsure: [],
+        quickConcerns: [
+          "Stone chip",
+          "Crack forming",
+          "Damage in driver view",
+        ],
+        quickUnsure: ["Glare", "Couldn’t see clearly"],
       },
       {
         id: "tyre-wear",
         title: "Tyre wear & tread",
         guidance: "Look for even wear across each tyre.",
-        quickConcerns: [],
-        quickUnsure: [],
+        quickConcerns: [
+          "Uneven wear",
+          "Low tread",
+          "Different tyre brands",
+        ],
+        quickUnsure: ["Didn’t check all tyres"],
       },
       {
         id: "brakes-visible",
         title: "Brake discs (if visible)",
         guidance:
           "Light surface rust is normal. Look for heavy wear or grooves.",
-        quickConcerns: [],
-        quickUnsure: [],
+        quickConcerns: [
+          "Heavy lip on disc",
+          "Deep grooves",
+          "Looks heavily worn",
+        ],
+        quickUnsure: ["Hard to see behind wheels"],
       },
     ],
     []
@@ -126,6 +184,22 @@ export default function InPersonChecksAroundCar() {
     setAnswers((p) => ({ ...p, [id]: { ...p[id], note } }));
   }
 
+  function toggleChip(id: string, chip: string) {
+    setAnswers((p) => {
+      const prev = p[id] ?? { value: "ok" as AnswerValue, note: "" };
+      const lines = splitLines(prev.note);
+      const active = lines.some(
+        (l) => l.toLowerCase() === chip.toLowerCase()
+      );
+
+      const nextNote = active
+        ? removeLine(prev.note, chip)
+        : mergeNote(prev.note, chip);
+
+      return { ...p, [id]: { ...prev, note: nextNote } };
+    });
+  }
+
   function addPhoto(stepId: string, file: File) {
     const reader = new FileReader();
     reader.onload = () => {
@@ -157,6 +231,14 @@ export default function InPersonChecksAroundCar() {
         {checks.map((c) => {
           const current = answers[c.id];
           const selectedValue = current?.value ?? "ok";
+          const selectedLines = splitLines(current?.note);
+
+          const chips =
+            selectedValue === "concern"
+              ? c.quickConcerns
+              : selectedValue === "unsure"
+              ? c.quickUnsure
+              : [];
 
           return (
             <section
@@ -210,8 +292,32 @@ export default function InPersonChecksAroundCar() {
                 </button>
               </div>
 
-              {(selectedValue === "concern" ||
-                selectedValue === "unsure") && (
+              {chips.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {chips.map((chip) => {
+                    const active = selectedLines.some(
+                      (l) => l.toLowerCase() === chip.toLowerCase()
+                    );
+
+                    return (
+                      <button
+                        key={chip}
+                        onClick={() => toggleChip(c.id, chip)}
+                        className={[
+                          "rounded-full px-3 py-1 text-xs border transition",
+                          active
+                            ? "bg-amber-400/20 border-amber-300/40 text-amber-100"
+                            : "bg-white/5 border-white/10 text-slate-200 hover:bg-white/10",
+                        ].join(" ")}
+                      >
+                        {chip}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {(selectedValue !== "ok" || current?.note) && (
                 <textarea
                   value={current?.note ?? ""}
                   onChange={(e) => setNote(c.id, e.target.value)}
