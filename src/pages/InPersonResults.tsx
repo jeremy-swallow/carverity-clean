@@ -11,7 +11,6 @@ import {
   ArrowRight,
   RotateCcw,
   Printer,
-  Flag,
   BadgeDollarSign,
 } from "lucide-react";
 
@@ -20,15 +19,12 @@ import { loadProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadScanById } from "../utils/scanStorage";
 
-/* ================= split logic ================= */
 import { resolvePhotoUrls } from "./inPersonResults/photoLogic";
-
 import {
   buildVerdictOutcome,
   countRisksBySeverity,
   type VerdictOutcome,
 } from "./inPersonResults/verdictLogic";
-
 import {
   extractFlaggedChecks,
   sanitiseImperfections,
@@ -39,7 +35,6 @@ import {
   type FlaggedCheck,
   type CleanImperfection,
 } from "./inPersonResults/evidenceLogic";
-
 import {
   RESULTS_COPY,
   scoreBlurbCopy,
@@ -54,12 +49,12 @@ const PHOTO_BUCKET = "scan-photos";
 const SIGNED_URL_TTL = 60 * 60;
 
 /* =======================================================
-   SMALL PRESENTATION HELPERS
+   PRESENTATION HELPERS
 ======================================================= */
 function Paragraph({ value }: { value: unknown }) {
   if (!value) return null;
   return (
-    <p className="text-[15px] leading-relaxed text-slate-300 max-w-3xl whitespace-pre-line">
+    <p className="text-[15px] leading-relaxed text-slate-300 max-w-3xl">
       {String(value)}
     </p>
   );
@@ -68,7 +63,7 @@ function Paragraph({ value }: { value: unknown }) {
 function BulletList({ items }: { items: string[] }) {
   if (!items.length) return null;
   return (
-    <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
+    <ul className="list-disc list-inside space-y-2 text-[15px] text-slate-300">
       {items.map((t, i) => (
         <li key={i}>{t}</li>
       ))}
@@ -247,22 +242,15 @@ export default function InPersonResults() {
     [analysis]
   );
 
-  const driveWasDone = useMemo(() => {
-    const checks = progress?.checks ?? {};
-    return ["steering", "noise-hesitation", "adas-systems"].some(
-      (id) => checks?.[id]?.value || checks?.[id]?.note
-    );
-  }, [progress]);
-
   const nextSteps = useMemo(
     () =>
       buildNextSteps({
-        driveWasDone,
+        driveWasDone: true,
         criticalCount: riskCounts.critical,
         moderateCount: riskCounts.moderate,
         unsureCount: uncertaintyFactors.length,
       }),
-    [driveWasDone, riskCounts, uncertaintyFactors.length]
+    [riskCounts, uncertaintyFactors.length]
   );
 
   const clarifyQuestions = useMemo(
@@ -308,217 +296,148 @@ export default function InPersonResults() {
   }, [analysis, progress, checkingUnlock, unlockError]);
 
   /* -------------------------------------------------------
-     UI GATES
-  ------------------------------------------------------- */
-  const showLoading = !scanIdSafe || checkingUnlock;
-  const showError = Boolean(unlockError);
-  const canRenderReport =
-    Boolean(scanIdSafe) &&
-    !checkingUnlock &&
-    !unlockError &&
-    Boolean(verdictOutcome);
-
-  /* -------------------------------------------------------
      RENDER
   ------------------------------------------------------- */
-  return (
-    <div className="max-w-5xl mx-auto px-6 py-16 space-y-14">
-      {showLoading && (
+  if (!verdictOutcome || checkingUnlock) {
+    return (
+      <div className="max-w-5xl mx-auto px-6 py-16">
         <p className="text-sm text-slate-400">
           {RESULTS_COPY.verifyingUnlock}
         </p>
-      )}
+      </div>
+    );
+  }
 
-      {showError && (
-        <div className="space-y-3">
-          <p className="text-sm text-red-300">{unlockError}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="rounded-xl bg-slate-200 px-4 py-2 text-sm font-semibold text-black"
-          >
-            {RESULTS_COPY.retry}
-          </button>
-        </div>
-      )}
+  const toneBg =
+    verdictOutcome.verdict.tone === "emerald"
+      ? "bg-emerald-500/10"
+      : verdictOutcome.verdict.tone === "amber"
+      ? "bg-amber-500/10"
+      : "bg-red-500/10";
 
-      {canRenderReport && verdictOutcome && (
-        <>
-          {/* ================= HEADER ================= */}
-          <header className="space-y-4">
-            <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-              {RESULTS_COPY.brandLine}
-            </span>
+  return (
+    <div className="max-w-5xl mx-auto px-6 py-16 space-y-16">
+      {/* ================= VERDICT ================= */}
+      <section className={`rounded-2xl p-8 ${toneBg} space-y-4`}>
+        <span className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+          {RESULTS_COPY.brandLine}
+        </span>
 
-            <h1 className="text-3xl font-semibold text-white flex items-center gap-3">
-              {verdictOutcome.verdict.tone === "emerald" && (
-                <CheckCircle2 className="text-emerald-400" />
-              )}
-              {verdictOutcome.verdict.tone === "amber" && (
-                <AlertTriangle className="text-amber-400" />
-              )}
-              {verdictOutcome.verdict.tone === "red" && (
-                <XCircle className="text-red-400" />
-              )}
-              {verdictOutcome.verdict.title}
-            </h1>
-
-            <Paragraph value={verdictOutcome.verdict.posture} />
-          </header>
-
-          {/* ================= SCORES ================= */}
-          <section className="space-y-2">
-            <Paragraph
-              value={scoreBlurbCopy(verdictOutcome.scores)}
-            />
-          </section>
-
-          {/* ================= WHAT STOOD OUT ================= */}
-          {verdictOutcome.signals.length > 0 && (
-            <section className="space-y-3">
-              <h2 className="text-xl font-semibold text-white">
-                {RESULTS_COPY.whatStoodOutTitle}
-              </h2>
-              <BulletList
-                items={verdictOutcome.signals.map((s) => s.label)}
-              />
-            </section>
+        <h1 className="text-3xl font-semibold text-white flex items-center gap-3">
+          {verdictOutcome.verdict.tone === "emerald" && (
+            <CheckCircle2 className="text-emerald-400" />
           )}
+          {verdictOutcome.verdict.tone === "amber" && (
+            <AlertTriangle className="text-amber-400" />
+          )}
+          {verdictOutcome.verdict.tone === "red" && (
+            <XCircle className="text-red-400" />
+          )}
+          {verdictOutcome.verdict.title}
+        </h1>
 
-          {/* ================= EVIDENCE ================= */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-              <ClipboardCheck />
-              {RESULTS_COPY.evidenceConsideredTitle}
-            </h2>
+        <Paragraph value={verdictOutcome.verdict.posture} />
+        <Paragraph value={scoreBlurbCopy(verdictOutcome.scores)} />
+      </section>
 
-            <Paragraph value={evidenceSummary.text} />
-            <BulletList items={evidenceSummary.bullets} />
-
-            <Paragraph
-              value={buildEvidenceHeadlineCopy({
-                concernCount: flaggedChecks.length,
-                imperfectionCount: imperfections.length,
-                capturedPhotoCount,
-              })}
-            />
-
-            <BulletList
-              items={buildEvidenceNotesCopy({
-                hasUnsure: uncertaintyFactors.length > 0,
-              })}
-            />
-          </section>
-
-          {/* ================= FLAGGED ================= */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-              <Flag />
-              {RESULTS_COPY.flaggedTitle}
-            </h2>
-
-            {flaggedChecks.length === 0 && (
-              <Paragraph value={RESULTS_COPY.flaggedNoChecks} />
-            )}
-
-            {flaggedChecks.map((c) => (
-              <div key={c.id} className="space-y-1">
-                <p className="text-sm text-slate-200">
-                  • {c.label} —{" "}
-                  {c.value === "concern"
-                    ? RESULTS_COPY.flaggedTagConcern
-                    : RESULTS_COPY.flaggedTagUnsure}
-                </p>
-                {c.note && (
-                  <p className="text-xs text-slate-400 ml-4">
-                    {c.note}
-                  </p>
-                )}
-              </div>
-            ))}
-
-            {imperfections.length === 0 && (
-              <Paragraph value={RESULTS_COPY.flaggedNoImperfections} />
-            )}
-
-            {imperfections.map((i) => (
-              <div key={i.id} className="space-y-1">
-                <p className="text-sm text-slate-200">
-                  • {i.label} ({i.severity})
-                </p>
-                <p className="text-xs text-slate-400 ml-4">
-                  {i.location || RESULTS_COPY.flaggedLocationEmpty}
-                </p>
-                {i.note && (
-                  <p className="text-xs text-slate-400 ml-4">
-                    {i.note}
-                  </p>
-                )}
-              </div>
-            ))}
-          </section>
-
-          {/* ================= NEXT STEPS ================= */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-              <BadgeDollarSign />
-              {RESULTS_COPY.nextTitle}
-            </h2>
-            <Paragraph value={RESULTS_COPY.nextIntro} />
-            <BulletList items={nextSteps} />
-          </section>
-
-          {/* ================= QUESTIONS ================= */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-white">
-              {RESULTS_COPY.questionsTitle}
-            </h2>
-            <Paragraph value={RESULTS_COPY.questionsIntro} />
-            <BulletList items={clarifyQuestions} />
-          </section>
-
-          {/* ================= PHOTOS ================= */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-              <Camera />
-              {RESULTS_COPY.photosTitle}
-            </h2>
-
-            {photoUrls.length === 0 && (
-              <Paragraph value={RESULTS_COPY.photosNone} />
-            )}
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {photoUrls.map((u) => (
-                <img
-                  key={u}
-                  src={u}
-                  alt=""
-                  className="rounded-lg border border-slate-700"
-                />
-              ))}
-            </div>
-          </section>
-
-          {/* ================= FOOTER ================= */}
-          <footer className="flex gap-3 pt-8">
-            <button className="flex items-center gap-2 rounded-xl bg-slate-700 px-4 py-2 text-sm text-white">
-              <Printer /> {RESULTS_COPY.bottomPrint}
-            </button>
-            <button
-              onClick={() => navigate("/scan/in-person/start")}
-              className="flex items-center gap-2 rounded-xl bg-slate-200 px-4 py-2 text-sm font-semibold text-black"
-            >
-              <RotateCcw /> {RESULTS_COPY.bottomNewScan}
-            </button>
-            <button
-              onClick={() => navigate("/my-scans")}
-              className="flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-black"
-            >
-              <ArrowRight /> {RESULTS_COPY.bottomDecision}
-            </button>
-          </footer>
-        </>
+      {/* ================= AT A GLANCE ================= */}
+      {verdictOutcome.signals.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold text-white">
+            What stood out at a glance
+          </h2>
+          <BulletList
+            items={verdictOutcome.signals.map((s) => s.label)}
+          />
+        </section>
       )}
+
+      {/* ================= EVIDENCE ================= */}
+      <section className="space-y-6">
+        <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+          <ClipboardCheck />
+          Evidence considered
+        </h2>
+
+        <Paragraph value={evidenceSummary.text} />
+        <BulletList items={evidenceSummary.bullets} />
+
+        <div className="pt-2">
+          <Paragraph
+            value={buildEvidenceHeadlineCopy({
+              concernCount: flaggedChecks.length,
+              imperfectionCount: imperfections.length,
+              capturedPhotoCount,
+            })}
+          />
+          <BulletList
+            items={buildEvidenceNotesCopy({
+              hasUnsure: uncertaintyFactors.length > 0,
+            })}
+          />
+        </div>
+      </section>
+
+      {/* ================= NEXT STEPS ================= */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+          <BadgeDollarSign />
+          {RESULTS_COPY.nextTitle}
+        </h2>
+        <Paragraph value={RESULTS_COPY.nextIntro} />
+        <BulletList items={nextSteps} />
+      </section>
+
+      {/* ================= QUESTIONS ================= */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold text-white">
+          {RESULTS_COPY.questionsTitle}
+        </h2>
+        <Paragraph value={RESULTS_COPY.questionsIntro} />
+        <BulletList items={clarifyQuestions} />
+      </section>
+
+      {/* ================= PHOTOS ================= */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+          <Camera />
+          {RESULTS_COPY.photosTitle}
+        </h2>
+
+        {photoUrls.length === 0 && (
+          <Paragraph value={RESULTS_COPY.photosNone} />
+        )}
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {photoUrls.map((u) => (
+            <img
+              key={u}
+              src={u}
+              alt=""
+              className="rounded-xl border border-slate-700"
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* ================= FOOTER ================= */}
+      <footer className="pt-12 flex flex-wrap gap-3">
+        <button className="flex items-center gap-2 rounded-xl bg-slate-700 px-4 py-2 text-sm text-white">
+          <Printer /> {RESULTS_COPY.bottomPrint}
+        </button>
+        <button
+          onClick={() => navigate("/scan/in-person/start")}
+          className="flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2 text-sm text-white"
+        >
+          <RotateCcw /> {RESULTS_COPY.bottomNewScan}
+        </button>
+        <button
+          onClick={() => navigate("/my-scans")}
+          className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2 text-sm font-semibold text-black ml-auto"
+        >
+          <ArrowRight /> {RESULTS_COPY.bottomDecision}
+        </button>
+      </footer>
     </div>
   );
 }
