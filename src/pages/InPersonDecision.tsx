@@ -1,7 +1,7 @@
 // src/pages/InPersonDecision.tsx
 
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 import {
   analyseInPersonInspection,
@@ -138,6 +138,8 @@ function isFiniteNumber(n: unknown): n is number {
 
 export default function InPersonDecision() {
   const navigate = useNavigate();
+  const { scanId } = useParams<{ scanId: string }>();
+  const scanIdSafe = scanId ? String(scanId) : "";
 
   const progress: any = loadProgress();
 
@@ -155,8 +157,6 @@ export default function InPersonDecision() {
     : [];
 
   const confidence = clamp(Number(analysis.confidenceScore ?? 0), 0, 100);
-
-  const scanId = progress?.scanId ?? "";
 
   /* =====================================================
      Asking price capture (guided, non-formy)
@@ -384,12 +384,8 @@ export default function InPersonDecision() {
     items.push(
       "Confirm the seller’s identity and that the paperwork matches the vehicle."
     );
-    items.push(
-      "Verify service history with invoices (not just a stamp book)."
-    );
-    items.push(
-      "Check for finance owing or written-off status (where applicable)."
-    );
+    items.push("Verify service history with invoices (not just a stamp book).");
+    items.push("Check for finance owing or written-off status (where applicable).");
 
     if (critical.length > 0) {
       items.push(
@@ -404,9 +400,7 @@ export default function InPersonDecision() {
     }
 
     if (unsure.length > 0) {
-      items.push(
-        "Treat unsure items as unknowns and verify them before deciding."
-      );
+      items.push("Treat unsure items as unknowns and verify them before deciding.");
     }
 
     return items.slice(0, 7);
@@ -425,12 +419,8 @@ export default function InPersonDecision() {
     }
 
     if (req.length === 0) {
-      req.push(
-        "Ask for the most recent service invoice and any recent repair receipts."
-      );
-      req.push(
-        "Ask whether there are any known faults, warnings, or maintenance due soon."
-      );
+      req.push("Ask for the most recent service invoice and any recent repair receipts.");
+      req.push("Ask whether there are any known faults, warnings, or maintenance due soon.");
     }
 
     return req.slice(0, 6);
@@ -439,20 +429,12 @@ export default function InPersonDecision() {
   const whatGoodLooksLike = useMemo(() => {
     const good: string[] = [];
 
-    good.push(
-      "The seller provides clear evidence for your concerns in writing or invoices."
-    );
-    good.push(
-      "Your unknown items become confirmed rather than remaining unknown."
-    );
-    good.push(
-      "No new warning lights or behaviours appear on a second look."
-    );
+    good.push("The seller provides clear evidence for your concerns in writing or invoices.");
+    good.push("Your unknown items become confirmed rather than remaining unknown.");
+    good.push("No new warning lights or behaviours appear on a second look.");
 
     if (analysis.verdict === "proceed") {
-      good.push(
-        "Your recorded inspection stays consistent with no new concerns emerging."
-      );
+      good.push("Your recorded inspection stays consistent with no new concerns emerging.");
     }
 
     return good.slice(0, 5);
@@ -461,14 +443,10 @@ export default function InPersonDecision() {
   const whenToWalk = useMemo(() => {
     const bad: string[] = [];
 
-    bad.push(
-      "The seller refuses reasonable verification or discourages basic checks."
-    );
+    bad.push("The seller refuses reasonable verification or discourages basic checks.");
 
     if (critical.length > 0) {
-      bad.push(
-        "A high-impact item remains unresolved or worsens after re-checking."
-      );
+      bad.push("A high-impact item remains unresolved or worsens after re-checking.");
     }
 
     if (unsure.length > 0) {
@@ -477,9 +455,7 @@ export default function InPersonDecision() {
       );
     }
 
-    bad.push(
-      "You feel pressured to commit quickly or rushed through the process."
-    );
+    bad.push("You feel pressured to commit quickly or rushed through the process.");
 
     return bad.slice(0, 6);
   }, [critical.length, unsure.length]);
@@ -501,7 +477,7 @@ export default function InPersonDecision() {
         </button>
 
         <button
-          onClick={() => navigate("/scan/in-person/results/" + scanId)}
+          onClick={() => navigate("/scan/in-person/results/" + scanIdSafe)}
           className="text-xs text-slate-400 hover:text-slate-200"
         >
           Review inspection report
@@ -602,7 +578,7 @@ export default function InPersonDecision() {
 
         <button
           type="button"
-          onClick={() => navigate("/scan/in-person/results/" + scanId)}
+          onClick={() => navigate("/scan/in-person/results/" + scanIdSafe)}
           className={[
             "w-full rounded-xl px-4 py-3 font-semibold transition inline-flex items-center justify-center gap-2",
             postureTone.cta,
@@ -719,7 +695,6 @@ export default function InPersonDecision() {
               </span>
             </div>
 
-            {/* Guided action first */}
             <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 space-y-2">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
                 What to do first
@@ -731,7 +706,6 @@ export default function InPersonDecision() {
               </ul>
             </div>
 
-            {/* Bands */}
             <div className="space-y-3">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
                 Offer bands
@@ -771,7 +745,6 @@ export default function InPersonDecision() {
               </div>
             </div>
 
-            {/* Why */}
             <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 space-y-2">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
                 Why this range exists
@@ -783,7 +756,6 @@ export default function InPersonDecision() {
               </ul>
             </div>
 
-            {/* Movement */}
             <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 space-y-2">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
                 What moves the range upward
@@ -806,7 +778,6 @@ export default function InPersonDecision() {
         )}
       </section>
 
-      {/* Chapter 2: Evidence & reality checks */}
       <div className="space-y-6">
         <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
           <div className="flex items-center gap-2 text-slate-200">
@@ -837,9 +808,7 @@ export default function InPersonDecision() {
         <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
           <div className="flex items-center gap-2 text-slate-200">
             <FileCheck className="h-4 w-4 text-slate-300" />
-            <h2 className="text-sm font-semibold">
-              What to ask for (evidence)
-            </h2>
+            <h2 className="text-sm font-semibold">What to ask for (evidence)</h2>
           </div>
 
           <ul className="text-sm text-slate-300 space-y-2">
@@ -850,7 +819,6 @@ export default function InPersonDecision() {
         </section>
       </div>
 
-      {/* Chapter 3: Exit clarity */}
       <div className="space-y-6">
         <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
           <div className="flex items-center gap-2 text-slate-200">
@@ -886,9 +854,8 @@ export default function InPersonDecision() {
         </section>
       </div>
 
-      {/* Footer */}
       <button
-        onClick={() => navigate("/scan/in-person/results/" + scanId)}
+        onClick={() => navigate("/scan/in-person/results/" + scanIdSafe)}
         className="w-full rounded-xl border border-white/25 text-slate-200 px-4 py-3 font-semibold"
       >
         Review inspection report
