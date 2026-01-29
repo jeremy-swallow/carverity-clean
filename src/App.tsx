@@ -310,9 +310,9 @@ export default function App() {
           }
         />
 
-        {/* Decision + price positioning */}
+        {/* Decision (scan-specific) */}
         <Route
-          path="/scan/in-person/decision"
+          path="/scan/in-person/decision/:scanId"
           element={
             <RequireAuth>
               <InPersonDecision />
@@ -320,6 +320,13 @@ export default function App() {
           }
         />
 
+        {/* Guard old decision route */}
+        <Route
+          path="/scan/in-person/decision"
+          element={<Navigate to="/my-scans" replace />}
+        />
+
+        {/* Price positioning */}
         <Route
           path="/scan/in-person/price-positioning/:scanId"
           element={
