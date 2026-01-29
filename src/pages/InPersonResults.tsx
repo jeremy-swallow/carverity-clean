@@ -7,11 +7,11 @@ import {
   AlertTriangle,
   XCircle,
   Camera,
-  ClipboardCheck,
   ArrowRight,
-  RotateCcw,
-  Printer,
+  ShieldCheck,
   BadgeDollarSign,
+  Flag,
+  Info,
 } from "lucide-react";
 
 import { supabase } from "../supabaseClient";
@@ -19,28 +19,14 @@ import { loadProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadScanById } from "../utils/scanStorage";
 
+/* ================= split logic ================= */
 import { resolvePhotoUrls } from "./inPersonResults/photoLogic";
-import {
-  buildVerdictOutcome,
-  countRisksBySeverity,
-  type VerdictOutcome,
-} from "./inPersonResults/verdictLogic";
-import {
-  extractFlaggedChecks,
-  sanitiseImperfections,
-  extractUncertaintyFactors,
-  extractEvidenceSummary,
-  buildNextSteps,
-  buildClarifyQuestions,
-  type FlaggedCheck,
-  type CleanImperfection,
-} from "./inPersonResults/evidenceLogic";
-import {
-  RESULTS_COPY,
-  scoreBlurbCopy,
-  buildEvidenceHeadlineCopy,
-  buildEvidenceNotesCopy,
-} from "./inPersonResults/copy";
+import { buildVerdictOutcome, countRisksBySeverity } from "./inPersonResults/verdictLogic";
+import { extractUncertaintyFactors } from "./inPersonResults/evidenceLogic";
+import { RESULTS_COPY } from "./inPersonResults/copy";
+
+/* ================= pricing ================= */
+import { buildGuidedPricePositioning } from "../utils/decisionPricing";
 
 /* =======================================================
    CONFIG
@@ -49,31 +35,61 @@ const PHOTO_BUCKET = "scan-photos";
 const SIGNED_URL_TTL = 60 * 60;
 
 /* =======================================================
-   PRESENTATION HELPERS
+   HELPERS
 ======================================================= */
-function Paragraph({ value }: { value: unknown }) {
-  if (!value) return null;
-  return (
-    <p className="text-[15px] leading-relaxed text-slate-300 max-w-3xl">
-      {String(value)}
-    </p>
-  );
+function formatMoney(n: number | null | undefined) {
+  if (n == null || Number.isNaN(n)) return "—";
+  try {
+    return new Intl.NumberFormat("en-AU", {
+      style: "currency",
+      currency: "AUD",
+      maximumFractionDigits: 0,
+    }).format(n);
+  } catch {
+    return `$${Math.round(n)}`;
+  }
 }
 
-function BulletList({ items }: { items: string[] }) {
-  if (!items.length) return null;
-  return (
-    <ul className="list-disc list-inside space-y-2 text-[15px] text-slate-300">
-      {items.map((t, i) => (
-        <li key={i}>{t}</li>
-      ))}
-    </ul>
-  );
+type BasicRisk = {
+  severity?: "info" | "moderate" | "critical";
+  label?: string;
+};
+
+type NextCheckTone = "critical" | "moderate" | "unsure";
+
+function nextCheckToneStyles(tone: NextCheckTone) {
+  if (tone === "critical") {
+    return {
+      wrap: "border-rose-500/30 bg-rose-500/10",
+      icon: "text-rose-300",
+      label: "Highest impact",
+      why: "Resolving this removes the biggest risk in your decision.",
+      after:
+        "If this can’t be verified cleanly, walking away becomes the safer option.",
+    };
+  }
+
+  if (tone === "moderate") {
+    return {
+      wrap: "border-amber-500/30 bg-amber-500/10",
+      icon: "text-amber-300",
+      label: "Worth clarifying",
+      why: "Clarifying this reduces uncertainty before you commit.",
+      after:
+        "Once confirmed, your recommended offer range may move closer to the asking price.",
+    };
+  }
+
+  return {
+    wrap: "border-white/15 bg-white/5",
+    icon: "text-slate-300",
+    label: "Reduce unknowns",
+    why: "Confirming this turns an unknown into a known.",
+    after:
+      "This helps you decide whether to proceed confidently or pause.",
+  };
 }
 
-/* =======================================================
-   PAGE
-======================================================= */
 export default function InPersonResults() {
   const navigate = useNavigate();
   const { scanId } = useParams<{ scanId: string }>();
@@ -83,7 +99,7 @@ export default function InPersonResults() {
   const [unlockError, setUnlockError] = useState<string | null>(null);
 
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
-  const [capturedPhotoCount, setCapturedPhotoCount] = useState(0);
+  const [photoLoading, setPhotoLoading] = useState(false);
 
   /* -------------------------------------------------------
      ROUTING SAFETY
@@ -128,16 +144,12 @@ export default function InPersonResults() {
 
         if (error || !data || data.length === 0) {
           if (!cancelled) {
-            navigate(`/scan/in-person/unlock/${scanIdSafe}`, {
-              replace: true,
-            });
+            navigate(`/scan/in-person/unlock/${scanIdSafe}`, { replace: true });
           }
           return;
         }
       } catch {
-        if (!cancelled) {
-          setUnlockError(RESULTS_COPY.unlockVerifyFailed);
-        }
+        if (!cancelled) setUnlockError(RESULTS_COPY.unlockVerifyFailed);
       } finally {
         if (!cancelled) setCheckingUnlock(false);
       }
@@ -170,23 +182,9 @@ export default function InPersonResults() {
   }, []);
 
   const progress: any = useMemo(() => {
-    const base = (saved?.progressSnapshot ?? {}) as any;
-    const fallback = (progressFallback ?? {}) as any;
-
     return {
-      ...fallback,
-      ...base,
-      photos:
-        Array.isArray(base?.photos) && base.photos.length >=
-        (fallback?.photos?.length ?? 0)
-          ? base.photos
-          : fallback?.photos,
-      followUpPhotos:
-        Array.isArray(base?.followUpPhotos) &&
-        base.followUpPhotos.length >=
-          (fallback?.followUpPhotos?.length ?? 0)
-          ? base.followUpPhotos
-          : fallback?.followUpPhotos,
+      ...(progressFallback ?? {}),
+      ...(saved?.progressSnapshot ?? {}),
     };
   }, [saved, progressFallback]);
 
@@ -202,34 +200,22 @@ export default function InPersonResults() {
     }
   }, [saved, progress]);
 
-  useEffect(() => {
-    if (!scanIdSafe || checkingUnlock || unlockError) return;
-    if (!analysis) {
-      navigate(`/scan/in-person/analyzing/${scanIdSafe}`, { replace: true });
-    }
-  }, [analysis, scanIdSafe, checkingUnlock, unlockError, navigate]);
-
   /* -------------------------------------------------------
-     DERIVED DATA
+     VERDICT
   ------------------------------------------------------- */
-  const verdictOutcome: VerdictOutcome | null = useMemo(
+  const verdictOutcome = useMemo(
     () => (analysis ? buildVerdictOutcome(analysis) : null),
     [analysis]
   );
 
+  const risks: BasicRisk[] = useMemo(() => {
+    const raw = (analysis as any)?.risks;
+    return Array.isArray(raw) ? (raw as BasicRisk[]) : [];
+  }, [analysis]);
+
   const riskCounts = useMemo(
-    () => countRisksBySeverity((analysis as any)?.risks ?? []),
-    [analysis]
-  );
-
-  const flaggedChecks: FlaggedCheck[] = useMemo(
-    () => extractFlaggedChecks(progress),
-    [progress]
-  );
-
-  const imperfections: CleanImperfection[] = useMemo(
-    () => sanitiseImperfections(progress?.imperfections ?? []),
-    [progress]
+    () => countRisksBySeverity(risks as any),
+    [risks]
   );
 
   const uncertaintyFactors = useMemo(
@@ -237,37 +223,71 @@ export default function InPersonResults() {
     [analysis]
   );
 
-  const evidenceSummary = useMemo(
-    () => extractEvidenceSummary(analysis),
-    [analysis]
-  );
+  /* -------------------------------------------------------
+     🎯 SINGLE BEST THING TO VERIFY NEXT (GUIDED)
+  ------------------------------------------------------- */
+  const bestNext = useMemo(() => {
+    if (!analysis) return null;
 
-  const nextSteps = useMemo(
-    () =>
-      buildNextSteps({
-        driveWasDone: true,
-        criticalCount: riskCounts.critical,
-        moderateCount: riskCounts.moderate,
-        unsureCount: uncertaintyFactors.length,
-      }),
-    [riskCounts, uncertaintyFactors.length]
-  );
+    const critical = risks.find((r) => r.severity === "critical");
+    if (critical?.label) {
+      return {
+        text: `Resolve “${critical.label}” with written or photographic evidence.`,
+        tone: "critical" as NextCheckTone,
+      };
+    }
 
-  const clarifyQuestions = useMemo(
-    () =>
-      buildClarifyQuestions({
-        criticalRisks:
-          (analysis as any)?.risks?.filter(
-            (r: any) => r?.severity === "critical"
-          ) ?? [],
-        moderateRisks:
-          (analysis as any)?.risks?.filter(
-            (r: any) => r?.severity === "moderate"
-          ) ?? [],
-        unsureCount: uncertaintyFactors.length,
-      }),
-    [analysis, uncertaintyFactors.length]
-  );
+    const moderate = risks.find((r) => r.severity === "moderate");
+    if (moderate?.label) {
+      return {
+        text: `Clarify “${moderate.label}” and confirm it doesn’t indicate a larger issue.`,
+        tone: "moderate" as NextCheckTone,
+      };
+    }
+
+    if (uncertaintyFactors.length > 0) {
+      return {
+        text:
+          "Confirm the most important item you marked as unsure — treat it as unknown until verified.",
+        tone: "unsure" as NextCheckTone,
+      };
+    }
+
+    return {
+      text:
+        "Ask for the most recent service invoice and confirm service history in writing.",
+      tone: "unsure" as NextCheckTone,
+    };
+  }, [analysis, risks, uncertaintyFactors.length]);
+
+  /* -------------------------------------------------------
+     PRICE POSITIONING (SUMMARY)
+  ------------------------------------------------------- */
+  const pricingSummary = useMemo(() => {
+    if (!analysis) return null;
+
+    const verdict =
+      analysis.verdict === "walk-away" ||
+      analysis.verdict === "caution" ||
+      analysis.verdict === "proceed"
+        ? analysis.verdict
+        : "caution";
+
+    return buildGuidedPricePositioning({
+      askingPrice: progress?.askingPrice ?? null,
+      verdict,
+      confidenceScore: Number((analysis as any)?.confidenceScore ?? 0),
+      criticalCount: riskCounts.critical,
+      moderateCount: riskCounts.moderate,
+      unsureCount: uncertaintyFactors.length,
+    });
+  }, [
+    analysis,
+    progress?.askingPrice,
+    riskCounts.critical,
+    riskCounts.moderate,
+    uncertaintyFactors.length,
+  ]);
 
   /* -------------------------------------------------------
      PHOTOS
@@ -278,14 +298,16 @@ export default function InPersonResults() {
     async function loadPhotos() {
       if (!analysis || checkingUnlock || unlockError) return;
 
-      const { urls, capturedCount } = await resolvePhotoUrls(progress, {
+      setPhotoLoading(true);
+
+      const { urls } = await resolvePhotoUrls(progress, {
         bucket: PHOTO_BUCKET,
         ttlSeconds: SIGNED_URL_TTL,
       });
 
       if (!cancelled) {
         setPhotoUrls(urls);
-        setCapturedPhotoCount(capturedCount);
+        setPhotoLoading(false);
       }
     }
 
@@ -296,148 +318,221 @@ export default function InPersonResults() {
   }, [analysis, progress, checkingUnlock, unlockError]);
 
   /* -------------------------------------------------------
+     UI GATES
+  ------------------------------------------------------- */
+  const canRenderReport =
+    Boolean(scanIdSafe) &&
+    !checkingUnlock &&
+    !unlockError &&
+    Boolean(verdictOutcome);
+
+  /* -------------------------------------------------------
      RENDER
   ------------------------------------------------------- */
-  if (!verdictOutcome || checkingUnlock) {
-    return (
-      <div className="max-w-5xl mx-auto px-6 py-16">
-        <p className="text-sm text-slate-400">
-          {RESULTS_COPY.verifyingUnlock}
-        </p>
-      </div>
-    );
-  }
-
-  const toneBg =
-    verdictOutcome.verdict.tone === "emerald"
-      ? "bg-emerald-500/10"
-      : verdictOutcome.verdict.tone === "amber"
-      ? "bg-amber-500/10"
-      : "bg-red-500/10";
-
   return (
-    <div className="max-w-5xl mx-auto px-6 py-16 space-y-16">
-      {/* ================= VERDICT ================= */}
-      <section className={`rounded-2xl p-8 ${toneBg} space-y-4`}>
-        <span className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-          {RESULTS_COPY.brandLine}
-        </span>
+    <div className="max-w-5xl mx-auto px-6 py-16 space-y-12">
+      {canRenderReport && verdictOutcome && (
+        <>
+          {/* ================= VERDICT ================= */}
+          <header className="space-y-3">
+            <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
+              {RESULTS_COPY.brandLine}
+            </span>
 
-        <h1 className="text-3xl font-semibold text-white flex items-center gap-3">
-          {verdictOutcome.verdict.tone === "emerald" && (
-            <CheckCircle2 className="text-emerald-400" />
-          )}
-          {verdictOutcome.verdict.tone === "amber" && (
-            <AlertTriangle className="text-amber-400" />
-          )}
-          {verdictOutcome.verdict.tone === "red" && (
-            <XCircle className="text-red-400" />
-          )}
-          {verdictOutcome.verdict.title}
-        </h1>
+            <h1 className="text-2xl md:text-3xl font-semibold text-white flex items-center gap-3">
+              {verdictOutcome.verdict.key === "proceed" && (
+                <CheckCircle2 className="text-emerald-400" />
+              )}
+              {verdictOutcome.verdict.key === "caution" && (
+                <AlertTriangle className="text-amber-400" />
+              )}
+              {verdictOutcome.verdict.key === "walk-away" && (
+                <XCircle className="text-rose-400" />
+              )}
+              {verdictOutcome.verdict.title}
+            </h1>
 
-        <Paragraph value={verdictOutcome.verdict.posture} />
-        <Paragraph value={scoreBlurbCopy(verdictOutcome.scores)} />
-      </section>
+            <p className="text-slate-300 max-w-3xl">
+              {verdictOutcome.verdict.posture}
+            </p>
+          </header>
 
-      {/* ================= AT A GLANCE ================= */}
-      {verdictOutcome.signals.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-white">
-            What stood out at a glance
-          </h2>
-          <BulletList
-            items={verdictOutcome.signals.map((s) => s.label)}
-          />
-        </section>
+          {/* ================= BEST NEXT CHECK (POLISHED) ================= */}
+          {bestNext && (() => {
+            const s = nextCheckToneStyles(bestNext.tone);
+
+            return (
+              <section
+                className={[
+                  "rounded-2xl border px-5 py-5 space-y-4",
+                  s.wrap,
+                ].join(" ")}
+              >
+                <div className="flex items-center gap-2 text-slate-200">
+                  <Flag className={["h-4 w-4", s.icon].join(" ")} />
+                  <h2 className="text-sm font-semibold">
+                    What will improve your position most
+                  </h2>
+                </div>
+
+                <p className="text-sm text-slate-200 leading-relaxed">
+                  {bestNext.text}
+                </p>
+
+                <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 space-y-2">
+                  <div className="flex items-start gap-2 text-sm">
+                    <Info className="h-4 w-4 mt-0.5 text-slate-300" />
+                    <span className="text-slate-300">{s.why}</span>
+                  </div>
+
+                  <div className="flex items-start gap-2 text-sm">
+                    <ArrowRight className="h-4 w-4 mt-0.5 text-slate-300" />
+                    <span className="text-slate-300">{s.after}</span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-500">
+                  Focus on one thing at a time — progress matters more than speed.
+                </p>
+              </section>
+            );
+          })()}
+
+          {/* ================= PRICE POSITIONING PREVIEW ================= */}
+          {pricingSummary && (
+            <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
+              <div className="flex items-center gap-2 text-slate-200">
+                <BadgeDollarSign className="h-4 w-4 text-slate-300" />
+                <h2 className="text-sm font-semibold">
+                  Price positioning (preview)
+                </h2>
+              </div>
+
+              {pricingSummary.mode === "needs_price" && (
+                <>
+                  <p className="text-sm text-slate-300">
+                    Add the seller’s asking price to get a realistic offer range.
+                  </p>
+
+                  <button
+                    onClick={() =>
+                      navigate("/scan/in-person/decision/" + scanIdSafe)
+                    }
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold text-white hover:bg-white/5"
+                  >
+                    Add asking price
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+
+              {pricingSummary.mode === "ok" && (
+                <>
+                  <p className="text-sm text-slate-300">
+                    A{" "}
+                    <span className="font-semibold text-white">
+                      {
+                        pricingSummary.bands.find(
+                          (b) =>
+                            b.key === pricingSummary.recommendedKey
+                        )?.label
+                      }
+                    </span>{" "}
+                    offer range fits what you recorded.
+                  </p>
+
+                  <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                    <p className="text-sm font-semibold text-white">
+                      {formatMoney(
+                        pricingSummary.bands.find(
+                          (b) =>
+                            b.key === pricingSummary.recommendedKey
+                        )?.min
+                      )}{" "}
+                      –{" "}
+                      {formatMoney(
+                        pricingSummary.bands.find(
+                          (b) =>
+                            b.key === pricingSummary.recommendedKey
+                        )?.max
+                      )}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {pricingSummary.confidenceNote}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      navigate("/scan/in-person/decision/" + scanIdSafe)
+                    }
+                    className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-slate-100"
+                  >
+                    Open decision & negotiation
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+            </section>
+          )}
+
+          {/* ================= PHOTOS ================= */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+              <Camera className="h-4 w-4 text-slate-300" />
+              Photos
+            </h2>
+
+            {photoLoading && (
+              <p className="text-sm text-slate-400">
+                {RESULTS_COPY.photosLoading}
+              </p>
+            )}
+
+            {!photoLoading && photoUrls.length === 0 && (
+              <p className="text-sm text-slate-400">
+                {RESULTS_COPY.photosNone}
+              </p>
+            )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {photoUrls.slice(0, 6).map((url, i) => (
+                <img
+                  key={i}
+                  src={url}
+                  alt=""
+                  className="rounded-xl border border-white/10 object-cover"
+                />
+              ))}
+            </div>
+          </section>
+
+          {/* ================= DECISION CTA ================= */}
+          <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
+            <div className="flex items-center gap-2 text-slate-200">
+              <ShieldCheck className="h-4 w-4 text-emerald-300" />
+              <h2 className="text-sm font-semibold">
+                Decision & next steps
+              </h2>
+            </div>
+
+            <p className="text-sm text-slate-300">
+              Calm guidance on whether to proceed, clarify, or walk away —
+              based only on what you recorded.
+            </p>
+
+            <button
+              onClick={() =>
+                navigate("/scan/in-person/decision/" + scanIdSafe)
+              }
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-slate-100"
+            >
+              Open decision guide
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </section>
+        </>
       )}
-
-      {/* ================= EVIDENCE ================= */}
-      <section className="space-y-6">
-        <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-          <ClipboardCheck />
-          Evidence considered
-        </h2>
-
-        <Paragraph value={evidenceSummary.text} />
-        <BulletList items={evidenceSummary.bullets} />
-
-        <div className="pt-2">
-          <Paragraph
-            value={buildEvidenceHeadlineCopy({
-              concernCount: flaggedChecks.length,
-              imperfectionCount: imperfections.length,
-              capturedPhotoCount,
-            })}
-          />
-          <BulletList
-            items={buildEvidenceNotesCopy({
-              hasUnsure: uncertaintyFactors.length > 0,
-            })}
-          />
-        </div>
-      </section>
-
-      {/* ================= NEXT STEPS ================= */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-          <BadgeDollarSign />
-          {RESULTS_COPY.nextTitle}
-        </h2>
-        <Paragraph value={RESULTS_COPY.nextIntro} />
-        <BulletList items={nextSteps} />
-      </section>
-
-      {/* ================= QUESTIONS ================= */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold text-white">
-          {RESULTS_COPY.questionsTitle}
-        </h2>
-        <Paragraph value={RESULTS_COPY.questionsIntro} />
-        <BulletList items={clarifyQuestions} />
-      </section>
-
-      {/* ================= PHOTOS ================= */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-          <Camera />
-          {RESULTS_COPY.photosTitle}
-        </h2>
-
-        {photoUrls.length === 0 && (
-          <Paragraph value={RESULTS_COPY.photosNone} />
-        )}
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {photoUrls.map((u) => (
-            <img
-              key={u}
-              src={u}
-              alt=""
-              className="rounded-xl border border-slate-700"
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* ================= FOOTER ================= */}
-      <footer className="pt-12 flex flex-wrap gap-3">
-        <button className="flex items-center gap-2 rounded-xl bg-slate-700 px-4 py-2 text-sm text-white">
-          <Printer /> {RESULTS_COPY.bottomPrint}
-        </button>
-        <button
-          onClick={() => navigate("/scan/in-person/start")}
-          className="flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2 text-sm text-white"
-        >
-          <RotateCcw /> {RESULTS_COPY.bottomNewScan}
-        </button>
-        <button
-          onClick={() => navigate("/my-scans")}
-          className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2 text-sm font-semibold text-black ml-auto"
-        >
-          <ArrowRight /> {RESULTS_COPY.bottomDecision}
-        </button>
-      </footer>
     </div>
   );
 }

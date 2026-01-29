@@ -19,6 +19,8 @@ import {
   Eye,
   Car,
   BadgeDollarSign,
+  Flag,
+  ArrowRight,
 } from "lucide-react";
 import {
   buildGuidedPricePositioning,
@@ -47,6 +49,7 @@ function formatMoney(n: number | null | undefined) {
 }
 
 type Tone = "good" | "info" | "warn" | "danger";
+type NextCheckTone = "critical" | "moderate" | "unsure";
 
 function toneClasses(tone: Tone) {
   if (tone === "good") {
@@ -78,6 +81,35 @@ function toneClasses(tone: Tone) {
     icon: "text-sky-300",
     pill: "border-sky-500/20 bg-sky-500/10 text-sky-200",
     cta: "bg-sky-500 hover:bg-sky-400 text-black",
+  };
+}
+
+function nextCheckToneStyles(tone: NextCheckTone) {
+  if (tone === "critical") {
+    return {
+      wrap: "border-rose-500/30 bg-rose-500/10",
+      icon: "text-rose-300",
+      why: "Resolving this removes the biggest risk in your decision.",
+      after:
+        "If this can’t be verified cleanly, walking away becomes the safer option.",
+    };
+  }
+
+  if (tone === "moderate") {
+    return {
+      wrap: "border-amber-500/30 bg-amber-500/10",
+      icon: "text-amber-300",
+      why: "Clarifying this reduces uncertainty before you commit.",
+      after:
+        "Once confirmed, your recommended offer range may move closer to the asking price.",
+    };
+  }
+
+  return {
+    wrap: "border-white/15 bg-white/5",
+    icon: "text-slate-300",
+    why: "Confirming this turns an unknown into a known.",
+    after: "This helps you decide whether to proceed confidently or pause.",
   };
 }
 
@@ -162,6 +194,45 @@ export default function InPersonDecision() {
       setAskingSaved(false);
     }
   }
+
+  /* =====================================================
+     Mirrored guidance: best next verification
+  ===================================================== */
+
+  const bestNext = useMemo(() => {
+    if (critical.length > 0 && (critical[0] as any)?.label) {
+      return {
+        tone: "critical" as NextCheckTone,
+        text: `Resolve “${String((critical[0] as any).label).trim()}” with written or photographic evidence.`,
+      };
+    }
+
+    if (moderate.length > 0 && (moderate[0] as any)?.label) {
+      return {
+        tone: "moderate" as NextCheckTone,
+        text: `Clarify “${String((moderate[0] as any).label).trim()}” and confirm it doesn’t indicate a larger issue.`,
+      };
+    }
+
+    if (unsure.length > 0) {
+      return {
+        tone: "unsure" as NextCheckTone,
+        text:
+          "Confirm the most important item you marked as unsure — treat it as unknown until verified.",
+      };
+    }
+
+    return {
+      tone: "unsure" as NextCheckTone,
+      text:
+        "Ask for the most recent service invoice and confirm service history in writing.",
+    };
+  }, [critical, moderate, unsure.length]);
+
+  const bestNextTone = useMemo(
+    () => nextCheckToneStyles(bestNext.tone),
+    [bestNext.tone]
+  );
 
   /* =====================================================
      Decision posture
@@ -449,6 +520,39 @@ export default function InPersonDecision() {
         </p>
       </div>
 
+      {/* NEW: Guided “verify next” card (mirrored from Results, reframed for Decision) */}
+      <section
+        className={[
+          "rounded-2xl border px-5 py-5 space-y-4",
+          bestNextTone.wrap,
+        ].join(" ")}
+      >
+        <div className="flex items-center gap-2 text-slate-200">
+          <Flag className={["h-4 w-4", bestNextTone.icon].join(" ")} />
+          <h2 className="text-sm font-semibold">
+            To move forward with confidence, verify this next
+          </h2>
+        </div>
+
+        <p className="text-sm text-slate-200 leading-relaxed">{bestNext.text}</p>
+
+        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 space-y-2">
+          <div className="flex items-start gap-2 text-sm">
+            <Info className="h-4 w-4 mt-0.5 text-slate-300" />
+            <span className="text-slate-300">{bestNextTone.why}</span>
+          </div>
+
+          <div className="flex items-start gap-2 text-sm">
+            <ArrowRight className="h-4 w-4 mt-0.5 text-slate-300" />
+            <span className="text-slate-300">{bestNextTone.after}</span>
+          </div>
+        </div>
+
+        <p className="text-xs text-slate-500">
+          One clear action now reduces regret later.
+        </p>
+      </section>
+
       {/* Chapter 1: Decision anchor */}
       <section
         className={[
@@ -513,7 +617,9 @@ export default function InPersonDecision() {
       <section className="rounded-2xl border border-white/20 bg-slate-900/80 px-5 py-5 space-y-3">
         <div className="flex items-center gap-2 text-slate-200">
           <RecIcon className="h-4 w-4 text-slate-300" />
-          <h2 className="text-sm font-semibold">{recommendedNextAction.title}</h2>
+          <h2 className="text-sm font-semibold">
+            {recommendedNextAction.title}
+          </h2>
         </div>
 
         <p className="text-sm text-slate-300 leading-relaxed">
@@ -534,12 +640,12 @@ export default function InPersonDecision() {
           <BadgeDollarSign
             className={[
               "h-4 w-4",
-              analysis.verdict === "walk-away" ? "text-rose-300" : "text-slate-300",
+              analysis.verdict === "walk-away"
+                ? "text-rose-300"
+                : "text-slate-300",
             ].join(" ")}
           />
-          <h2 className="text-sm font-semibold">
-            {pricing.title}
-          </h2>
+          <h2 className="text-sm font-semibold">{pricing.title}</h2>
         </div>
 
         {pricing.mode === "needs_price" && (
@@ -731,7 +837,9 @@ export default function InPersonDecision() {
         <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
           <div className="flex items-center gap-2 text-slate-200">
             <FileCheck className="h-4 w-4 text-slate-300" />
-            <h2 className="text-sm font-semibold">What to ask for (evidence)</h2>
+            <h2 className="text-sm font-semibold">
+              What to ask for (evidence)
+            </h2>
           </div>
 
           <ul className="text-sm text-slate-300 space-y-2">

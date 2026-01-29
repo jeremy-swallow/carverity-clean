@@ -23,6 +23,9 @@ import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import DeployTest from "./pages/DeployTest";
 
+/* Testing */
+import TestingExpectations from "./pages/TestingExpectations";
+
 /* Admin */
 import Admin from "./pages/Admin";
 
@@ -57,9 +60,7 @@ import InPersonScan from "./pages/InPersonScan";
 import InPersonChecks from "./pages/InPersonChecks";
 
 /* =======================================================
-   Protected route wrapper (for scan flow)
-   - Redirects to /signin with ?redirect=<original path>
-   - Uses getSession() (fast/local) so it doesn’t depend on network
+   Protected route wrapper
 ======================================================= */
 function RequireAuth({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -72,14 +73,13 @@ function RequireAuth({ children }: { children: ReactNode }) {
     async function init() {
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
-
       setHasSession(Boolean(data?.session));
       setLoading(false);
     }
 
     init();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (!mounted) return;
       setHasSession(Boolean(session));
     });
@@ -116,6 +116,7 @@ export default function App() {
         <Route path="/start" element={<StartScan />} />
         <Route path="/scan-mode" element={<ScanMode />} />
         <Route path="/what-to-expect" element={<WhatToExpect />} />
+        <Route path="/testing" element={<TestingExpectations />} />
         <Route path="/about" element={<About />} />
         <Route path="/my-scans" element={<MyScans />} />
         <Route path="/pricing" element={<Pricing />} />
@@ -148,9 +149,7 @@ export default function App() {
           }
         />
 
-        {/* =======================
-           In-person scan flow
-        ======================= */}
+        {/* In-person flow */}
         <Route
           path="/scan/in-person/start"
           element={
@@ -159,7 +158,6 @@ export default function App() {
             </RequireAuth>
           }
         />
-
         <Route
           path="/scan/in-person/sale"
           element={
@@ -168,7 +166,6 @@ export default function App() {
             </RequireAuth>
           }
         />
-
         <Route
           path="/scan/in-person/vehicle-details"
           element={
@@ -201,7 +198,6 @@ export default function App() {
             </RequireAuth>
           }
         />
-
         <Route
           path="/scan/in-person/checks/intro"
           element={
@@ -242,7 +238,6 @@ export default function App() {
             </RequireAuth>
           }
         />
-
         <Route
           path="/scan/in-person/summary"
           element={
@@ -251,7 +246,6 @@ export default function App() {
             </RequireAuth>
           }
         />
-
         <Route
           path="/scan/in-person/analyzing/:scanId"
           element={
@@ -268,8 +262,6 @@ export default function App() {
             </RequireAuth>
           }
         />
-
-        {/* Unlock */}
         <Route
           path="/scan/in-person/unlock/:scanId"
           element={
@@ -286,8 +278,6 @@ export default function App() {
             </RequireAuth>
           }
         />
-
-        {/* Decision + price positioning */}
         <Route
           path="/scan/in-person/decision"
           element={
@@ -304,8 +294,6 @@ export default function App() {
             </RequireAuth>
           }
         />
-
-        {/* Print */}
         <Route
           path="/scan/in-person/print/:scanId"
           element={
@@ -315,12 +303,7 @@ export default function App() {
           }
         />
 
-        {/* Back-compat: if something links to /print without id, send home */}
-        <Route path="/scan/in-person/print" element={<Navigate to="/" replace />} />
-
-        {/* -----------------------
-           Legacy routes (keep so old links don't break)
-        ----------------------- */}
+        {/* Legacy */}
         <Route path="/scan/in-person" element={<InPersonScan />} />
         <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
 
