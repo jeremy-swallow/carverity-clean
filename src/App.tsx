@@ -23,7 +23,7 @@ import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import DeployTest from "./pages/DeployTest";
 
-/* Testing */
+/* Tester */
 import TestingExpectations from "./pages/TestingExpectations";
 
 /* Admin */
@@ -73,13 +73,14 @@ function RequireAuth({ children }: { children: ReactNode }) {
     async function init() {
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
+
       setHasSession(Boolean(data?.session));
       setLoading(false);
     }
 
     init();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
       setHasSession(Boolean(session));
     });
@@ -106,6 +107,9 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/* =======================================================
+   App
+======================================================= */
 export default function App() {
   return (
     <Routes>
@@ -116,7 +120,6 @@ export default function App() {
         <Route path="/start" element={<StartScan />} />
         <Route path="/scan-mode" element={<ScanMode />} />
         <Route path="/what-to-expect" element={<WhatToExpect />} />
-        <Route path="/testing" element={<TestingExpectations />} />
         <Route path="/about" element={<About />} />
         <Route path="/my-scans" element={<MyScans />} />
         <Route path="/pricing" element={<Pricing />} />
@@ -128,6 +131,16 @@ export default function App() {
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/deploy-test" element={<DeployTest />} />
+
+        {/* Tester-only expectations */}
+        <Route
+          path="/testing"
+          element={
+            <RequireAuth>
+              <TestingExpectations />
+            </RequireAuth>
+          }
+        />
 
         {/* Credits */}
         <Route
@@ -149,7 +162,9 @@ export default function App() {
           }
         />
 
-        {/* In-person flow */}
+        {/* =======================
+           In-person scan flow
+        ======================= */}
         <Route
           path="/scan/in-person/start"
           element={
@@ -158,6 +173,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/sale"
           element={
@@ -166,6 +182,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/vehicle-details"
           element={
@@ -174,6 +191,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/asking-price"
           element={
@@ -182,6 +200,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/photos"
           element={
@@ -190,6 +209,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/owners"
           element={
@@ -198,6 +218,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/checks/intro"
           element={
@@ -206,6 +227,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/checks/around"
           element={
@@ -214,6 +236,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/checks/inside"
           element={
@@ -222,6 +245,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/checks/drive-intro"
           element={
@@ -230,6 +254,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/checks/drive"
           element={
@@ -238,6 +263,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/summary"
           element={
@@ -246,6 +272,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/analyzing/:scanId"
           element={
@@ -254,6 +281,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/results/:scanId"
           element={
@@ -262,6 +290,8 @@ export default function App() {
             </RequireAuth>
           }
         />
+
+        {/* Unlock */}
         <Route
           path="/scan/in-person/unlock/:scanId"
           element={
@@ -270,6 +300,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/unlock/success"
           element={
@@ -278,6 +309,8 @@ export default function App() {
             </RequireAuth>
           }
         />
+
+        {/* Decision + price positioning */}
         <Route
           path="/scan/in-person/decision"
           element={
@@ -286,6 +319,7 @@ export default function App() {
             </RequireAuth>
           }
         />
+
         <Route
           path="/scan/in-person/price-positioning/:scanId"
           element={
@@ -294,6 +328,8 @@ export default function App() {
             </RequireAuth>
           }
         />
+
+        {/* Print */}
         <Route
           path="/scan/in-person/print/:scanId"
           element={
@@ -301,6 +337,11 @@ export default function App() {
               <InPersonReportPrint />
             </RequireAuth>
           }
+        />
+
+        <Route
+          path="/scan/in-person/print"
+          element={<Navigate to="/" replace />}
         />
 
         {/* Legacy */}
