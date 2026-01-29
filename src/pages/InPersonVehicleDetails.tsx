@@ -2,34 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { saveProgress, loadProgress } from "../utils/scanProgress";
 import { generateScanId } from "../utils/scanStorage";
+import { AU_MAKES_MODELS } from "../data/auMakesModels";
 
 /* =========================================================
-   Constants & data
+   Constants
 ========================================================= */
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_YEAR = 1950;
-
-const MAKE_SUGGESTIONS = [
-  "Abarth","Acura","Alfa Romeo","Aston Martin","Audi","Bentley","BMW","BYD",
-  "Cadillac","Chery","Chevrolet","Chrysler","Citroën","Cupra","Daewoo",
-  "Daihatsu","Dodge","Ferrari","Fiat","Ford","Genesis","Great Wall","Haval",
-  "Holden","Honda","Hyundai","Infiniti","Isuzu","Jaguar","Jeep","Kia",
-  "Lamborghini","Land Rover","LDV","Lexus","Lotus","Maserati","Mazda",
-  "McLaren","Mercedes-Benz","MG","Mini","Mitsubishi","Nissan","Peugeot",
-  "Polestar","Porsche","RAM","Renault","Rolls-Royce","Skoda","SsangYong",
-  "Subaru","Suzuki","Tesla","Toyota","Volkswagen","Volvo",
-];
-
-const MODEL_BY_MAKE: Record<string, string[]> = {
-  Toyota: ["Corolla","Camry","RAV4","Hilux","LandCruiser","Yaris","Kluger"],
-  Mazda: ["Mazda2","Mazda3","Mazda6","CX-3","CX-5","CX-9","MX-5"],
-  Hyundai: ["i30","Elantra","Kona","Tucson","Santa Fe","Palisade"],
-  Kia: ["Cerato","Rio","Seltos","Sportage","Sorento","Carnival"],
-  Ford: ["Ranger","Everest","Focus","Fiesta","Mustang"],
-  Tesla: ["Model 3","Model Y","Model S","Model X"],
-};
-
 const RECENT_MODELS_KEY = "carverity_recent_models_v1";
 
 /* =========================================================
@@ -116,19 +96,16 @@ export default function InPersonVehicleDetails() {
     []
   );
 
-  const makeOptions = useMemo(
-    () =>
-      makeText
-        ? MAKE_SUGGESTIONS.filter(m => ciMatch(m, makeText))
-        : MAKE_SUGGESTIONS,
-    [makeText]
-  );
+  const makeOptions = useMemo(() => {
+    const makes = Object.keys(AU_MAKES_MODELS).sort();
+    return makeText ? makes.filter(m => ciMatch(m, makeText)) : makes;
+  }, [makeText]);
 
   const modelOptions = useMemo(() => {
     const make = norm(makeText);
     const typed = norm(modelText);
     const recent = loadRecentModels()[make] ?? [];
-    const base = MODEL_BY_MAKE[make] ?? [];
+    const base = AU_MAKES_MODELS[make] ?? [];
     const all = Array.from(new Set([...recent, ...base]));
     return typed ? all.filter(m => ciMatch(m, typed)) : all;
   }, [makeText, modelText]);
@@ -213,6 +190,7 @@ export default function InPersonVehicleDetails() {
                 key={m}
                 onClick={() => {
                   setMakeText(m);
+                  setModelText("");
                   setOpen(null);
                 }}
                 className="block w-full px-4 py-2 text-left text-slate-200 hover:bg-slate-900"
