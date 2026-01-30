@@ -1,11 +1,13 @@
-// src/pages/InPersonAnalyzing.tsx
-
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 import { saveScan } from "../utils/scanStorage";
 import { supabase } from "../supabaseClient";
+
+/* =========================================================
+   Helpers
+========================================================= */
 
 function vehicleTitleFromProgress(p: any): string {
   const year = p?.vehicleYear ?? p?.vehicle?.year ?? "";
@@ -15,6 +17,14 @@ function vehicleTitleFromProgress(p: any): string {
   return parts.length ? parts.join(" ") : "In-person inspection";
 }
 
+/**
+ * Canonical credit reference
+ * 🔒 DO NOT CHANGE without migrating ledger logic
+ */
+function creditReferenceForScan(scanId: string) {
+  return `scan:${scanId}`;
+}
+
 async function hasUnlockForScan(scanId: string): Promise<boolean> {
   const {
     data: { user },
@@ -22,7 +32,7 @@ async function hasUnlockForScan(scanId: string): Promise<boolean> {
 
   if (!user) return false;
 
-  const reference = `scan:${scanId}`;
+  const reference = creditReferenceForScan(scanId);
 
   const { data, error } = await supabase
     .from("credit_ledger")
@@ -66,7 +76,6 @@ function stripHeavyFields(progress: any) {
 
 /**
  * Authenticated POST helper
- * 🔑 THIS WAS THE MISSING PIECE
  */
 async function postJsonAuthed<T>(
   url: string,
@@ -96,6 +105,10 @@ async function postJsonAuthed<T>(
     return { ok: false, status: 0, json: null };
   }
 }
+
+/* =========================================================
+   Page
+========================================================= */
 
 export default function InPersonAnalyzing() {
   const navigate = useNavigate();
@@ -136,13 +149,14 @@ export default function InPersonAnalyzing() {
         }
 
         const accessToken = session.access_token;
+        const reference = creditReferenceForScan(scanIdSafe);
 
         const alreadyUnlocked = await hasUnlockForScan(scanIdSafe);
 
         if (!alreadyUnlocked) {
           const attempt = await postJsonAuthed<any>(
             "/api/mark-in-person-scan-completed",
-            { scanId: scanIdSafe },
+            { scanId: scanIdSafe, reference },
             accessToken
           );
 
@@ -154,7 +168,9 @@ export default function InPersonAnalyzing() {
               step: `/scan/in-person/unlock/${scanIdSafe}`,
             });
 
-            navigate(`/scan/in-person/unlock/${scanIdSafe}`, { replace: true });
+            navigate(`/scan/in-person/unlock/${scanIdSafe}`, {
+              replace: true,
+            });
             return;
           }
         }
@@ -167,14 +183,20 @@ export default function InPersonAnalyzing() {
         });
 
         const concernsCount = Array.isArray((analysis as any)?.risks)
-          ? (analysis as any).risks.filter((r: any) => r?.severity !== "info").length
+          ? (analysis as any).risks.filter(
+              (r: any) => r?.severity !== "info"
+            ).length
           : 0;
 
-        const unsureCount = Array.isArray((analysis as any)?.uncertaintyFactors)
+        const unsureCount = Array.isArray(
+          (analysis as any)?.uncertaintyFactors
+        )
           ? (analysis as any).uncertaintyFactors.length
           : 0;
 
-        const imperfectionsCount = Array.isArray(latestProgress?.imperfections)
+        const imperfectionsCount = Array.isArray(
+          latestProgress?.imperfections
+        )
           ? latestProgress.imperfections.length
           : 0;
 
@@ -198,7 +220,8 @@ export default function InPersonAnalyzing() {
           accessToken
         );
 
-        const aiInterpretation = aiResp.ok ? (aiResp.json as any)?.ai : null;
+        const aiInterpretation =
+          aiResp.ok && aiResp.json ? (aiResp.json as any).ai : null;
 
         saveScan({
           id: scanIdSafe,
@@ -242,7 +265,9 @@ export default function InPersonAnalyzing() {
         await new Promise((r) => setTimeout(r, 900));
 
         if (!cancelled) {
-          navigate(`/scan/in-person/results/${scanIdSafe}`, { replace: true });
+          navigate(`/scan/in-person/results/${scanIdSafe}`, {
+            replace: true,
+          });
         }
       } catch (err) {
         console.error("In-person analysis failed:", err);
@@ -265,7 +290,8 @@ export default function InPersonAnalyzing() {
             We couldn’t generate the report
           </h1>
           <p className="text-sm text-slate-400">
-            Your inspection data is safe. Please return to the summary and try again.
+            Your inspection data is safe. Please return to the summary and try
+            again.
           </p>
           <button
             onClick={() => navigate("/scan/in-person/summary")}
@@ -292,7 +318,8 @@ export default function InPersonAnalyzing() {
         <div className="space-y-3">
           <h1 className="text-xl font-semibold">Generating your report</h1>
           <p className="text-sm text-slate-400">
-            We’re weighing observations, uncertainty, and risk signals to prepare your buyer-safe report.
+            We’re weighing observations, uncertainty, and risk signals to
+            prepare your buyer-safe report.
           </p>
         </div>
 
