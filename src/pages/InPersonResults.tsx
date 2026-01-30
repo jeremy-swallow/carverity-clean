@@ -1,3 +1,5 @@
+// src/pages/InPersonResults.tsx
+
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -360,13 +362,42 @@ export default function InPersonResults() {
               {verdictOutcome.verdict.posture}
             </p>
 
-            {/* ===== Narrative interpretation ===== */}
-            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-              This verdict reflects what you actually recorded — not assumptions.
-              It weighs confirmed issues, unknowns you marked, and how complete
-              the inspection was. It’s designed to help you pause, proceed, or
-              clarify with confidence rather than guess.
-            </div>
+            {/* ================= DECISION BRIEF ================= */}
+            <section className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 space-y-3 text-sm text-slate-300">
+              <p className="font-semibold text-white">Decision brief</p>
+
+              <p>
+                This recommendation is based only on what you recorded during
+                the inspection — not seller claims, assumptions, or market hype.
+              </p>
+
+              <ul className="list-disc pl-5 space-y-1">
+                <li>
+                  <span className="font-semibold text-white">
+                    {riskCounts.critical}
+                  </span>{" "}
+                  critical issues identified
+                </li>
+                <li>
+                  <span className="font-semibold text-white">
+                    {riskCounts.moderate}
+                  </span>{" "}
+                  moderate concerns worth clarifying
+                </li>
+                <li>
+                  <span className="font-semibold text-white">
+                    {uncertaintyFactors.length}
+                  </span>{" "}
+                  items marked as uncertain
+                </li>
+              </ul>
+
+              <p>
+                If the key uncertainty below is resolved cleanly, confidence
+                improves and pricing guidance may shift. If it cannot be verified,
+                walking away becomes the safer option.
+              </p>
+            </section>
           </header>
 
           {/* ================= PRINT / SAVE REPORT ================= */}
@@ -381,13 +412,6 @@ export default function InPersonResults() {
               Print / Save report (PDF)
             </button>
           </section>
-
-          {/* ===== Context before next check ===== */}
-          <div className="text-sm text-slate-400 max-w-3xl">
-            Instead of overwhelming you with everything at once, the next section
-            highlights the single thing that would most improve your confidence
-            if clarified.
-          </div>
 
           {/* ================= BEST NEXT CHECK ================= */}
           {bestNext && (() => {
@@ -429,12 +453,6 @@ export default function InPersonResults() {
               </section>
             );
           })()}
-
-          {/* ===== Context before pricing ===== */}
-          <div className="text-sm text-slate-400 max-w-3xl">
-            Price guidance below reflects risk, uncertainty, and inspection
-            confidence — not market hype or seller claims.
-          </div>
 
           {/* ================= PRICE POSITIONING PREVIEW ================= */}
           {pricingSummary && (
