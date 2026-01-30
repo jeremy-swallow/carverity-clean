@@ -102,7 +102,6 @@ export default function InPersonResults() {
 
   const [checkingUnlock, setCheckingUnlock] = useState(true);
   const [unlockError, setUnlockError] = useState<string | null>(null);
-
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
 
   /* -------------------------------------------------------
@@ -194,7 +193,7 @@ export default function InPersonResults() {
     };
   }, [saved, progressFallback]);
 
-  // ✅ ADDITIVE: aiInterpretation stored by InPersonAnalyzing -> saveScan(...)
+  /* ---------------- AI INTERPRETATION ---------------- */
   const aiInterpretation: any = (saved as any)?.aiInterpretation ?? null;
 
   /* -------------------------------------------------------
@@ -362,75 +361,55 @@ export default function InPersonResults() {
               {verdictOutcome.verdict.posture}
             </p>
 
-            {/* ================= DECISION BRIEF ================= */}
-            <section className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 space-y-3 text-sm text-slate-300">
-              <p className="font-semibold text-white">Decision brief</p>
-
-              <p>
-                This recommendation is based only on what you recorded during
-                the inspection — not seller claims, assumptions, or market hype.
-              </p>
-
-              <ul className="list-disc pl-5 space-y-1">
-                <li>
-                  <span className="font-semibold text-white">
-                    {riskCounts.critical}
-                  </span>{" "}
-                  critical issues identified
-                </li>
-                <li>
-                  <span className="font-semibold text-white">
-                    {riskCounts.moderate}
-                  </span>{" "}
-                  moderate concerns worth clarifying
-                </li>
-                <li>
-                  <span className="font-semibold text-white">
-                    {uncertaintyFactors.length}
-                  </span>{" "}
-                  items marked as uncertain
-                </li>
-              </ul>
-
-              <p>
-                If the key uncertainty below is resolved cleanly, confidence
-                improves and pricing guidance may shift. If it cannot be verified,
-                walking away becomes the safer option.
-              </p>
-            </section>
-
-            {/* ================= AI INTERPRETATION (ADDITIVE) ================= */}
-            {aiInterpretation?.summary ? (
-              <section className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-4 space-y-3 text-sm text-slate-300">
+            {/* ================= AI INTERPRETATION ================= */}
+            {aiInterpretation ? (
+              <section className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-5 py-5 space-y-5">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-emerald-300" />
-                  <p className="font-semibold text-white">
-                    AI interpretation (what this means)
-                  </p>
+                  <h2 className="text-sm font-semibold text-white">
+                    Expert interpretation
+                  </h2>
                 </div>
 
-                <p className="whitespace-pre-line leading-relaxed">
-                  {String(aiInterpretation.summary)}
-                </p>
+                <div className="space-y-3 text-sm text-slate-200">
+                  <p className="font-semibold text-white">
+                    {aiInterpretation?.decisionBrief?.headline}
+                  </p>
 
-                {aiInterpretation?.confidenceCode && (
-                  <p className="text-xs text-slate-400">
-                    AI confidence:{" "}
-                    <span className="font-semibold text-white">
-                      {String(aiInterpretation.confidenceCode)}
-                    </span>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {(aiInterpretation?.decisionBrief?.bullets ?? []).map(
+                      (b: string, i: number) => (
+                        <li key={i}>{b}</li>
+                      )
+                    )}
+                  </ul>
+
+                  {aiInterpretation?.decisionBrief?.nextBestAction && (
+                    <p className="text-slate-300">
+                      <span className="font-semibold text-white">
+                        Next best action:
+                      </span>{" "}
+                      {aiInterpretation.decisionBrief.nextBestAction}
+                    </p>
+                  )}
+                </div>
+
+                {aiInterpretation?.whyThisVerdict && (
+                  <p className="text-sm text-slate-300 leading-relaxed">
+                    {aiInterpretation.whyThisVerdict}
                   </p>
                 )}
               </section>
             ) : (
-              <section className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 space-y-2 text-sm text-slate-400">
-                <p className="font-semibold text-white flex items-center gap-2">
+              <section className="rounded-xl border border-white/10 bg-white/5 px-5 py-4 text-sm text-slate-400">
+                <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-slate-300" />
-                  AI interpretation
-                </p>
-                <p>
-                  No AI interpretation was found for this scan yet. If you just
-                  completed the scan, try running the analysis again.
+                  <p className="font-semibold text-white">
+                    Expert interpretation
+                  </p>
+                </div>
+                <p className="mt-2">
+                  No AI interpretation has been generated for this report yet.
                 </p>
               </section>
             )}
