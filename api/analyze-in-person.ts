@@ -1,11 +1,23 @@
 // api/analyze-in-person.ts
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { createClient } from "@supabase/supabase-js";
 
 const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
+const SUPABASE_URL = process.env.SUPABASE_URL as string;
+const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string;
 
 if (!GEMINI_API_KEY) {
   throw new Error("Missing GOOGLE_API_KEY — add it in Vercel env vars.");
 }
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("Missing Supabase service role env vars.");
+}
+
+const supabase = createClient(
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY
+);
 
 /* =========================================================
    Helpers
@@ -100,39 +112,26 @@ Return STRICT JSON ONLY in this shape:
   const json = await res.json();
 
   const rawText =
-    json?.candidates?.[0]?.content?.parts?.[0]?.text ??
-    "";
+    json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
   const parsed = safeJsonParse(String(rawText).trim());
 
-  /* -------------------------------------------------------
-     HARD NORMALIZATION (NO UI GARBAGE ALLOWED)
-  ------------------------------------------------------- */
-
-  const headline =
-    !isGarbageString(parsed?.decisionBrief?.headline)
-      ? cleanSentence(parsed?.decisionBrief?.headline, 120)
-      : "Inspection summary";
-
-  const bullets = cleanStringArray(parsed?.decisionBrief?.bullets, 5);
-
-  const nextBestAction =
-    !isGarbageString(parsed?.decisionBrief?.nextBestAction)
-      ? cleanSentence(parsed?.decisionBrief?.nextBestAction, 200)
-      : "Verify the key uncertainty in writing before proceeding.";
-
-  const whyThisVerdict =
-    !isGarbageString(parsed?.whyThisVerdict)
-      ? cleanSentence(parsed?.whyThisVerdict, 900)
-      : "";
-
   return {
     decisionBrief: {
-      headline,
-      bullets,
-      nextBestAction,
+      headline:
+        !isGarbageString(parsed?.decisionBrief?.headline)
+          ? cleanSentence(parsed?.decisionBrief?.headline, 120)
+          : "Inspection summary",
+      bullets: cleanStringArray(parsed?.decisionBrief?.bullets, 5),
+      nextBestAction:
+        !isGarbageString(parsed?.decisionBrief?.nextBestAction)
+          ? cleanSentence(parsed?.decisionBrief?.nextBestAction, 200)
+          : "Verify the key uncertainty in writing before proceeding.",
     },
-    whyThisVerdict,
+    whyThisVerdict:
+      !isGarbageString(parsed?.whyThisVerdict)
+        ? cleanSentence(parsed?.whyThisVerdict, 900)
+        : "",
     topSignals: {
       positive: cleanStringArray(parsed?.topSignals?.positive, 5),
       concerns: cleanStringArray(parsed?.topSignals?.concerns, 5),
@@ -173,6 +172,23 @@ export default async function handler(
       analysis,
       summary: req.body?.summary ?? null,
     });
+
+    // 🔥 Persist AI into Supabase report
+    const { data: scan } = await supabase
+      .from("scans")
+      .select("report")
+      .eq("scan_id", scanId)
+      .single();
+
+    const nextReport = {
+      ...(scan?.report ?? {}),
+      aiInterpretation: ai,
+    };
+
+    await supabase
+      .from("scans")
+      .update({ report: nextReport })
+      .eq("scan_id", scanId);
 
     return res.status(200).json({
       ok: true,
