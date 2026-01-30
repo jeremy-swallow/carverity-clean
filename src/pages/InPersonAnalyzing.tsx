@@ -2,26 +2,33 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
-import { saveScan } from "../utils/scanStorage";
+import { saveScan, loadScanById } from "../utils/scanStorage";
 import { supabase } from "../supabaseClient";
-import { normaliseInPersonAI, fallbackInPersonAI } from "../utils/inPersonAI";
 
 /* =========================================================
    Helpers
 ========================================================= */
 
 function vehicleTitleFromProgress(p: any): string {
-  const year = p?.vehicleYear ?? "";
-  const make = p?.vehicleMake ?? "";
-  const model = p?.vehicleModel ?? "";
+  const year = p?.vehicleYear ?? p?.vehicle?.year ?? "";
+  const make = p?.vehicleMake ?? p?.vehicle?.make ?? "";
+  const model = p?.vehicleModel ?? p?.vehicle?.model ?? "";
   const parts = [year, make, model].filter(Boolean);
   return parts.length ? parts.join(" ") : "In-person inspection";
 }
 
+/**
+ * Canonical credit reference
+ */
 function creditReferenceForScan(scanId: string) {
   return `scan:${scanId}`;
 }
 
+/**
+ * Remove heavy / incompatible fields before analysis or API calls.
+ * - We no longer rely on base64 `dataUrl`
+ * - Keeps the payload small and stable
+ */
 function stripHeavyFields(progress: any) {
   const p = { ...(progress ?? {}) };
 
@@ -42,9 +49,27 @@ function stripHeavyFields(progress: any) {
     }));
   }
 
+  // Imperfection photos (if present)
+  if (Array.isArray(p.imperfections)) {
+    p.imperfections = p.imperfections.map((imp: any) => ({
+      ...imp,
+      // drop any embedded base64s if they ever appear
+      dataUrl: undefined,
+      photos: Array.isArray(imp?.photos)
+        ? imp.photos.map((ph: any) => ({
+            id: ph?.id,
+            storagePath: ph?.storagePath,
+          }))
+        : imp?.photos,
+    }));
+  }
+
   return p;
 }
 
+/**
+ * Authenticated POST helper
+ */
 async function postJsonAuthed<T>(
   url: string,
   body: any,
@@ -74,13 +99,73 @@ async function postJsonAuthed<T>(
   }
 }
 
+/**
+ * Idempotent AI generation:
+ * - If scan already has aiInterpretation -> do nothing
+ * - Otherwise call /api/analyze-in-person and persist aiInterpretation
+ *
+ * NOTE:
+ * - SavedInspection type may not include aiInterpretation yet, so we treat it as any.
+ */
+async function generateAIIfMissing(args: {
+  scanId: string;
+  accessToken: string;
+  progress: any;
+  analysis: any;
+}) {
+  const { scanId, accessToken, progress, analysis } = args;
+
+  const existingAny = (loadScanById(scanId) as any) ?? null;
+  if (existingAny?.aiInterpretation) return;
+
+  const concernsCount = Array.isArray(analysis?.risks)
+    ? analysis.risks.filter((r: any) => r?.severity !== "info").length
+    : 0;
+
+  const unsureCount = Array.isArray(analysis?.uncertaintyFactors)
+    ? analysis.uncertaintyFactors.length
+    : 0;
+
+  const imperfectionsCount = Array.isArray(progress?.imperfections)
+    ? progress.imperfections.length
+    : 0;
+
+  const photosCount = Array.isArray(progress?.photos) ? progress.photos.length : 0;
+
+  const aiResp = await postJsonAuthed<any>(
+    "/api/analyze-in-person",
+    {
+      scanId,
+      progress: stripHeavyFields(progress),
+      analysis,
+      summary: {
+        concernsCount,
+        unsureCount,
+        imperfectionsCount,
+        photosCount,
+      },
+    },
+    accessToken
+  );
+
+  const aiInterpretation = aiResp.ok && aiResp.json ? (aiResp.json as any).ai : null;
+
+  // Persist even if null (so UI can show a consistent fallback)
+  await saveScan({
+    ...(existingAny ?? {}),
+    id: scanId,
+    type: "in-person",
+    aiInterpretation,
+  } as any);
+}
+
 /* =========================================================
    Page
 ========================================================= */
 
 export default function InPersonAnalyzing() {
   const navigate = useNavigate();
-  const { scanId } = useParams<{ scanId?: string }>();
+  const { scanId } = useParams<{ scanId: string }>();
 
   const [status, setStatus] = useState<"loading" | "error">("loading");
 
@@ -119,14 +204,16 @@ export default function InPersonAnalyzing() {
         const accessToken = session.access_token;
         const reference = creditReferenceForScan(scanIdSafe);
 
-        // ALWAYS attempt to spend 1 credit
-        const attempt = await postJsonAuthed<any>(
+        /* --------------------------------------------------
+           Attempt credit spend (server should be idempotent)
+        -------------------------------------------------- */
+        const creditAttempt = await postJsonAuthed<any>(
           "/api/mark-in-person-scan-completed",
           { scanId: scanIdSafe, reference },
           accessToken
         );
 
-        if (!attempt.ok || attempt.status === 402) {
+        if (!creditAttempt.ok || creditAttempt.status === 402) {
           saveProgress({
             ...(loadProgress() ?? {}),
             type: "in-person",
@@ -134,56 +221,78 @@ export default function InPersonAnalyzing() {
             step: `/scan/in-person/unlock/${scanIdSafe}`,
           });
 
-          navigate(`/scan/in-person/unlock/${scanIdSafe}`, { replace: true });
+          navigate(`/scan/in-person/unlock/${scanIdSafe}`, {
+            replace: true,
+          });
           return;
         }
 
+        /* --------------------------------------------------
+           Deterministic analysis (always safe to run)
+           NOTE: analysis typing may still expect dataUrl -> cast boundary to any.
+        -------------------------------------------------- */
         const latestProgress: any = loadProgress() ?? progress;
 
-        // TS note:
-        // analyseInPersonInspection's type may still expect legacy photo shapes (dataUrl).
-        // Runtime is fine — pass as any to avoid type mismatch.
-        const analysis: any = analyseInPersonInspection({
-          ...(latestProgress as any),
+        const analysis = analyseInPersonInspection({
+          ...(stripHeavyFields(latestProgress) ?? {}),
           scanId: scanIdSafe,
         } as any);
 
-        const aiResp = await postJsonAuthed<any>(
-          "/api/analyze-in-person",
-          {
-            scanId: scanIdSafe,
-            progress: stripHeavyFields(latestProgress),
-            analysis,
-          },
-          accessToken
-        );
+        /* --------------------------------------------------
+           Persist scan (analysis)
+        -------------------------------------------------- */
+        const existingAny = (loadScanById(scanIdSafe) as any) ?? null;
 
-        const aiInterpretation =
-          normaliseInPersonAI(aiResp.json?.ai) ?? fallbackInPersonAI(analysis);
-
-        saveScan({
+        await saveScan({
+          ...(existingAny ?? {}),
           id: scanIdSafe,
           type: "in-person",
           title: vehicleTitleFromProgress(latestProgress),
-          createdAt: new Date().toISOString(),
+          createdAt: existingAny?.createdAt ?? new Date().toISOString(),
+          vehicle: {
+            year: latestProgress?.vehicleYear
+              ? String(latestProgress.vehicleYear)
+              : undefined,
+            make: latestProgress?.vehicleMake,
+            model: latestProgress?.vehicleModel,
+            variant: latestProgress?.vehicleVariant,
+          },
+          thumbnail: existingAny?.thumbnail ?? null,
+          askingPrice:
+            typeof latestProgress?.askingPrice === "number"
+              ? latestProgress.askingPrice
+              : existingAny?.askingPrice ?? null,
           completed: true,
           analysis,
           progressSnapshot: latestProgress,
-          aiInterpretation,
         } as any);
+
+        /* --------------------------------------------------
+           AI generation (idempotent)
+        -------------------------------------------------- */
+        await generateAIIfMissing({
+          scanId: scanIdSafe,
+          accessToken,
+          progress: latestProgress,
+          analysis,
+        });
 
         saveProgress({
           ...(loadProgress() ?? {}),
           type: "in-person",
           scanId: scanIdSafe,
-          step: "/scan/in-person/summary",
+          step: "/scan/in-person/results",
         });
 
+        await new Promise((r) => setTimeout(r, 600));
+
         if (!cancelled) {
-          navigate(`/scan/in-person/results/${scanIdSafe}`, { replace: true });
+          navigate(`/scan/in-person/results/${scanIdSafe}`, {
+            replace: true,
+          });
         }
       } catch (err) {
-        console.error("In-person analysis failed:", err);
+        console.error("[InPersonAnalyzing] failed:", err);
         if (!cancelled) setStatus("error");
       }
     }
@@ -199,9 +308,7 @@ export default function InPersonAnalyzing() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100 px-6">
         <div className="max-w-md text-center space-y-4">
-          <h1 className="text-xl font-semibold">
-            We couldn’t generate the report
-          </h1>
+          <h1 className="text-xl font-semibold">We couldn’t generate the report</h1>
           <p className="text-sm text-slate-400">
             Your inspection data is safe. Please return to the summary and try
             again.
@@ -231,14 +338,12 @@ export default function InPersonAnalyzing() {
         <div className="space-y-3">
           <h1 className="text-xl font-semibold">Generating your report</h1>
           <p className="text-sm text-slate-400">
-            We’re weighing observations, uncertainty, and risk signals to
-            prepare your buyer-safe report.
+            We’re analysing what you recorded and preparing a buyer-safe
+            explanation.
           </p>
         </div>
 
-        <p className="text-xs text-slate-500">
-          This usually takes around 10 seconds.
-        </p>
+        <p className="text-xs text-slate-500">This usually takes around 10 seconds.</p>
       </div>
     </div>
   );
