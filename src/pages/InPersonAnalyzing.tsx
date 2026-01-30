@@ -45,6 +45,57 @@ async function hasUnlockForScan(scanId: string): Promise<boolean> {
   return Array.isArray(data) && data.length > 0;
 }
 
+/**
+ * Remove heavy fields (like base64 photo data) before sending to API.
+ * This keeps request sizes safe and avoids slow / failed requests.
+ */
+function stripHeavyFields(progress: any) {
+  const p = { ...(progress ?? {}) };
+
+  if (Array.isArray(p.photos)) {
+    p.photos = p.photos.map((ph: any) => ({
+      id: ph?.id,
+      stepId: ph?.stepId,
+      // DO NOT send dataUrl
+    }));
+  }
+
+  if (Array.isArray(p.followUpPhotos)) {
+    p.followUpPhotos = p.followUpPhotos.map((ph: any) => ({
+      id: ph?.id,
+      stepId: ph?.stepId,
+      note: ph?.note,
+      // DO NOT send dataUrl
+    }));
+  }
+
+  return p;
+}
+
+async function postJson<T>(url: string, body: any): Promise<{ ok: boolean; status: number; json: T | null }> {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+    });
+
+    const status = res.status;
+
+    let json: any = null;
+    try {
+      json = await res.json();
+    } catch {
+      json = null;
+    }
+
+    return { ok: res.ok, status, json };
+  } catch (err) {
+    console.error("[Analyzing] postJson failed:", url, err);
+    return { ok: false, status: 0, json: null };
+  }
+}
+
 export default function InPersonAnalyzing() {
   const navigate = useNavigate();
   const { scanId } = useParams<{ scanId: string }>();
@@ -86,18 +137,33 @@ export default function InPersonAnalyzing() {
           return;
         }
 
-        // 🔒 Enforce unlock BEFORE generating report
-        const unlocked = await hasUnlockForScan(scanIdSafe);
-        if (!unlocked) {
-          saveProgress({
-            ...(loadProgress() ?? {}),
-            type: "in-person",
+        // 1) If already unlocked, proceed.
+        // 2) If not unlocked, attempt to consume 1 credit (server-side) and create unlock ledger entry.
+        //    If insufficient credits, route to unlock page.
+        const alreadyUnlocked = await hasUnlockForScan(scanIdSafe);
+
+        if (!alreadyUnlocked) {
+          const attempt = await postJson<any>("/api/mark-in-person-scan-completed", {
             scanId: scanIdSafe,
-            step: `/scan/in-person/unlock/${scanIdSafe}`,
           });
 
-          navigate(`/scan/in-person/unlock/${scanIdSafe}`, { replace: true });
-          return;
+          // If server says no / insufficient, route to unlock
+          const explicitInsufficient =
+            (attempt.json as any)?.error === "insufficient_credits" ||
+            (attempt.json as any)?.error === "not_enough_credits" ||
+            (attempt.json as any)?.code === "insufficient_credits";
+
+          if (!attempt.ok || explicitInsufficient || attempt.status === 402 || attempt.status === 403) {
+            saveProgress({
+              ...(loadProgress() ?? {}),
+              type: "in-person",
+              scanId: scanIdSafe,
+              step: `/scan/in-person/unlock/${scanIdSafe}`,
+            });
+
+            navigate(`/scan/in-person/unlock/${scanIdSafe}`, { replace: true });
+            return;
+          }
         }
 
         const latestProgress: any = loadProgress() ?? progress;
@@ -108,8 +174,8 @@ export default function InPersonAnalyzing() {
           scanId: scanIdSafe,
         });
 
-        const concernsCount = Array.isArray(analysis?.risks)
-          ? analysis.risks.filter((r: any) => r?.severity !== "info").length
+        const concernsCount = Array.isArray((analysis as any)?.risks)
+          ? (analysis as any).risks.filter((r: any) => r?.severity !== "info").length
           : 0;
 
         const unsureCount = Array.isArray((analysis as any)?.uncertaintyFactors)
@@ -124,6 +190,24 @@ export default function InPersonAnalyzing() {
           ? latestProgress.photos.length
           : 0;
 
+        // Call Gemini interpretation for in-person scan (adds paid value)
+        // Send a stripped snapshot to avoid base64 payloads
+        const aiRequest = {
+          scanId: scanIdSafe,
+          progress: stripHeavyFields(latestProgress),
+          analysis,
+          summary: {
+            concernsCount,
+            unsureCount,
+            imperfectionsCount,
+            photosCount,
+          },
+        };
+
+        const aiResp = await postJson<any>("/api/analyze-in-person", aiRequest);
+
+        const aiInterpretation = aiResp.ok ? (aiResp.json as any)?.ai : null;
+
         // IMPORTANT:
         // DO NOT store base64 images in localStorage (quota will be exceeded).
         // Thumbnail must be null unless you generate a tiny compressed one.
@@ -133,22 +217,14 @@ export default function InPersonAnalyzing() {
           title: vehicleTitleFromProgress(latestProgress),
           createdAt: new Date().toISOString(),
           vehicle: {
-            year: latestProgress?.vehicleYear
-              ? String(latestProgress.vehicleYear)
-              : undefined,
+            year: latestProgress?.vehicleYear ? String(latestProgress.vehicleYear) : undefined,
             make: latestProgress?.vehicleMake,
             model: latestProgress?.vehicleModel,
             variant: latestProgress?.vehicleVariant,
           },
           thumbnail: null,
-          askingPrice:
-            typeof latestProgress?.askingPrice === "number"
-              ? latestProgress.askingPrice
-              : null,
-          score:
-            typeof analysis?.confidenceScore === "number"
-              ? analysis.confidenceScore
-              : null,
+          askingPrice: typeof latestProgress?.askingPrice === "number" ? latestProgress.askingPrice : null,
+          score: typeof (analysis as any)?.confidenceScore === "number" ? (analysis as any).confidenceScore : null,
           concerns: concernsCount,
           unsure: unsureCount,
           imperfectionsCount,
@@ -160,10 +236,22 @@ export default function InPersonAnalyzing() {
               at: new Date().toISOString(),
               event: "report_generated",
             },
+            ...(aiInterpretation
+              ? [
+                  {
+                    at: new Date().toISOString(),
+                    event: "ai_interpretation_generated",
+                  },
+                ]
+              : []),
           ],
           analysis,
           progressSnapshot: latestProgress,
-        });
+
+          // Additive only: new field to power richer results page
+          // (safe even if UI doesn't render it yet)
+          aiInterpretation,
+        } as any);
 
         // IMPORTANT:
         // Do NOT set resume step to results.
@@ -198,12 +286,9 @@ export default function InPersonAnalyzing() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100 px-6">
         <div className="max-w-md text-center space-y-4">
-          <h1 className="text-xl font-semibold">
-            We couldn’t generate the report
-          </h1>
+          <h1 className="text-xl font-semibold">We couldn’t generate the report</h1>
           <p className="text-sm text-slate-400">
-            Your inspection data is safe. Please return to the summary and try
-            again.
+            Your inspection data is safe. Please return to the summary and try again.
           </p>
           <button
             onClick={() => navigate("/scan/in-person/summary")}
@@ -230,14 +315,11 @@ export default function InPersonAnalyzing() {
         <div className="space-y-3">
           <h1 className="text-xl font-semibold">Generating your report</h1>
           <p className="text-sm text-slate-400">
-            We’re weighing observations, uncertainty, and risk signals to
-            prepare your buyer-safe report.
+            We’re weighing observations, uncertainty, and risk signals to prepare your buyer-safe report.
           </p>
         </div>
 
-        <p className="text-xs text-slate-500">
-          This usually takes around 10 seconds.
-        </p>
+        <p className="text-xs text-slate-500">This usually takes around 10 seconds.</p>
       </div>
     </div>
   );
