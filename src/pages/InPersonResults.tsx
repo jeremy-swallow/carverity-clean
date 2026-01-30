@@ -13,6 +13,7 @@ import {
   Flag,
   Info,
   Printer,
+  Sparkles,
 } from "lucide-react";
 
 import { supabase } from "../supabaseClient";
@@ -192,6 +193,9 @@ export default function InPersonResults() {
       ...(saved?.progressSnapshot ?? {}),
     };
   }, [saved, progressFallback]);
+
+  // ✅ ADDITIVE: aiInterpretation stored by InPersonAnalyzing -> saveScan(...)
+  const aiInterpretation: any = (saved as any)?.aiInterpretation ?? null;
 
   /* -------------------------------------------------------
      ANALYSIS
@@ -394,14 +398,48 @@ export default function InPersonResults() {
                 walking away becomes the safer option.
               </p>
             </section>
+
+            {/* ================= AI INTERPRETATION (ADDITIVE) ================= */}
+            {aiInterpretation?.summary ? (
+              <section className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-4 space-y-3 text-sm text-slate-300">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-emerald-300" />
+                  <p className="font-semibold text-white">
+                    AI interpretation (what this means)
+                  </p>
+                </div>
+
+                <p className="whitespace-pre-line leading-relaxed">
+                  {String(aiInterpretation.summary)}
+                </p>
+
+                {aiInterpretation?.confidenceCode && (
+                  <p className="text-xs text-slate-400">
+                    AI confidence:{" "}
+                    <span className="font-semibold text-white">
+                      {String(aiInterpretation.confidenceCode)}
+                    </span>
+                  </p>
+                )}
+              </section>
+            ) : (
+              <section className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 space-y-2 text-sm text-slate-400">
+                <p className="font-semibold text-white flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-slate-300" />
+                  AI interpretation
+                </p>
+                <p>
+                  No AI interpretation was found for this scan yet. If you just
+                  completed the scan, try running the analysis again.
+                </p>
+              </section>
+            )}
           </header>
 
           {/* ================= PRINT ================= */}
           <section className="rounded-2xl border border-white/15 bg-slate-900/60 px-5 py-4">
             <button
-              onClick={() =>
-                navigate(`/scan/in-person/print/${scanIdSafe}`)
-              }
+              onClick={() => navigate(`/scan/in-person/print/${scanIdSafe}`)}
               className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-slate-100"
             >
               <Printer className="h-4 w-4" />
@@ -410,41 +448,39 @@ export default function InPersonResults() {
           </section>
 
           {/* ================= BEST NEXT ================= */}
-          {bestNext && (() => {
-            const s = nextCheckToneStyles(bestNext.tone);
+          {bestNext &&
+            (() => {
+              const s = nextCheckToneStyles(bestNext.tone);
 
-            return (
-              <section
-                className={[
-                  "rounded-2xl border px-5 py-5 space-y-4",
-                  s.wrap,
-                ].join(" ")}
-              >
-                <div className="flex items-center gap-2 text-slate-200">
-                  <Flag className={["h-4 w-4", s.icon].join(" ")} />
-                  <h2 className="text-sm font-semibold">
-                    What will improve your position most
-                  </h2>
-                </div>
-
-                <p className="text-sm text-slate-200">
-                  {bestNext.text}
-                </p>
-
-                <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 space-y-2">
-                  <div className="flex items-start gap-2 text-sm">
-                    <Info className="h-4 w-4 mt-0.5 text-slate-300" />
-                    <span className="text-slate-300">{s.why}</span>
+              return (
+                <section
+                  className={["rounded-2xl border px-5 py-5 space-y-4", s.wrap].join(
+                    " "
+                  )}
+                >
+                  <div className="flex items-center gap-2 text-slate-200">
+                    <Flag className={["h-4 w-4", s.icon].join(" ")} />
+                    <h2 className="text-sm font-semibold">
+                      What will improve your position most
+                    </h2>
                   </div>
 
-                  <div className="flex items-start gap-2 text-sm">
-                    <ArrowRight className="h-4 w-4 mt-0.5 text-slate-300" />
-                    <span className="text-slate-300">{s.after}</span>
+                  <p className="text-sm text-slate-200">{bestNext.text}</p>
+
+                  <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 space-y-2">
+                    <div className="flex items-start gap-2 text-sm">
+                      <Info className="h-4 w-4 mt-0.5 text-slate-300" />
+                      <span className="text-slate-300">{s.why}</span>
+                    </div>
+
+                    <div className="flex items-start gap-2 text-sm">
+                      <ArrowRight className="h-4 w-4 mt-0.5 text-slate-300" />
+                      <span className="text-slate-300">{s.after}</span>
+                    </div>
                   </div>
-                </div>
-              </section>
-            );
-          })()}
+                </section>
+              );
+            })()}
 
           {/* ================= PRICING ================= */}
           {pricingSummary && (
@@ -514,9 +550,7 @@ export default function InPersonResults() {
           <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
             <div className="flex items-center gap-2 text-slate-200">
               <ShieldCheck className="h-4 w-4 text-emerald-300" />
-              <h2 className="text-sm font-semibold">
-                Decision & next steps
-              </h2>
+              <h2 className="text-sm font-semibold">Decision & next steps</h2>
             </div>
 
             <p className="text-sm text-slate-300">
@@ -525,9 +559,7 @@ export default function InPersonResults() {
             </p>
 
             <button
-              onClick={() =>
-                navigate("/scan/in-person/decision/" + scanIdSafe)
-              }
+              onClick={() => navigate("/scan/in-person/decision/" + scanIdSafe)}
               className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-slate-100"
             >
               Open decision guide
