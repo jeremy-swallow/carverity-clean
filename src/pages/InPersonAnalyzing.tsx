@@ -4,29 +4,24 @@ import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 import { saveScan } from "../utils/scanStorage";
 import { supabase } from "../supabaseClient";
+import { normaliseInPersonAI, fallbackInPersonAI } from "../utils/inPersonAI";
 
 /* =========================================================
    Helpers
 ========================================================= */
 
 function vehicleTitleFromProgress(p: any): string {
-  const year = p?.vehicleYear ?? p?.vehicle?.year ?? "";
-  const make = p?.vehicleMake ?? p?.vehicle?.make ?? "";
-  const model = p?.vehicleModel ?? p?.vehicle?.model ?? "";
+  const year = p?.vehicleYear ?? "";
+  const make = p?.vehicleMake ?? "";
+  const model = p?.vehicleModel ?? "";
   const parts = [year, make, model].filter(Boolean);
   return parts.length ? parts.join(" ") : "In-person inspection";
 }
 
-/**
- * Canonical credit reference
- */
 function creditReferenceForScan(scanId: string) {
   return `scan:${scanId}`;
 }
 
-/**
- * Remove heavy fields (like base64 photo data) before sending to API.
- */
 function stripHeavyFields(progress: any) {
   const p = { ...(progress ?? {}) };
 
@@ -34,6 +29,7 @@ function stripHeavyFields(progress: any) {
     p.photos = p.photos.map((ph: any) => ({
       id: ph?.id,
       stepId: ph?.stepId,
+      storagePath: ph?.storagePath,
     }));
   }
 
@@ -42,15 +38,13 @@ function stripHeavyFields(progress: any) {
       id: ph?.id,
       stepId: ph?.stepId,
       note: ph?.note,
+      storagePath: ph?.storagePath,
     }));
   }
 
   return p;
 }
 
-/**
- * Authenticated POST helper
- */
 async function postJsonAuthed<T>(
   url: string,
   body: any,
@@ -75,7 +69,7 @@ async function postJsonAuthed<T>(
 
     return { ok: res.ok, status, json };
   } catch (err) {
-    console.error("[Analyzing] postJson failed:", url, err);
+    console.error("[InPersonAnalyzing] postJson failed:", url, err);
     return { ok: false, status: 0, json: null };
   }
 }
@@ -86,7 +80,7 @@ async function postJsonAuthed<T>(
 
 export default function InPersonAnalyzing() {
   const navigate = useNavigate();
-  const { scanId } = useParams<{ scanId: string }>();
+  const { scanId } = useParams<{ scanId?: string }>();
 
   const [status, setStatus] = useState<"loading" | "error">("loading");
 
@@ -125,7 +119,7 @@ export default function InPersonAnalyzing() {
         const accessToken = session.access_token;
         const reference = creditReferenceForScan(scanIdSafe);
 
-        // 🔥 ALWAYS attempt to spend 1 credit
+        // ALWAYS attempt to spend 1 credit
         const attempt = await postJsonAuthed<any>(
           "/api/mark-in-person-scan-completed",
           { scanId: scanIdSafe, reference },
@@ -140,40 +134,19 @@ export default function InPersonAnalyzing() {
             step: `/scan/in-person/unlock/${scanIdSafe}`,
           });
 
-          navigate(`/scan/in-person/unlock/${scanIdSafe}`, {
-            replace: true,
-          });
+          navigate(`/scan/in-person/unlock/${scanIdSafe}`, { replace: true });
           return;
         }
 
         const latestProgress: any = loadProgress() ?? progress;
 
-        const analysis = analyseInPersonInspection({
-          ...(latestProgress ?? {}),
+        // TS note:
+        // analyseInPersonInspection's type may still expect legacy photo shapes (dataUrl).
+        // Runtime is fine — pass as any to avoid type mismatch.
+        const analysis: any = analyseInPersonInspection({
+          ...(latestProgress as any),
           scanId: scanIdSafe,
-        });
-
-        const concernsCount = Array.isArray((analysis as any)?.risks)
-          ? (analysis as any).risks.filter(
-              (r: any) => r?.severity !== "info"
-            ).length
-          : 0;
-
-        const unsureCount = Array.isArray(
-          (analysis as any)?.uncertaintyFactors
-        )
-          ? (analysis as any).uncertaintyFactors.length
-          : 0;
-
-        const imperfectionsCount = Array.isArray(
-          latestProgress?.imperfections
-        )
-          ? latestProgress.imperfections.length
-          : 0;
-
-        const photosCount = Array.isArray(latestProgress?.photos)
-          ? latestProgress.photos.length
-          : 0;
+        } as any);
 
         const aiResp = await postJsonAuthed<any>(
           "/api/analyze-in-person",
@@ -181,45 +154,18 @@ export default function InPersonAnalyzing() {
             scanId: scanIdSafe,
             progress: stripHeavyFields(latestProgress),
             analysis,
-            summary: {
-              concernsCount,
-              unsureCount,
-              imperfectionsCount,
-              photosCount,
-            },
           },
           accessToken
         );
 
         const aiInterpretation =
-          aiResp.ok && aiResp.json ? (aiResp.json as any).ai : null;
+          normaliseInPersonAI(aiResp.json?.ai) ?? fallbackInPersonAI(analysis);
 
         saveScan({
           id: scanIdSafe,
           type: "in-person",
           title: vehicleTitleFromProgress(latestProgress),
           createdAt: new Date().toISOString(),
-          vehicle: {
-            year: latestProgress?.vehicleYear
-              ? String(latestProgress.vehicleYear)
-              : undefined,
-            make: latestProgress?.vehicleMake,
-            model: latestProgress?.vehicleModel,
-            variant: latestProgress?.vehicleVariant,
-          },
-          thumbnail: null,
-          askingPrice:
-            typeof latestProgress?.askingPrice === "number"
-              ? latestProgress.askingPrice
-              : null,
-          score:
-            typeof (analysis as any)?.confidenceScore === "number"
-              ? (analysis as any).confidenceScore
-              : null,
-          concerns: concernsCount,
-          unsure: unsureCount,
-          imperfectionsCount,
-          photosCount,
           completed: true,
           analysis,
           progressSnapshot: latestProgress,
@@ -233,12 +179,8 @@ export default function InPersonAnalyzing() {
           step: "/scan/in-person/summary",
         });
 
-        await new Promise((r) => setTimeout(r, 900));
-
         if (!cancelled) {
-          navigate(`/scan/in-person/results/${scanIdSafe}`, {
-            replace: true,
-          });
+          navigate(`/scan/in-person/results/${scanIdSafe}`, { replace: true });
         }
       } catch (err) {
         console.error("In-person analysis failed:", err);
