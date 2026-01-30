@@ -63,8 +63,6 @@ function cleanStringArray(arr: unknown, maxItems: number): string[] {
 ========================================================= */
 
 async function callGeminiJSON(payload: any) {
-  const bodyText = JSON.stringify(payload);
-
   const prompt = `
 You are an expert used-car buyer assistant writing an in-person inspection report interpretation.
 
@@ -102,7 +100,7 @@ Return STRICT JSON ONLY in this shape:
       body: JSON.stringify({
         contents: [
           { role: "user", parts: [{ text: prompt.trim() }] },
-          { role: "user", parts: [{ text: bodyText }] },
+          { role: "user", parts: [{ text: JSON.stringify(payload) }] },
         ],
         generationConfig: { temperature: 0.35 },
       }),
@@ -110,7 +108,6 @@ Return STRICT JSON ONLY in this shape:
   );
 
   const json = await res.json();
-
   const rawText =
     json?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
@@ -126,7 +123,7 @@ Return STRICT JSON ONLY in this shape:
       nextBestAction:
         !isGarbageString(parsed?.decisionBrief?.nextBestAction)
           ? cleanSentence(parsed?.decisionBrief?.nextBestAction, 200)
-          : "Verify the key uncertainty in writing before proceeding.",
+          : "Verify the key uncertainty before proceeding.",
     },
     whyThisVerdict:
       !isGarbageString(parsed?.whyThisVerdict)
@@ -159,12 +156,29 @@ export default async function handler(
     const progress = req.body?.progress ?? null;
     const analysis = req.body?.analysis ?? null;
 
-    if (!scanId)
-      return res.status(400).json({ ok: false, error: "missing-scanId" });
-    if (!progress)
-      return res.status(400).json({ ok: false, error: "missing-progress" });
-    if (!analysis)
-      return res.status(400).json({ ok: false, error: "missing-analysis" });
+    if (!scanId || !progress || !analysis) {
+      return res.status(400).json({ ok: false });
+    }
+
+    // Fetch existing scan
+    const { data: scan, error } = await supabase
+      .from("scans")
+      .select("*")
+      .eq("scan_id", scanId)
+      .single();
+
+    if (error || !scan) {
+      return res.status(404).json({ ok: false, error: "scan-not-found" });
+    }
+
+    // Do not regenerate if AI already exists
+    if (scan.report?.aiInterpretation) {
+      return res.status(200).json({
+        ok: true,
+        scanId,
+        ai: scan.report.aiInterpretation,
+      });
+    }
 
     const ai = await callGeminiJSON({
       scanId,
@@ -173,21 +187,15 @@ export default async function handler(
       summary: req.body?.summary ?? null,
     });
 
-    // 🔥 Persist AI into Supabase report
-    const { data: scan } = await supabase
-      .from("scans")
-      .select("report")
-      .eq("scan_id", scanId)
-      .single();
-
-    const nextReport = {
-      ...(scan?.report ?? {}),
-      aiInterpretation: ai,
-    };
-
+    // Persist AI into report
     await supabase
       .from("scans")
-      .update({ report: nextReport })
+      .update({
+        report: {
+          ...(scan.report ?? {}),
+          aiInterpretation: ai,
+        },
+      })
       .eq("scan_id", scanId);
 
     return res.status(200).json({
@@ -197,9 +205,6 @@ export default async function handler(
     });
   } catch (err: any) {
     console.error("analyze-in-person error", err);
-    return res.status(500).json({
-      ok: false,
-      error: err?.message ?? "internal-error",
-    });
+    return res.status(500).json({ ok: false });
   }
 }
