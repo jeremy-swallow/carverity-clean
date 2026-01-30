@@ -12,6 +12,7 @@ import {
   BadgeDollarSign,
   Flag,
   Info,
+  Printer, // ✅ ADDED
 } from "lucide-react";
 
 import { supabase } from "../supabaseClient";
@@ -21,7 +22,10 @@ import { loadScanById } from "../utils/scanStorage";
 
 /* ================= split logic ================= */
 import { resolvePhotoUrls } from "./inPersonResults/photoLogic";
-import { buildVerdictOutcome, countRisksBySeverity } from "./inPersonResults/verdictLogic";
+import {
+  buildVerdictOutcome,
+  countRisksBySeverity,
+} from "./inPersonResults/verdictLogic";
 import { extractUncertaintyFactors } from "./inPersonResults/evidenceLogic";
 import { RESULTS_COPY } from "./inPersonResults/copy";
 
@@ -357,7 +361,20 @@ export default function InPersonResults() {
             </p>
           </header>
 
-          {/* ================= BEST NEXT CHECK (POLISHED) ================= */}
+          {/* ================= PRINT / SAVE REPORT ================= */}
+          <section className="rounded-2xl border border-white/15 bg-slate-900/60 px-5 py-4">
+            <button
+              onClick={() =>
+                navigate(`/scan/in-person/print/${scanIdSafe}`)
+              }
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-slate-100"
+            >
+              <Printer className="h-4 w-4" />
+              Print / Save report (PDF)
+            </button>
+          </section>
+
+          {/* ================= BEST NEXT CHECK ================= */}
           {bestNext && (() => {
             const s = nextCheckToneStyles(bestNext.tone);
 
