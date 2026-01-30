@@ -19,31 +19,51 @@ function safeJsonParse(text: string): any {
   }
 }
 
-function clampString(s: unknown, max: number) {
-  if (typeof s !== "string") return "";
-  if (s.length <= max) return s;
-  return s.slice(0, max);
+function isGarbageString(value: unknown) {
+  if (typeof value !== "string") return false;
+  const t = value.trim();
+  return (
+    t.startsWith("{") ||
+    t.startsWith("```") ||
+    t.startsWith("json") ||
+    t.includes('"decisionBrief"') ||
+    t.length < 3
+  );
 }
 
+function cleanSentence(value: unknown, max = 400): string {
+  if (typeof value !== "string") return "";
+  let s = value.replace(/```/g, "").trim();
+  if (s.length > max) s = s.slice(0, max);
+  return s;
+}
+
+function cleanStringArray(arr: unknown, maxItems: number): string[] {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .filter((x) => typeof x === "string" && !isGarbageString(x))
+    .map((x) => cleanSentence(x, 300))
+    .slice(0, maxItems);
+}
+
+/* =========================================================
+   Gemini call
+========================================================= */
+
 async function callGeminiJSON(payload: any) {
-  // Keep request small + predictable
   const bodyText = JSON.stringify(payload);
 
   const prompt = `
-You are an expert used-car buyer assistant writing an "in-person inspection report interpretation".
+You are an expert used-car buyer assistant writing an in-person inspection report interpretation.
 
-You will receive:
-- A structured rules-based analysis object (verdict, risks, confidence score, etc.)
-- A progress snapshot (imperfections, notes, unsure items, etc.) with heavy fields removed
+Rules:
+- Explain ONLY what is present in the input
+- Never invent issues
+- Never include JSON or code in text fields
+- Use calm, buyer-safe language
+- Short, specific, practical
 
-Your job:
-- Explain the verdict in buyer-safe language
-- Make it feel worth paying for (specific, grounded, not generic)
-- Never hallucinate. If something isn't in the input, say it's unknown.
-- Refer only to what was recorded. Do NOT introduce extra problems.
-- Keep it calm, decisive, and practical.
-
-Return STRICT JSON ONLY with this shape:
+Return STRICT JSON ONLY in this shape:
 {
   "decisionBrief": {
     "headline": string,
@@ -51,7 +71,11 @@ Return STRICT JSON ONLY with this shape:
     "nextBestAction": string
   },
   "whyThisVerdict": string,
-  "topSignals": { "positive": string[], "concerns": string[], "unknowns": string[] },
+  "topSignals": {
+    "positive": string[],
+    "concerns": string[],
+    "unknowns": string[]
+  },
   "questionsToAskSeller": string[],
   "confidenceNote": string
 }
@@ -68,69 +92,57 @@ Return STRICT JSON ONLY with this shape:
           { role: "user", parts: [{ text: prompt.trim() }] },
           { role: "user", parts: [{ text: bodyText }] },
         ],
-        generationConfig: {
-          temperature: 0.4,
-        },
+        generationConfig: { temperature: 0.35 },
       }),
     }
   );
 
   const json = await res.json();
 
-  const text =
+  const rawText =
     json?.candidates?.[0]?.content?.parts?.[0]?.text ??
-    json?.candidates?.[0]?.content?.parts?.[0]?.data ??
     "";
 
-  const parsed = safeJsonParse(String(text).trim());
+  const parsed = safeJsonParse(String(rawText).trim());
 
-  // If Gemini returns non-JSON, fallback into a minimal structure
-  if (!parsed || typeof parsed !== "object") {
-    return {
-      decisionBrief: {
-        headline: "Report interpretation",
-        bullets: [clampString(text, 320)],
-        nextBestAction: "Review the key uncertainties and verify them in writing.",
-      },
-      whyThisVerdict: clampString(text, 900),
-      topSignals: { positive: [], concerns: [], unknowns: [] },
-      questionsToAskSeller: [],
-      confidenceNote: "AI output was not structured. Showing raw summary.",
-      _raw: clampString(text, 2000),
-    };
-  }
+  /* -------------------------------------------------------
+     HARD NORMALIZATION (NO UI GARBAGE ALLOWED)
+  ------------------------------------------------------- */
 
-  // Normalize fields to be safe
+  const headline =
+    !isGarbageString(parsed?.decisionBrief?.headline)
+      ? cleanSentence(parsed?.decisionBrief?.headline, 120)
+      : "Inspection summary";
+
+  const bullets = cleanStringArray(parsed?.decisionBrief?.bullets, 5);
+
+  const nextBestAction =
+    !isGarbageString(parsed?.decisionBrief?.nextBestAction)
+      ? cleanSentence(parsed?.decisionBrief?.nextBestAction, 200)
+      : "Verify the key uncertainty in writing before proceeding.";
+
+  const whyThisVerdict =
+    !isGarbageString(parsed?.whyThisVerdict)
+      ? cleanSentence(parsed?.whyThisVerdict, 900)
+      : "";
+
   return {
     decisionBrief: {
-      headline:
-        typeof parsed?.decisionBrief?.headline === "string"
-          ? parsed.decisionBrief.headline
-          : "Decision brief",
-      bullets: Array.isArray(parsed?.decisionBrief?.bullets)
-        ? parsed.decisionBrief.bullets.filter((b: any) => typeof b === "string").slice(0, 6)
-        : [],
-      nextBestAction:
-        typeof parsed?.decisionBrief?.nextBestAction === "string"
-          ? parsed.decisionBrief.nextBestAction
-          : "",
+      headline,
+      bullets,
+      nextBestAction,
     },
-    whyThisVerdict: typeof parsed?.whyThisVerdict === "string" ? parsed.whyThisVerdict : "",
+    whyThisVerdict,
     topSignals: {
-      positive: Array.isArray(parsed?.topSignals?.positive)
-        ? parsed.topSignals.positive.filter((x: any) => typeof x === "string").slice(0, 6)
-        : [],
-      concerns: Array.isArray(parsed?.topSignals?.concerns)
-        ? parsed.topSignals.concerns.filter((x: any) => typeof x === "string").slice(0, 6)
-        : [],
-      unknowns: Array.isArray(parsed?.topSignals?.unknowns)
-        ? parsed.topSignals.unknowns.filter((x: any) => typeof x === "string").slice(0, 6)
-        : [],
+      positive: cleanStringArray(parsed?.topSignals?.positive, 5),
+      concerns: cleanStringArray(parsed?.topSignals?.concerns, 5),
+      unknowns: cleanStringArray(parsed?.topSignals?.unknowns, 5),
     },
-    questionsToAskSeller: Array.isArray(parsed?.questionsToAskSeller)
-      ? parsed.questionsToAskSeller.filter((q: any) => typeof q === "string").slice(0, 8)
-      : [],
-    confidenceNote: typeof parsed?.confidenceNote === "string" ? parsed.confidenceNote : "",
+    questionsToAskSeller: cleanStringArray(
+      parsed?.questionsToAskSeller,
+      6
+    ),
+    confidenceNote: cleanSentence(parsed?.confidenceNote, 200),
     source: "gemini-2.0-flash",
   };
 }
@@ -139,25 +151,28 @@ Return STRICT JSON ONLY with this shape:
    Handler
 ========================================================= */
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
   try {
     const scanId = String(req.body?.scanId ?? "").trim();
     const progress = req.body?.progress ?? null;
     const analysis = req.body?.analysis ?? null;
 
-    if (!scanId) return res.status(400).json({ ok: false, error: "missing-scanId" });
-    if (!progress) return res.status(400).json({ ok: false, error: "missing-progress" });
-    if (!analysis) return res.status(400).json({ ok: false, error: "missing-analysis" });
+    if (!scanId)
+      return res.status(400).json({ ok: false, error: "missing-scanId" });
+    if (!progress)
+      return res.status(400).json({ ok: false, error: "missing-progress" });
+    if (!analysis)
+      return res.status(400).json({ ok: false, error: "missing-analysis" });
 
-    const modelInput = {
+    const ai = await callGeminiJSON({
       scanId,
       progress,
       analysis,
-      // Optional: include a small computed summary if caller provides it
       summary: req.body?.summary ?? null,
-    };
-
-    const ai = await callGeminiJSON(modelInput);
+    });
 
     return res.status(200).json({
       ok: true,
@@ -166,6 +181,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (err: any) {
     console.error("analyze-in-person error", err);
-    return res.status(500).json({ ok: false, error: err?.message ?? "internal-error" });
+    return res.status(500).json({
+      ok: false,
+      error: err?.message ?? "internal-error",
+    });
   }
 }
