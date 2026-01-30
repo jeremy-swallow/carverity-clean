@@ -1,5 +1,3 @@
-// src/pages/InPersonResults.tsx
-
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -12,7 +10,7 @@ import {
   BadgeDollarSign,
   Flag,
   Info,
-  Printer, // ✅ ADDED
+  Printer,
 } from "lucide-react";
 
 import { supabase } from "../supabaseClient";
@@ -148,7 +146,9 @@ export default function InPersonResults() {
 
         if (error || !data || data.length === 0) {
           if (!cancelled) {
-            navigate(`/scan/in-person/unlock/${scanIdSafe}`, { replace: true });
+            navigate(`/scan/in-person/unlock/${scanIdSafe}`, {
+              replace: true,
+            });
           }
           return;
         }
@@ -359,6 +359,14 @@ export default function InPersonResults() {
             <p className="text-slate-300 max-w-3xl">
               {verdictOutcome.verdict.posture}
             </p>
+
+            {/* ===== Narrative interpretation ===== */}
+            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
+              This verdict reflects what you actually recorded — not assumptions.
+              It weighs confirmed issues, unknowns you marked, and how complete
+              the inspection was. It’s designed to help you pause, proceed, or
+              clarify with confidence rather than guess.
+            </div>
           </header>
 
           {/* ================= PRINT / SAVE REPORT ================= */}
@@ -373,6 +381,13 @@ export default function InPersonResults() {
               Print / Save report (PDF)
             </button>
           </section>
+
+          {/* ===== Context before next check ===== */}
+          <div className="text-sm text-slate-400 max-w-3xl">
+            Instead of overwhelming you with everything at once, the next section
+            highlights the single thing that would most improve your confidence
+            if clarified.
+          </div>
 
           {/* ================= BEST NEXT CHECK ================= */}
           {bestNext && (() => {
@@ -415,6 +430,12 @@ export default function InPersonResults() {
             );
           })()}
 
+          {/* ===== Context before pricing ===== */}
+          <div className="text-sm text-slate-400 max-w-3xl">
+            Price guidance below reflects risk, uncertainty, and inspection
+            confidence — not market hype or seller claims.
+          </div>
+
           {/* ================= PRICE POSITIONING PREVIEW ================= */}
           {pricingSummary && (
             <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
@@ -428,7 +449,8 @@ export default function InPersonResults() {
               {pricingSummary.mode === "needs_price" && (
                 <>
                   <p className="text-sm text-slate-300">
-                    Add the seller’s asking price to get a realistic offer range.
+                    Add the seller’s asking price to see how risk and uncertainty
+                    affect what a reasonable offer looks like.
                   </p>
 
                   <button
@@ -446,16 +468,8 @@ export default function InPersonResults() {
               {pricingSummary.mode === "ok" && (
                 <>
                   <p className="text-sm text-slate-300">
-                    A{" "}
-                    <span className="font-semibold text-white">
-                      {
-                        pricingSummary.bands.find(
-                          (b) =>
-                            b.key === pricingSummary.recommendedKey
-                        )?.label
-                      }
-                    </span>{" "}
-                    offer range fits what you recorded.
+                    Based on what you recorded, this offer range balances caution
+                    with fairness.
                   </p>
 
                   <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
@@ -534,8 +548,8 @@ export default function InPersonResults() {
             </div>
 
             <p className="text-sm text-slate-300">
-              Calm guidance on whether to proceed, clarify, or walk away —
-              based only on what you recorded.
+              This brings everything together — risks, uncertainty, and price —
+              into calm guidance on how to proceed.
             </p>
 
             <button
