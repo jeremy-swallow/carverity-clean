@@ -76,6 +76,11 @@ function asSafeScanId(value: unknown): string {
   return uuidLike ? v : "";
 }
 
+function parseAUD(price: string): number | null {
+  const n = Number(price.replace(/[^\d.]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
 export default function Pricing() {
   const [loadingPack, setLoadingPack] = useState<PackKey | null>(null);
 
@@ -102,6 +107,8 @@ export default function Pricing() {
     () => params.get("canceled") === "1" || params.get("cancelled") === "1",
     [params]
   );
+
+  const reason = useMemo(() => (params.get("reason") || "").trim(), [params]);
 
   // If the user came here from unlock due to no credits, we preserve scanId
   const scanId = useMemo(
@@ -247,8 +254,56 @@ export default function Pricing() {
 
   const showCreditsLine = sessionReady;
 
+  const packMeta = useMemo(() => {
+    const single = PACKS.find((p) => p.key === "single") || null;
+    const singlePrice = single ? parseAUD(single.price) : null;
+
+    return PACKS.map((p) => {
+      const price = parseAUD(p.price);
+      const perCredit =
+        price != null && p.credits > 0 ? price / p.credits : null;
+
+      let savingsText: string | null = null;
+      if (singlePrice != null && price != null) {
+        const implied = singlePrice * p.credits;
+        const diff = implied - price;
+        if (diff > 0.01 && p.key !== "single") {
+          savingsText = `Save $${Math.round(diff)} vs single`;
+        }
+      }
+
+      return {
+        key: p.key,
+        perCredit,
+        savingsText,
+      };
+    });
+  }, []);
+
+  const metaByKey = useMemo(() => {
+    const map: Record<string, { perCredit: number | null; savingsText: string | null }> =
+      {};
+    for (const m of packMeta) {
+      map[m.key] = { perCredit: m.perCredit, savingsText: m.savingsText };
+    }
+    return map;
+  }, [packMeta]);
+
+  const showNoCreditsNudge = useMemo(
+    () => reason === "no_credits" && Boolean(scanId),
+    [reason, scanId]
+  );
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-20">
+      {/* Ambient background (subtle, modern) */}
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute -top-32 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-emerald-500/10 blur-3xl" />
+        <div className="absolute top-[35%] -left-40 h-[520px] w-[520px] rounded-full bg-sky-500/10 blur-3xl" />
+        <div className="absolute -bottom-40 right-[-120px] h-[520px] w-[520px] rounded-full bg-fuchsia-500/5 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.04),transparent_55%)]" />
+      </div>
+
       {/* Header */}
       <header className="max-w-3xl mb-10">
         <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/40 px-3 py-1.5 mb-4">
@@ -266,6 +321,18 @@ export default function Pricing() {
           Start the in-person inspection for free. A credit is used only when
           report generation begins (the moment analysis starts).
         </p>
+
+        {showNoCreditsNudge && (
+          <div className="mt-5 rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4">
+            <p className="text-sm text-amber-200 font-semibold">
+              You need 1 credit to unlock this report
+            </p>
+            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+              After purchase, you’ll return here — then you can go straight back
+              to your scan.
+            </p>
+          </div>
+        )}
       </header>
 
       {/* “How it works” strip */}
@@ -433,7 +500,7 @@ export default function Pricing() {
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <button
               onClick={() => refreshAuthAndCredits()}
-              className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm inline-flex items-center gap-2"
+              className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm inline-flex items-center gap-2 hover:bg-white/5"
             >
               <RefreshCw className="h-4 w-4" />
               Refresh
@@ -441,7 +508,7 @@ export default function Pricing() {
 
             <button
               onClick={() => navigate("/my-scans")}
-              className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm"
+              className="rounded-xl border border-white/20 text-slate-200 px-4 py-2 text-sm hover:bg-white/5"
             >
               View My Scans
             </button>
@@ -452,6 +519,15 @@ export default function Pricing() {
             >
               Start scan
             </button>
+
+            {returnToUnlock && (
+              <button
+                onClick={() => navigate(returnToUnlock)}
+                className="rounded-xl bg-slate-900/60 hover:bg-slate-800 text-slate-200 border border-white/10 px-4 py-2 text-sm font-semibold"
+              >
+                Return to scan
+              </button>
+            )}
           </div>
 
           {showCreditsLine && (
@@ -547,6 +623,11 @@ export default function Pricing() {
           const isRecommended = Boolean(pack.recommended);
           const isLoading = loadingPack === pack.key;
 
+          const meta = metaByKey[pack.key];
+          const perCreditText =
+            meta?.perCredit != null ? `$${meta.perCredit.toFixed(2)} / credit` : "";
+          const savingsText = meta?.savingsText || "";
+
           return (
             <div
               key={pack.key}
@@ -555,17 +636,36 @@ export default function Pricing() {
                 "transition duration-200",
                 "hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/30",
                 isRecommended
-                  ? "border-emerald-500/40 bg-emerald-900/15"
+                  ? [
+                      // Stronger “recommended” highlight (your missing emphasis)
+                      "border-emerald-400/50 bg-emerald-900/15",
+                      "ring-2 ring-emerald-400/40",
+                      "shadow-[0_0_0_1px_rgba(16,185,129,0.15),0_25px_60px_rgba(0,0,0,0.35)]",
+                    ].join(" ")
                   : "border-white/10 bg-slate-900/60",
               ].join(" ")}
             >
+              {/* Glow layer */}
               <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition">
                 <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
               </div>
 
+              {/* Always-on recommended glow (so it’s visible even without hover) */}
               {isRecommended && (
-                <div className="absolute -top-3 left-6 text-xs tracking-wide uppercase text-emerald-300">
-                  Recommended
+                <div className="pointer-events-none absolute inset-0">
+                  <div className="absolute -top-28 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-emerald-500/12 blur-3xl" />
+                  <div className="absolute -bottom-32 right-[-80px] h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
+                </div>
+              )}
+
+              {isRecommended && (
+                <div className="absolute -top-3 left-6 flex items-center gap-2">
+                  <span className="text-[10px] tracking-[0.18em] uppercase text-emerald-200">
+                    Recommended
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
+                    Most popular
+                  </span>
                 </div>
               )}
 
@@ -589,9 +689,23 @@ export default function Pricing() {
                     {plural(pack.credits, "report credit")}
                   </p>
 
-                  <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                    Used when report generation begins.
-                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-300">
+                      Used at analysis start
+                    </span>
+
+                    {perCreditText && (
+                      <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-300">
+                        {perCreditText}
+                      </span>
+                    )}
+
+                    {savingsText && (
+                      <span className="inline-flex items-center rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200">
+                        {savingsText}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-end justify-between gap-3 mb-2">
@@ -618,8 +732,16 @@ export default function Pricing() {
                 disabled={isLoading}
                 className={[
                   "relative mt-auto rounded-xl px-4 py-3 font-semibold transition inline-flex items-center justify-center gap-2",
+                  "focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:ring-offset-0",
                   isRecommended
-                    ? "bg-emerald-500 hover:bg-emerald-400 text-black"
+                    ? [
+                        // Premium CTA (more “intentional” than flat green)
+                        "text-black",
+                        "bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-400",
+                        "hover:brightness-110",
+                        "shadow-[0_16px_40px_rgba(16,185,129,0.18)]",
+                        "border border-emerald-200/20",
+                      ].join(" ")
                     : "bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-white/10",
                   isLoading ? "opacity-60 cursor-not-allowed" : "",
                 ].join(" ")}
