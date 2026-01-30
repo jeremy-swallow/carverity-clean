@@ -103,7 +103,6 @@ export default function InPersonResults() {
   const [unlockError, setUnlockError] = useState<string | null>(null);
 
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
-  const [photoLoading, setPhotoLoading] = useState(false);
 
   /* -------------------------------------------------------
      ROUTING SAFETY
@@ -230,7 +229,7 @@ export default function InPersonResults() {
   );
 
   /* -------------------------------------------------------
-     🎯 SINGLE BEST THING TO VERIFY NEXT (GUIDED)
+     🎯 SINGLE BEST THING TO VERIFY NEXT
   ------------------------------------------------------- */
   const bestNext = useMemo(() => {
     if (!analysis) return null;
@@ -267,7 +266,7 @@ export default function InPersonResults() {
   }, [analysis, risks, uncertaintyFactors.length]);
 
   /* -------------------------------------------------------
-     PRICE POSITIONING (SUMMARY)
+     PRICE POSITIONING
   ------------------------------------------------------- */
   const pricingSummary = useMemo(() => {
     if (!analysis) return null;
@@ -304,8 +303,6 @@ export default function InPersonResults() {
     async function loadPhotos() {
       if (!analysis || checkingUnlock || unlockError) return;
 
-      setPhotoLoading(true);
-
       const { urls } = await resolvePhotoUrls(progress, {
         bucket: PHOTO_BUCKET,
         ttlSeconds: SIGNED_URL_TTL,
@@ -313,7 +310,6 @@ export default function InPersonResults() {
 
       if (!cancelled) {
         setPhotoUrls(urls);
-        setPhotoLoading(false);
       }
     }
 
@@ -400,7 +396,7 @@ export default function InPersonResults() {
             </section>
           </header>
 
-          {/* ================= PRINT / SAVE REPORT ================= */}
+          {/* ================= PRINT ================= */}
           <section className="rounded-2xl border border-white/15 bg-slate-900/60 px-5 py-4">
             <button
               onClick={() =>
@@ -413,7 +409,7 @@ export default function InPersonResults() {
             </button>
           </section>
 
-          {/* ================= BEST NEXT CHECK ================= */}
+          {/* ================= BEST NEXT ================= */}
           {bestNext && (() => {
             const s = nextCheckToneStyles(bestNext.tone);
 
@@ -431,7 +427,7 @@ export default function InPersonResults() {
                   </h2>
                 </div>
 
-                <p className="text-sm text-slate-200 leading-relaxed">
+                <p className="text-sm text-slate-200">
                   {bestNext.text}
                 </p>
 
@@ -446,15 +442,11 @@ export default function InPersonResults() {
                     <span className="text-slate-300">{s.after}</span>
                   </div>
                 </div>
-
-                <p className="text-xs text-slate-500">
-                  Focus on one thing at a time — progress matters more than speed.
-                </p>
               </section>
             );
           })()}
 
-          {/* ================= PRICE POSITIONING PREVIEW ================= */}
+          {/* ================= PRICING ================= */}
           {pricingSummary && (
             <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
               <div className="flex items-center gap-2 text-slate-200">
@@ -464,45 +456,19 @@ export default function InPersonResults() {
                 </h2>
               </div>
 
-              {pricingSummary.mode === "needs_price" && (
-                <>
-                  <p className="text-sm text-slate-300">
-                    Add the seller’s asking price to see how risk and uncertainty
-                    affect what a reasonable offer looks like.
-                  </p>
-
-                  <button
-                    onClick={() =>
-                      navigate("/scan/in-person/decision/" + scanIdSafe)
-                    }
-                    className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-4 py-2 text-sm font-semibold text-white hover:bg-white/5"
-                  >
-                    Add asking price
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
-                </>
-              )}
-
               {pricingSummary.mode === "ok" && (
                 <>
-                  <p className="text-sm text-slate-300">
-                    Based on what you recorded, this offer range balances caution
-                    with fairness.
-                  </p>
-
                   <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
                     <p className="text-sm font-semibold text-white">
                       {formatMoney(
                         pricingSummary.bands.find(
-                          (b) =>
-                            b.key === pricingSummary.recommendedKey
+                          (b) => b.key === pricingSummary.recommendedKey
                         )?.min
                       )}{" "}
                       –{" "}
                       {formatMoney(
                         pricingSummary.bands.find(
-                          (b) =>
-                            b.key === pricingSummary.recommendedKey
+                          (b) => b.key === pricingSummary.recommendedKey
                         )?.max
                       )}
                     </p>
@@ -532,18 +498,6 @@ export default function InPersonResults() {
               Photos
             </h2>
 
-            {photoLoading && (
-              <p className="text-sm text-slate-400">
-                {RESULTS_COPY.photosLoading}
-              </p>
-            )}
-
-            {!photoLoading && photoUrls.length === 0 && (
-              <p className="text-sm text-slate-400">
-                {RESULTS_COPY.photosNone}
-              </p>
-            )}
-
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {photoUrls.slice(0, 6).map((url, i) => (
                 <img
@@ -556,7 +510,7 @@ export default function InPersonResults() {
             </div>
           </section>
 
-          {/* ================= DECISION CTA ================= */}
+          {/* ================= CTA ================= */}
           <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
             <div className="flex items-center gap-2 text-slate-200">
               <ShieldCheck className="h-4 w-4 text-emerald-300" />
