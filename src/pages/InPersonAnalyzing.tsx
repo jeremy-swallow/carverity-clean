@@ -18,36 +18,32 @@ function vehicleTitleFromProgress(p: any): string {
 }
 
 /**
- * Canonical credit reference
- * 🔒 DO NOT CHANGE without migrating ledger logic
+ * Canonical credit reference base (scan identity)
  */
 function creditReferenceForScan(scanId: string) {
   return `scan:${scanId}`;
 }
 
-async function hasUnlockForScan(scanId: string): Promise<boolean> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+/**
+ * Create (or reuse) a stable reference for THIS analysis run.
+ * This prevents:
+ * - 0 deductions (skipped call)
+ * - accidental double-deductions if the analyzing page re-runs
+ *
+ * IMPORTANT:
+ * - We do NOT rely on credit_ledger pre-checks (they can be wrong if scanIds are reused).
+ * - We ALWAYS attempt the spend, but with a stable per-run reference so it is idempotent.
+ */
+function getOrCreateAnalysisChargeReference(scanId: string, progress: any): string {
+  const existing = typeof progress?.analysisChargeRef === "string" ? progress.analysisChargeRef.trim() : "";
+  if (existing) return existing;
 
-  if (!user) return false;
-
-  const reference = creditReferenceForScan(scanId);
-
-  const { data, error } = await supabase
-    .from("credit_ledger")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("event_type", "in_person_scan_completed")
-    .eq("reference", reference)
-    .limit(1);
-
-  if (error) {
-    console.error("[Analyzing] Unlock check failed:", error);
-    return false;
-  }
-
-  return Array.isArray(data) && data.length > 0;
+  // Stable-ish per run: base scan reference + timestamp random suffix
+  // Saved into progress immediately so a rerun uses the same reference.
+  const base = creditReferenceForScan(scanId);
+  const stamp = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `${base}:run_${stamp}_${rand}`;
 }
 
 /**
@@ -149,33 +145,39 @@ export default function InPersonAnalyzing() {
         }
 
         const accessToken = session.access_token;
-        const reference = creditReferenceForScan(scanIdSafe);
 
-        const alreadyUnlocked = await hasUnlockForScan(scanIdSafe);
+        // Always attempt to spend 1 credit when analysis starts,
+        // but make it idempotent for THIS run via a stable per-run reference.
+        const freshProgress: any = loadProgress() ?? progress;
+        const analysisChargeRef = getOrCreateAnalysisChargeReference(scanIdSafe, freshProgress);
 
-        if (!alreadyUnlocked) {
-          const attempt = await postJsonAuthed<any>(
-            "/api/mark-in-person-scan-completed",
-            { scanId: scanIdSafe, reference },
-            accessToken
-          );
-
-          if (!attempt.ok || attempt.status === 402) {
-            saveProgress({
-              ...(loadProgress() ?? {}),
-              type: "in-person",
-              scanId: scanIdSafe,
-              step: `/scan/in-person/unlock/${scanIdSafe}`,
-            });
-
-            navigate(`/scan/in-person/unlock/${scanIdSafe}`, {
-              replace: true,
-            });
-            return;
-          }
+        // Persist the ref immediately so refresh/re-run uses the same reference
+        if ((freshProgress?.analysisChargeRef ?? "") !== analysisChargeRef) {
+          saveProgress({
+            ...(freshProgress ?? {}),
+            analysisChargeRef,
+          });
         }
 
-        const latestProgress: any = loadProgress() ?? progress;
+        const attempt = await postJsonAuthed<any>(
+          "/api/mark-in-person-scan-completed",
+          { scanId: scanIdSafe, reference: analysisChargeRef },
+          accessToken
+        );
+
+        if (!attempt.ok || attempt.status === 402) {
+          saveProgress({
+            ...(loadProgress() ?? {}),
+            type: "in-person",
+            scanId: scanIdSafe,
+            step: `/scan/in-person/unlock/${scanIdSafe}`,
+          });
+
+          navigate(`/scan/in-person/unlock/${scanIdSafe}`, { replace: true });
+          return;
+        }
+
+        const latestProgress: any = loadProgress() ?? freshProgress;
 
         const analysis = analyseInPersonInspection({
           ...(latestProgress ?? {}),
@@ -183,20 +185,14 @@ export default function InPersonAnalyzing() {
         });
 
         const concernsCount = Array.isArray((analysis as any)?.risks)
-          ? (analysis as any).risks.filter(
-              (r: any) => r?.severity !== "info"
-            ).length
+          ? (analysis as any).risks.filter((r: any) => r?.severity !== "info").length
           : 0;
 
-        const unsureCount = Array.isArray(
-          (analysis as any)?.uncertaintyFactors
-        )
+        const unsureCount = Array.isArray((analysis as any)?.uncertaintyFactors)
           ? (analysis as any).uncertaintyFactors.length
           : 0;
 
-        const imperfectionsCount = Array.isArray(
-          latestProgress?.imperfections
-        )
+        const imperfectionsCount = Array.isArray(latestProgress?.imperfections)
           ? latestProgress.imperfections.length
           : 0;
 
@@ -220,8 +216,7 @@ export default function InPersonAnalyzing() {
           accessToken
         );
 
-        const aiInterpretation =
-          aiResp.ok && aiResp.json ? (aiResp.json as any).ai : null;
+        const aiInterpretation = aiResp.ok && aiResp.json ? (aiResp.json as any)?.ai : null;
 
         saveScan({
           id: scanIdSafe,
@@ -229,18 +224,14 @@ export default function InPersonAnalyzing() {
           title: vehicleTitleFromProgress(latestProgress),
           createdAt: new Date().toISOString(),
           vehicle: {
-            year: latestProgress?.vehicleYear
-              ? String(latestProgress.vehicleYear)
-              : undefined,
+            year: latestProgress?.vehicleYear ? String(latestProgress.vehicleYear) : undefined,
             make: latestProgress?.vehicleMake,
             model: latestProgress?.vehicleModel,
             variant: latestProgress?.vehicleVariant,
           },
           thumbnail: null,
           askingPrice:
-            typeof latestProgress?.askingPrice === "number"
-              ? latestProgress.askingPrice
-              : null,
+            typeof latestProgress?.askingPrice === "number" ? latestProgress.askingPrice : null,
           score:
             typeof (analysis as any)?.confidenceScore === "number"
               ? (analysis as any).confidenceScore
@@ -265,9 +256,7 @@ export default function InPersonAnalyzing() {
         await new Promise((r) => setTimeout(r, 900));
 
         if (!cancelled) {
-          navigate(`/scan/in-person/results/${scanIdSafe}`, {
-            replace: true,
-          });
+          navigate(`/scan/in-person/results/${scanIdSafe}`, { replace: true });
         }
       } catch (err) {
         console.error("In-person analysis failed:", err);
@@ -286,12 +275,9 @@ export default function InPersonAnalyzing() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100 px-6">
         <div className="max-w-md text-center space-y-4">
-          <h1 className="text-xl font-semibold">
-            We couldn’t generate the report
-          </h1>
+          <h1 className="text-xl font-semibold">We couldn’t generate the report</h1>
           <p className="text-sm text-slate-400">
-            Your inspection data is safe. Please return to the summary and try
-            again.
+            Your inspection data is safe. Please return to the summary and try again.
           </p>
           <button
             onClick={() => navigate("/scan/in-person/summary")}
@@ -318,14 +304,12 @@ export default function InPersonAnalyzing() {
         <div className="space-y-3">
           <h1 className="text-xl font-semibold">Generating your report</h1>
           <p className="text-sm text-slate-400">
-            We’re weighing observations, uncertainty, and risk signals to
-            prepare your buyer-safe report.
+            We’re weighing observations, uncertainty, and risk signals to prepare your buyer-safe
+            report.
           </p>
         </div>
 
-        <p className="text-xs text-slate-500">
-          This usually takes around 10 seconds.
-        </p>
+        <p className="text-xs text-slate-500">This usually takes around 10 seconds.</p>
       </div>
     </div>
   );
