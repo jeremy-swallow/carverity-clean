@@ -48,12 +48,14 @@ import InPersonChecksDriveIntro from "./pages/InPersonChecksDriveIntro";
 import InPersonChecksDrive from "./pages/InPersonChecksDrive";
 import InPersonSummary from "./pages/InPersonSummary";
 import InPersonAnalyzing from "./pages/InPersonAnalyzing";
-import InPersonResults from "./pages/InPersonResults";
 import InPersonUnlock from "./pages/InPersonUnlock";
 import InPersonUnlockSuccess from "./pages/InPersonUnlockSuccess";
 import InPersonReportPrint from "./pages/InPersonReportPrint";
 import InPersonDecision from "./pages/InPersonDecision";
 import InPersonPricePositioning from "./pages/InPersonPricePositioning";
+
+/* ✅ SAFE RESULTS WRAPPER */
+import InPersonResultsSafe from "./pages/InPersonResultsSafe";
 
 /* Legacy / compatibility */
 import InPersonScan from "./pages/InPersonScan";
@@ -132,7 +134,7 @@ export default function App() {
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/deploy-test" element={<DeployTest />} />
 
-        {/* Tester-only expectations */}
+        {/* Tester */}
         <Route
           path="/testing"
           element={
@@ -162,9 +164,7 @@ export default function App() {
           }
         />
 
-        {/* =======================
-           In-person scan flow
-        ======================= */}
+        {/* In-person scan flow */}
         <Route
           path="/scan/in-person/start"
           element={
@@ -282,11 +282,12 @@ export default function App() {
           }
         />
 
+        {/* ✅ RESULTS — SAFE WRAPPER */}
         <Route
           path="/scan/in-person/results/:scanId"
           element={
             <RequireAuth>
-              <InPersonResults />
+              <InPersonResultsSafe />
             </RequireAuth>
           }
         />
@@ -310,7 +311,7 @@ export default function App() {
           }
         />
 
-        {/* Decision (scan-specific) */}
+        {/* Decision */}
         <Route
           path="/scan/in-person/decision/:scanId"
           element={
@@ -320,7 +321,6 @@ export default function App() {
           }
         />
 
-        {/* Guard old decision route */}
         <Route
           path="/scan/in-person/decision"
           element={<Navigate to="/my-scans" replace />}
@@ -348,8 +348,7 @@ export default function App() {
 
         <Route
           path="/scan/in-person/print"
-          element={<Navigate to="/" replace />}
-        />
+          element={<Navigate to="/" replace />} />
 
         {/* Legacy */}
         <Route path="/scan/in-person" element={<InPersonScan />} />
