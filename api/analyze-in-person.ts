@@ -54,22 +54,75 @@ function cleanStringArray(
 }
 
 /* =========================================================
+   Verdict tone presets
+========================================================= */
+
+function toneForVerdict(verdict: string | undefined) {
+  switch (verdict) {
+    case "walk-away":
+      return {
+        headline: "Significant risks identified",
+        bullets: [
+          "One or more findings materially change the risk of this purchase.",
+          "Proceeding without resolution would expose you to avoidable downside.",
+        ],
+        nextBestAction:
+          "Strongly consider walking away unless these issues can be resolved clearly and in writing.",
+        why:
+          "The inspection identified issues that meaningfully increase mechanical, financial, or ownership risk. This verdict is intended to protect you from committing to a purchase where the downside outweighs the upside.",
+      };
+
+    case "caution":
+      return {
+        headline: "Proceed with caution",
+        bullets: [
+          "Some items need clarification before committing.",
+          "These findings don’t rule the car out, but they do affect risk.",
+        ],
+        nextBestAction:
+          "Clarify the flagged items and reassess once you have firmer information.",
+        why:
+          "The inspection did not reveal deal-breakers, but there are uncertainties that matter. Resolving them reduces the chance of surprises after purchase.",
+      };
+
+    case "proceed":
+    default:
+      return {
+        headline: "Inspection supports proceeding",
+        bullets: [
+          "No major mechanical, structural, or ownership risks were identified.",
+          "Recorded issues appear minor or consistent with the vehicle’s age.",
+        ],
+        nextBestAction:
+          "Proceed with standard checks and confirm service history.",
+        why:
+          "Based on what was recorded during the inspection, nothing suggests a serious underlying issue. This reflects the absence of major warning signs, while still assuming normal due diligence.",
+      };
+  }
+}
+
+/* =========================================================
    Gemini
 ========================================================= */
 
 async function callGeminiJSON(payload: any, apiKey: string) {
+  const verdict = payload?.analysis?.verdict;
+  const tone = toneForVerdict(verdict);
+
   const prompt = `
 You are CarVerity’s expert used-car inspection interpreter.
 
-Write calm, decisive guidance for a buyer who has just completed
-an in-person inspection.
+The inspection verdict is: "${verdict ?? "unknown"}".
+
+Write guidance that MATCHES this verdict exactly.
 
 Tone rules:
-- Be clear and confident, not vague
-- If nothing serious was recorded, say that plainly
-- Do not invent issues or speculate
+- Proceed → calm and confident
+- Caution → measured and risk-aware
+- Walk-away → firm and buyer-protective
+- Never invent issues
+- Never hedge unnecessarily
 - Avoid legal or absolute guarantees
-- Sound like a careful expert, not a chatbot
 
 Write for a real buyer making a real decision.
 
@@ -117,36 +170,31 @@ Return STRICT JSON ONLY in this shape:
     decisionBrief: {
       headline: cleanSentence(
         parsed?.decisionBrief?.headline,
-        "Inspection supports proceeding",
+        tone.headline,
         120
       ),
-
       bullets: cleanStringArray(
         parsed?.decisionBrief?.bullets,
-        [
-          "No major mechanical, structural, or ownership risks were identified.",
-          "Recorded issues appear minor or consistent with the vehicle’s age.",
-        ],
+        tone.bullets,
         5
       ),
-
       nextBestAction: cleanSentence(
         parsed?.decisionBrief?.nextBestAction,
-        "Proceed with standard checks and confirm service history.",
+        tone.nextBestAction,
         200
       ),
     },
 
     whyThisVerdict: cleanSentence(
       parsed?.whyThisVerdict,
-      "Based on what was recorded during the inspection, nothing suggests a serious underlying issue. This verdict reflects the absence of major warning signs, while still assuming normal due diligence before purchase.",
+      tone.why,
       900
     ),
 
     topSignals: {
       positive: cleanStringArray(
         parsed?.topSignals?.positive,
-        ["Overall inspection findings were reassuring."],
+        [],
         5
       ),
       concerns: cleanStringArray(
@@ -163,7 +211,7 @@ Return STRICT JSON ONLY in this shape:
 
     questionsToAskSeller: cleanStringArray(
       parsed?.questionsToAskSeller,
-      ["Can you confirm recent servicing and maintenance history?"],
+      [],
       6
     ),
 
