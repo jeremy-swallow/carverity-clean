@@ -226,6 +226,8 @@ export default function InPersonAnalyzing() {
           });
           return;
         }
+        
+window.dispatchEvent(new Event("carverity:credits-updated"));
 
         /* --------------------------------------------------
            Deterministic analysis (always safe to run)

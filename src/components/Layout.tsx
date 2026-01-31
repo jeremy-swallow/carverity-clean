@@ -230,6 +230,24 @@ export default function Layout() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, location.search]);
+  
+  /* -------------------------------------------------------
+     Credit refresh listener (in-app consumption)
+  ------------------------------------------------------- */
+  useEffect(() => {
+    function handleCreditsUpdated() {
+      refreshAuthAndCredits();
+    }
+
+    window.addEventListener("carverity:credits-updated", handleCreditsUpdated);
+
+    return () => {
+      window.removeEventListener(
+        "carverity:credits-updated",
+        handleCreditsUpdated
+      );
+    };
+  }, []);
 
   /* -------------------------------------------------------
      Resume pill
