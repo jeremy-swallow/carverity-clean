@@ -54,8 +54,8 @@ import InPersonReportPrint from "./pages/InPersonReportPrint";
 import InPersonDecision from "./pages/InPersonDecision";
 import InPersonPricePositioning from "./pages/InPersonPricePositioning";
 
-/* ✅ SAFE RESULTS WRAPPER */
-import InPersonResultsSafe from "./pages/InPersonResultsSafe";
+/* ✅ NEW RESULTS (SERVER-AUTHORITATIVE) */
+import InPersonResultsV2 from "./pages/InPersonResults.v2";
 
 /* Legacy / compatibility */
 import InPersonScan from "./pages/InPersonScan";
@@ -282,12 +282,12 @@ export default function App() {
           }
         />
 
-        {/* ✅ RESULTS — SAFE WRAPPER */}
+        {/* ✅ RESULTS — SERVER AUTHORITATIVE */}
         <Route
           path="/scan/in-person/results/:scanId"
           element={
             <RequireAuth>
-              <InPersonResultsSafe />
+              <InPersonResultsV2 />
             </RequireAuth>
           }
         />
@@ -348,7 +348,8 @@ export default function App() {
 
         <Route
           path="/scan/in-person/print"
-          element={<Navigate to="/" replace />} />
+          element={<Navigate to="/" replace />}
+        />
 
         {/* Legacy */}
         <Route path="/scan/in-person" element={<InPersonScan />} />
