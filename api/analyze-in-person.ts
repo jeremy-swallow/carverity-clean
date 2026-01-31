@@ -54,7 +54,7 @@ function cleanStringArray(
 }
 
 /* =========================================================
-   Risk extraction + language cues
+   Risk extraction + bullets
 ========================================================= */
 
 type Risk = { severity?: string; label?: string };
@@ -77,7 +77,8 @@ function bulletsForVerdict(
   const { critical, moderate } = extractRisks(analysis);
 
   if (verdict === "walk-away") {
-    const label = critical[0]?.label ?? moderate[0]?.label ?? "a significant issue";
+    const label =
+      critical[0]?.label ?? moderate[0]?.label ?? "a significant issue";
 
     return [
       `A significant issue was identified (${label}), which materially affects this purchase.`,
@@ -95,7 +96,6 @@ function bulletsForVerdict(
     ];
   }
 
-  // proceed
   if (moderate.length > 0) {
     const labels = moderate
       .slice(0, 2)
@@ -116,6 +116,28 @@ function bulletsForVerdict(
 }
 
 /* =========================================================
+   Verdict change explanation
+========================================================= */
+
+function verdictChangeNote(verdict: string | undefined) {
+  if (verdict === "walk-away") {
+    return (
+      "This verdict would only change if the identified issues are resolved conclusively and independently verified."
+    );
+  }
+
+  if (verdict === "caution") {
+    return (
+      "This verdict would strengthen if the flagged items are verified cleanly in writing."
+    );
+  }
+
+  return (
+    "This verdict would change if a previously unrecorded mechanical or ownership issue comes to light."
+  );
+}
+
+/* =========================================================
    Gemini
 ========================================================= */
 
@@ -123,6 +145,7 @@ async function callGeminiJSON(payload: any, apiKey: string) {
   const verdict = payload?.analysis?.verdict;
   const analysis = payload?.analysis;
   const fallbackBullets = bulletsForVerdict(verdict, analysis);
+  const changeNote = verdictChangeNote(verdict);
 
   const prompt = `
 You are CarVerity’s expert used-car inspection interpreter.
@@ -130,10 +153,8 @@ You are CarVerity’s expert used-car inspection interpreter.
 The inspection verdict is: "${verdict ?? "unknown"}".
 
 Use the inspection findings directly.
-Mirror the severity of issues through clear language:
-- Critical → significant, requires resolution
-- Moderate → worth clarifying, affects risk
-- Minor → routine, expected for age
+Mirror the severity of issues through clear language.
+At the end of your explanation, briefly state what would need to change for this verdict to change.
 
 Tone rules:
 - Calm, decisive, buyer-safe
@@ -180,6 +201,12 @@ Return STRICT JSON ONLY in this shape:
 
   const parsed = safeJsonParse(String(rawText).trim()) ?? {};
 
+  const baseWhy = cleanSentence(
+    parsed?.whyThisVerdict,
+    "This guidance reflects the specific findings recorded during the inspection and how their severity affects purchase risk.",
+    700
+  );
+
   return {
     decisionBrief: {
       headline: cleanSentence(
@@ -209,11 +236,7 @@ Return STRICT JSON ONLY in this shape:
       ),
     },
 
-    whyThisVerdict: cleanSentence(
-      parsed?.whyThisVerdict,
-      "This guidance reflects the specific findings recorded during the inspection and how their severity affects purchase risk.",
-      900
-    ),
+    whyThisVerdict: `${baseWhy} ${changeNote}`,
 
     topSignals: {
       positive: cleanStringArray(parsed?.topSignals?.positive, [], 5),
