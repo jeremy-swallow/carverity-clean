@@ -1,6 +1,6 @@
 // src/pages/InPersonResults.tsx
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   CheckCircle2,
@@ -19,7 +19,7 @@ import {
 import { supabase } from "../supabaseClient";
 import { loadProgress } from "../utils/scanProgress";
 import { analyseInPersonInspection } from "../utils/inPersonAnalysis";
-import { loadScanById } from "../utils/scanStorage";
+import { loadScanById, saveScan } from "../utils/scanStorage";
 
 /* ================= split logic ================= */
 import { resolvePhotoUrls } from "./inPersonResults/photoLogic";
@@ -52,6 +52,67 @@ function formatMoney(n: number | null | undefined) {
     }).format(n);
   } catch {
     return `$${Math.round(n)}`;
+  }
+}
+
+function vehicleTitleFromProgress(p: any): string {
+  const year = p?.vehicleYear ?? p?.vehicle?.year ?? "";
+  const make = p?.vehicleMake ?? p?.vehicle?.make ?? "";
+  const model = p?.vehicleModel ?? p?.vehicle?.model ?? "";
+  const parts = [year, make, model].filter(Boolean);
+  return parts.length ? parts.join(" ") : "In-person inspection";
+}
+
+/**
+ * Remove heavy fields (like base64 photo data) before sending to API.
+ */
+function stripHeavyFields(progress: any) {
+  const p = { ...(progress ?? {}) };
+
+  if (Array.isArray(p.photos)) {
+    p.photos = p.photos.map((ph: any) => ({
+      id: ph?.id,
+      stepId: ph?.stepId,
+    }));
+  }
+
+  if (Array.isArray(p.followUpPhotos)) {
+    p.followUpPhotos = p.followUpPhotos.map((ph: any) => ({
+      id: ph?.id,
+      stepId: ph?.stepId,
+      note: ph?.note,
+    }));
+  }
+
+  return p;
+}
+
+async function postJsonAuthed<T>(
+  url: string,
+  body: any,
+  accessToken: string
+): Promise<{ ok: boolean; status: number; json: T | null }> {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body ?? {}),
+    });
+
+    const status = res.status;
+
+    let json: any = null;
+    try {
+      json = await res.json();
+    } catch {}
+
+    return { ok: res.ok, status, json };
+  } catch (err) {
+    console.error("[InPersonResults] postJsonAuthed failed:", url, err);
+    return { ok: false, status: 0, json: null };
   }
 }
 
@@ -90,8 +151,7 @@ function nextCheckToneStyles(tone: NextCheckTone) {
     icon: "text-slate-300",
     label: "Reduce unknowns",
     why: "Confirming this turns an unknown into a known.",
-    after:
-      "This helps you decide whether to proceed confidently or pause.",
+    after: "This helps you decide whether to proceed confidently or pause.",
   };
 }
 
@@ -103,6 +163,14 @@ export default function InPersonResults() {
   const [checkingUnlock, setCheckingUnlock] = useState(true);
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
+
+  // Trigger re-load of saved scan after we persist AI
+  const [reloadTick, setReloadTick] = useState(0);
+
+  // AI auto-generation status
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiGenError, setAiGenError] = useState<string | null>(null);
+  const aiAttemptedRef = useRef(false);
 
   /* -------------------------------------------------------
      ROUTING SAFETY
@@ -176,7 +244,7 @@ export default function InPersonResults() {
     } catch {
       return null;
     }
-  }, [scanIdSafe]);
+  }, [scanIdSafe, reloadTick]);
 
   const progressFallback = useMemo(() => {
     try {
@@ -193,20 +261,150 @@ export default function InPersonResults() {
     };
   }, [saved, progressFallback]);
 
-  /* ---------------- AI INTERPRETATION ---------------- */
-  const aiInterpretation: any = (saved as any)?.aiInterpretation ?? null;
+  /* ---------------- AI INTERPRETATION ----------------
+     Compatibility: accept a few possible stored field names.
+  --------------------------------------------------- */
+  const aiInterpretation: any =
+    (saved as any)?.aiInterpretation ??
+    (saved as any)?.ai ??
+    (saved as any)?.ai_interpretation ??
+    null;
 
   /* -------------------------------------------------------
      ANALYSIS
   ------------------------------------------------------- */
   const analysis = useMemo(() => {
     try {
-      if (saved?.analysis) return saved.analysis;
+      if ((saved as any)?.analysis) return (saved as any).analysis;
       return analyseInPersonInspection(progress);
     } catch {
       return null;
     }
   }, [saved, progress]);
+
+  /* -------------------------------------------------------
+     AUTO-GENERATE AI IF MISSING (Option A)
+     - Runs only after unlock verified
+     - Runs at most once per page load
+     - Persists into saved scan so Results renders it
+  ------------------------------------------------------- */
+  useEffect(() => {
+    let cancelled = false;
+
+    async function ensureAI() {
+      if (!scanIdSafe) return;
+      if (checkingUnlock || unlockError) return;
+      if (!analysis) return;
+
+      // If already present, do nothing
+      if (aiInterpretation) return;
+
+      // Only attempt once per page load to avoid loops
+      if (aiAttemptedRef.current) return;
+      aiAttemptedRef.current = true;
+
+      setAiGenerating(true);
+      setAiGenError(null);
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          // If no session, Results will redirect via RequireAuth upstream,
+          // but we guard anyway.
+          return;
+        }
+
+        const latestProgress: any = progress ?? {};
+        const accessToken = session.access_token;
+
+        const concernsCount = Array.isArray((analysis as any)?.risks)
+          ? (analysis as any).risks.filter((r: any) => r?.severity !== "info")
+              .length
+          : 0;
+
+        const unsureCount = Array.isArray((analysis as any)?.uncertaintyFactors)
+          ? (analysis as any).uncertaintyFactors.length
+          : 0;
+
+        const imperfectionsCount = Array.isArray(latestProgress?.imperfections)
+          ? latestProgress.imperfections.length
+          : 0;
+
+        const photosCount = Array.isArray(latestProgress?.photos)
+          ? latestProgress.photos.length
+          : 0;
+
+        const aiResp = await postJsonAuthed<any>(
+          "/api/analyze-in-person",
+          {
+            scanId: scanIdSafe,
+            progress: stripHeavyFields(latestProgress),
+            analysis,
+            summary: {
+              concernsCount,
+              unsureCount,
+              imperfectionsCount,
+              photosCount,
+            },
+          },
+          accessToken
+        );
+
+        const ai =
+          aiResp.ok && aiResp.json ? (aiResp.json as any).ai : null;
+
+        // If AI failed, just leave the UI in the "no AI yet" state.
+        if (!ai) {
+          if (!cancelled) {
+            setAiGenError("AI interpretation could not be generated.");
+          }
+          return;
+        }
+
+        // Persist AI into the scan record (so Results can read it)
+        const existing: any = saved ?? null;
+
+        await saveScan({
+          ...(existing ?? {}),
+          id: scanIdSafe,
+          type: existing?.type ?? "in-person",
+          title: existing?.title ?? vehicleTitleFromProgress(latestProgress),
+          createdAt: existing?.createdAt ?? new Date().toISOString(),
+          completed: existing?.completed ?? true,
+          analysis: existing?.analysis ?? analysis,
+          progressSnapshot: existing?.progressSnapshot ?? latestProgress,
+          aiInterpretation: ai,
+        } as any);
+
+        if (!cancelled) {
+          // Reload saved scan so aiInterpretation becomes available
+          setReloadTick((n) => n + 1);
+        }
+      } catch (err) {
+        console.error("[InPersonResults] ensureAI failed:", err);
+        if (!cancelled) setAiGenError("AI interpretation failed to generate.");
+      } finally {
+        if (!cancelled) setAiGenerating(false);
+      }
+    }
+
+    void ensureAI();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    scanIdSafe,
+    checkingUnlock,
+    unlockError,
+    analysis,
+    progress,
+    aiInterpretation,
+    saved,
+  ]);
 
   /* -------------------------------------------------------
      VERDICT
@@ -221,10 +419,7 @@ export default function InPersonResults() {
     return Array.isArray(raw) ? (raw as BasicRisk[]) : [];
   }, [analysis]);
 
-  const riskCounts = useMemo(
-    () => countRisksBySeverity(risks as any),
-    [risks]
-  );
+  const riskCounts = useMemo(() => countRisksBySeverity(risks as any), [risks]);
 
   const uncertaintyFactors = useMemo(
     () => extractUncertaintyFactors(analysis),
@@ -275,10 +470,10 @@ export default function InPersonResults() {
     if (!analysis) return null;
 
     const verdict =
-      analysis.verdict === "walk-away" ||
-      analysis.verdict === "caution" ||
-      analysis.verdict === "proceed"
-        ? analysis.verdict
+      (analysis as any).verdict === "walk-away" ||
+      (analysis as any).verdict === "caution" ||
+      (analysis as any).verdict === "proceed"
+        ? (analysis as any).verdict
         : "caution";
 
     return buildGuidedPricePositioning({
@@ -311,9 +506,7 @@ export default function InPersonResults() {
         ttlSeconds: SIGNED_URL_TTL,
       });
 
-      if (!cancelled) {
-        setPhotoUrls(urls);
-      }
+      if (!cancelled) setPhotoUrls(urls);
     }
 
     void loadPhotos();
@@ -408,9 +601,18 @@ export default function InPersonResults() {
                     Expert interpretation
                   </p>
                 </div>
-                <p className="mt-2">
-                  No AI interpretation has been generated for this report yet.
-                </p>
+
+                {aiGenerating ? (
+                  <p className="mt-2 text-slate-300">
+                    Generating AI interpretation…
+                  </p>
+                ) : aiGenError ? (
+                  <p className="mt-2 text-rose-300">{aiGenError}</p>
+                ) : (
+                  <p className="mt-2">
+                    No AI interpretation has been generated for this report yet.
+                  </p>
+                )}
               </section>
             )}
           </header>
