@@ -244,13 +244,20 @@ export default function Home() {
             </p>
 
             <div className="flex flex-wrap items-start gap-3 mt-1">
-              <button
-                onClick={handleStartInPerson}
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-black font-semibold transition"
-              >
-                Start in-person inspection
-                <ArrowRight className="h-4 w-4" />
-              </button>
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={handleStartInPerson}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-black font-semibold transition"
+                >
+                  Start in-person inspection
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+
+                {/* NEW: reassurance under primary CTA */}
+                <span className="text-[11px] text-slate-300">
+                  No payment required to start.
+                </span>
+              </div>
 
               {shouldShowResume && (
                 <div className="flex flex-col gap-1">
@@ -262,8 +269,7 @@ export default function Home() {
                     <ArrowRight className="h-4 w-4" />
                   </button>
                   <span className="text-[11px] text-slate-300">
-                    You’re partway through an inspection — nothing has been
-                    lost.
+                    Your progress is saved automatically.
                   </span>
                 </div>
               )}
@@ -271,7 +277,9 @@ export default function Home() {
 
             {/* BEST FOR */}
             <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-300 leading-relaxed">
-              <span className="text-slate-400">Best for:</span>
+              <span className="text-slate-400">
+                Designed for real-world buying situations:
+              </span>
               <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/25 px-2 py-1">
                 private sales
               </span>
