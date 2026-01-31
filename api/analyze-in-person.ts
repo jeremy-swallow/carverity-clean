@@ -54,51 +54,89 @@ function cleanStringArray(
 }
 
 /* =========================================================
-   Verdict tone presets
+   Tone + length presets
 ========================================================= */
 
-function toneForVerdict(verdict: string | undefined) {
-  switch (verdict) {
-    case "walk-away":
-      return {
-        headline: "Significant risks identified",
-        bullets: [
-          "One or more findings materially change the risk of this purchase.",
-          "Proceeding without resolution would expose you to avoidable downside.",
-        ],
-        nextBestAction:
-          "Strongly consider walking away unless these issues can be resolved clearly and in writing.",
-        why:
-          "The inspection identified issues that meaningfully increase mechanical, financial, or ownership risk. This verdict is intended to protect you from committing to a purchase where the downside outweighs the upside.",
-      };
+function lengthProfile(confidenceScore: number | undefined) {
+  if (typeof confidenceScore !== "number") return "medium";
+  if (confidenceScore >= 80) return "high";
+  if (confidenceScore >= 50) return "medium";
+  return "low";
+}
 
-    case "caution":
-      return {
-        headline: "Proceed with caution",
-        bullets: [
-          "Some items need clarification before committing.",
-          "These findings don’t rule the car out, but they do affect risk.",
-        ],
-        nextBestAction:
-          "Clarify the flagged items and reassess once you have firmer information.",
-        why:
-          "The inspection did not reveal deal-breakers, but there are uncertainties that matter. Resolving them reduces the chance of surprises after purchase.",
-      };
+function toneForVerdict(
+  verdict: string | undefined,
+  confidenceScore: number | undefined
+) {
+  const length = lengthProfile(confidenceScore);
 
-    case "proceed":
-    default:
-      return {
-        headline: "Inspection supports proceeding",
-        bullets: [
-          "No major mechanical, structural, or ownership risks were identified.",
-          "Recorded issues appear minor or consistent with the vehicle’s age.",
-        ],
-        nextBestAction:
-          "Proceed with standard checks and confirm service history.",
-        why:
-          "Based on what was recorded during the inspection, nothing suggests a serious underlying issue. This reflects the absence of major warning signs, while still assuming normal due diligence.",
-      };
+  if (verdict === "walk-away") {
+    return {
+      headline: "Significant risks identified",
+      bullets:
+        length === "high"
+          ? [
+              "The inspection identified risks that materially affect this purchase.",
+              "Proceeding without resolution would expose you to avoidable downside.",
+            ]
+          : [
+              "The inspection identified issues that materially affect this purchase.",
+              "These findings increase mechanical, financial, or ownership risk.",
+              "Proceeding without resolution would expose you to avoidable downside.",
+            ],
+      nextBestAction:
+        "Strongly consider walking away unless these issues can be resolved clearly and in writing.",
+      why:
+        length === "high"
+          ? "The inspection identified risks that meaningfully change the balance of this decision. This verdict is intended to protect you from committing to a purchase where the downside outweighs the upside."
+          : "The inspection identified issues that meaningfully increase mechanical, financial, or ownership risk. This verdict reflects the cumulative impact of those findings and is intended to protect you from committing to a purchase where the downside outweighs the upside.",
+    };
   }
+
+  if (verdict === "caution") {
+    return {
+      headline: "Proceed with caution",
+      bullets:
+        length === "high"
+          ? [
+              "Some items need clarification before committing.",
+              "These findings affect risk but do not rule the car out.",
+            ]
+          : [
+              "Some items need clarification before committing.",
+              "These findings don’t rule the car out, but they do affect risk.",
+              "Resolving them reduces the chance of surprises after purchase.",
+            ],
+      nextBestAction:
+        "Clarify the flagged items and reassess once you have firmer information.",
+      why:
+        length === "high"
+          ? "The inspection did not reveal deal-breakers, but there are uncertainties that matter. Clarifying them improves confidence before you commit."
+          : "The inspection did not reveal deal-breakers, but there are uncertainties that materially affect risk. Resolving them reduces the chance of unexpected issues after purchase.",
+    };
+  }
+
+  // proceed (default)
+  return {
+    headline: "Inspection supports proceeding",
+    bullets:
+      length === "high"
+        ? [
+            "No major mechanical, structural, or ownership risks were identified.",
+            "Recorded issues appear minor or consistent with the vehicle’s age.",
+          ]
+        : [
+            "No major mechanical, structural, or ownership risks were identified.",
+            "Recorded issues appear minor or consistent with the vehicle’s age.",
+            "Nothing recorded suggests a serious underlying issue.",
+          ],
+    nextBestAction:
+      "Proceed with standard checks and confirm service history.",
+    why:
+      length === "high"
+        ? "Based on what was recorded during the inspection, nothing suggests a serious underlying issue. This verdict reflects the absence of major warning signs."
+        : "Based on what was recorded during the inspection, nothing suggests a serious underlying issue. This verdict reflects the absence of major warning signs, while still assuming normal due diligence before purchase.",
+  };
 }
 
 /* =========================================================
@@ -107,24 +145,23 @@ function toneForVerdict(verdict: string | undefined) {
 
 async function callGeminiJSON(payload: any, apiKey: string) {
   const verdict = payload?.analysis?.verdict;
-  const tone = toneForVerdict(verdict);
+  const confidenceScore = payload?.analysis?.confidenceScore;
+  const tone = toneForVerdict(verdict, confidenceScore);
 
   const prompt = `
 You are CarVerity’s expert used-car inspection interpreter.
 
 The inspection verdict is: "${verdict ?? "unknown"}".
+Confidence score: ${confidenceScore ?? "unknown"}.
 
-Write guidance that MATCHES this verdict exactly.
+Write guidance that matches this verdict and confidence level.
 
 Tone rules:
-- Proceed → calm and confident
-- Caution → measured and risk-aware
-- Walk-away → firm and buyer-protective
+- Calm, decisive, buyer-safe
+- High confidence → firm and concise (not thin)
+- Lower confidence → fuller explanation
 - Never invent issues
-- Never hedge unnecessarily
 - Avoid legal or absolute guarantees
-
-Write for a real buyer making a real decision.
 
 Return STRICT JSON ONLY in this shape:
 {
@@ -192,21 +229,9 @@ Return STRICT JSON ONLY in this shape:
     ),
 
     topSignals: {
-      positive: cleanStringArray(
-        parsed?.topSignals?.positive,
-        [],
-        5
-      ),
-      concerns: cleanStringArray(
-        parsed?.topSignals?.concerns,
-        [],
-        5
-      ),
-      unknowns: cleanStringArray(
-        parsed?.topSignals?.unknowns,
-        [],
-        5
-      ),
+      positive: cleanStringArray(parsed?.topSignals?.positive, [], 5),
+      concerns: cleanStringArray(parsed?.topSignals?.concerns, [], 5),
+      unknowns: cleanStringArray(parsed?.topSignals?.unknowns, [], 5),
     },
 
     questionsToAskSeller: cleanStringArray(
