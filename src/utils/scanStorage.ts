@@ -1,10 +1,6 @@
 /* =========================================================
    Inspection Storage Utility
    Local-only persistence (in-person only)
-
-   IMPORTANT:
-   localStorage quota is small (~5MB).
-   NEVER store base64 photos in saved scans.
 ========================================================= */
 
 // src/utils/scanStorage.ts
@@ -19,13 +15,18 @@ export interface InspectionHistoryEvent {
   event: string;
 }
 
+/**
+ * AI interpretation payload (persisted verbatim)
+ * Shape is intentionally loose to avoid future breakage.
+ */
+export type AiInterpretation = Record<string, any>;
+
 export interface SavedInspection {
   id: string;
   type: InspectionType;
   title: string;
   createdAt: string;
 
-  // Vehicle identity (used for display + grouping)
   vehicle?: {
     make?: string;
     model?: string;
@@ -33,17 +34,14 @@ export interface SavedInspection {
     variant?: string;
   };
 
-  // Sale context (dealership OR private)
   sale?: {
     type?: "dealership" | "private";
     name?: string;
     suburb?: string;
   };
 
-  // Thumbnail image (base64 dataUrl) — KEEP SMALL OR OMIT
   thumbnail?: string | null;
 
-  // Optional summary metrics (used for MyScans + previews)
   askingPrice?: number | null;
   score?: number | null;
   concerns?: number | null;
@@ -51,26 +49,16 @@ export interface SavedInspection {
   imperfectionsCount?: number | null;
   photosCount?: number | null;
 
-  // Helpful flags
   fromOnlineScan?: boolean;
 
-  // Timeline of user actions (save, export, follow-ups, notes)
   history?: InspectionHistoryEvent[];
-
-  // Completion hint (future use)
   completed?: boolean;
 
-  /**
-   * Persisted analysis output for reload-safe results.
-   * Generated at the moment report generation begins.
-   */
   analysis?: AnalysisResult;
-
-  /**
-   * Persisted progress snapshot at the time of report generation.
-   * NOTE: this MUST NOT include base64 photo data.
-   */
   progressSnapshot?: ScanProgress;
+
+  /** ✅ AI output — MUST persist across reloads */
+  aiInterpretation?: AiInterpretation;
 }
 
 const STORAGE_KEY = "carverity_saved_inspections";
@@ -90,14 +78,6 @@ function isProbablyBase64DataUrl(value: unknown): value is string {
   );
 }
 
-/**
- * localStorage is tiny. A single base64 photo can be >1MB.
- * We strip all dataUrl fields before saving progressSnapshot.
- *
- * IMPORTANT FIX:
- * We MUST keep storagePath so we can rehydrate photos after refresh.
- * storagePath is tiny and safe to store.
- */
 function stripPhotosFromProgress(
   progress?: ScanProgress
 ): ScanProgress | undefined {
@@ -105,39 +85,30 @@ function stripPhotosFromProgress(
 
   const next: ScanProgress = { ...progress };
 
-  // Photos (captured during scan)
   if (Array.isArray((next as any).photos)) {
     (next as any).photos = (next as any).photos.map((p: any) => ({
       id: p?.id,
       stepId: p?.stepId,
-      storagePath: p?.storagePath, // ✅ KEEP THIS
+      storagePath: p?.storagePath,
     }));
   }
 
-  // Follow-up photos (captured after scan)
   if (Array.isArray((next as any).followUpPhotos)) {
     (next as any).followUpPhotos = (next as any).followUpPhotos.map(
       (p: any) => ({
         id: p?.id,
         note: p?.note,
-        storagePath: p?.storagePath, // ✅ KEEP THIS
+        storagePath: p?.storagePath,
       })
     );
   }
 
-  /**
-   * Imperfections:
-   * Current type doesn't include photos, but we keep any photo refs if present.
-   * (Future-safe + backwards-compatible)
-   */
   if (Array.isArray((next as any).imperfections)) {
     (next as any).imperfections = (next as any).imperfections.map((imp: any) => {
       const cleaned: any = { ...imp };
 
-      // Remove accidental base64 fields if they exist
       if (isProbablyBase64DataUrl(cleaned?.dataUrl)) delete cleaned.dataUrl;
 
-      // If imperfection has embedded photos array, strip base64 but keep storagePath
       if (Array.isArray(cleaned?.photos)) {
         cleaned.photos = cleaned.photos.map((p: any) => ({
           id: p?.id,
@@ -147,7 +118,6 @@ function stripPhotosFromProgress(
         }));
       }
 
-      // If single photo reference
       if (isProbablyBase64DataUrl(cleaned?.storagePath)) {
         delete cleaned.storagePath;
       }
@@ -159,21 +129,10 @@ function stripPhotosFromProgress(
   return next;
 }
 
-/**
- * If thumbnail is a base64 dataUrl, it can also blow quota.
- * We keep it only if it's "small enough".
- */
 function safeThumbnail(thumbnail?: string | null): string | null {
   if (!thumbnail) return null;
-
-  if (!isProbablyBase64DataUrl(thumbnail)) {
-    return thumbnail;
-  }
-
-  // Rough guard: base64 strings are huge; keep only small ones.
-  // 120k chars ~ ~90KB raw-ish (still large, but acceptable for a thumbnail)
+  if (!isProbablyBase64DataUrl(thumbnail)) return thumbnail;
   if (thumbnail.length > 120_000) return null;
-
   return thumbnail;
 }
 
@@ -188,54 +147,29 @@ function normaliseInspections(records: any[]): SavedInspection[] {
     thumbnail: record.thumbnail ?? null,
     analysis: record.analysis ?? undefined,
     progressSnapshot: record.progressSnapshot ?? undefined,
+    aiInterpretation: record.aiInterpretation ?? undefined, // ✅ KEEP AI
     sale: record.sale ?? undefined,
-  })) as SavedInspection[];
+  }));
 }
 
 function tryWriteToStorage(scans: SavedInspection[]) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(scans));
 }
 
-/**
- * If storage is full, we prune older scans until it fits.
- * This ensures the current scan still saves.
- */
 function writeWithPrune(scans: SavedInspection[]) {
-  // First attempt
   try {
     tryWriteToStorage(scans);
     return;
-  } catch (err: any) {
-    const message = String(err?.message || "");
-    const name = String(err?.name || "");
+  } catch {}
 
-    const isQuota =
-      name === "QuotaExceededError" ||
-      message.toLowerCase().includes("quota") ||
-      message.toLowerCase().includes("exceeded");
-
-    if (!isQuota) {
-      // Unknown storage failure
-      throw err;
-    }
-  }
-
-  // Prune strategy: keep newest first, drop oldest until it fits
   let pruned = [...scans];
-
   while (pruned.length > 0) {
     pruned = pruned.slice(0, pruned.length - 1);
-
     try {
       tryWriteToStorage(pruned);
       return;
-    } catch {
-      // keep pruning
-    }
+    } catch {}
   }
-
-  // If we STILL can't write, give up silently (but don't crash app)
-  // This is extremely rare unless localStorage is blocked.
 }
 
 /* =========================================================
@@ -244,14 +178,11 @@ function writeWithPrune(scans: SavedInspection[]) {
 
 export function loadScans(): SavedInspection[] {
   if (typeof window === "undefined") return [];
-
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-
     return normaliseInspections(parsed);
   } catch {
     return [];
@@ -259,18 +190,13 @@ export function loadScans(): SavedInspection[] {
 }
 
 export function loadScanById(inspectionId: string): SavedInspection | null {
-  const scans = loadScans();
-  return scans.find((s) => s.id === inspectionId) ?? null;
+  return loadScans().find((s) => s.id === inspectionId) ?? null;
 }
 
 export function saveScan(inspection: SavedInspection) {
   if (typeof window === "undefined") return;
 
   const existing = loadScans().filter((i) => i.id !== inspection.id);
-
-  const safeProgressSnapshot = stripPhotosFromProgress(
-    inspection.progressSnapshot
-  );
 
   const updated: SavedInspection[] = [
     {
@@ -283,43 +209,24 @@ export function saveScan(inspection: SavedInspection) {
       sale: inspection.sale ?? undefined,
       thumbnail: safeThumbnail(inspection.thumbnail ?? null),
       analysis: inspection.analysis ?? undefined,
-      progressSnapshot: safeProgressSnapshot ?? undefined,
+      progressSnapshot: stripPhotosFromProgress(
+        inspection.progressSnapshot
+      ),
+      aiInterpretation: inspection.aiInterpretation ?? undefined, // ✅ SAVE AI
     },
     ...existing,
   ];
 
   try {
     writeWithPrune(updated);
-  } catch (err) {
-    // Never crash the app due to storage issues
-    console.warn("[scanStorage] saveScan failed:", err);
-  }
-}
-
-export function updateScanTitle(inspectionId: string, title: string) {
-  if (typeof window === "undefined") return;
-
-  const updated = loadScans().map((inspection) =>
-    inspection.id === inspectionId ? { ...inspection, title } : inspection
-  );
-
-  try {
-    writeWithPrune(updated);
-  } catch (err) {
-    console.warn("[scanStorage] updateScanTitle failed:", err);
+  } catch {
+    console.warn("[scanStorage] saveScan failed");
   }
 }
 
 export function deleteScan(inspectionId: string) {
   if (typeof window === "undefined") return;
-
-  const filtered = loadScans().filter((i) => i.id === inspectionId ? false : true);
-
-  try {
-    writeWithPrune(filtered);
-  } catch (err) {
-    console.warn("[scanStorage] deleteScan failed:", err);
-  }
+  writeWithPrune(loadScans().filter((i) => i.id !== inspectionId));
 }
 
 export function clearAllScans() {
