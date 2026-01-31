@@ -1,17 +1,7 @@
 {
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "nodejs18.x"
-    }
-  },
-  "routes": [
-    {
-      "src": "^/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "^(?!/api/).*",
-      "dest": "/index.html"
-    }
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
