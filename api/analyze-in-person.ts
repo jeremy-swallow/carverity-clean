@@ -2,23 +2,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 
-const GEMINI_API_KEY = process.env.GOOGLE_API_KEY as string;
-const SUPABASE_URL = process.env.SUPABASE_URL as string;
-const SUPABASE_SERVICE_ROLE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY as string;
-
-if (!GEMINI_API_KEY) {
-  throw new Error("Missing GOOGLE_API_KEY — add it in Vercel env vars.");
-}
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error("Missing Supabase service role env vars.");
-}
-
-const supabase = createClient(
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY
-);
-
 /* =========================================================
    Helpers
 ========================================================= */
@@ -59,10 +42,10 @@ function cleanStringArray(arr: unknown, maxItems: number): string[] {
 }
 
 /* =========================================================
-   Gemini call
+   Gemini
 ========================================================= */
 
-async function callGeminiJSON(payload: any) {
+async function callGeminiJSON(payload: any, apiKey: string) {
   const prompt = `
 You are an expert used-car buyer assistant writing an in-person inspection report interpretation.
 
@@ -93,7 +76,7 @@ Return STRICT JSON ONLY in this shape:
 
   const res = await fetch(
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
-      GEMINI_API_KEY,
+      apiKey,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -152,6 +135,19 @@ export default async function handler(
   res: VercelResponse
 ) {
   try {
+    const {
+      GOOGLE_API_KEY,
+      SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY,
+    } = process.env;
+
+    if (!GOOGLE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      return res.status(500).json({
+        ok: false,
+        error: "missing-env-vars",
+      });
+    }
+
     const scanId = String(req.body?.scanId ?? "").trim();
     const progress = req.body?.progress ?? null;
     const analysis = req.body?.analysis ?? null;
@@ -160,50 +156,41 @@ export default async function handler(
       return res.status(400).json({ ok: false });
     }
 
-    // Fetch existing scan
-    const { data: scan, error } = await supabase
-      .from("scans")
-      .select("*")
-      .eq("scan_id", scanId)
-      .single();
+    const supabase = createClient(
+      SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY
+    );
 
-    if (error || !scan) {
-      return res.status(404).json({ ok: false, error: "scan-not-found" });
-    }
-
-    // Do not regenerate if AI already exists
-    if (scan.report?.aiInterpretation) {
-      return res.status(200).json({
-        ok: true,
+    const ai = await callGeminiJSON(
+      {
         scanId,
-        ai: scan.report.aiInterpretation,
-      });
+        progress,
+        analysis,
+        summary: req.body?.summary ?? null,
+      },
+      GOOGLE_API_KEY
+    );
+
+    // Best-effort persistence (non-blocking)
+    try {
+      await supabase
+        .from("scans")
+        .update({
+          report: {
+            aiInterpretation: ai,
+          },
+        })
+        .eq("scan_id", scanId);
+    } catch {
+      // ignore persistence failure
     }
-
-    const ai = await callGeminiJSON({
-      scanId,
-      progress,
-      analysis,
-      summary: req.body?.summary ?? null,
-    });
-
-    // Persist AI into report
-    await supabase
-      .from("scans")
-      .update({
-        report: {
-          ...(scan.report ?? {}),
-          aiInterpretation: ai,
-        },
-      })
-      .eq("scan_id", scanId);
 
     return res.status(200).json({
       ok: true,
       scanId,
       ai,
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("analyze-in-person error", err);
     return res.status(500).json({ ok: false });
   }
