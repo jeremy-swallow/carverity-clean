@@ -1,5 +1,3 @@
-// src/App.tsx
-
 import { useEffect, useState, type ReactNode } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
@@ -51,11 +49,13 @@ import InPersonAnalyzing from "./pages/InPersonAnalyzing";
 import InPersonUnlock from "./pages/InPersonUnlock";
 import InPersonUnlockSuccess from "./pages/InPersonUnlockSuccess";
 import InPersonReportPrint from "./pages/InPersonReportPrint";
-import InPersonDecision from "./pages/InPersonDecision";
 import InPersonPricePositioning from "./pages/InPersonPricePositioning";
 
 /* ✅ RESULTS (WRAPPED) */
 import InPersonResultsWrapped from "./pages/InPersonResultsWrapped";
+
+/* ✅ DECISION (WRAPPED) */
+import InPersonDecisionWrapped from "./pages/InPersonDecisionWrapped";
 
 /* Legacy / compatibility */
 import InPersonScan from "./pages/InPersonScan";
@@ -311,12 +311,12 @@ export default function App() {
           }
         />
 
-        {/* Decision */}
+        {/* ✅ DECISION — WRAPPED */}
         <Route
           path="/scan/in-person/decision/:scanId"
           element={
             <RequireAuth>
-              <InPersonDecision />
+              <InPersonDecisionWrapped />
             </RequireAuth>
           }
         />
@@ -348,7 +348,8 @@ export default function App() {
 
         <Route
           path="/scan/in-person/print"
-          element={<Navigate to="/" replace />} />
+          element={<Navigate to="/" replace />}
+        />
 
         {/* Legacy */}
         <Route path="/scan/in-person" element={<InPersonScan />} />
