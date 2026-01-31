@@ -632,7 +632,7 @@ export default function Pricing() {
             <div
               key={pack.key}
               className={[
-                "group relative rounded-2xl border px-6 py-8 flex flex-col overflow-hidden",
+                "group relative rounded-2xl border px-6 py-8 flex flex-col",
                 "transition duration-200",
                 "hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/30",
                 isRecommended
