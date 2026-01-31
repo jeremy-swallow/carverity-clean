@@ -54,73 +54,64 @@ function cleanStringArray(
 }
 
 /* =========================================================
-   Risk extraction helpers
+   Risk extraction + language cues
 ========================================================= */
 
 type Risk = { severity?: string; label?: string };
 
-function extractRiskSummary(analysis: any) {
+function extractRisks(analysis: any) {
   const risks: Risk[] = Array.isArray(analysis?.risks)
     ? analysis.risks
     : [];
 
-  const critical = risks.filter((r) => r.severity === "critical");
-  const moderate = risks.filter((r) => r.severity === "moderate");
-
   return {
-    criticalLabels: critical.map((r) => r.label).filter(Boolean),
-    moderateLabels: moderate.map((r) => r.label).filter(Boolean),
+    critical: risks.filter((r) => r.severity === "critical"),
+    moderate: risks.filter((r) => r.severity === "moderate"),
   };
 }
-
-/* =========================================================
-   Tone + bullets
-========================================================= */
 
 function bulletsForVerdict(
   verdict: string | undefined,
   analysis: any
 ): string[] {
-  const { criticalLabels, moderateLabels } =
-    extractRiskSummary(analysis);
+  const { critical, moderate } = extractRisks(analysis);
 
   if (verdict === "walk-away") {
-    const specific =
-      criticalLabels[0] ||
-      moderateLabels[0] ||
-      "serious unresolved issues";
+    const label = critical[0]?.label ?? moderate[0]?.label ?? "a significant issue";
 
     return [
-      `A critical issue was identified (${specific}).`,
-      "This materially changes the risk of proceeding with the purchase.",
+      `A significant issue was identified (${label}), which materially affects this purchase.`,
+      "This requires clear resolution before the car could be considered further.",
     ];
   }
 
   if (verdict === "caution") {
-    const specific =
-      moderateLabels[0] ||
-      criticalLabels[0] ||
-      "one or more unresolved items";
+    const label =
+      moderate[0]?.label ?? critical[0]?.label ?? "one or more items";
 
     return [
-      `Some concerns need clarification (${specific}).`,
-      "These findings affect risk but do not automatically rule the car out.",
+      `Some items worth clarifying were identified (${label}).`,
+      "These findings don’t rule the car out, but they do affect risk.",
     ];
   }
 
   // proceed
-  if (moderateLabels.length > 0) {
+  if (moderate.length > 0) {
+    const labels = moderate
+      .slice(0, 2)
+      .map((r) => r.label)
+      .filter(Boolean)
+      .join(" and ");
+
     return [
       "No critical risks were identified during the inspection.",
-      `Minor concerns were limited to ${moderateLabels
-        .slice(0, 2)
-        .join(" and ")}.`,
+      `Minor, routine items were limited to ${labels}.`,
     ];
   }
 
   return [
     "No critical or moderate risks were identified during the inspection.",
-    "Recorded issues appear minor or consistent with the vehicle’s age.",
+    "Recorded issues appear routine and consistent with the vehicle’s age.",
   ];
 }
 
@@ -139,8 +130,10 @@ You are CarVerity’s expert used-car inspection interpreter.
 The inspection verdict is: "${verdict ?? "unknown"}".
 
 Use the inspection findings directly.
-If risks are present, reference them clearly.
-If no serious risks are present, say that plainly.
+Mirror the severity of issues through clear language:
+- Critical → significant, requires resolution
+- Moderate → worth clarifying, affects risk
+- Minor → routine, expected for age
 
 Tone rules:
 - Calm, decisive, buyer-safe
@@ -218,7 +211,7 @@ Return STRICT JSON ONLY in this shape:
 
     whyThisVerdict: cleanSentence(
       parsed?.whyThisVerdict,
-      "This guidance reflects the specific findings recorded during the inspection and how they affect purchase risk.",
+      "This guidance reflects the specific findings recorded during the inspection and how their severity affects purchase risk.",
       900
     ),
 
