@@ -14,10 +14,6 @@ function safeJsonParse(text: string): any {
   }
 }
 
-function isEmptyString(value: unknown) {
-  return typeof value === "string" && value.trim().length === 0;
-}
-
 function isGarbageString(value: unknown) {
   if (typeof value !== "string") return true;
   const t = value.trim();
@@ -30,7 +26,11 @@ function isGarbageString(value: unknown) {
   );
 }
 
-function cleanSentence(value: unknown, fallback: string, max = 400): string {
+function cleanSentence(
+  value: unknown,
+  fallback: string,
+  max = 400
+): string {
   if (typeof value !== "string") return fallback;
   let s = value.replace(/```/g, "").trim();
   if (s.length < 3) return fallback;
@@ -59,14 +59,19 @@ function cleanStringArray(
 
 async function callGeminiJSON(payload: any, apiKey: string) {
   const prompt = `
-You are an expert used-car buyer assistant writing an in-person inspection report interpretation.
+You are CarVerity’s expert used-car inspection interpreter.
 
-Rules:
-- Explain what the inspection RESULT implies for a buyer
-- If no major issues exist, SAY THAT CLEARLY
-- Never invent faults
-- Calm, buyer-safe, confidence-building language
-- Do NOT return empty strings
+Write calm, decisive guidance for a buyer who has just completed
+an in-person inspection.
+
+Tone rules:
+- Be clear and confident, not vague
+- If nothing serious was recorded, say that plainly
+- Do not invent issues or speculate
+- Avoid legal or absolute guarantees
+- Sound like a careful expert, not a chatbot
+
+Write for a real buyer making a real decision.
 
 Return STRICT JSON ONLY in this shape:
 {
@@ -97,7 +102,7 @@ Return STRICT JSON ONLY in this shape:
           { role: "user", parts: [{ text: prompt.trim() }] },
           { role: "user", parts: [{ text: JSON.stringify(payload) }] },
         ],
-        generationConfig: { temperature: 0.35 },
+        generationConfig: { temperature: 0.3 },
       }),
     }
   );
@@ -112,17 +117,19 @@ Return STRICT JSON ONLY in this shape:
     decisionBrief: {
       headline: cleanSentence(
         parsed?.decisionBrief?.headline,
-        "Inspection looks sound overall",
+        "Inspection supports proceeding",
         120
       ),
+
       bullets: cleanStringArray(
         parsed?.decisionBrief?.bullets,
         [
-          "No major red flags were identified during the inspection.",
-          "Recorded issues appear minor or routine for the vehicle’s age.",
+          "No major mechanical, structural, or ownership risks were identified.",
+          "Recorded issues appear minor or consistent with the vehicle’s age.",
         ],
         5
       ),
+
       nextBestAction: cleanSentence(
         parsed?.decisionBrief?.nextBestAction,
         "Proceed with standard checks and confirm service history.",
@@ -132,7 +139,7 @@ Return STRICT JSON ONLY in this shape:
 
     whyThisVerdict: cleanSentence(
       parsed?.whyThisVerdict,
-      "Based on what was recorded during the inspection, there are no indicators of serious mechanical, structural, or ownership risk. This assessment reflects the absence of major warning signs rather than a guarantee of condition.",
+      "Based on what was recorded during the inspection, nothing suggests a serious underlying issue. This verdict reflects the absence of major warning signs, while still assuming normal due diligence before purchase.",
       900
     ),
 
@@ -162,7 +169,7 @@ Return STRICT JSON ONLY in this shape:
 
     confidenceNote: cleanSentence(
       parsed?.confidenceNote,
-      "This recommendation is based on the information recorded during the inspection.",
+      "This guidance is based on the information recorded during the inspection.",
       200
     ),
 
