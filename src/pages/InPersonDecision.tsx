@@ -1,5 +1,3 @@
-// src/pages/InPersonDecision.tsx
-
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
@@ -132,6 +130,14 @@ function isFiniteNumber(n: unknown): n is number {
   return typeof n === "number" && Number.isFinite(n);
 }
 
+function parseAudNumber(input: string): number | null {
+  const cleaned = String(input ?? "").replace(/[^\d]/g, "");
+  if (!cleaned) return null;
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return null;
+  return n > 0 ? n : null;
+}
+
 /* =======================================================
    Page
 ======================================================= */
@@ -159,22 +165,24 @@ export default function InPersonDecision() {
   const confidence = clamp(Number(analysis.confidenceScore ?? 0), 0, 100);
 
   /* =====================================================
-     Asking price capture (guided, non-formy)
+     Asking price capture (guided, non-formy) — FIXED
   ===================================================== */
 
-  const initialAsking = isFiniteNumber(progress?.askingPrice)
-    ? Number(progress.askingPrice)
-    : null;
+  const initialAsking = useMemo(() => {
+    const v = progress?.askingPrice;
+    if (isFiniteNumber(v)) return Number(v);
+    if (typeof v === "string") return parseAudNumber(v);
+    return null;
+  }, [progress]);
 
+  // Keep RAW text so typing never locks. Parse separately.
   const [askingInput, setAskingInput] = useState<string>(
     initialAsking != null ? String(Math.round(initialAsking)) : ""
   );
   const [askingSaved, setAskingSaved] = useState<boolean>(false);
 
   const askingPriceParsed = useMemo(() => {
-    const raw = askingInput.replace(/[^\d]/g, "");
-    const n = raw ? Number(raw) : NaN;
-    return Number.isFinite(n) && n > 0 ? n : null;
+    return parseAudNumber(askingInput);
   }, [askingInput]);
 
   function saveAskingPrice() {
@@ -385,7 +393,9 @@ export default function InPersonDecision() {
       "Confirm the seller’s identity and that the paperwork matches the vehicle."
     );
     items.push("Verify service history with invoices (not just a stamp book).");
-    items.push("Check for finance owing or written-off status (where applicable).");
+    items.push(
+      "Check for finance owing or written-off status (where applicable)."
+    );
 
     if (critical.length > 0) {
       items.push(
@@ -400,7 +410,9 @@ export default function InPersonDecision() {
     }
 
     if (unsure.length > 0) {
-      items.push("Treat unsure items as unknowns and verify them before deciding.");
+      items.push(
+        "Treat unsure items as unknowns and verify them before deciding."
+      );
     }
 
     return items.slice(0, 7);
@@ -419,8 +431,12 @@ export default function InPersonDecision() {
     }
 
     if (req.length === 0) {
-      req.push("Ask for the most recent service invoice and any recent repair receipts.");
-      req.push("Ask whether there are any known faults, warnings, or maintenance due soon.");
+      req.push(
+        "Ask for the most recent service invoice and any recent repair receipts."
+      );
+      req.push(
+        "Ask whether there are any known faults, warnings, or maintenance due soon."
+      );
     }
 
     return req.slice(0, 6);
@@ -429,12 +445,16 @@ export default function InPersonDecision() {
   const whatGoodLooksLike = useMemo(() => {
     const good: string[] = [];
 
-    good.push("The seller provides clear evidence for your concerns in writing or invoices.");
+    good.push(
+      "The seller provides clear evidence for your concerns in writing or invoices."
+    );
     good.push("Your unknown items become confirmed rather than remaining unknown.");
     good.push("No new warning lights or behaviours appear on a second look.");
 
     if (analysis.verdict === "proceed") {
-      good.push("Your recorded inspection stays consistent with no new concerns emerging.");
+      good.push(
+        "Your recorded inspection stays consistent with no new concerns emerging."
+      );
     }
 
     return good.slice(0, 5);
@@ -443,10 +463,14 @@ export default function InPersonDecision() {
   const whenToWalk = useMemo(() => {
     const bad: string[] = [];
 
-    bad.push("The seller refuses reasonable verification or discourages basic checks.");
+    bad.push(
+      "The seller refuses reasonable verification or discourages basic checks."
+    );
 
     if (critical.length > 0) {
-      bad.push("A high-impact item remains unresolved or worsens after re-checking.");
+      bad.push(
+        "A high-impact item remains unresolved or worsens after re-checking."
+      );
     }
 
     if (unsure.length > 0) {
@@ -498,10 +522,9 @@ export default function InPersonDecision() {
 
       {/* NEW: Guided “verify next” card (mirrored from Results, reframed for Decision) */}
       <section
-        className={[
-          "rounded-2xl border px-5 py-5 space-y-4",
-          bestNextTone.wrap,
-        ].join(" ")}
+        className={["rounded-2xl border px-5 py-5 space-y-4", bestNextTone.wrap].join(
+          " "
+        )}
       >
         <div className="flex items-center gap-2 text-slate-200">
           <Flag className={["h-4 w-4", bestNextTone.icon].join(" ")} />
@@ -524,28 +547,17 @@ export default function InPersonDecision() {
           </div>
         </div>
 
-        <p className="text-xs text-slate-500">
-          One clear action now reduces regret later.
-        </p>
+        <p className="text-xs text-slate-500">One clear action now reduces regret later.</p>
       </section>
 
       {/* Chapter 1: Decision anchor */}
-      <section
-        className={[
-          "rounded-2xl border px-5 py-6 space-y-4",
-          postureTone.wrap,
-        ].join(" ")}
-      >
+      <section className={["rounded-2xl border px-5 py-6 space-y-4", postureTone.wrap].join(" ")}>
         <div className="flex items-start gap-3">
-          <posture.icon
-            className={["h-5 w-5 mt-0.5", postureTone.icon].join(" ")}
-          />
+          <posture.icon className={["h-5 w-5 mt-0.5", postureTone.icon].join(" ")} />
 
           <div className="flex-1 space-y-1">
             <p className="text-sm font-semibold text-white">{posture.title}</p>
-            <p className="text-sm text-slate-200 leading-relaxed">
-              {posture.body}
-            </p>
+            <p className="text-sm text-slate-200 leading-relaxed">{posture.body}</p>
           </div>
         </div>
 
@@ -560,9 +572,7 @@ export default function InPersonDecision() {
             Inspection confidence: {confidenceLabel(confidence)} ({confidence}%)
           </span>
 
-          <span className="text-xs text-slate-300">
-            {confidenceMeaning(confidence)}
-          </span>
+          <span className="text-xs text-slate-300">{confidenceMeaning(confidence)}</span>
         </div>
 
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
@@ -593,14 +603,10 @@ export default function InPersonDecision() {
       <section className="rounded-2xl border border-white/20 bg-slate-900/80 px-5 py-5 space-y-3">
         <div className="flex items-center gap-2 text-slate-200">
           <RecIcon className="h-4 w-4 text-slate-300" />
-          <h2 className="text-sm font-semibold">
-            {recommendedNextAction.title}
-          </h2>
+          <h2 className="text-sm font-semibold">{recommendedNextAction.title}</h2>
         </div>
 
-        <p className="text-sm text-slate-300 leading-relaxed">
-          {recommendedNextAction.body}
-        </p>
+        <p className="text-sm text-slate-300 leading-relaxed">{recommendedNextAction.body}</p>
       </section>
 
       {/* Chapter: Price positioning (guided, not a dump) */}
@@ -616,9 +622,7 @@ export default function InPersonDecision() {
           <BadgeDollarSign
             className={[
               "h-4 w-4",
-              analysis.verdict === "walk-away"
-                ? "text-rose-300"
-                : "text-slate-300",
+              analysis.verdict === "walk-away" ? "text-rose-300" : "text-slate-300",
             ].join(" ")}
           />
           <h2 className="text-sm font-semibold">{pricing.title}</h2>
@@ -626,9 +630,7 @@ export default function InPersonDecision() {
 
         {pricing.mode === "needs_price" && (
           <>
-            <p className="text-sm text-slate-300 leading-relaxed">
-              {pricing.guidance[0]}
-            </p>
+            <p className="text-sm text-slate-300 leading-relaxed">{pricing.guidance[0]}</p>
 
             <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 space-y-3">
               <p className="text-xs text-slate-400">
@@ -641,9 +643,12 @@ export default function InPersonDecision() {
                     Asking price (AUD)
                   </label>
                   <input
+                    type="text"
                     value={askingInput}
                     onChange={(e) => setAskingInput(e.target.value)}
                     inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="off"
                     placeholder="e.g. 18990"
                     className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none focus:border-white/20"
                   />
@@ -664,9 +669,7 @@ export default function InPersonDecision() {
                 </button>
               </div>
 
-              <p className="text-xs text-slate-500 leading-relaxed">
-                {pricing.disclaimer}
-              </p>
+              <p className="text-xs text-slate-500 leading-relaxed">{pricing.disclaimer}</p>
             </div>
 
             <ul className="text-sm text-slate-300 space-y-2">
@@ -679,9 +682,7 @@ export default function InPersonDecision() {
 
         {pricing.mode === "ok" && (
           <>
-            <p className="text-sm text-slate-300 leading-relaxed">
-              {pricing.subtitle}
-            </p>
+            <p className="text-sm text-slate-300 leading-relaxed">{pricing.subtitle}</p>
 
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
@@ -737,9 +738,7 @@ export default function InPersonDecision() {
                         {formatMoney(b.min)} – {formatMoney(b.max)}
                       </p>
                     </div>
-                    <p className="text-sm text-slate-300 leading-relaxed">
-                      {b.note}
-                    </p>
+                    <p className="text-sm text-slate-300 leading-relaxed">{b.note}</p>
                   </div>
                 ))}
               </div>
@@ -836,9 +835,7 @@ export default function InPersonDecision() {
         <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
           <div className="flex items-center gap-2 text-slate-200">
             <AlertTriangle className="h-4 w-4 text-amber-300" />
-            <h2 className="text-sm font-semibold">
-              When walking away is reasonable
-            </h2>
+            <h2 className="text-sm font-semibold">When walking away is reasonable</h2>
           </div>
 
           <ul className="text-sm text-slate-300 space-y-2">
