@@ -916,10 +916,10 @@ export default function InPersonReportPrint() {
         .print-block { break-inside: avoid; page-break-inside: avoid; }
 
         .print-cover {
-          max-width: 210mm;
-          margin: 0 auto;
-          padding: 16mm 16mm 24mm 16mm;
-        }
+  width: 100%;
+  margin: 0;
+  padding: 18mm 18mm 26mm 18mm;
+}
 
         .print-cover-inner {
           min-height: calc(297mm - 16mm - 24mm);
