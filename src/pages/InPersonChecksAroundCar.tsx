@@ -1,5 +1,3 @@
-// src/pages/InPersonChecksAroundCar.tsx
-
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Car, Camera } from "lucide-react";
@@ -73,7 +71,7 @@ export default function InPersonChecksAroundCar() {
         id: "body-panels-paint",
         title: "Body panels & paint",
         guidance:
-          "Walk around the car and look for mismatched paint, uneven gaps, or signs of repair.",
+          "Inspect as much of the car’s exterior as you can. Partial views are OK if space is tight — look for mismatched paint, uneven gaps, dents, or signs of repair in the visible areas.",
         quickConcerns: [
           "Scratches or scuffs",
           "Dents",
@@ -81,56 +79,76 @@ export default function InPersonChecksAroundCar() {
           "Overspray",
           "Panel gaps uneven",
         ],
-        quickUnsure: ["Poor lighting", "Car dirty", "Hard to see clearly"],
+        quickUnsure: [
+          "Cars parked too close together",
+          "Poor lighting",
+          "Car dirty",
+          "Hard to see clearly",
+        ],
       },
       {
         id: "headlights-condition",
         title: "Headlights condition",
         guidance:
-          "Look for cloudy/yellow lenses, cracks, or moisture inside.",
+          "Check the visible lens surfaces for clouding, cracks, or moisture. If access is limited, assess what you can see.",
         allowPhoto: true,
         quickConcerns: [
           "Cloudy / yellowed",
           "Cracked lens",
           "Moisture inside",
         ],
-        quickUnsure: ["Hard to tell in shade", "Didn’t inspect closely"],
+        quickUnsure: [
+          "Cars parked too close together",
+          "Hard to tell in shade",
+          "Didn’t inspect closely",
+        ],
       },
       {
         id: "windscreen-damage",
         title: "Windscreen damage",
         guidance:
-          "Check for chips or cracks. Even small chips can spread.",
+          "Check the accessible areas of the windscreen for chips or cracks. Even small chips can spread.",
         allowPhoto: true,
         quickConcerns: [
           "Stone chip",
           "Crack forming",
           "Damage in driver view",
         ],
-        quickUnsure: ["Glare", "Couldn’t see clearly"],
+        quickUnsure: [
+          "Cars parked too close together",
+          "Glare",
+          "Couldn’t see clearly",
+        ],
       },
       {
         id: "tyre-wear",
         title: "Tyre wear & tread",
-        guidance: "Look for even wear across each tyre.",
+        guidance:
+          "Inspect the tyres you can access. Look for even wear across the visible tyres.",
         quickConcerns: [
           "Uneven wear",
           "Low tread",
           "Different tyre brands",
         ],
-        quickUnsure: ["Didn’t check all tyres"],
+        quickUnsure: [
+          "Cars parked too close together",
+          "Didn’t check all tyres",
+        ],
       },
       {
         id: "brakes-visible",
         title: "Brake discs (if visible)",
         guidance:
-          "Light surface rust is normal. Look for heavy wear or grooves.",
+          "If you can see the brake discs through the wheels, look for heavy wear or grooves. Limited visibility is common in car yards.",
         quickConcerns: [
           "Heavy lip on disc",
           "Deep grooves",
           "Looks heavily worn",
         ],
-        quickUnsure: ["Hard to see behind wheels"],
+        quickUnsure: [
+          "Cars parked too close together",
+          "Hard to see behind wheels",
+        ],
       },
     ],
     []
@@ -222,7 +240,8 @@ export default function InPersonChecksAroundCar() {
         <div>
           <h1 className="text-2xl font-semibold text-white">Around the car</h1>
           <p className="text-sm text-slate-400 mt-1">
-            Walk around the vehicle and record what you actually see.
+            Walk around the vehicle and record what you can realistically see.
+            Partial views are fine if space is limited.
           </p>
         </div>
       </div>
@@ -330,7 +349,7 @@ export default function InPersonChecksAroundCar() {
               {c.allowPhoto && (
                 <label className="inline-flex items-center gap-2 text-xs text-slate-300 cursor-pointer pt-2">
                   <Camera className="h-4 w-4" />
-                  Add photo
+                  Add photo (best available view)
                   <input
                     type="file"
                     accept="image/*"

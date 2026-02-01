@@ -1,5 +1,3 @@
-// src/pages/InPersonChecksInsideCabin.tsx
-
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sofa } from "lucide-react";
@@ -63,7 +61,7 @@ export default function InPersonChecksInsideCabin() {
         id: "interior-smell",
         title: "Smell or moisture",
         guidance:
-          "A damp or musty smell can hint at leaks, water entry, or poor storage.",
+          "Use your best judgement based on what you can access. A damp or musty smell can hint at leaks, water entry, or poor storage.",
         quickConcerns: [
           "Musty smell",
           "Damp carpet",
@@ -72,6 +70,7 @@ export default function InPersonChecksInsideCabin() {
           "Aircon smell",
         ],
         quickUnsure: [
+          "Limited access",
           "Raining / wet day",
           "Short inspection",
           "Couldn’t check boot area",
@@ -81,7 +80,7 @@ export default function InPersonChecksInsideCabin() {
         id: "interior-condition",
         title: "General interior condition",
         guidance:
-          "Normal wear is expected — you’re looking for unusually rough condition.",
+          "Normal wear is expected. Inspect the areas you can see and touch — partial views are fine.",
         quickConcerns: [
           "Torn seat",
           "Sagging headliner",
@@ -93,52 +92,65 @@ export default function InPersonChecksInsideCabin() {
           "Didn’t check rear seats",
           "Low light",
           "Seat covers fitted",
+          "Limited access",
         ],
       },
       {
         id: "seat-adjustment",
         title: "Seat adjustment & stability",
         guidance:
-          "Adjust the driver’s seat slightly and check it feels secure and locks into position.",
+          "If practical, adjust the driver’s seat slightly and check it feels secure. Skip if access or power is limited.",
         quickConcerns: [
           "Seat won’t adjust",
           "Seat rocks or feels loose",
           "Adjustment stuck",
           "Electric seat not responding",
         ],
-        quickUnsure: ["Didn’t adjust seat", "Power not available"],
+        quickUnsure: [
+          "Limited access",
+          "Didn’t adjust seat",
+          "Power not available",
+        ],
       },
       {
         id: "windows-operation",
         title: "Window operation",
         guidance:
-          "If easy, test a window to confirm it moves smoothly without noises or sticking.",
+          "If easy to do, test a window to confirm it moves smoothly. Don’t force it if access or power is limited.",
         quickConcerns: [
           "Window slow",
           "Window stuck",
           "Grinding noise",
           "Regulator issue",
         ],
-        quickUnsure: ["Didn’t test", "Power not available"],
+        quickUnsure: [
+          "Limited access",
+          "Didn’t test",
+          "Power not available",
+        ],
       },
       {
         id: "mirrors-operation",
         title: "Mirror operation",
         guidance:
-          "If fitted, check mirrors adjust correctly and feel secure.",
+          "If fitted and accessible, check mirrors adjust correctly and feel secure.",
         quickConcerns: [
           "Mirror won’t adjust",
           "Mirror loose",
           "Folding mirror not working",
           "Cracked housing",
         ],
-        quickUnsure: ["Didn’t test", "Power not available"],
+        quickUnsure: [
+          "Limited access",
+          "Didn’t test",
+          "Power not available",
+        ],
       },
       {
         id: "seatbelts-trim",
         title: "Seatbelts & airbag trim",
         guidance:
-          "Check belts retract smoothly and airbag trim looks intact and undisturbed.",
+          "Check what you can access. Belts should retract smoothly and airbag trim should look intact.",
         quickConcerns: [
           "Belt frayed / damaged",
           "Belt doesn’t retract smoothly",
@@ -146,6 +158,7 @@ export default function InPersonChecksInsideCabin() {
           "Warning label / trim missing",
         ],
         quickUnsure: [
+          "Limited access",
           "Couldn’t fully test retraction",
           "Trim hard to inspect quickly",
         ],
@@ -213,7 +226,8 @@ export default function InPersonChecksInsideCabin() {
         <div>
           <h1 className="text-2xl font-semibold text-white">Inside the cabin</h1>
           <p className="text-sm text-slate-400 mt-1">
-            Quick checks for comfort, wear, and usability that can affect value.
+            Check what you can realistically access. Partial checks are fine —
+            focus on anything that could affect comfort, safety, or value.
           </p>
         </div>
       </div>
@@ -237,7 +251,9 @@ export default function InPersonChecksInsideCabin() {
               className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-5 space-y-4"
             >
               <div>
-                <div className="text-sm font-semibold text-white">{c.title}</div>
+                <div className="text-sm font-semibold text-white">
+                  {c.title}
+                </div>
                 <p className="text-xs text-slate-400">{c.guidance}</p>
               </div>
 
