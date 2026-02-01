@@ -8,9 +8,9 @@ import {
   ShieldCheck,
   AlertTriangle,
   Timer,
-  CheckCircle2,
   Info,
   RotateCcw,
+  Eye,
 } from "lucide-react";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
@@ -25,7 +25,6 @@ function removeDriveChecksFromProgress(progress: any) {
     }
   }
 
-  // Also remove drive-derived imperfections (so report doesn't keep stale drive findings)
   const nextImperfections = Array.isArray(progress?.imperfections)
     ? progress.imperfections.filter((imp: any) => {
         const id = String(imp?.id ?? "");
@@ -72,7 +71,6 @@ export default function InPersonChecksDriveIntro() {
 
   function startOverDriveChecks() {
     const latest: any = loadProgress();
-
     const cleaned = removeDriveChecksFromProgress(latest);
 
     saveProgress({
@@ -124,19 +122,15 @@ export default function InPersonChecksDriveIntro() {
 
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold text-white">
-              Test drive check
+              Test drive briefing
             </h1>
             <p className="text-sm text-slate-400 leading-relaxed">
-              If you’re serious about buying the car, a short test drive is{" "}
-              <span className="text-slate-200 font-medium">
-                highly recommended
-              </span>
-              . Only proceed if the seller allows it and it feels safe. This
-              step is about spotting{" "}
+              Before you drive, here’s how to use a short test drive to spot{" "}
               <span className="text-slate-200 font-medium">
                 big decision signals
-              </span>{" "}
-              — how the car behaves while running, not chasing perfection.
+              </span>
+              . You’re not judging perfection — just noticing how the car
+              behaves during normal use.
             </p>
           </div>
         </div>
@@ -162,26 +156,69 @@ export default function InPersonChecksDriveIntro() {
                 Keep it short (2–5 minutes)
               </p>
               <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-                You’re watching for warning lights, listening for unusual
-                noises, and noticing how the car responds once it’s fully
-                running.
+                Normal roads and normal driving is enough. You’re watching for
+                warning signs, not pushing the car.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/12 bg-slate-950/40 px-5 py-4 space-y-4">
+          <div className="flex items-start gap-3">
+            <Eye className="h-4 w-4 text-slate-300 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-white">
+                During the drive, pay attention to these signals
+              </p>
+              <p className="text-sm text-slate-400 mt-1 leading-relaxed">
+                You’re not answering questions yet. Just notice what stands out —
+                you’ll record it after the drive.
               </p>
             </div>
           </div>
 
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="h-4 w-4 text-emerald-300 mt-0.5" />
+          <div className="space-y-3 text-sm text-slate-300">
             <div>
-              <p className="text-sm font-semibold text-white">
-                What a “good” drive looks like
-              </p>
-              <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-                Smooth idle, normal steering, predictable braking, no warning
-                lights, and nothing that feels inconsistent or unreliable in
-                use.
-              </p>
+              <span className="text-slate-200 font-medium">
+                Starting & low speed
+              </span>
+              <div className="mt-1 text-slate-400">
+                Pulling away from a stop, slow turns, steering feel, hesitation,
+                or warning lights.
+              </div>
+            </div>
+
+            <div>
+              <span className="text-slate-200 font-medium">
+                Acceleration & cruising
+              </span>
+              <div className="mt-1 text-slate-400">
+                Smooth response, unusual noises, vibration, or lack of power at
+                steady speed.
+              </div>
+            </div>
+
+            <div>
+              <span className="text-slate-200 font-medium">Braking</span>
+              <div className="mt-1 text-slate-400">
+                Predictable slowing, no pulling, grinding, or strong vibration.
+              </div>
+            </div>
+
+            <div>
+              <span className="text-slate-200 font-medium">
+                Driver assistance & alerts (if fitted)
+              </span>
+              <div className="mt-1 text-slate-400">
+                Unexpected warnings, alerts, or systems behaving oddly.
+              </div>
             </div>
           </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed">
+            You don’t need to remember everything perfectly — CarVerity is about
+            capturing what you noticed, not testing your memory.
+          </p>
         </div>
 
         <div className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-5 py-4 space-y-2">
@@ -205,7 +242,7 @@ export default function InPersonChecksDriveIntro() {
           <div className="flex items-start gap-3">
             <Info className="h-4 w-4 text-slate-300 mt-0.5" />
             <p className="text-sm text-slate-400 leading-relaxed">
-              CarVerity won’t “fill gaps”. If you can’t drive it, we keep it as
+              CarVerity won’t fill gaps. If you can’t drive it, we keep it as
               unknown and treat it as a question — not a fault.
             </p>
           </div>
@@ -220,8 +257,8 @@ export default function InPersonChecksDriveIntro() {
                   You already have drive notes saved
                 </p>
                 <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-                  If you’re re-checking the car, you can continue where you left
-                  off — or start over if you want a clean slate.
+                  You can continue where you left off, or start over if you’re
+                  re-checking the car.
                 </p>
               </div>
             </div>
@@ -260,7 +297,7 @@ export default function InPersonChecksDriveIntro() {
           onClick={startDriveChecks}
           className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3"
         >
-          Start test drive checks
+          Start the drive (questions come after)
         </button>
       </div>
     </div>
