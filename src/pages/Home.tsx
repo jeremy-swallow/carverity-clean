@@ -33,7 +33,9 @@ function normaliseResumeTarget(
   if (s.startsWith("/")) return s;
 
   // If older code stored a keyword step, map it safely
-  const scanId: string | null = progress?.scanId ? String(progress.scanId) : null;
+  const scanId: string | null = progress?.scanId
+    ? String(progress.scanId)
+    : null;
 
   if (s === "unlock" && scanId) return `/scan/in-person/unlock/${scanId}`;
   if (s === "analyzing" && scanId) return `/scan/in-person/analyzing/${scanId}`;
@@ -127,7 +129,9 @@ export default function Home() {
       "completed",
     ];
 
-    const isCompleted = completedStepPrefixes.some((p) => rawStep.startsWith(p));
+    const isCompleted = completedStepPrefixes.some((p) =>
+      rawStep.startsWith(p)
+    );
 
     if (isCompleted) {
       try {
@@ -474,9 +478,8 @@ export default function Home() {
             <li className="flex gap-2">
               <span className="text-slate-400">•</span>
               <span>
-                Optional next step:{" "}
                 <span className="font-semibold text-white">
-                  negotiation advice
+                  Negotiation advice
                 </span>{" "}
                 (kept separate from the report)
               </span>
