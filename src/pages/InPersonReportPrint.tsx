@@ -435,7 +435,7 @@ export default function InPersonReportPrint() {
               <img
                 src="/logo.png"
                 alt="CarVerity"
-                className="h-10 w-10 object-contain"
+                className="h-7 w-7 object-contain opacity-80"
               />
               <div>
                 <div className="text-[11px] uppercase tracking-[0.22em] text-black/55">
@@ -448,7 +448,7 @@ export default function InPersonReportPrint() {
             </div>
 
             <div className="mt-6">
-              <h1 className="text-4xl font-bold leading-tight">
+             <h1 className="text-[42px] font-semibold tracking-tight leading-[1.15]">
                 {vehicleTitle}
               </h1>
               <p className="text-sm text-black/65 mt-3 leading-relaxed max-w-xl">
@@ -458,12 +458,12 @@ export default function InPersonReportPrint() {
               </p>
             </div>
 
-            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="rounded-2xl border border-black/15 bg-white px-5 py-4">
+            <div className="mt-10 grid grid-cols-1 gap-6">
+              <div className="px-1 py-1">
                 <div className="text-[10px] uppercase tracking-widest text-black/50">
                   Verdict
                 </div>
-                <div className="text-base font-semibold text-black/85 mt-1">
+               <div className="text-lg font-semibold text-black mt-2">
                   {verdictLabel((analysis as any)?.verdict)}
                 </div>
                 <div className="mt-2 text-xs text-black/60 leading-relaxed">
@@ -489,7 +489,7 @@ export default function InPersonReportPrint() {
               </div>
             </div>
 
-            <div className="mt-5 rounded-2xl border border-black/12 bg-black/[0.03] px-5 py-4">
+            <div className="mt-10 pt-6 border-t border-black/15">
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <div className="text-[10px] uppercase tracking-widest text-black/50">
@@ -532,7 +532,7 @@ export default function InPersonReportPrint() {
           <div className="print-cover-bottom">
             <div className="flex items-end justify-between gap-8">
               <div className="min-w-0">
-                <div className="text-[10px] uppercase tracking-widest text-black/45">
+                <div className="text-[10px] tracking-[0.18em] text-black/40">
                   Produced by
                 </div>
                 <div className="text-sm font-semibold text-black/75 mt-1">
