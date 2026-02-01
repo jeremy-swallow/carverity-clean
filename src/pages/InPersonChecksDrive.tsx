@@ -41,11 +41,9 @@ function removeLine(existing: string | undefined, lineToRemove: string) {
     .map((p) => p.trim())
     .filter(Boolean);
 
-  const next = parts.filter(
-    (p) => p.toLowerCase() !== lineToRemove.trim().toLowerCase()
-  );
-
-  return next.join("\n");
+  return parts
+    .filter((p) => p.toLowerCase() !== lineToRemove.trim().toLowerCase())
+    .join("\n");
 }
 
 function splitLines(note?: string) {
@@ -63,62 +61,56 @@ export default function InPersonChecksDrive() {
     () => [
       {
         id: "steering",
-        title: "Steering & handling feel",
+        title: "Starting & low-speed behaviour",
         guidance:
-          "On a safe short drive: does it track straight? Any vibration, pulling, or knocking?",
+          "When pulling away or manoeuvring slowly, did anything feel off? Think steering weight, smoothness, hesitation, or unexpected noises.",
         quickConcerns: [
-          "Pulls to one side",
-          "Steering wheel off-centre",
-          "Vibration at speed",
-          "Knock / clunk over bumps",
+          "Hesitation pulling away",
+          "Steering feels heavy or vague",
+          "Clunk or knock at low speed",
+          "Warning light appeared",
         ],
-        quickUnsure: ["No test drive allowed", "Couldn’t drive far enough"],
+        quickUnsure: ["Didn’t get to drive", "Only very brief movement"],
       },
       {
         id: "noise-hesitation",
-        title: "Noise / hesitation under power",
+        title: "Acceleration & cruising",
         guidance:
-          "Any hesitation, harsh shifting, unusual noises, or warning lights during acceleration?",
+          "Under normal acceleration and steady driving, did the car feel smooth and predictable? Note any vibration, noise, or lack of response.",
         quickConcerns: [
           "Hesitation / lag",
+          "Vibration at speed",
+          "Unusual engine or drivetrain noise",
           "Harsh gear changes",
-          "Unusual engine noise",
-          "Warning light appeared",
         ],
         quickUnsure: [
-          "Couldn’t test acceleration",
-          "Short / low-speed drive only",
+          "Couldn’t reach normal speed",
+          "Very short or limited drive",
         ],
       },
       {
-        id: "aircon-drive",
-        title: "Air conditioning (during drive)",
+        id: "braking",
+        title: "Braking feel",
         guidance:
-          "After a few minutes of driving, turn the aircon on full cold. Then briefly test warm. You’re checking cooling strength, smells, and noise under load.",
+          "During gentle braking, did the car slow smoothly and straight? You’re noticing feel and behaviour, not brake performance testing.",
         quickConcerns: [
-          "Not blowing cold after a few minutes",
-          "Weak cooling",
-          "Bad / musty smell",
-          "Loud fan or compressor noise",
-          "Takes a long time to cool",
+          "Vibration when braking",
+          "Pulls to one side",
+          "Grinding or harsh noise",
+          "Brake pedal feels inconsistent",
         ],
-        quickUnsure: [
-          "Didn’t drive long enough",
-          "Forgot to test",
-          "Weather made it hard to tell",
-        ],
+        quickUnsure: ["Didn’t need to brake", "Drive too limited"],
       },
       {
         id: "adas-systems",
-        title: "Driver-assist systems (if fitted)",
+        title: "Driver-assist systems & alerts (if fitted)",
         guidance:
-          "If fitted: do driver-assist features behave normally? Any unexpected alerts, warnings, or sensor issues?",
+          "If the car has driver-assist features, did they behave normally? Note any unexpected alerts, warnings, or system behaviour.",
         quickConcerns: [
-          "Warning message",
-          "Blind spot monitor issue",
-          "Parking sensors inconsistent",
-          "Adaptive cruise issue",
+          "Unexpected warning message",
           "Lane assist alert",
+          "Parking sensor inconsistency",
+          "Adaptive cruise issue",
         ],
         quickUnsure: ["Not fitted / unsure", "Didn’t test"],
       },
@@ -130,9 +122,6 @@ export default function InPersonChecksDrive() {
     progress?.checks ?? {}
   );
 
-  /* -------------------------------------------------------
-     Progress indicator (checks corridor only)
-  ------------------------------------------------------- */
   const steps = useMemo(
     () => [
       { key: "around", label: "Around" },
@@ -142,21 +131,17 @@ export default function InPersonChecksDrive() {
     []
   );
 
-  const currentIndex = 2; // drive
+  const currentIndex = 2;
   const percent = Math.round(((currentIndex + 1) / steps.length) * 100);
 
-  /* -------------------------------------------------------
-     Auto-save defaults so "Looks fine" isn't just visual
-  ------------------------------------------------------- */
   useEffect(() => {
     setAnswers((prev) => {
       let changed = false;
       const next: Record<string, CheckAnswer> = { ...(prev ?? {}) };
 
       for (const c of checks) {
-        const existing = next[c.id];
-        if (!existing || !existing.value) {
-          next[c.id] = { ...(existing ?? {}), value: "ok" };
+        if (!next[c.id]?.value) {
+          next[c.id] = { ...(next[c.id] ?? {}), value: "ok" };
           changed = true;
         }
       }
@@ -165,9 +150,6 @@ export default function InPersonChecksDrive() {
     });
   }, [checks]);
 
-  /* -------------------------------------------------------
-     Persist progress (CHECKS ONLY)
-  ------------------------------------------------------- */
   useEffect(() => {
     saveProgress({
       ...(progress ?? {}),
@@ -178,10 +160,7 @@ export default function InPersonChecksDrive() {
   }, [answers]);
 
   function setAnswer(id: string, value: AnswerValue) {
-    setAnswers((p) => {
-      const prev = p[id];
-      return { ...p, [id]: { ...prev, value } };
-    });
+    setAnswers((p) => ({ ...p, [id]: { ...p[id], value } }));
   }
 
   function setNote(id: string, note: string) {
@@ -207,7 +186,6 @@ export default function InPersonChecksDrive() {
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-8">
-      {/* Mini progress */}
       <div className="space-y-3">
         <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-slate-500">
           <span>Checks</span>
@@ -222,36 +200,28 @@ export default function InPersonChecksDrive() {
         </div>
 
         <div className="flex items-center justify-between text-xs text-slate-400">
-          {steps.map((s, i) => {
-            const active = i === currentIndex;
-            const done = i < currentIndex;
-            return (
-              <div
-                key={s.key}
-                className={[
-                  "flex-1 text-center",
-                  active ? "text-slate-200 font-medium" : "",
-                  done ? "text-slate-300" : "",
-                ].join(" ")}
-              >
-                {s.label}
-              </div>
-            );
-          })}
+          {steps.map((s, i) => (
+            <div
+              key={s.key}
+              className={[
+                "flex-1 text-center",
+                i === currentIndex ? "text-slate-200 font-medium" : "",
+                i < currentIndex ? "text-slate-300" : "",
+              ].join(" ")}
+            >
+              {s.label}
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="flex items-start gap-3 pt-1">
-        <div className="mt-1">
-          <Car className="h-5 w-5 text-slate-400" />
-        </div>
-
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-white">During the drive</h1>
+      <div className="flex items-start gap-3">
+        <Car className="h-5 w-5 text-slate-400 mt-1" />
+        <div>
+          <h1 className="text-2xl font-semibold text-white">After the drive</h1>
           <p className="text-sm text-slate-400 mt-1 leading-relaxed">
-            A test drive is strongly recommended before purchase. If you weren’t
-            allowed to drive it, mark “Couldn’t check” so the report treats it as
-            an unknown.
+            Answer based on what you noticed during normal driving. You’re not
+            expected to test limits — just record anything that stood out.
           </p>
         </div>
       </div>
@@ -259,13 +229,13 @@ export default function InPersonChecksDrive() {
       <div className="space-y-5">
         {checks.map((c) => {
           const current = answers[c.id];
+          const selected = current?.value ?? "ok";
           const selectedLines = splitLines(current?.note);
-          const selectedValue: AnswerValue = current?.value ?? "ok";
 
           const chips =
-            selectedValue === "concern"
+            selected === "concern"
               ? c.quickConcerns
-              : selectedValue === "unsure"
+              : selected === "unsure"
               ? c.quickUnsure
               : [];
 
@@ -274,124 +244,86 @@ export default function InPersonChecksDrive() {
               key={c.id}
               className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-5 space-y-4"
             >
-              <div className="space-y-1">
-                <div className="text-sm text-white font-semibold">{c.title}</div>
+              <div>
+                <div className="text-sm font-semibold text-white">{c.title}</div>
                 <p className="text-xs text-slate-400 leading-relaxed">
                   {c.guidance}
                 </p>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAnswer(c.id, "ok")}
-                  className={[
-                    "rounded-xl px-3 py-2 text-xs font-semibold transition border",
-                    selectedValue === "ok"
-                      ? "bg-emerald-500 text-black border-emerald-400/30"
-                      : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
-                  ].join(" ")}
-                >
-                  Looks fine
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAnswer(c.id, "concern")}
-                  className={[
-                    "rounded-xl px-3 py-2 text-xs font-semibold transition border",
-                    selectedValue === "concern"
-                      ? "bg-amber-400 text-black border-amber-300/40"
-                      : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
-                  ].join(" ")}
-                >
-                  Something off
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAnswer(c.id, "unsure")}
-                  className={[
-                    "rounded-xl px-3 py-2 text-xs font-semibold transition border",
-                    selectedValue === "unsure"
-                      ? "bg-slate-600 text-white border-slate-400/30"
-                      : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
-                  ].join(" ")}
-                >
-                  Couldn’t check
-                </button>
+                {(["ok", "concern", "unsure"] as AnswerValue[]).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setAnswer(c.id, v)}
+                    className={[
+                      "rounded-xl px-3 py-2 text-xs font-semibold border transition",
+                      selected === v
+                        ? v === "ok"
+                          ? "bg-emerald-500 text-black"
+                          : v === "concern"
+                          ? "bg-amber-400 text-black"
+                          : "bg-slate-600 text-white"
+                        : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
+                    ].join(" ")}
+                  >
+                    {v === "ok"
+                      ? "Looks fine"
+                      : v === "concern"
+                      ? "Something off"
+                      : "Couldn’t check"}
+                  </button>
+                ))}
               </div>
 
               {chips.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                    Quick notes
-                  </p>
-
-                  <div className="flex flex-wrap gap-2">
-                    {chips.map((chip) => {
-                      const active = selectedLines.some(
-                        (l) => l.toLowerCase() === chip.toLowerCase()
-                      );
-
-                      return (
-                        <button
-                          key={chip}
-                          type="button"
-                          onClick={() => toggleChip(c.id, chip)}
-                          className={[
-                            "rounded-full border px-3 py-1 text-xs transition",
-                            active
-                              ? selectedValue === "concern"
-                                ? "bg-amber-400/20 border-amber-300/40 text-amber-100"
-                                : "bg-slate-500/40 border-slate-300/30 text-white"
-                              : "bg-white/5 border-white/10 text-slate-200 hover:bg-white/10",
-                          ].join(" ")}
-                        >
-                          {chip}
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div className="flex flex-wrap gap-2">
+                  {chips.map((chip) => {
+                    const active = selectedLines.some(
+                      (l) => l.toLowerCase() === chip.toLowerCase()
+                    );
+                    return (
+                      <button
+                        key={chip}
+                        onClick={() => toggleChip(c.id, chip)}
+                        className={[
+                          "rounded-full px-3 py-1 text-xs border transition",
+                          active
+                            ? "bg-amber-400/20 border-amber-300/40 text-amber-100"
+                            : "bg-white/5 border-white/10 text-slate-200 hover:bg-white/10",
+                        ].join(" ")}
+                      >
+                        {chip}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
-              {(selectedValue === "concern" ||
-                selectedValue === "unsure" ||
-                Boolean(current?.note)) && (
-                <div className="space-y-2">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                    Optional detail
-                  </p>
-
-                  <textarea
-                    value={current?.note ?? ""}
-                    onChange={(e) => setNote(c.id, e.target.value)}
-                    placeholder="Add a short note (optional)…"
-                    className="w-full rounded-xl bg-slate-950/40 border border-white/10 px-3 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-400/30"
-                    rows={3}
-                  />
-                </div>
+              {(selected !== "ok" || current?.note) && (
+                <textarea
+                  value={current?.note ?? ""}
+                  onChange={(e) => setNote(c.id, e.target.value)}
+                  placeholder="Optional note…"
+                  className="w-full rounded-xl bg-slate-950/40 border border-white/10 px-3 py-2 text-xs text-slate-200"
+                  rows={3}
+                />
               )}
             </section>
           );
         })}
       </div>
 
-      {/* NAVIGATION */}
       <div className="flex gap-3 pt-2">
         <button
-          type="button"
           onClick={() => navigate("/scan/in-person/checks/drive-intro")}
-          className="flex-1 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-4 py-3 text-slate-200 font-semibold transition"
+          className="flex-1 rounded-2xl border border-white/15 bg-slate-950/30 px-4 py-3 text-slate-200"
         >
           Back
         </button>
-
         <button
-          type="button"
           onClick={() => navigate("/scan/in-person/summary")}
-          className="flex-1 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3 transition"
+          className="flex-1 rounded-2xl bg-emerald-500 px-4 py-3 font-semibold text-black"
         >
           Continue
         </button>
