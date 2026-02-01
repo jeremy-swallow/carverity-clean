@@ -611,7 +611,7 @@ export default function InPersonReportPrint() {
       {/* =====================================================
           REPORT CONTENT (starts on next page)
       ===================================================== */}
-      <div className="print-page max-w-3xl mx-auto px-10 py-14 space-y-10">
+      <div className="print-page px-10 py-14 space-y-10">
         <header className="print-block space-y-5 border-b border-black/20 pb-6">
           <div className="brand-strip rounded-2xl border border-black/10 px-6 py-5">
             <div className="flex items-start justify-between gap-6">
