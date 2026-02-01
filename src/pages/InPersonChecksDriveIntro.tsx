@@ -125,7 +125,7 @@ export default function InPersonChecksDriveIntro() {
               Test drive briefing
             </h1>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Before you drive, here’s how to use a short test drive to spot{" "}
+              Before you drive, here’s how to use a test drive to spot{" "}
               <span className="text-slate-200 font-medium">
                 big decision signals
               </span>
@@ -149,15 +149,17 @@ export default function InPersonChecksDriveIntro() {
             </div>
           </div>
 
+          {/* ⬇️ COPY CHANGE APPLIED HERE */}
           <div className="flex items-start gap-3">
             <Timer className="h-4 w-4 text-slate-300 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-white">
-                Keep it short (2–5 minutes)
+                Drive long enough to observe behaviour
               </p>
               <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-                Normal roads and normal driving is enough. You’re watching for
-                warning signs, not pushing the car.
+                You don’t need to push the car. Drive normally for long enough to
+                notice steering feel, braking response, noises, hesitation, and
+                how the car behaves once it’s warmed up.
               </p>
             </div>
           </div>
