@@ -2,102 +2,159 @@
 
 export default function FAQ() {
   return (
-    <div className="max-w-4xl mx-auto px-6 py-12 text-white space-y-10">
+    <div className="max-w-4xl mx-auto px-6 py-12 text-white space-y-12">
       <header className="space-y-3">
         <h1 className="text-3xl font-bold">Frequently asked questions</h1>
         <p className="text-slate-300">
-          CarVerity is designed to support careful used-car decisions. These
-          answers explain what the app does, how scans are saved, and what you
-          can expect when using it.
+          CarVerity is designed to bring clarity to used-car decisions by guiding
+          you through a structured, evidence-based inspection. These answers
+          explain how the product is intended to be used, where its boundaries
+          are, and how to interpret what it gives you.
         </p>
       </header>
 
-      {/* WHAT IT DOES */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">What does CarVerity do?</h2>
+      {/* HOW TO USE IT WELL */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold">
+          How do I get the most out of CarVerity?
+        </h2>
         <p className="text-slate-300">
-          CarVerity helps you assess used vehicles by providing condition-based
-          context. It highlights missing information, inspection findings, and
-          how those observations affect pricing confidence.
+          CarVerity works best when you follow the guided flow and record what
+          you genuinely observe — without trying to fill gaps or reach
+          conclusions early.
+        </p>
+        <ul className="list-disc list-inside text-slate-300 space-y-1">
+          <li>Move through the scan in order, one section at a time</li>
+          <li>Capture the best view you can in the situation you’re in</li>
+          <li>Be comfortable marking things as unknown</li>
+          <li>Use notes to record what stood out, not to over-explain</li>
+        </ul>
+        <p className="text-slate-300">
+          You don’t need technical knowledge. The app is designed to guide your
+          attention, not test your expertise.
+        </p>
+      </section>
+
+      {/* EXPECTATIONS */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">
+          What does CarVerity expect from me as the buyer?
+        </h2>
+        <p className="text-slate-300">
+          Accuracy matters more than completeness.
         </p>
         <p className="text-slate-300">
-          The goal is to help you decide whether to proceed, negotiate, or walk
-          away — not to tell you what to buy.
+          If something couldn’t be checked clearly — due to access, time,
+          lighting, weather, or seller limits — marking it as unknown is the
+          correct and intended response.
+        </p>
+        <p className="text-slate-300">
+          Unchecked items are treated as questions to clarify later, not as
+          automatic faults.
+        </p>
+      </section>
+
+      {/* WHAT IT DOES */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">
+          What problem is CarVerity designed to solve?
+        </h2>
+        <p className="text-slate-300">
+          CarVerity exists to reduce uncertainty and buyer regret.
+        </p>
+        <p className="text-slate-300">
+          It helps you capture evidence, surface meaningful risks, make unknowns
+          explicit, and understand how what you observed affects decision
+          confidence.
         </p>
       </section>
 
       {/* WHAT IT DOES NOT DO */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">What does CarVerity not do?</h2>
-        <p className="text-slate-300">
-          CarVerity does not provide market valuations, price predictions, or
-          buying recommendations. It does not diagnose mechanical faults or
-          replace a professional inspection.
-        </p>
-        <p className="text-slate-300">
-          All insights are based on listing information and user-observed
-          condition only.
-        </p>
-      </section>
-
-      {/* ONLINE VS IN-PERSON */}
-      <section className="space-y-3">
         <h2 className="text-lg font-semibold">
-          What’s the difference between online and in-person scans?
+          What does CarVerity not do?
         </h2>
         <p className="text-slate-300">
-          <strong>Online scans</strong> analyse a vehicle listing. They highlight
-          missing details, wording risks, and seller-provided information. Photos
-          are extracted from the listing only.
+          CarVerity does not diagnose mechanical faults, predict market prices,
+          or make purchase decisions on your behalf.
         </p>
         <p className="text-slate-300">
-          <strong>In-person scans</strong> guide you through a physical
-          inspection. You capture photos, note observations, and receive
-          condition-aware pricing confidence based on what you actually see.
+          It does not replace professional inspections, roadworthiness checks,
+          or independent mechanical advice.
         </p>
       </section>
 
-      {/* SAVING SCANS */}
+      {/* UNCERTAINTY */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">How are my scans saved?</h2>
+        <h2 className="text-lg font-semibold">
+          What if I couldn’t check everything?
+        </h2>
         <p className="text-slate-300">
-          By default, scans are saved locally on the device you’re using. This
-          lets you explore the app without creating an account.
+          That’s expected.
         </p>
         <p className="text-slate-300">
-          If you want access to your scans across devices, or if you complete a
-          paid scan, you’ll be asked to save the scan to your email.
+          Real-world inspections are often constrained by space, time, access,
+          or seller conditions. CarVerity is designed with those realities in
+          mind.
+        </p>
+        <p className="text-slate-300">
+          Anything marked as unknown is carried through into the report as an
+          explicit uncertainty — something to clarify before committing, not a
+          hidden assumption.
         </p>
       </section>
 
-      {/* EMAIL */}
+      {/* NEGOTIATION */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Why does CarVerity ask for my email?</h2>
+        <h2 className="text-lg font-semibold">
+          Does CarVerity help with negotiation?
+        </h2>
         <p className="text-slate-300">
-          Your email is used to link scans to you, not to a single device. This
-          allows you to:
+          CarVerity keeps inspection insight and negotiation guidance separate.
         </p>
-        <ul className="list-disc list-inside text-slate-300 space-y-1">
-          <li>Access scans on another device</li>
-          <li>Recover scans if your browser data is cleared</li>
-          <li>Ensure paid scans remain available to you</li>
-        </ul>
         <p className="text-slate-300">
-          CarVerity uses password-free access. You’ll receive secure links by
-          email — no passwords to remember.
+          Your inspection report focuses on evidence, uncertainty, and decision
+          confidence. It does not include scripts, tactics, or instructions for
+          dealing with a seller.
+        </p>
+        <p className="text-slate-300">
+          Where available, optional negotiation guidance may be offered based on
+          inspection findings — intended to support clear thinking about price,
+          not to pressure or confront.
         </p>
       </section>
 
-      {/* DATA & PRIVACY */}
+      {/* AI */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">What happens to my data?</h2>
+        <h2 className="text-lg font-semibold">
+          Is AI used in CarVerity?
+        </h2>
         <p className="text-slate-300">
-          Your scan data belongs to you. It is used only to provide the scan
-          results and access you request.
+          Yes. CarVerity uses software models to help interpret patterns in what
+          you record.
         </p>
         <p className="text-slate-300">
-          CarVerity does not sell scan data and does not use it for advertising
-          or profiling.
+          The system does not diagnose vehicles or infer conditions beyond the
+          information you provide. It weighs your observations, photos, and
+          declared unknowns to surface risk and confidence.
+        </p>
+        <p className="text-slate-300">
+          In all cases, the output is grounded in your inputs — not automated
+          assumptions.
+        </p>
+      </section>
+
+      {/* ACCOUNT */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">
+          Do I need an account to use CarVerity?
+        </h2>
+        <p className="text-slate-300">
+          Yes. You need to be signed in to run scans and save results.
+        </p>
+        <p className="text-slate-300">
+          This ensures inspection data is associated with you and handled
+          consistently as the product evolves.
         </p>
       </section>
 
@@ -107,18 +164,18 @@ export default function FAQ() {
           When might CarVerity not be the right fit?
         </h2>
         <p className="text-slate-300">
-          If you’re only looking for a quick market price estimate or a ranked
-          list of deals, CarVerity may not be the right tool.
+          If you’re looking for instant price predictions or automated buying
+          recommendations, CarVerity may not be the right tool.
         </p>
         <p className="text-slate-300">
-          It’s designed for buyers who value clarity, evidence, and decision
-          confidence over speed.
+          It’s built for buyers who value clarity, evidence, and confidence —
+          even when that leads to caution.
         </p>
       </section>
 
       <footer className="pt-6 border-t border-white/10">
         <p className="text-xs text-slate-400">
-          CarVerity supports informed decisions — it does not replace professional
+          CarVerity supports informed decisions. It does not replace professional
           inspections or financial advice.
         </p>
       </footer>
