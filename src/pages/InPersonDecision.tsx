@@ -146,8 +146,7 @@ export default function InPersonDecision() {
   const navigate = useNavigate();
   const { scanId } = useParams<{ scanId: string }>();
   const scanIdSafe = scanId ? String(scanId) : "";
-
-  const progress: any = loadProgress();
+const [progress, setProgress] = useState<any>(() => loadProgress());
 
   const analysis: AnalysisResult = useMemo(() => {
     return analyseInPersonInspection((progress ?? {}) as any);
@@ -203,10 +202,12 @@ export default function InPersonDecision() {
 
     try {
       const next = {
-        ...(progress ?? {}),
-        askingPrice: n,
-      };
-      saveProgress(next);
+  ...(progress ?? {}),
+  askingPrice: n,
+};
+
+saveProgress(next);
+setProgress(next);
       setAskingSaved(true);
       window.setTimeout(() => setAskingSaved(false), 1500);
     } catch {
