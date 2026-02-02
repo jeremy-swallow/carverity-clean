@@ -547,25 +547,24 @@ export default function InPersonSummary() {
   }, [askingPriceInput]);
 
   // Persist asking price into progress as user types
-  useEffect(() => {
-    const latest = loadProgress() ?? {};
-    const current =
-      typeof latest?.askingPrice === "number" ? latest.askingPrice : null;
+useEffect(() => {
+  const latest = loadProgress() ?? {};
+  const current =
+    typeof latest?.askingPrice === "number" ? latest.askingPrice : null;
 
-    if (parsedAskingPrice === current) return;
+  if (parsedAskingPrice === current) return;
 
-    const next: ScanProgress = {
-      ...(latest ?? {}),
-      type: "in-person" as const,
-      scanId: activeScanId,
-      step: "summary",
-      askingPrice: parsedAskingPrice,
-    };
+  const next: ScanProgress = {
+    ...(latest ?? {}),
+    type: "in-person" as const,
+    scanId: activeScanId,
+    step: "summary",
+    askingPrice: parsedAskingPrice,
+  };
 
-    saveProgress(next);
-    setProgressState(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [parsedAskingPrice, activeScanId]);
+  saveProgress(next);
+  setProgressState(next);
+}, [parsedAskingPrice, activeScanId]);
 
   // Load signed URLs for all photo paths we can display
   const allPhotoPathsKey = useMemo(() => {
@@ -1014,7 +1013,21 @@ export default function InPersonSummary() {
                   <input
                     value={askingPriceInput}
                     onChange={(e) => setAskingPriceInput(e.target.value)}
-                    onBlur={() => setAskingPriceTouched(true)}
+                    onBlur={() => {
+  setAskingPriceTouched(true);
+
+  const latest = loadProgress() ?? {};
+  const next: ScanProgress = {
+    ...(latest ?? {}),
+    type: "in-person" as const,
+    scanId: activeScanId,
+    step: "summary",
+    askingPrice: parsedAskingPrice,
+  };
+
+  saveProgress(next);
+  setProgressState(next);
+}}
                     inputMode="numeric"
                     placeholder="e.g. 18,990"
                     className={[
