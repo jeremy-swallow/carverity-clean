@@ -183,17 +183,15 @@ export default function InPersonDecision() {
   
   // Keep input in sync if askingPrice already exists (e.g. returning to page)
   useEffect(() => {
-    const stored = progress?.askingPrice;
+  const stored = progress?.askingPrice;
 
-    if (isFiniteNumber(stored)) {
-      const next = String(Math.round(stored));
-
-      // Only sync if input is empty or mismatched (don’t fight user typing)
-      if (!askingInput || askingInput !== next) {
-        setAskingInput(next);
-      }
-    }
-  }, [progress?.askingPrice]);
+  // Hydrate once on mount so the field pre-fills,
+  // but never fights the user while typing.
+  if (isFiniteNumber(stored)) {
+    setAskingInput(String(Math.round(stored)));
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   const askingPriceParsed = useMemo(() => {
     return parseAudNumber(askingInput);
