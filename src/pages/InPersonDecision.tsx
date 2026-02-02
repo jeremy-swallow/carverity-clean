@@ -339,7 +339,9 @@ setProgress(next);
         ? analysis.verdict
         : "caution";
 
-    const asking = askingPriceParsed ?? initialAsking ?? null;
+   const asking = isFiniteNumber(progress?.askingPrice)
+  ? progress.askingPrice
+  : null;
 
     return buildGuidedPricePositioning({
       askingPrice: asking,
