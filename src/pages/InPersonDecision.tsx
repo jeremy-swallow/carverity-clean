@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 import {
@@ -180,6 +180,20 @@ export default function InPersonDecision() {
     initialAsking != null ? String(Math.round(initialAsking)) : ""
   );
   const [askingSaved, setAskingSaved] = useState<boolean>(false);
+  
+  // Keep input in sync if askingPrice already exists (e.g. returning to page)
+  useEffect(() => {
+    const stored = progress?.askingPrice;
+
+    if (isFiniteNumber(stored)) {
+      const next = String(Math.round(stored));
+
+      // Only sync if input is empty or mismatched (don’t fight user typing)
+      if (!askingInput || askingInput !== next) {
+        setAskingInput(next);
+      }
+    }
+  }, [progress?.askingPrice]);
 
   const askingPriceParsed = useMemo(() => {
     return parseAudNumber(askingInput);
