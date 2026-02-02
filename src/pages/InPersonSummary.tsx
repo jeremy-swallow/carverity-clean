@@ -546,26 +546,6 @@ export default function InPersonSummary() {
     return parseAskingPrice(askingPriceInput);
   }, [askingPriceInput]);
 
-  // Persist asking price into progress as user types
-useEffect(() => {
-  const latest = loadProgress() ?? {};
-  const current =
-    typeof latest?.askingPrice === "number" ? latest.askingPrice : null;
-
-  if (parsedAskingPrice === current) return;
-
-  const next: ScanProgress = {
-    ...(latest ?? {}),
-    type: "in-person" as const,
-    scanId: activeScanId,
-    step: "summary",
-    askingPrice: parsedAskingPrice,
-  };
-
-  saveProgress(next);
-  setProgressState(next);
-}, [parsedAskingPrice, activeScanId]);
-
   // Load signed URLs for all photo paths we can display
   const allPhotoPathsKey = useMemo(() => {
     const stepPaths = (photos ?? [])
