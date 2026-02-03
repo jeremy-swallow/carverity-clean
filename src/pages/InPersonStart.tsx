@@ -15,11 +15,13 @@ import { generateScanId } from "../utils/scanStorage";
 export default function InPersonStart() {
   const navigate = useNavigate();
 
+  // Used ONLY to determine whether "Resume scan" is available
   const existing: any = useMemo(() => loadProgress() ?? {}, []);
 
   function handleStart() {
     const scanId = generateScanId();
 
+    // 🔒 Authoritative reset point for a brand-new scan
     startFreshProgress("in-person", "/scan/in-person/sale", scanId);
 
     navigate("/scan/in-person/sale");
@@ -27,10 +29,12 @@ export default function InPersonStart() {
 
   function handleResume() {
     const step = typeof existing?.step === "string" ? existing.step : "";
+
     if (step && step.startsWith("/scan/in-person/")) {
       navigate(step);
       return;
     }
+
     navigate("/scan/in-person/sale");
   }
 
