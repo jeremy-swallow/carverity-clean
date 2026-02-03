@@ -1,3 +1,5 @@
+// src/pages/InPersonDecision.tsx
+
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { loadProgress } from "../utils/scanProgress";
@@ -121,21 +123,12 @@ function confidenceLabel(score: number) {
 function confidenceMeaning(score: number) {
   if (score >= 80) return "You captured enough detail for a strong read.";
   if (score >= 60) return "Good coverage — a few unknowns remain.";
-  if (score >= 35)
-    return "Several unknowns — verify key items before deciding.";
+  if (score >= 35) return "Several unknowns — verify key items before deciding.";
   return "Many unknowns — treat this as a first pass, not a final call.";
 }
 
 function isFiniteNumber(n: unknown): n is number {
   return typeof n === "number" && Number.isFinite(n);
-}
-
-function parseAudNumber(input: string): number | null {
-  const cleaned = String(input ?? "").replace(/[^\d]/g, "");
-  if (!cleaned) return null;
-  const n = Number(cleaned);
-  if (!Number.isFinite(n)) return null;
-  return n > 0 ? n : null;
 }
 
 /* =======================================================
@@ -146,7 +139,30 @@ export default function InPersonDecision() {
   const navigate = useNavigate();
   const { scanId } = useParams<{ scanId: string }>();
   const scanIdSafe = scanId ? String(scanId) : "";
-const [progress] = useState<any>(() => loadProgress());
+
+  /**
+   * READ-ONLY PROGRESS:
+   * - Decision page must never mutate scan progress.
+   * - It only reads askingPrice (and everything else) from saved progress.
+   * - If askingPrice is missing, we send the user back to the Asking Price step.
+   */
+  const [progress, setProgress] = useState<any>(() => loadProgress());
+
+  // Keep the view fresh if another tab/page updates localStorage.
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (!e.key) return;
+      // scanProgress key name is implementation-specific; easiest safe option: just reload on any localStorage write.
+      try {
+        setProgress(loadProgress());
+      } catch {
+        // ignore
+      }
+    }
+
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const analysis: AnalysisResult = useMemo(() => {
     return analyseInPersonInspection((progress ?? {}) as any);
@@ -155,61 +171,11 @@ const [progress] = useState<any>(() => loadProgress());
   const critical = analysis.risks.filter((r) => r.severity === "critical");
   const moderate = analysis.risks.filter((r) => r.severity === "moderate");
 
-  const unsure: unknown[] = Array.isArray(
-    (analysis as any).uncertaintyFactors
-  )
+  const unsure: unknown[] = Array.isArray((analysis as any).uncertaintyFactors)
     ? ((analysis as any).uncertaintyFactors as unknown[])
     : [];
 
   const confidence = clamp(Number(analysis.confidenceScore ?? 0), 0, 100);
-
-  /* =====================================================
-     Asking price capture (guided, non-formy) — FIXED
-  ===================================================== */
-
-  const initialAsking = useMemo(() => {
-    const v = progress?.askingPrice;
-    if (isFiniteNumber(v)) return Number(v);
-    if (typeof v === "string") return parseAudNumber(v);
-    return null;
-  }, [progress]);
-
-  // Keep RAW text so typing never locks. Parse separately.
-  const [askingInput, setAskingInput] = useState<string>(
-    initialAsking != null ? String(Math.round(initialAsking)) : ""
-  );
-  const [askingSaved, setAskingSaved] = useState<boolean>(false);
-  
-  // Keep input in sync if askingPrice already exists (e.g. returning to page)
-  useEffect(() => {
-  const stored = progress?.askingPrice;
-
-  // Hydrate once on mount so the field pre-fills,
-  // but never fights the user while typing.
-  if (isFiniteNumber(stored)) {
-    setAskingInput(String(Math.round(stored)));
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
-
-  const askingPriceParsed = useMemo(() => {
-    return parseAudNumber(askingInput);
-  }, [askingInput]);
-
-  function saveAskingPrice() {
-    const n = askingPriceParsed;
-    if (!n) return;
-
-    try {
-
-setAskingInput(String(n));
-      setAskingSaved(true);
-      window.setTimeout(() => setAskingSaved(false), 1500);
-    } catch {
-      // If save fails, we simply don't show the saved tick.
-      setAskingSaved(false);
-    }
-  }
 
   /* =====================================================
      Mirrored guidance: best next verification
@@ -240,8 +206,7 @@ setAskingInput(String(n));
 
     return {
       tone: "unsure" as NextCheckTone,
-      text:
-        "Ask for the most recent service invoice and confirm service history in writing.",
+      text: "Ask for the most recent service invoice and confirm service history in writing.",
     };
   }, [critical, moderate, unsure.length]);
 
@@ -323,8 +288,13 @@ setAskingInput(String(n));
   const RecIcon = recommendedNextAction.icon;
 
   /* =====================================================
-     Guided price positioning (core new UX section)
+     Guided price positioning (read-only)
   ===================================================== */
+
+  const askingFromProgress = useMemo(() => {
+    const v = progress?.askingPrice;
+    return isFiniteNumber(v) ? Number(v) : null;
+  }, [progress?.askingPrice]);
 
   const pricing: GuidedPricingOutput = useMemo(() => {
     const verdict =
@@ -334,25 +304,21 @@ setAskingInput(String(n));
         ? analysis.verdict
         : "caution";
 
-   const asking = isFiniteNumber(progress?.askingPrice)
-  ? Number(progress.askingPrice)
-  : null;
-
     return buildGuidedPricePositioning({
-      askingPrice: asking,
+      askingPrice: askingFromProgress,
       verdict,
       confidenceScore: confidence,
       criticalCount: critical.length,
       moderateCount: moderate.length,
       unsureCount: unsure.length,
     });
-    }, [
+  }, [
     analysis.verdict,
+    askingFromProgress,
     confidence,
     critical.length,
     moderate.length,
     unsure.length,
-    progress?.askingPrice,
   ]);
 
   /* =====================================================
@@ -402,9 +368,7 @@ setAskingInput(String(n));
       "Confirm the seller’s identity and that the paperwork matches the vehicle."
     );
     items.push("Verify service history with invoices (not just a stamp book).");
-    items.push(
-      "Check for finance owing or written-off status (where applicable)."
-    );
+    items.push("Check for finance owing or written-off status (where applicable).");
 
     if (critical.length > 0) {
       items.push(
@@ -413,15 +377,11 @@ setAskingInput(String(n));
     }
 
     if (moderate.length > 0) {
-      items.push(
-        "Ask the seller to clarify the items you flagged before committing."
-      );
+      items.push("Ask the seller to clarify the items you flagged before committing.");
     }
 
     if (unsure.length > 0) {
-      items.push(
-        "Treat unsure items as unknowns and verify them before deciding."
-      );
+      items.push("Treat unsure items as unknowns and verify them before deciding.");
     }
 
     return items.slice(0, 7);
@@ -440,9 +400,7 @@ setAskingInput(String(n));
     }
 
     if (req.length === 0) {
-      req.push(
-        "Ask for the most recent service invoice and any recent repair receipts."
-      );
+      req.push("Ask for the most recent service invoice and any recent repair receipts.");
       req.push(
         "Ask whether there are any known faults, warnings, or maintenance due soon."
       );
@@ -454,16 +412,12 @@ setAskingInput(String(n));
   const whatGoodLooksLike = useMemo(() => {
     const good: string[] = [];
 
-    good.push(
-      "The seller provides clear evidence for your concerns in writing or invoices."
-    );
+    good.push("The seller provides clear evidence for your concerns in writing or invoices.");
     good.push("Your unknown items become confirmed rather than remaining unknown.");
     good.push("No new warning lights or behaviours appear on a second look.");
 
     if (analysis.verdict === "proceed") {
-      good.push(
-        "Your recorded inspection stays consistent with no new concerns emerging."
-      );
+      good.push("Your recorded inspection stays consistent with no new concerns emerging.");
     }
 
     return good.slice(0, 5);
@@ -472,14 +426,10 @@ setAskingInput(String(n));
   const whenToWalk = useMemo(() => {
     const bad: string[] = [];
 
-    bad.push(
-      "The seller refuses reasonable verification or discourages basic checks."
-    );
+    bad.push("The seller refuses reasonable verification or discourages basic checks.");
 
     if (critical.length > 0) {
-      bad.push(
-        "A high-impact item remains unresolved or worsens after re-checking."
-      );
+      bad.push("A high-impact item remains unresolved or worsens after re-checking.");
     }
 
     if (unsure.length > 0) {
@@ -524,12 +474,11 @@ setAskingInput(String(n));
         </h1>
         <p className="text-sm text-slate-400 leading-relaxed">
           Calm, buyer-safe guidance based only on what you recorded. No scripts.
-          No pressure. Just a clear posture and the next few actions that reduce
-          regret.
+          No pressure. Just a clear posture and the next few actions that reduce regret.
         </p>
       </div>
 
-      {/* NEW: Guided “verify next” card (mirrored from Results, reframed for Decision) */}
+      {/* Guided “verify next” card */}
       <section
         className={["rounded-2xl border px-5 py-5 space-y-4", bestNextTone.wrap].join(
           " "
@@ -559,8 +508,13 @@ setAskingInput(String(n));
         <p className="text-xs text-slate-500">One clear action now reduces regret later.</p>
       </section>
 
-      {/* Chapter 1: Decision anchor */}
-      <section className={["rounded-2xl border px-5 py-6 space-y-4", postureTone.wrap].join(" ")}>
+      {/* Decision anchor */}
+      <section
+        className={[
+          "rounded-2xl border px-5 py-6 space-y-4",
+          postureTone.wrap,
+        ].join(" ")}
+      >
         <div className="flex items-start gap-3">
           <posture.icon className={["h-5 w-5 mt-0.5", postureTone.icon].join(" ")} />
 
@@ -588,9 +542,8 @@ setAskingInput(String(n));
           <div className="flex items-start gap-3">
             <Info className="h-4 w-4 text-slate-300 mt-0.5" />
             <p className="text-xs text-slate-400 leading-relaxed">
-              CarVerity doesn’t fill gaps. If something wasn’t checked, it stays
-              an unknown and is treated as a question to verify — not as good or
-              bad.
+              CarVerity doesn’t fill gaps. If something wasn’t checked, it stays an
+              unknown and is treated as a question to verify — not as good or bad.
             </p>
           </div>
         </div>
@@ -618,7 +571,7 @@ setAskingInput(String(n));
         <p className="text-sm text-slate-300 leading-relaxed">{recommendedNextAction.body}</p>
       </section>
 
-      {/* Chapter: Price positioning (guided, not a dump) */}
+      {/* Price positioning (read-only) */}
       <section
         className={[
           "rounded-2xl border px-5 py-5 space-y-4",
@@ -643,40 +596,16 @@ setAskingInput(String(n));
 
             <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 space-y-3">
               <p className="text-xs text-slate-400">
-                Enter the seller’s asking price to unlock guided ranges.
+                Add the seller’s asking price to unlock guided ranges.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-1">
-                  <label className="block text-xs text-slate-400 mb-1">
-                    Asking price (AUD)
-                  </label>
-                  <input
-                    type="text"
-                    value={askingInput}
-                    onChange={(e) => setAskingInput(e.target.value)}
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    autoComplete="off"
-                    placeholder="e.g. 18990"
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none focus:border-white/20"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={saveAskingPrice}
-                  disabled={!askingPriceParsed}
-                  className={[
-                    "rounded-xl px-4 py-3 text-sm font-semibold transition",
-                    askingPriceParsed
-                      ? "bg-white text-black hover:bg-slate-100"
-                      : "bg-white/10 text-slate-400 cursor-not-allowed",
-                  ].join(" ")}
-                >
-                  {askingSaved ? "Saved ✓" : "Save price"}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => navigate("/scan/in-person/asking-price")}
+                className="w-full rounded-xl px-4 py-3 text-sm font-semibold transition bg-white text-black hover:bg-slate-100"
+              >
+                Go to asking price step
+              </button>
 
               <p className="text-xs text-slate-500 leading-relaxed">{pricing.disclaimer}</p>
             </div>
@@ -694,27 +623,25 @@ setAskingInput(String(n));
             <p className="text-sm text-slate-300 leading-relaxed">{pricing.subtitle}</p>
 
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-    Asking price:{" "}
-    <span className="text-slate-200 font-semibold">
-      {formatMoney(progress?.askingPrice ?? null)}
-    </span>
-  </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                Asking price:{" "}
+                <span className="text-slate-200 font-semibold">
+                  {formatMoney(progress?.askingPrice ?? null)}
+                </span>
+              </span>
 
-  <button
-  type="button"
-  onClick={() => {
-  navigate("/scan/in-person/asking-price");
-}}
-  className="rounded-full ..."
->
-  Edit price
-</button>
+              <button
+                type="button"
+                onClick={() => navigate("/scan/in-person/asking-price")}
+                className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10"
+              >
+                Edit price
+              </button>
 
-  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-    {pricing.confidenceNote}
-  </span>
-</div>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                {pricing.confidenceNote}
+              </span>
+            </div>
 
             <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 space-y-2">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
@@ -865,8 +792,7 @@ setAskingInput(String(n));
           </ul>
 
           <p className="text-xs text-slate-500">
-            CarVerity is designed to reduce regret — not to push you into a
-            decision.
+            CarVerity is designed to reduce regret — not to push you into a decision.
           </p>
         </section>
       </div>
