@@ -208,6 +208,7 @@ const [progress, setProgress] = useState<any>(() => loadProgress());
 
 saveProgress(next);
 setProgress(next);
+setAskingInput(String(n));
       setAskingSaved(true);
       window.setTimeout(() => setAskingSaved(false), 1500);
     } catch {
@@ -351,13 +352,13 @@ setProgress(next);
       moderateCount: moderate.length,
       unsureCount: unsure.length,
     });
-  }, [
+    }, [
     analysis.verdict,
     confidence,
     critical.length,
     moderate.length,
     unsure.length,
-
+    progress?.askingPrice,
   ]);
 
   /* =====================================================
