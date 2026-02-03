@@ -1,5 +1,3 @@
-// src/pages/InPersonStart.tsx
-
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -15,13 +13,28 @@ import { generateScanId } from "../utils/scanStorage";
 export default function InPersonStart() {
   const navigate = useNavigate();
 
-  // Used ONLY to determine whether "Resume scan" is available
+  /**
+   * Load any existing progress ONCE.
+   * This represents an in-progress or completed scan.
+   */
   const existing: any = useMemo(() => loadProgress() ?? {}, []);
 
+  const hasExistingScan = Boolean(existing?.scanId && existing?.step);
+
   function handleStart() {
+    /**
+     * SAFETY RULE:
+     * If a scan already exists, DO NOT wipe it.
+     * Starting fresh should only happen when there is no progress at all.
+     */
+    if (hasExistingScan) {
+      // Resume instead of destroying data
+      handleResume();
+      return;
+    }
+
     const scanId = generateScanId();
 
-    // 🔒 Authoritative reset point for a brand-new scan
     startFreshProgress("in-person", "/scan/in-person/sale", scanId);
 
     navigate("/scan/in-person/sale");
@@ -35,10 +48,9 @@ export default function InPersonStart() {
       return;
     }
 
+    // Fallback: resume at sale context if step is missing/corrupt
     navigate("/scan/in-person/sale");
   }
-
-  const canResume = Boolean(existing?.scanId && existing?.step);
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-14 space-y-10">
@@ -75,7 +87,7 @@ export default function InPersonStart() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
           <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
             <div className="flex items-center gap-2 text-slate-300">
-              <Camera className="h-4 w-4 text-slate-300" />
+              <Camera className="h-4 w-4" />
               <p className="text-sm font-semibold text-white">Evidence</p>
             </div>
             <p className="text-xs text-slate-400 mt-2 leading-relaxed">
@@ -85,7 +97,7 @@ export default function InPersonStart() {
 
           <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
             <div className="flex items-center gap-2 text-slate-300">
-              <ClipboardCheck className="h-4 w-4 text-slate-300" />
+              <ClipboardCheck className="h-4 w-4" />
               <p className="text-sm font-semibold text-white">Checks</p>
             </div>
             <p className="text-xs text-slate-400 mt-2 leading-relaxed">
@@ -96,7 +108,7 @@ export default function InPersonStart() {
 
           <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
             <div className="flex items-center gap-2 text-slate-300">
-              <CheckCircle2 className="h-4 w-4 text-slate-300" />
+              <CheckCircle2 className="h-4 w-4" />
               <p className="text-sm font-semibold text-white">Report</p>
             </div>
             <p className="text-xs text-slate-400 mt-2 leading-relaxed">
@@ -107,7 +119,7 @@ export default function InPersonStart() {
       </section>
 
       <div className="flex flex-col sm:flex-row gap-3">
-        {canResume && (
+        {hasExistingScan && (
           <button
             onClick={handleResume}
             className="flex-1 rounded-xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 px-5 py-3 text-slate-200"
@@ -120,7 +132,7 @@ export default function InPersonStart() {
           onClick={handleStart}
           className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-5 py-3 font-semibold text-black inline-flex items-center justify-center gap-2"
         >
-          Start in-person scan
+          {hasExistingScan ? "Continue scan" : "Start in-person scan"}
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>
