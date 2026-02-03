@@ -708,17 +708,17 @@ setAskingInput(String(n));
   </span>
 
   <button
-    type="button"
-    onClick={() => {
-      const next = { ...(progress ?? {}) };
-      delete next.askingPrice;
-      saveProgress(next);
-      setProgress(next);
-    }}
-    className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10"
-  >
-    Edit price
-  </button>
+  type="button"
+  onClick={() => {
+    const next = { ...(progress ?? {}) };
+    delete next.askingPrice;
+    saveProgress(next);
+    setProgress(next);
+  }}
+  className="rounded-full ..."
+>
+  Edit price
+</button>
 
   <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
     {pricing.confidenceNote}
