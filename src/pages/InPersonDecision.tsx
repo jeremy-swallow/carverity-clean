@@ -700,16 +700,30 @@ setAskingInput(String(n));
             <p className="text-sm text-slate-300 leading-relaxed">{pricing.subtitle}</p>
 
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-                Asking price:{" "}
-                <span className="text-slate-200 font-semibold">
-                  {formatMoney(askingPriceParsed ?? initialAsking ?? null)}
-                </span>
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-                {pricing.confidenceNote}
-              </span>
-            </div>
+  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+    Asking price:{" "}
+    <span className="text-slate-200 font-semibold">
+      {formatMoney(progress?.askingPrice ?? null)}
+    </span>
+  </span>
+
+  <button
+    type="button"
+    onClick={() => {
+      const next = { ...(progress ?? {}) };
+      delete next.askingPrice;
+      saveProgress(next);
+      setProgress(next);
+    }}
+    className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10"
+  >
+    Edit price
+  </button>
+
+  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+    {pricing.confidenceNote}
+  </span>
+</div>
 
             <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 space-y-2">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
