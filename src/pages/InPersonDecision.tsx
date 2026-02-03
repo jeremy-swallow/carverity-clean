@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { loadProgress, saveProgress } from "../utils/scanProgress";
+import { loadProgress } from "../utils/scanProgress";
 import {
   analyseInPersonInspection,
   type AnalysisResult,
@@ -146,7 +146,7 @@ export default function InPersonDecision() {
   const navigate = useNavigate();
   const { scanId } = useParams<{ scanId: string }>();
   const scanIdSafe = scanId ? String(scanId) : "";
-const [progress, setProgress] = useState<any>(() => loadProgress());
+const [progress] = useState<any>(() => loadProgress());
 
   const analysis: AnalysisResult = useMemo(() => {
     return analyseInPersonInspection((progress ?? {}) as any);
@@ -704,11 +704,8 @@ setAskingInput(String(n));
   <button
   type="button"
   onClick={() => {
-    const next = { ...(progress ?? {}) };
-    delete next.askingPrice;
-    saveProgress(next);
-    setProgress(next);
-  }}
+  navigate("/scan/in-person/asking-price");
+}}
   className="rounded-full ..."
 >
   Edit price
