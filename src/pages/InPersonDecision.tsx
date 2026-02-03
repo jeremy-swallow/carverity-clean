@@ -201,13 +201,7 @@ const [progress, setProgress] = useState<any>(() => loadProgress());
     if (!n) return;
 
     try {
-      const next = {
-  ...(progress ?? {}),
-  askingPrice: n,
-};
 
-saveProgress(next);
-setProgress(next);
 setAskingInput(String(n));
       setAskingSaved(true);
       window.setTimeout(() => setAskingSaved(false), 1500);
