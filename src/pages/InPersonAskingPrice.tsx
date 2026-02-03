@@ -19,17 +19,19 @@ function formatAud(n: number) {
 
 export default function InPersonAskingPrice() {
   const navigate = useNavigate();
-  const progress: any = loadProgress();
+
+  // Only used for initial UI state
+  const initialProgress: any = loadProgress();
 
   const existing = useMemo(() => {
-    const v = progress?.askingPrice;
+    const v = initialProgress?.askingPrice;
     if (typeof v === "number" && Number.isFinite(v)) return v;
     if (typeof v === "string") {
       const parsed = parseAudNumber(v);
       return parsed ?? null;
     }
     return null;
-  }, [progress]);
+  }, [initialProgress]);
 
   const [raw, setRaw] = useState<string>(existing ? String(existing) : "");
   const [touched, setTouched] = useState(false);
@@ -42,8 +44,10 @@ export default function InPersonAskingPrice() {
   }
 
   function continueNext() {
+    const latest = loadProgress() ?? {};
+
     saveProgress({
-      ...(progress ?? {}),
+      ...latest,
       step: "/scan/in-person/asking-price",
       askingPrice: askingPrice ?? null,
     });
@@ -52,8 +56,10 @@ export default function InPersonAskingPrice() {
   }
 
   function skip() {
+    const latest = loadProgress() ?? {};
+
     saveProgress({
-      ...(progress ?? {}),
+      ...latest,
       step: "/scan/in-person/asking-price",
       askingPrice: null,
     });
@@ -75,7 +81,6 @@ export default function InPersonAskingPrice() {
         based on what you recorded. This is guidance, not a valuation.
       </p>
 
-      {/* Recommendation (buyer-safe, not preachy) */}
       <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
         <div className="flex items-start gap-3">
           <Info className="h-4 w-4 text-slate-300 mt-0.5" />
