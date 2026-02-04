@@ -1,5 +1,3 @@
-// src/utils/scanProgress.ts
-
 export type ScanJourneyType = "in-person" | "online";
 
 export type CheckAnswerValue = "ok" | "concern" | "unsure";
@@ -56,7 +54,7 @@ export interface ScanProgress {
   kilometres?: number;
 
   /* =====================
-     In-person: sale context (dealership/private)
+     In-person: sale context
   ====================== */
   saleType?: "dealership" | "private";
   saleName?: string;
@@ -119,12 +117,10 @@ function isCompletedStep(step: unknown): boolean {
   const s = String(step ?? "");
   if (!s) return false;
 
-  // If progress.step is already on an end-of-flow page,
-  // we should not offer "resume" and we should clear it.
+  // ONLY truly terminal pages should clear progress
   const completedStepPrefixes = [
     "/scan/in-person/results",
     "/scan/in-person/print",
-    "/scan/in-person/decision",
     "/scan/in-person/price-positioning",
     "/scan/online/results",
     "/scan/online/report",
