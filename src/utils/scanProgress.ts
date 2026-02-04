@@ -88,7 +88,6 @@ const STORAGE_KEY = "carverity_scan_progress_v2";
 
 /**
  * How long a scan can be "resumable" before we auto-clear it.
- * This prevents old/stale scans from confusing users.
  */
 const PROGRESS_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
 
@@ -113,26 +112,20 @@ function isExpired(progress: ScanProgress | null): boolean {
   return Date.now() - started > PROGRESS_TTL_MS;
 }
 
+/**
+ * ONLY treat the scan as completed on true terminal pages.
+ * Decision, summary, negotiation, and price positioning
+ * are NOT terminal and must NOT clear progress.
+ */
 function isCompletedStep(step: unknown): boolean {
-  const s = String(step ?? "");
-  if (!s) return false;
-
-  // ONLY truly terminal pages should clear progress
-  const completedStepPrefixes = [
-    "/scan/in-person/results",
-    "/scan/in-person/print",
-    "/scan/in-person/price-positioning",
-    "/scan/online/results",
-    "/scan/online/report",
-  ];
-
-  return completedStepPrefixes.some((p) => s.startsWith(p));
+  return step === "/scan/in-person/results/final";
 }
 
 /**
- * Safely load the current scan progress from localStorage.
- * Auto-clears stale or completed progress so users don't get "stuck"
- * resuming an old scan forever.
+ * Load scan progress from localStorage.
+ * Clears ONLY if the scan is:
+ *  - truly completed
+ *  - or expired
  */
 export function loadProgress(): ScanProgress | null {
   if (typeof window === "undefined") return null;
@@ -146,23 +139,13 @@ export function loadProgress(): ScanProgress | null {
 
     const progress = parsed as ScanProgress;
 
-    // Auto-clear if it points to a completed page
     if (isCompletedStep(progress.step)) {
-      try {
-        window.localStorage.removeItem(STORAGE_KEY);
-      } catch {
-        // ignore
-      }
+      window.localStorage.removeItem(STORAGE_KEY);
       return null;
     }
 
-    // Auto-clear if too old (stale scan)
     if (isExpired(progress)) {
-      try {
-        window.localStorage.removeItem(STORAGE_KEY);
-      } catch {
-        // ignore
-      }
+      window.localStorage.removeItem(STORAGE_KEY);
       return null;
     }
 
@@ -173,10 +156,8 @@ export function loadProgress(): ScanProgress | null {
 }
 
 /**
- * Merge the provided partial progress into the existing stored state.
- * This keeps fields from previous steps intact.
- *
- * Also ensures startedAt is set once, so we can expire stale scans.
+ * Merge partial updates into existing progress.
+ * Preserves all previously collected data.
  */
 export function saveProgress(update: Partial<ScanProgress>): void {
   if (typeof window === "undefined") return;
@@ -193,12 +174,12 @@ export function saveProgress(update: Partial<ScanProgress>): void {
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
   } catch {
-    // Ignore storage errors (e.g. quota exceeded)
+    // ignore
   }
 }
 
 /**
- * Clear any active scan journey.
+ * Clear any active scan.
  */
 export function clearProgress(): void {
   if (typeof window === "undefined") return;
@@ -206,13 +187,13 @@ export function clearProgress(): void {
   try {
     window.localStorage.removeItem(STORAGE_KEY);
   } catch {
-    // Ignore errors
+    // ignore
   }
 }
 
 /**
- * Hard reset scan progress and immediately start a new journey.
- * Use this when user taps "Start scan" so we never resume old data.
+ * Start a brand-new scan.
+ * This is the ONLY place we intentionally wipe progress.
  */
 export function startFreshProgress(
   type: ScanJourneyType,
@@ -236,6 +217,6 @@ export function startFreshProgress(
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
   } catch {
-    // Ignore errors
+    // ignore
   }
 }
