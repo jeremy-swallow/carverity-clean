@@ -34,9 +34,9 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 type PackKey = "single" | "three" | "five";
 
 const PRICE_MAP: Record<PackKey, string> = {
-  single: "price_1So9TcE9gXaXx1nSyeYvpaQb",
-  three: "price_1SoppbE9gXaXx1nSfp5Xex9O",
-  five: "price_1SoprRE9gXaXx1nSnlKEnh0U",
+  single: "price_1SxBeGE2p2Rmw3KosfABFlhQ",
+  three: "price_1SxBeCE2p2Rmw3KoiYFC8K35",
+  five: "price_1SxBe5E2p2Rmw3KoMWa2SFq8",
 };
 
 function getRequestOrigin(req: VercelRequest): string {
