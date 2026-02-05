@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { loadProgress } from "../utils/scanProgress";
 
 export default function InPersonUnlockSuccess() {
   const navigate = useNavigate();
@@ -15,14 +16,16 @@ export default function InPersonUnlockSuccess() {
       return;
     }
 
-    // After purchase, we should send them back to unlock.
-    // Unlock page will:
-    // - refresh credits
-    // - consume 1 credit via server
-    // - then move into analyzing/results
-    navigate(`/scan/in-person/unlock/${encodeURIComponent(scanId)}`, {
-      replace: true,
-    });
+    const progress = loadProgress();
+
+    // Resume exactly where the user left off
+    if (progress?.scanId === scanId && progress?.step) {
+      navigate(progress.step, { replace: true });
+      return;
+    }
+
+    // Fallback: start page if anything is missing
+    navigate("/scan/in-person/start", { replace: true });
   }, [scanId, navigate]);
 
   return (
