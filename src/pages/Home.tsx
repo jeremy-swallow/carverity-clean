@@ -238,8 +238,8 @@ export default function Home() {
 
             <p className="text-slate-200 text-[15px] leading-relaxed">
               CarVerity guides you step-by-step while you&apos;re standing next
-              to the car, so you can spot issues, record evidence, and finish
-              with a clear report and buyer-safe next steps.
+              to the car, so you can spot visible issues, record evidence, and
+              finish with a clear report and buyer-safe next steps.
             </p>
 
             <p className="text-slate-300 text-sm">
