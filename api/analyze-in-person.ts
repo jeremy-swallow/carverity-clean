@@ -138,6 +138,46 @@ function verdictChangeNote(verdict: string | undefined) {
 }
 
 /* =========================================================
+   Conservative Market Context (NOT valuation)
+========================================================= */
+
+function buildConservativeMarketRange(progress: any) {
+  const year =
+    progress?.vehicleYear ?? progress?.vehicle?.year ?? null;
+
+  const kms =
+    progress?.kilometers ??
+    progress?.vehicleKilometers ??
+    progress?.vehicle?.kilometers ??
+    null;
+
+  if (!year || typeof year !== "number") return null;
+
+  const currentYear = new Date().getFullYear();
+  const age = Math.max(0, currentYear - year);
+
+  let base = 35000 - age * 2500;
+
+  if (typeof kms === "number") {
+    if (kms > 200000) base -= 4000;
+    else if (kms > 150000) base -= 2500;
+    else if (kms > 100000) base -= 1500;
+    else if (kms < 60000) base += 2000;
+  }
+
+  base = Math.max(2000, base);
+
+  return {
+    marketRangeLowAud: Math.round(base * 0.9),
+    marketRangeHighAud: Math.round(base * 1.05),
+    marketBasis:
+      "Conservative estimate based on vehicle age and typical Australian advertised pricing behaviour.",
+    marketNotes:
+      "Context only. Not a valuation or mechanical assessment.",
+  };
+}
+
+/* =========================================================
    Gemini
 ========================================================= */
 
@@ -218,13 +258,11 @@ Return STRICT JSON ONLY in this shape:
           : "Inspection supports proceeding",
         120
       ),
-
       bullets: cleanStringArray(
         parsed?.decisionBrief?.bullets,
         fallbackBullets,
         3
       ),
-
       nextBestAction: cleanSentence(
         parsed?.decisionBrief?.nextBestAction,
         verdict === "walk-away"
@@ -235,27 +273,22 @@ Return STRICT JSON ONLY in this shape:
         200
       ),
     },
-
     whyThisVerdict: `${baseWhy} ${changeNote}`,
-
     topSignals: {
       positive: cleanStringArray(parsed?.topSignals?.positive, [], 5),
       concerns: cleanStringArray(parsed?.topSignals?.concerns, [], 5),
       unknowns: cleanStringArray(parsed?.topSignals?.unknowns, [], 5),
     },
-
     questionsToAskSeller: cleanStringArray(
       parsed?.questionsToAskSeller,
       [],
       6
     ),
-
     confidenceNote: cleanSentence(
       parsed?.confidenceNote,
       "This guidance is based on the information recorded during the inspection.",
       200
     ),
-
     source: "gemini-2.0-flash",
   };
 }
@@ -302,19 +335,47 @@ export default async function handler(
       GOOGLE_API_KEY
     );
 
-    try {
+    // Inject conservative market range into analysis
+    const market = buildConservativeMarketRange(progress);
+    if (market) {
+      analysis.priceGuidance = {
+        ...(analysis.priceGuidance || {}),
+        ...market,
+      };
+    }
+
+    const reportPayload = {
+      aiInterpretation: ai,
+      progressSnapshot: progress,
+      analysisSnapshot: analysis,
+    };
+
+    // Insert or update scan
+    const { data: existing } = await supabase
+      .from("scans")
+      .select("id")
+      .eq("scan_id", scanId)
+      .maybeSingle();
+
+    if (!existing) {
+      await supabase.from("scans").insert({
+        scan_id: scanId,
+        plan: "in-person",
+        scan_type: "in-person",
+        report: reportPayload,
+      });
+    } else {
       await supabase
         .from("scans")
-        .update({ report: { aiInterpretation: ai } })
+        .update({ report: reportPayload })
         .eq("scan_id", scanId);
-    } catch {
-      // non-fatal
     }
 
     return res.status(200).json({
       ok: true,
       scanId,
       ai,
+      analysis,
     });
   } catch (err) {
     console.error("analyze-in-person error", err);
