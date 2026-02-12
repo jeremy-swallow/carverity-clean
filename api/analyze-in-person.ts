@@ -121,20 +121,14 @@ function bulletsForVerdict(
 
 function verdictChangeNote(verdict: string | undefined) {
   if (verdict === "walk-away") {
-    return (
-      "This verdict would only change if the identified issues are resolved conclusively and independently verified."
-    );
+    return "This verdict would only change if the identified issues are resolved conclusively and independently verified.";
   }
 
   if (verdict === "caution") {
-    return (
-      "This verdict would strengthen if the flagged items are verified cleanly in writing."
-    );
+    return "This verdict would strengthen if the flagged items are verified cleanly in writing.";
   }
 
-  return (
-    "This verdict would change if a previously unrecorded mechanical or ownership issue comes to light."
-  );
+  return "This verdict would change if a previously unrecorded mechanical or ownership issue comes to light.";
 }
 
 /* =========================================================
@@ -184,6 +178,7 @@ function buildConservativeMarketRange(progress: any) {
 async function callGeminiJSON(payload: any, apiKey: string) {
   const verdict = payload?.analysis?.verdict;
   const analysis = payload?.analysis;
+
   const fallbackBullets = bulletsForVerdict(verdict, analysis);
   const changeNote = verdictChangeNote(verdict);
 
@@ -220,8 +215,7 @@ Return STRICT JSON ONLY in this shape:
 `;
 
   const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" +
-      apiKey,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -335,22 +329,23 @@ export default async function handler(
       GOOGLE_API_KEY
     );
 
-    // Inject conservative market range into analysis
+    // Inject conservative market context safely
     const market = buildConservativeMarketRange(progress);
-    if (market) {
-      analysis.priceGuidance = {
-        ...(analysis.priceGuidance || {}),
-        ...market,
-      };
-    }
+
+    const enrichedAnalysis = {
+      ...analysis,
+      priceGuidance: {
+        ...(analysis?.priceGuidance || {}),
+        ...(market || {}),
+      },
+    };
 
     const reportPayload = {
       aiInterpretation: ai,
       progressSnapshot: progress,
-      analysisSnapshot: analysis,
+      analysisSnapshot: enrichedAnalysis,
     };
 
-    // Insert or update scan
     const { data: existing } = await supabase
       .from("scans")
       .select("id")
@@ -375,7 +370,7 @@ export default async function handler(
       ok: true,
       scanId,
       ai,
-      analysis,
+      analysis: enrichedAnalysis,
     });
   } catch (err) {
     console.error("analyze-in-person error", err);
