@@ -130,9 +130,9 @@ function toneForLeverage(args: {
 }
 
 /**
- * “Clean car” negotiation band:
- * - this is the missing piece that makes the page valuable even if no faults were recorded.
- * - dealer pricing usually has room; this provides a grounded, non-crazy starting range.
+ * “Clean car” adjustment band:
+ * - keeps the page useful even if no faults were recorded.
+ * - many asking prices allow room; this provides a grounded, non-crazy starting range.
  */
 function cleanCarReductionBand(askingPrice: number): Range {
   // 1%–3% is “normal buyer expectation” without being silly.
@@ -152,31 +152,31 @@ function buildCleanCarNegotiationTips(args: {
   const tips: string[] = [];
 
   tips.push(
-    "Even if the car looks fine, dealerships often price expecting negotiation."
+    "Even when a car looks clean, asking prices often allow room for discussion."
   );
 
   tips.push(
-    "The cleanest way to ask is to be calm, specific, and ready to buy today."
+    "The cleanest approach is calm and specific — ask once, then decide what you want to do."
   );
 
   if (hasAskingPrice && typeof askingPrice === "number") {
     const band = cleanCarReductionBand(askingPrice);
     tips.push(
-      `A normal starting ask (even with no faults) is often around ${formatMoney(
+      `A normal starting adjustment (even with no faults) is often around ${formatMoney(
         band.low
       )}–${formatMoney(
         band.high
-      )} off, depending on the market and how long it’s been listed.`
+      )}, depending on demand and how long it’s been listed.`
     );
   }
 
   if (coverage < 45 || confidence < 45) {
     tips.push(
-      "Because some items were not fully checked, you can also ask for value instead of price (fresh service, tyres, warranty extension)."
+      "If a few items weren’t fully checked, you can also ask for value instead of price (fresh service, tyres, warranty extension)."
     );
   } else {
     tips.push(
-      "If the seller won’t move on price, ask for value: a fresh service, tyres, detailing, or warranty extension."
+      "If they won’t move on price, ask for value: a fresh service, tyres, detailing, or warranty extension."
     );
   }
 
@@ -210,12 +210,24 @@ export default function InPersonPricePositioning() {
   const askingPrice =
     typeof progress?.askingPrice === "number" ? progress.askingPrice : null;
 
-  const confidence = clamp(Number((analysis as any)?.confidenceScore ?? 0), 0, 100);
-  const coverage = clamp(Number((analysis as any)?.completenessScore ?? 0), 0, 100);
+  const confidence = clamp(
+    Number((analysis as any)?.confidenceScore ?? 0),
+    0,
+    100
+  );
+  const coverage = clamp(
+    Number((analysis as any)?.completenessScore ?? 0),
+    0,
+    100
+  );
 
-  const risks = Array.isArray((analysis as any)?.risks) ? (analysis as any).risks : [];
-  const criticalCount = risks.filter((r: any) => r?.severity === "critical").length;
-  const moderateCount = risks.filter((r: any) => r?.severity === "moderate").length;
+  const risks = Array.isArray((analysis as any)?.risks)
+    ? (analysis as any).risks
+    : [];
+  const criticalCount = risks.filter((r: any) => r?.severity === "critical")
+    .length;
+  const moderateCount = risks.filter((r: any) => r?.severity === "moderate")
+    .length;
 
   const unsureCount = Array.isArray((analysis as any)?.uncertaintyFactors)
     ? (analysis as any).uncertaintyFactors.length
@@ -233,6 +245,12 @@ export default function InPersonPricePositioning() {
 
   const positioning: any = (analysis as any)?.negotiationPositioning ?? null;
 
+  // Optional market context (range-based, not a valuation)
+  const marketLow = priceGuidance?.marketRangeLowAud ?? null;
+  const marketHigh = priceGuidance?.marketRangeHighAud ?? null;
+  const marketBasis = asText(priceGuidance?.marketBasis);
+  const marketNotes = asText(priceGuidance?.marketNotes);
+
   const postureTone = useMemo(() => {
     return toneForLeverage({
       criticalCount,
@@ -243,25 +261,25 @@ export default function InPersonPricePositioning() {
 
   const postureTitle = useMemo(() => {
     if (!hasAskingPrice) return "Add the advertised price to get a range";
-    if (postureTone === "warn") return "You have strong price leverage";
-    if (postureTone === "info") return "You have some price leverage";
-    return "Even if it looks fine, you can still position the price";
+    if (postureTone === "warn") return "You’ve got stronger price leverage";
+    if (postureTone === "info") return "You’ve got some price leverage";
+    return "Even if it looked clean, you can still position the price";
   }, [hasAskingPrice, postureTone]);
 
   const postureBody = useMemo(() => {
     if (!hasAskingPrice) {
-      return "CarVerity can only generate a grounded adjustment range once the advertised asking price is known.";
+      return "CarVerity can generate a grounded positioning range once the advertised asking price is known.";
     }
 
     if (postureTone === "warn") {
-      return "Based on what you recorded, it’s reasonable to ask for a meaningful reduction — or require proof before you pay full price.";
+      return "Based on what you recorded, it’s reasonable to seek a meaningful adjustment — or ask for proof before paying full sticker.";
     }
 
     if (postureTone === "info") {
-      return "You recorded a few items worth clarifying. That uncertainty supports a modest reduction or a conditional agreement.";
+      return "You recorded a few items worth clarifying. That uncertainty supports a modest adjustment or a conditional agreement.";
     }
 
-    return "Car yards often price with negotiation in mind. You can ask for a small reduction based on normal buyer expectations — even if nothing stood out.";
+    return "Asking prices often allow room for discussion. You can aim for a small, reasonable adjustment — even if nothing stood out.";
   }, [hasAskingPrice, postureTone]);
 
   const guidanceRationale: string[] = useMemo(() => {
@@ -288,9 +306,13 @@ export default function InPersonPricePositioning() {
     return normaliseRangeFromGuidance(adjustedLow, adjustedHigh);
   }, [adjustedLow, adjustedHigh]);
 
+  const marketRangeFromGuidance: Range | null = useMemo(() => {
+    return normaliseRangeFromGuidance(marketLow, marketHigh);
+  }, [marketLow, marketHigh]);
+
   /**
    * If there are no recorded faults, we still want a meaningful “math result”.
-   * So we compute a standard dealer negotiation band (1%–3%) as a fallback.
+   * So we compute a standard dealer discussion band (1%–3%) as a fallback.
    */
   const cleanCarReduction: Range | null = useMemo(() => {
     if (!hasAskingPrice || typeof askingPrice !== "number") return null;
@@ -301,7 +323,7 @@ export default function InPersonPricePositioning() {
     // Prefer evidence-based reduction from analysis.
     if (reductionRangeFromAnalysis) return reductionRangeFromAnalysis;
 
-    // Otherwise fall back to a “clean car negotiation” reduction.
+    // Otherwise fall back to a “clean car” standard band.
     if (cleanCarReduction) return cleanCarReduction;
 
     return null;
@@ -357,12 +379,12 @@ export default function InPersonPricePositioning() {
       const label =
         reductionRangeFromAnalysis != null
           ? "Evidence-based adjustment"
-          : "Standard dealer negotiation range";
+          : "Standard discussion range";
 
       const reason =
         reductionRangeFromAnalysis != null
-          ? "This reduction window is based on what you recorded (concerns, unsure items, and coverage)."
-          : "Even clean cars are usually priced with room. This is a realistic starting reduction for a smooth deal.";
+          ? "This adjustment window is based on what you recorded (concerns, unsure items, and coverage)."
+          : "Even clean cars are often priced with room. This is a realistic starting range for a smooth outcome.";
 
       return [
         {
@@ -467,16 +489,16 @@ export default function InPersonPricePositioning() {
       );
     } else if (moderateCount > 0 || unsureCount > 0) {
       points.push(
-        "Use the items you recorded as a reason to either reduce the price or make the deal conditional."
+        "Use the items you recorded as a reason to either adjust the price or make the deal conditional."
       );
     } else {
       points.push(
-        "If the car looks fine, ask for a small reduction based on market norms and the fact you’re ready to buy today."
+        "If the car looked clean, ask once for a small adjustment based on market norms and the fact you’re ready to proceed."
       );
     }
 
     points.push(
-      "If the seller won’t move, ask for value instead (fresh service, tyres, detailing, warranty extension)."
+      "If they won’t move, ask for value instead (fresh service, tyres, detailing, warranty extension)."
     );
 
     return points.slice(0, 4);
@@ -497,7 +519,11 @@ export default function InPersonPricePositioning() {
   const firmnessBands = useMemo(() => {
     const fallback = positioning;
 
-    if (!effectiveAdjustedRange || !hasAskingPrice || typeof askingPrice !== "number") {
+    if (
+      !effectiveAdjustedRange ||
+      !hasAskingPrice ||
+      typeof askingPrice !== "number"
+    ) {
       return fallback;
     }
 
@@ -534,17 +560,17 @@ export default function InPersonPricePositioning() {
       conservative: {
         ...safe(conservative),
         rationale:
-          "Closer to asking price. Works well if the car is in demand or you want a smooth, fast deal.",
+          "Closer to asking price. Works well if the car is in demand or you want a smooth, fast outcome.",
       },
       balanced: {
         ...safe(balanced),
         rationale:
-          "A reasonable middle position. Best default for most dealer negotiations.",
+          "A reasonable middle position. Best default for most situations.",
       },
       aggressive: {
         ...safe(aggressive),
         rationale:
-          "A firmer offer. Use only if you’re comfortable walking away if they won’t meet you.",
+          "A firmer position. Use only if you’re comfortable walking away if they won’t meet you.",
       },
     };
   }, [positioning, effectiveAdjustedRange, hasAskingPrice, askingPrice]);
@@ -554,18 +580,26 @@ export default function InPersonPricePositioning() {
       {/* Header */}
       <header className="space-y-4">
         <span className="text-[11px] uppercase tracking-[0.2em] text-slate-500">
-          CarVerity · Price positioning
+          CarVerity · Price reflection
         </span>
 
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-[260px]">
             <h1 className="text-3xl font-semibold text-white leading-tight">
-              Price positioning & negotiation
+              Price reflection & positioning
             </h1>
             <p className="text-slate-400 mt-2 leading-relaxed max-w-2xl">
-              A buyer-safe way to ask for a better price — even if the car looks
-              fine — with clear maths and practical wording.
+              A calm way to think through the asking price using what you
+              observed — with clear maths and practical guidance.
             </p>
+
+            <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Guidance only. This reflects inspection notes and common market
+                behaviour — not a valuation, repair estimate, or a substitute for
+                a mechanical inspection.
+              </p>
+            </div>
           </div>
 
           <div
@@ -579,10 +613,80 @@ export default function InPersonPricePositioning() {
               ? "Stronger leverage"
               : postureTone === "info"
               ? "Some leverage"
-              : "Standard negotiation"}
+              : "Standard range"}
           </div>
         </div>
       </header>
+
+      {/* Market context (optional) */}
+      {(marketRangeFromGuidance || (hasAskingPrice && typeof askingPrice === "number")) && (
+        <section className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-3">
+          <div className="flex items-center gap-3 text-slate-300">
+            <Info className="h-5 w-5 text-slate-400" />
+            <h2 className="text-lg font-semibold">
+              Market context (not a valuation)
+            </h2>
+          </div>
+
+          {marketRangeFromGuidance ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    Typical advertised range
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold text-white tabular-nums">
+                    {formatRange(marketRangeFromGuidance)}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Based on similar listings in Australia
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    Asking price
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold text-white tabular-nums">
+                    {hasAskingPrice && askingRange ? formatMoney(askingRange.low) : "—"}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Use this as context, not a rule
+                  </div>
+                </div>
+              </div>
+
+              {(marketBasis || marketNotes) && (
+                <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                  {marketBasis && (
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      <span className="text-slate-300 font-semibold">Basis:</span>{" "}
+                      {marketBasis}
+                    </p>
+                  )}
+                  {marketNotes && (
+                    <p className="mt-2 text-xs text-slate-400 leading-relaxed">
+                      {marketNotes}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Condition, service history, location, and demand can move prices
+                up or down. If you’re unsure, a qualified mechanic inspection can
+                help confirm risk before committing.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-slate-400 leading-relaxed max-w-3xl">
+              Market context is optional and may appear here when available.
+              CarVerity won’t guess a “value” — it only shows ranges when it has
+              enough information.
+            </p>
+          )}
+        </section>
+      )}
 
       {/* Posture */}
       <section className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-4">
@@ -608,25 +712,25 @@ export default function InPersonPricePositioning() {
           <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
               <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                Buyer-safe target range
+                Suggested positioning range
               </div>
               <div className="mt-2 text-2xl font-semibold text-white tabular-nums">
                 {effectiveAdjustedRange ? formatRange(effectiveAdjustedRange) : "—"}
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                Based on your inspection + normal dealer pricing behaviour
+                Based on your inspection + common asking-price behaviour
               </div>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-5 py-4">
               <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                Suggested reduction window
+                Suggested adjustment window
               </div>
               <div className="mt-2 text-2xl font-semibold text-white tabular-nums">
                 {effectiveReductionRange ? formatRange(effectiveReductionRange) : "—"}
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                A practical starting point (not a “lowball”)
+                A practical range to consider (no pressure to use it)
               </div>
             </div>
           </div>
@@ -682,10 +786,16 @@ export default function InPersonPricePositioning() {
         {showMath && (
           <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-5">
             <p className="text-sm text-slate-400 leading-relaxed max-w-3xl">
-              This is a simple calculation: <span className="text-slate-200 font-semibold">Asking price</span>{" "}
-              minus a <span className="text-slate-200 font-semibold">reduction window</span>.
+              This is a simple calculation:{" "}
+              <span className="text-slate-200 font-semibold">Asking price</span>{" "}
+              minus a{" "}
+              <span className="text-slate-200 font-semibold">
+                reduction window
+              </span>
+              .
               <br />
-              CarVerity shows the numbers step-by-step so you don’t have to do the maths yourself.
+              CarVerity shows the numbers step-by-step so you don’t have to do
+              the maths yourself.
             </p>
 
             <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-4">
@@ -773,7 +883,7 @@ export default function InPersonPricePositioning() {
 
                 <div className="rounded-xl border border-white/10 bg-slate-950/30 px-4 py-3">
                   <div className="text-xs text-slate-500">
-                    Buyer-safe target range
+                    Suggested positioning range
                   </div>
                   <div className="mt-1 text-base font-semibold text-white tabular-nums">
                     {effectiveAdjustedRange ? formatRange(effectiveAdjustedRange) : "—"}
@@ -811,19 +921,18 @@ export default function InPersonPricePositioning() {
         </div>
       </section>
 
-      {/* Clean car negotiation */}
+      {/* Clean car guidance */}
       <section className="space-y-4">
         <div className="flex items-center gap-3 text-slate-300">
           <Sparkles className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold">
-            If nothing was wrong (still negotiate)
-          </h2>
+          <h2 className="text-lg font-semibold">If the car looked clean</h2>
         </div>
 
         <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-4">
           <p className="text-sm text-slate-400 leading-relaxed max-w-3xl">
-            A “clean” inspection doesn’t mean you pay full sticker price.
-            Dealers often build negotiation room into the asking price.
+            A “clean” inspection doesn’t automatically mean you pay full sticker
+            price. Asking prices often allow room for discussion — without
+            needing to be aggressive.
           </p>
 
           <ul className="list-disc list-inside space-y-1.5 text-[15px] text-slate-300">
@@ -838,7 +947,7 @@ export default function InPersonPricePositioning() {
             </div>
             <p className="mt-2 text-sm text-slate-300 leading-relaxed whitespace-pre-line">
               {
-                "“I like the car. I’m ready to buy today.\nIf you can do a better price, I can make this easy right now.”"
+                "“I like the car. I’m ready to move forward.\nIf there’s any flexibility on price, I can make this easy today.”"
               }
             </p>
           </div>
@@ -854,11 +963,9 @@ export default function InPersonPricePositioning() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {(
-            [
-              "conservative",
-              "balanced",
-              "aggressive",
-            ] as Array<"conservative" | "balanced" | "aggressive">
+            ["conservative", "balanced", "aggressive"] as Array<
+              "conservative" | "balanced" | "aggressive"
+            >
           ).map((k) => {
             const band = firmnessBands?.[k];
 

@@ -283,6 +283,23 @@ export default function InPersonResultsV2() {
   }, [saved, progress]);
 
   /* -------------------------------------------------------
+     NEW: Conservative market range (from API)
+  ------------------------------------------------------- */
+  const marketRange = useMemo(() => {
+    const pg = (analysis as any)?.priceGuidance;
+    if (!pg) return null;
+
+    const low = pg?.marketRangeLowAud;
+    const high = pg?.marketRangeHighAud;
+
+    if (typeof low === "number" && typeof high === "number") {
+      return { low, high };
+    }
+
+    return null;
+  }, [analysis]);
+
+  /* -------------------------------------------------------
      AUTO-GENERATE AI IF MISSING
   ------------------------------------------------------- */
   useEffect(() => {
@@ -346,8 +363,7 @@ export default function InPersonResultsV2() {
           accessToken
         );
 
-        const ai =
-          aiResp.ok && aiResp.json ? (aiResp.json as any).ai : null;
+        const ai = aiResp.ok && aiResp.json ? (aiResp.json as any).ai : null;
 
         if (!ai) {
           if (!cancelled) {
@@ -377,7 +393,10 @@ export default function InPersonResultsV2() {
             typeof latestProgress?.askingPrice === "number"
               ? latestProgress.askingPrice
               : existing?.askingPrice ?? null,
-          score: Number((analysis as any)?.confidenceScore ?? existing?.score ?? 0) || null,
+          score:
+            Number(
+              (analysis as any)?.confidenceScore ?? existing?.score ?? 0
+            ) || null,
           concerns: concernsCount,
           unsure: unsureCount,
           imperfectionsCount,
@@ -385,7 +404,8 @@ export default function InPersonResultsV2() {
 
           // Persisted reload-safe data
           analysis: existing?.analysis ?? analysis,
-          progressSnapshot: existing?.progressSnapshot ?? stripHeavyFields(latestProgress),
+          progressSnapshot:
+            existing?.progressSnapshot ?? stripHeavyFields(latestProgress),
 
           // Extra field (for Results display)
           aiInterpretation: ai,
@@ -684,6 +704,18 @@ export default function InPersonResultsV2() {
                   Price positioning (preview)
                 </h2>
               </div>
+
+              {/* NEW: Conservative market context */}
+              {marketRange && (
+                <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-emerald-300">
+                    Conservative market context
+                  </p>
+                  <p className="text-sm font-semibold text-white mt-1">
+                    {formatMoney(marketRange.low)} – {formatMoney(marketRange.high)}
+                  </p>
+                </div>
+              )}
 
               {pricingSummary.mode === "needs_price" ? (
                 <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 space-y-2">
