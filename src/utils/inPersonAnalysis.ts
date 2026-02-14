@@ -92,6 +92,14 @@ export type BuyerContextInterpretation = {
 export type PriceGuidance = {
   askingPriceAud: number | null;
 
+  /**
+   * NOTE:
+   * InPersonResults.v2.tsx reads these keys for the "Conservative market context" box.
+   * We map them to the buyer-safe adjusted range (not a valuation).
+   */
+  marketRangeLowAud: number | null;
+  marketRangeHighAud: number | null;
+
   adjustedPriceLowAud: number | null;
   adjustedPriceHighAud: number | null;
 
@@ -476,10 +484,16 @@ function computePriceGuidance(args: {
   if (!askingPriceAud || askingPriceAud <= 0) {
     return {
       askingPriceAud: null,
+
+      marketRangeLowAud: null,
+      marketRangeHighAud: null,
+
       adjustedPriceLowAud: null,
       adjustedPriceHighAud: null,
+
       suggestedReductionLowAud: null,
       suggestedReductionHighAud: null,
+
       disclaimer,
       rationale: [
         "No asking price was provided, so the report can’t calculate an adjusted range.",
@@ -565,10 +579,16 @@ function computePriceGuidance(args: {
 
   return {
     askingPriceAud,
+
+    marketRangeLowAud: adjustedLow,
+    marketRangeHighAud: adjustedHigh,
+
     adjustedPriceLowAud: adjustedLow,
     adjustedPriceHighAud: adjustedHigh,
+
     suggestedReductionLowAud: cappedRedLow,
     suggestedReductionHighAud: cappedRedHigh,
+
     disclaimer,
     rationale,
   };
