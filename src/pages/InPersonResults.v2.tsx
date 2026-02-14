@@ -300,6 +300,44 @@ export default function InPersonResultsV2() {
   }, [analysis]);
 
   /* -------------------------------------------------------
+     NEW: ABOVE / WITHIN / BELOW + delta (from asking price)
+  ------------------------------------------------------- */
+  const pricePosition = useMemo(() => {
+    if (!marketRange) return null;
+    const asking = progress?.askingPrice;
+
+    if (typeof asking !== "number" || Number.isNaN(asking)) return null;
+
+    if (asking > marketRange.high) {
+      return {
+        position: "above" as const,
+        label: "ABOVE conservative market range",
+        delta: asking - marketRange.high,
+        tone: "text-rose-300",
+        pill: "border-rose-500/30 bg-rose-500/10 text-rose-200",
+      };
+    }
+
+    if (asking < marketRange.low) {
+      return {
+        position: "below" as const,
+        label: "BELOW conservative market range",
+        delta: marketRange.low - asking,
+        tone: "text-emerald-300",
+        pill: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
+      };
+    }
+
+    return {
+      position: "within" as const,
+      label: "WITHIN conservative market range",
+      delta: 0,
+      tone: "text-emerald-300",
+      pill: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
+    };
+  }, [marketRange, progress?.askingPrice]);
+
+  /* -------------------------------------------------------
      AUTO-GENERATE AI IF MISSING
   ------------------------------------------------------- */
   useEffect(() => {
@@ -714,6 +752,33 @@ export default function InPersonResultsV2() {
                   <p className="text-sm font-semibold text-white mt-1">
                     {formatMoney(marketRange.low)} – {formatMoney(marketRange.high)}
                   </p>
+
+                  {/* NEW: Position line + delta */}
+                  {pricePosition && (
+                    <div className="mt-3 space-y-2">
+                      <div
+                        className={[
+                          "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
+                          pricePosition.pill,
+                        ].join(" ")}
+                      >
+                        Asking price is {pricePosition.label}
+                      </div>
+
+                      {pricePosition.delta > 0 && (
+                        <p className="text-xs text-slate-200">
+                          ≈{" "}
+                          <span className="font-semibold text-white">
+                            {formatMoney(pricePosition.delta)}
+                          </span>{" "}
+                          {pricePosition.position === "above"
+                            ? "above"
+                            : "below"}{" "}
+                          range
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
