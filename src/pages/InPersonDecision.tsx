@@ -368,7 +368,9 @@ export default function InPersonDecision() {
       "Confirm the seller’s identity and that the paperwork matches the vehicle."
     );
     items.push("Verify service history with invoices (not just a stamp book).");
-    items.push("Check for finance owing or written-off status (where applicable).");
+    items.push(
+      "Check for finance owing or written-off status (where applicable)."
+    );
 
     if (critical.length > 0) {
       items.push(
@@ -377,11 +379,15 @@ export default function InPersonDecision() {
     }
 
     if (moderate.length > 0) {
-      items.push("Ask the seller to clarify the items you flagged before committing.");
+      items.push(
+        "Ask the seller to clarify the items you flagged before committing."
+      );
     }
 
     if (unsure.length > 0) {
-      items.push("Treat unsure items as unknowns and verify them before deciding.");
+      items.push(
+        "Treat unsure items as unknowns and verify them before deciding."
+      );
     }
 
     return items.slice(0, 7);
@@ -412,12 +418,16 @@ export default function InPersonDecision() {
   const whatGoodLooksLike = useMemo(() => {
     const good: string[] = [];
 
-    good.push("The seller provides clear evidence for your concerns in writing or invoices.");
+    good.push(
+      "The seller provides clear evidence for your concerns in writing or invoices."
+    );
     good.push("Your unknown items become confirmed rather than remaining unknown.");
     good.push("No new warning lights or behaviours appear on a second look.");
 
     if (analysis.verdict === "proceed") {
-      good.push("Your recorded inspection stays consistent with no new concerns emerging.");
+      good.push(
+        "Your recorded inspection stays consistent with no new concerns emerging."
+      );
     }
 
     return good.slice(0, 5);
@@ -426,7 +436,9 @@ export default function InPersonDecision() {
   const whenToWalk = useMemo(() => {
     const bad: string[] = [];
 
-    bad.push("The seller refuses reasonable verification or discourages basic checks.");
+    bad.push(
+      "The seller refuses reasonable verification or discourages basic checks."
+    );
 
     if (critical.length > 0) {
       bad.push("A high-impact item remains unresolved or worsens after re-checking.");
@@ -722,6 +734,15 @@ export default function InPersonDecision() {
             </div>
           </>
         )}
+
+        {/* ✅ NEW: Deep-dive link to pricing maths */}
+        <button
+          type="button"
+          onClick={() => navigate("/scan/in-person/price-positioning/" + scanIdSafe)}
+          className="w-full rounded-xl border border-white/15 bg-white/5 text-slate-200 px-4 py-3 text-sm font-semibold hover:bg-white/10"
+        >
+          View pricing logic & maths
+        </button>
       </section>
 
       <div className="space-y-6">
