@@ -310,6 +310,36 @@ export default function InPersonPricePositioning() {
     return normaliseRangeFromGuidance(marketLow, marketHigh);
   }, [marketLow, marketHigh]);
 
+  /* =========================================================
+     NEW — Asking vs market clarity (ABOVE / WITHIN / BELOW)
+  ========================================================= */
+  const marketPosition = useMemo(() => {
+    if (!marketRangeFromGuidance) return null;
+    if (!hasAskingPrice || typeof askingPrice !== "number") return null;
+
+    if (askingPrice > marketRangeFromGuidance.high) {
+      return {
+        label: "ABOVE market range" as const,
+        direction: "above" as const,
+        diff: Math.round(askingPrice - marketRangeFromGuidance.high),
+      };
+    }
+
+    if (askingPrice < marketRangeFromGuidance.low) {
+      return {
+        label: "BELOW market range" as const,
+        direction: "below" as const,
+        diff: Math.round(marketRangeFromGuidance.low - askingPrice),
+      };
+    }
+
+    return {
+      label: "WITHIN market range" as const,
+      direction: "within" as const,
+      diff: 0,
+    };
+  }, [marketRangeFromGuidance, hasAskingPrice, askingPrice]);
+
   /**
    * If there are no recorded faults, we still want a meaningful “math result”.
    * So we compute a standard dealer discussion band (1%–3%) as a fallback.
@@ -619,7 +649,8 @@ export default function InPersonPricePositioning() {
       </header>
 
       {/* Market context (optional) */}
-      {(marketRangeFromGuidance || (hasAskingPrice && typeof askingPrice === "number")) && (
+      {(marketRangeFromGuidance ||
+        (hasAskingPrice && typeof askingPrice === "number")) && (
         <section className="rounded-2xl border border-white/12 bg-slate-900/50 px-6 py-6 space-y-3">
           <div className="flex items-center gap-3 text-slate-300">
             <Info className="h-5 w-5 text-slate-400" />
@@ -648,11 +679,34 @@ export default function InPersonPricePositioning() {
                     Asking price
                   </div>
                   <div className="mt-2 text-2xl font-semibold text-white tabular-nums">
-                    {hasAskingPrice && askingRange ? formatMoney(askingRange.low) : "—"}
+                    {hasAskingPrice && askingRange
+                      ? formatMoney(askingRange.low)
+                      : "—"}
                   </div>
                   <div className="mt-1 text-xs text-slate-500">
                     Use this as context, not a rule
                   </div>
+
+                  {/* NEW: Above/within/below clarity */}
+                  {marketPosition && (
+                    <div className="mt-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                      <p className="text-xs text-slate-300">
+                        <span className="font-semibold text-white">
+                          {marketPosition.label}
+                        </span>
+                        {marketPosition.diff > 0 && (
+                          <>
+                            {" "}
+                            · ≈{" "}
+                            <span className="font-semibold text-white">
+                              {formatMoney(marketPosition.diff)}
+                            </span>{" "}
+                            {marketPosition.direction}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
