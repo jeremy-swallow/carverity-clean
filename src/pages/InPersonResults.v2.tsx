@@ -283,7 +283,7 @@ export default function InPersonResultsV2() {
   }, [saved, progress]);
 
   /* -------------------------------------------------------
-     NEW: Conservative market range (from API)
+     Conservative market range (from API)
   ------------------------------------------------------- */
   const marketRange = useMemo(() => {
     const pg = (analysis as any)?.priceGuidance;
@@ -300,7 +300,7 @@ export default function InPersonResultsV2() {
   }, [analysis]);
 
   /* -------------------------------------------------------
-     NEW: ABOVE / WITHIN / BELOW + delta (from asking price)
+     ABOVE / WITHIN / BELOW + delta (from asking price)
   ------------------------------------------------------- */
   const pricePosition = useMemo(() => {
     if (!marketRange) return null;
@@ -313,7 +313,6 @@ export default function InPersonResultsV2() {
         position: "above" as const,
         label: "ABOVE conservative market range",
         delta: asking - marketRange.high,
-        tone: "text-rose-300",
         pill: "border-rose-500/30 bg-rose-500/10 text-rose-200",
       };
     }
@@ -323,7 +322,6 @@ export default function InPersonResultsV2() {
         position: "below" as const,
         label: "BELOW conservative market range",
         delta: marketRange.low - asking,
-        tone: "text-emerald-300",
         pill: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
       };
     }
@@ -332,7 +330,6 @@ export default function InPersonResultsV2() {
       position: "within" as const,
       label: "WITHIN conservative market range",
       delta: 0,
-      tone: "text-emerald-300",
       pill: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
     };
   }, [marketRange, progress?.askingPrice]);
@@ -414,8 +411,6 @@ export default function InPersonResultsV2() {
           return;
         }
 
-        // Save to local scan (SavedInspection type doesn't include aiInterpretation,
-        // but scanStorage keeps unknown fields via JSON + spread normalisation.
         const existing: any = saved ?? null;
 
         const nextSaved: any = {
@@ -432,9 +427,8 @@ export default function InPersonResultsV2() {
               ? latestProgress.askingPrice
               : existing?.askingPrice ?? null,
           score:
-            Number(
-              (analysis as any)?.confidenceScore ?? existing?.score ?? 0
-            ) || null,
+            Number((analysis as any)?.confidenceScore ?? existing?.score ?? 0) ||
+            null,
           concerns: concernsCount,
           unsure: unsureCount,
           imperfectionsCount,
@@ -598,6 +592,19 @@ export default function InPersonResultsV2() {
   ------------------------------------------------------- */
   return (
     <div className="max-w-5xl mx-auto px-6 py-16 space-y-12">
+      {/* Loading / error states (pre-unlock) */}
+      {!canRenderReport && (
+        <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-6 py-6">
+          {checkingUnlock ? (
+            <p className="text-sm text-slate-300">Verifying access…</p>
+          ) : unlockError ? (
+            <p className="text-sm text-rose-300">{unlockError}</p>
+          ) : (
+            <p className="text-sm text-slate-300">Loading report…</p>
+          )}
+        </div>
+      )}
+
       {canRenderReport && verdictOutcome && (
         <>
           {/* ================= VERDICT ================= */}
@@ -743,17 +750,17 @@ export default function InPersonResultsV2() {
                 </h2>
               </div>
 
-              {/* NEW: Conservative market context */}
-              {marketRange && (
+              {/* Conservative market context */}
+              {marketRange ? (
                 <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-3">
                   <p className="text-xs uppercase tracking-wide text-emerald-300">
                     Conservative market context
                   </p>
                   <p className="text-sm font-semibold text-white mt-1">
-                    {formatMoney(marketRange.low)} – {formatMoney(marketRange.high)}
+                    {formatMoney(marketRange.low)} –{" "}
+                    {formatMoney(marketRange.high)}
                   </p>
 
-                  {/* NEW: Position line + delta */}
                   {pricePosition && (
                     <div className="mt-3 space-y-2">
                       <div
@@ -780,8 +787,18 @@ export default function InPersonResultsV2() {
                     </div>
                   )}
                 </div>
+              ) : (
+                <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                  <p className="text-sm font-semibold text-white">
+                    Market context unavailable
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    We couldn’t load a conservative market range for this scan.
+                  </p>
+                </div>
               )}
 
+              {/* Secondary: recommended offer band (existing logic) */}
               {pricingSummary.mode === "needs_price" ? (
                 <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 space-y-2">
                   <p className="text-sm font-semibold text-white">
@@ -799,7 +816,10 @@ export default function InPersonResultsV2() {
               ) : (
                 <>
                   <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-                    <p className="text-sm font-semibold text-white">
+                    <p className="text-xs uppercase tracking-wide text-slate-400">
+                      Recommended offer range
+                    </p>
+                    <p className="text-sm font-semibold text-white mt-1">
                       {formatMoney(
                         pricingSummary.bands.find(
                           (b) => b.key === pricingSummary.recommendedKey
@@ -817,15 +837,27 @@ export default function InPersonResultsV2() {
                     </p>
                   </div>
 
-                  <button
-                    onClick={() =>
-                      navigate("/scan/in-person/decision/" + scanIdSafe)
-                    }
-                    className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-slate-100"
-                  >
-                    Open decision & negotiation
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() =>
+                        navigate("/scan/in-person/decision/" + scanIdSafe)
+                      }
+                      className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-slate-100"
+                    >
+                      Open decision & negotiation
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        navigate("/scan/in-person/price-positioning/" + scanIdSafe)
+                      }
+                      className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
+                    >
+                      Open full price reflection
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </div>
                 </>
               )}
             </section>
