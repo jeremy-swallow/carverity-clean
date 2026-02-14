@@ -740,29 +740,40 @@ export default function InPersonResultsV2() {
               );
             })()}
 
-          {/* ================= PRICING ================= */}
+          {/* ================= PRICING (POLISH ONLY) ================= */}
           {pricingSummary && (
-            <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
-              <div className="flex items-center gap-2 text-slate-200">
-                <BadgeDollarSign className="h-4 w-4 text-slate-300" />
-                <h2 className="text-sm font-semibold">
-                  Price positioning (preview)
-                </h2>
+            <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-5">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2 text-slate-200">
+                  <BadgeDollarSign className="h-4 w-4 text-slate-300" />
+                  <h2 className="text-sm font-semibold">Price positioning</h2>
+                </div>
+
+                {typeof progress?.askingPrice === "number" && (
+                  <div className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-slate-300">
+                    Asking:{" "}
+                    <span className="font-semibold text-white">
+                      {formatMoney(progress.askingPrice)}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Conservative market context */}
               {marketRange ? (
-                <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-3">
-                  <p className="text-xs uppercase tracking-wide text-emerald-300">
-                    Conservative market context
-                  </p>
-                  <p className="text-sm font-semibold text-white mt-1">
-                    {formatMoney(marketRange.low)} –{" "}
-                    {formatMoney(marketRange.high)}
-                  </p>
+                <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 px-4 py-3 space-y-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-emerald-300">
+                      Conservative market context
+                    </p>
+                    <p className="text-sm font-semibold text-white mt-1">
+                      {formatMoney(marketRange.low)} –{" "}
+                      {formatMoney(marketRange.high)}
+                    </p>
+                  </div>
 
                   {pricePosition && (
-                    <div className="mt-3 space-y-2">
+                    <div className="space-y-2">
                       <div
                         className={[
                           "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
@@ -774,7 +785,7 @@ export default function InPersonResultsV2() {
 
                       {pricePosition.delta > 0 && (
                         <p className="text-xs text-slate-200">
-                          ≈{" "}
+                          Difference:{" "}
                           <span className="font-semibold text-white">
                             {formatMoney(pricePosition.delta)}
                           </span>{" "}
