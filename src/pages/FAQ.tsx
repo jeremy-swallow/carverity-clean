@@ -1,5 +1,7 @@
 // src/pages/FAQ.tsx
 
+import { Link } from "react-router-dom";
+
 export default function FAQ() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-12 text-white space-y-12">
@@ -10,6 +12,16 @@ export default function FAQ() {
           you through a structured, evidence-based inspection. These answers
           explain how the product is intended to be used, where its boundaries
           are, and how to interpret what it gives you.
+        </p>
+        <p className="text-slate-300">
+          If you want a practical checklist before you inspect, see{" "}
+          <Link
+            to="/what-to-check-when-buying-a-used-car-australia"
+            className="underline text-emerald-300 hover:text-emerald-200"
+          >
+            what to check when buying a used car in Australia
+          </Link>
+          .
         </p>
       </header>
 
@@ -40,9 +52,7 @@ export default function FAQ() {
         <h2 className="text-lg font-semibold">
           What does CarVerity expect from me as the buyer?
         </h2>
-        <p className="text-slate-300">
-          Accuracy matters more than completeness.
-        </p>
+        <p className="text-slate-300">Accuracy matters more than completeness.</p>
         <p className="text-slate-300">
           If something couldn’t be checked clearly — due to access, time,
           lighting, weather, or seller limits — marking it as unknown is the
@@ -71,9 +81,7 @@ export default function FAQ() {
 
       {/* WHAT IT DOES NOT DO */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">
-          What does CarVerity not do?
-        </h2>
+        <h2 className="text-lg font-semibold">What does CarVerity not do?</h2>
         <p className="text-slate-300">
           CarVerity does not diagnose mechanical faults, predict market prices,
           or make purchase decisions on your behalf.
@@ -89,9 +97,7 @@ export default function FAQ() {
         <h2 className="text-lg font-semibold">
           What if I couldn’t check everything?
         </h2>
-        <p className="text-slate-300">
-          That’s expected.
-        </p>
+        <p className="text-slate-300">That’s expected.</p>
         <p className="text-slate-300">
           Real-world inspections are often constrained by space, time, access,
           or seller conditions. CarVerity is designed with those realities in
@@ -126,9 +132,7 @@ export default function FAQ() {
 
       {/* AI */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">
-          Is AI used in CarVerity?
-        </h2>
+        <h2 className="text-lg font-semibold">Is AI used in CarVerity?</h2>
         <p className="text-slate-300">
           Yes. CarVerity uses software models to help interpret patterns in what
           you record.

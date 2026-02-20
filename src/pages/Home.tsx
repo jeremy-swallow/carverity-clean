@@ -247,6 +247,17 @@ export default function Home() {
               confirm.
             </p>
 
+            <p className="text-slate-300 text-sm">
+              Not sure what to look for?{" "}
+              <Link
+                to="/what-to-check-when-buying-a-used-car-australia"
+                className="underline text-emerald-300 hover:text-emerald-200"
+              >
+                Read our complete used car checklist for Australia
+              </Link>
+              .
+            </p>
+
             <div className="flex flex-wrap items-start gap-3 mt-1">
               <div className="flex flex-col gap-1">
                 <button
@@ -340,6 +351,13 @@ export default function Home() {
                 What to expect
               </Link>
 
+              <Link
+                to="/what-to-check-when-buying-a-used-car-australia"
+                className="text-slate-300 underline text-sm"
+              >
+                Used car checklist (Australia)
+              </Link>
+
               <Link to="/my-scans" className="text-slate-300 underline text-sm">
                 View My Scans
               </Link>
@@ -363,6 +381,17 @@ export default function Home() {
                 signs — or get pressured into a decision you’re not ready for.
                 CarVerity is a guided flow that helps you slow down, stay
                 organised, and focus on what actually matters.
+              </p>
+
+              <p className="text-slate-300 text-sm leading-relaxed mt-3">
+                Before you inspect, you can also review our{" "}
+                <Link
+                  to="/what-to-check-when-buying-a-used-car-australia"
+                  className="underline text-emerald-300 hover:text-emerald-200"
+                >
+                  step-by-step used car buying checklist for Australia
+                </Link>
+                .
               </p>
             </div>
 
