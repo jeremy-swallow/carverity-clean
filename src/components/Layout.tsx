@@ -230,7 +230,7 @@ export default function Layout() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, location.search]);
-  
+
   /* -------------------------------------------------------
      Credit refresh listener (in-app consumption)
   ------------------------------------------------------- */
@@ -314,6 +314,9 @@ export default function Layout() {
                 className="text-slate-300 hover:text-white"
               >
                 What to expect
+              </NavLink>
+              <NavLink to="/faq" className="text-slate-300 hover:text-white">
+                FAQ
               </NavLink>
               <NavLink to="/about" className="text-slate-300 hover:text-white">
                 About
@@ -475,6 +478,13 @@ export default function Layout() {
               What to expect
             </NavLink>
             <NavLink
+              to="/faq"
+              onClick={() => setMobileOpen(false)}
+              className="block py-1"
+            >
+              FAQ
+            </NavLink>
+            <NavLink
               to="/about"
               onClick={() => setMobileOpen(false)}
               className="block py-1"
@@ -531,6 +541,13 @@ export default function Layout() {
                 className="hover:text-slate-200 underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
               >
                 What to expect
+              </NavLink>
+              <NavLink
+                to="/faq"
+                onClick={() => setMobileOpen(false)}
+                className="hover:text-slate-200 underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
+              >
+                FAQ
               </NavLink>
               <NavLink
                 to="/terms"
@@ -593,6 +610,12 @@ export default function Layout() {
                 className="hover:text-white underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
               >
                 What to expect
+              </NavLink>
+              <NavLink
+                to="/faq"
+                className="hover:text-white underline underline-offset-4 decoration-white/10 hover:decoration-white/30"
+              >
+                FAQ
               </NavLink>
               <NavLink
                 to="/terms"
