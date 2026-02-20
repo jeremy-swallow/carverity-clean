@@ -20,6 +20,7 @@ import AuthLinkExpired from "./pages/AuthLinkExpired";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import DeployTest from "./pages/DeployTest";
+import UsedCarGuide from "./pages/UsedCarGuide";
 
 /* Tester */
 import TestingExpectations from "./pages/TestingExpectations";
@@ -133,6 +134,12 @@ export default function App() {
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/deploy-test" element={<DeployTest />} />
+
+        {/* ✅ NEW GUIDE PAGE */}
+        <Route
+          path="/what-to-check-when-buying-a-used-car-australia"
+          element={<UsedCarGuide />}
+        />
 
         {/* Tester */}
         <Route
@@ -282,7 +289,6 @@ export default function App() {
           }
         />
 
-        {/* ✅ RESULTS — WRAPPED */}
         <Route
           path="/scan/in-person/results/:scanId"
           element={
@@ -292,7 +298,6 @@ export default function App() {
           }
         />
 
-        {/* Unlock */}
         <Route
           path="/scan/in-person/unlock/:scanId"
           element={
@@ -311,7 +316,6 @@ export default function App() {
           }
         />
 
-        {/* ✅ DECISION — WRAPPED */}
         <Route
           path="/scan/in-person/decision/:scanId"
           element={
@@ -326,7 +330,6 @@ export default function App() {
           element={<Navigate to="/my-scans" replace />}
         />
 
-        {/* Price positioning */}
         <Route
           path="/scan/in-person/price-positioning/:scanId"
           element={
@@ -336,7 +339,6 @@ export default function App() {
           }
         />
 
-        {/* Print */}
         <Route
           path="/scan/in-person/print/:scanId"
           element={
