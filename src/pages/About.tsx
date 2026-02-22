@@ -149,6 +149,18 @@ export default function About() {
         </div>
       </section>
 
+      {/* BUSINESS INFORMATION */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Business information</h2>
+
+        <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-5">
+          <p className="text-slate-300 leading-relaxed">
+            Australian Business Number (ABN):{" "}
+            <span className="text-slate-200">44 861 824 638</span>
+          </p>
+        </div>
+      </section>
+
       {/* CONTACT */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Contact</h2>
