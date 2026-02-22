@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
+  <!-- Homepage -->
   <url>
     <loc>https://www.carverity.com.au/</loc>
     <lastmod>2026-02-23</lastmod>
@@ -8,13 +9,15 @@
     <priority>1.0</priority>
   </url>
 
+  <!-- Commercial -->
   <url>
     <loc>https://www.carverity.com.au/pricing</loc>
     <lastmod>2026-02-23</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.9</priority>
   </url>
 
+  <!-- Core Info -->
   <url>
     <loc>https://www.carverity.com.au/what-to-expect</loc>
     <lastmod>2026-02-23</lastmod>
@@ -26,7 +29,14 @@
     <loc>https://www.carverity.com.au/about</loc>
     <lastmod>2026-02-23</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://www.carverity.com.au/trust</loc>
+    <lastmod>2026-02-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
 
   <url>
@@ -36,6 +46,30 @@
     <priority>0.7</priority>
   </url>
 
+  <!-- SEO Cluster: Used Car Authority -->
+
+  <url>
+    <loc>https://www.carverity.com.au/what-to-check-when-buying-a-used-car-australia</loc>
+    <lastmod>2026-02-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://www.carverity.com.au/how-to-inspect-a-used-car-in-person</loc>
+    <lastmod>2026-02-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://www.carverity.com.au/used-car-inspection-mistakes-australia</loc>
+    <lastmod>2026-02-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Legal -->
   <url>
     <loc>https://www.carverity.com.au/privacy</loc>
     <lastmod>2026-02-23</lastmod>
