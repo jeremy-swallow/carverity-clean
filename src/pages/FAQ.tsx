@@ -1,8 +1,106 @@
 // src/pages/FAQ.tsx
 
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { applySeo } from "../utils/seo";
 
 export default function FAQ() {
+  useEffect(() => {
+    applySeo({
+      title: "Used Car Inspection FAQ Australia | CarVerity",
+      description:
+        "Frequently asked questions about CarVerity — an Australian used car inspection web app designed to guide in-person inspections and generate structured buyer reports.",
+      canonical: "https://www.carverity.com.au/faq",
+      structuredData: {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: [
+          {
+            "@type": "Question",
+            name: "How do I get the most out of CarVerity?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text:
+                "CarVerity works best when you follow the guided flow and record what you genuinely observe — without trying to fill gaps or reach conclusions early. Move through the scan in order, capture the best view you can, be comfortable marking things as unknown, and use notes to record what stood out.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "What does CarVerity expect from me as the buyer?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text:
+                "Accuracy matters more than completeness. If something couldn’t be checked clearly due to access, time, lighting, weather, or seller limits, marking it as unknown is the correct and intended response. Unchecked items are treated as questions to clarify later, not automatic faults.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "What problem is CarVerity designed to solve?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text:
+                "CarVerity exists to reduce uncertainty and buyer regret. It helps you capture evidence, surface meaningful risks, make unknowns explicit, and understand how what you observed affects decision confidence.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "What does CarVerity not do?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text:
+                "CarVerity does not diagnose mechanical faults, predict market prices, or make purchase decisions on your behalf. It does not replace professional inspections, roadworthiness checks, or independent mechanical advice.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "What if I couldn’t check everything?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text:
+                "That’s expected. Real-world inspections are often constrained by space, time, access, or seller conditions. Anything marked as unknown is carried through into the report as an explicit uncertainty — something to clarify before committing, not a hidden assumption.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "Does CarVerity help with negotiation?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text:
+                "CarVerity keeps inspection insight and negotiation guidance separate. Your inspection report focuses on evidence, uncertainty, and decision confidence. It does not include scripts, tactics, or instructions for dealing with a seller. Where available, optional negotiation guidance may be offered based on inspection findings — intended to support clear thinking about price, not to pressure or confront.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "Is AI used in CarVerity?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text:
+                "Yes. CarVerity uses software models to help interpret patterns in what you record. The system does not diagnose vehicles or infer conditions beyond the information you provide. It weighs your observations, photos, and declared unknowns to surface risk and confidence. In all cases, the output is grounded in your inputs — not automated assumptions.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "Do I need an account to use CarVerity?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text:
+                "Yes. You need to be signed in to run scans and save results. This ensures inspection data is associated with you and handled consistently as the product evolves.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "When might CarVerity not be the right fit?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text:
+                "If you’re looking for instant price predictions or automated buying recommendations, CarVerity may not be the right tool. It’s built for buyers who value clarity, evidence, and confidence — even when that leads to caution.",
+            },
+          },
+        ],
+      },
+    });
+  }, []);
+
   return (
     <div className="max-w-4xl mx-auto px-6 py-12 text-white space-y-12">
       <header className="space-y-3">

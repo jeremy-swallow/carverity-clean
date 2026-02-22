@@ -1,4 +1,67 @@
+// src/pages/UsedCarGuide.tsx
+
+import { useEffect } from "react";
+import { applySeo } from "../utils/seo";
+import { Link } from "react-router-dom";
+
 export default function UsedCarGuide() {
+  useEffect(() => {
+    applySeo({
+      title:
+        "What To Check When Buying A Used Car In Australia (2026 Guide)",
+      description:
+        "A complete 2026 used car inspection checklist for Australian buyers. Learn exactly what to check before buying a second-hand car, including PPSR checks, exterior inspection, test drive tips, and common red flags.",
+      canonical:
+        "https://www.carverity.com.au/what-to-check-when-buying-a-used-car-australia",
+      structuredData: [
+        {
+          "@context": "https://schema.org",
+          "@type": "Article",
+          "@id":
+            "https://www.carverity.com.au/what-to-check-when-buying-a-used-car-australia#article",
+          headline:
+            "What To Check When Buying A Used Car In Australia (2026 Guide)",
+          description:
+            "A complete 2026 used car inspection checklist for Australian buyers.",
+          author: {
+            "@type": "Organization",
+            name: "CarVerity"
+          },
+          publisher: {
+            "@type": "Organization",
+            name: "CarVerity",
+            logo: {
+              "@type": "ImageObject",
+              url: "https://www.carverity.com.au/og-image.png"
+            }
+          },
+          mainEntityOfPage:
+            "https://www.carverity.com.au/what-to-check-when-buying-a-used-car-australia",
+          inLanguage: "en-AU"
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://www.carverity.com.au/"
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Used Car Guide",
+              item:
+                "https://www.carverity.com.au/what-to-check-when-buying-a-used-car-australia"
+            }
+          ]
+        }
+      ]
+    });
+  }, []);
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-16">
       <article className="space-y-12">
@@ -24,8 +87,8 @@ export default function UsedCarGuide() {
           <h2 className="text-xl font-semibold">Before You Inspect The Car</h2>
 
           <p className="text-slate-400 leading-relaxed">
-            Before physically viewing the vehicle, there are several checks every
-            buyer in Australia should complete.
+            Before physically viewing the vehicle, every Australian buyer should
+            complete several checks.
           </p>
 
           <ul className="list-disc pl-6 space-y-2 text-slate-300">
@@ -134,33 +197,52 @@ export default function UsedCarGuide() {
           </p>
         </section>
 
-        {/* WHY STRUCTURE MATTERS */}
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Why A Structured Inspection Matters</h2>
-
-          <p className="text-slate-400 leading-relaxed">
-            Most buyers don’t miss problems because they don’t care.
-            They miss things because they’re excited or feel pressured.
-          </p>
-
-          <p className="text-slate-400 leading-relaxed">
-            A structured checklist removes guesswork. It slows the process down
-            and ensures you evaluate the vehicle methodically.
-          </p>
-        </section>
-
-        {/* CTA */}
-        <section className="pt-10 border-t border-slate-800 space-y-4">
+        {/* INTERNAL LINK AUTHORITY BLOCK */}
+        <section className="pt-10 border-t border-slate-800 space-y-6">
           <p className="text-slate-400 leading-relaxed">
             If you prefer using a structured mobile checklist during your inspection,
-            <a
-              href="/"
+            <Link
+              to="/"
               className="text-white underline underline-offset-4 ml-1 hover:opacity-80 transition"
             >
               CarVerity was built specifically for Australian buyers
-            </a>{" "}
+            </Link>{" "}
             who want to document what they see and make calmer decisions.
           </p>
+
+          <div className="space-y-2 text-sm text-slate-400">
+            <p>
+              Want to understand how the inspection flow works? Read{" "}
+              <Link
+                to="/what-to-expect"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                what to expect during a CarVerity inspection
+              </Link>.
+            </p>
+
+            <p>
+              Have questions about how the app handles uncertainty or negotiation?
+              Visit our{" "}
+              <Link
+                to="/faq"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                frequently asked questions
+              </Link>.
+            </p>
+
+            <p>
+              Ready to run your own inspection? See{" "}
+              <Link
+                to="/pricing"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                CarVerity pricing options
+              </Link>{" "}
+              and start confidently.
+            </p>
+          </div>
         </section>
 
       </article>

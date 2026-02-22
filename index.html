@@ -4,12 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>CarVerity</title>
+    <title>CarVerity — Used Car Inspection Checklist App Australia</title>
 
     <!-- Primary meta -->
     <meta
       name="description"
-      content="CarVerity helps you inspect a used car in person with a calm, guided checklist — then turns what you found into a clear buyer-safe report."
+      content="CarVerity is an Australian used car inspection web app that guides you through a calm, structured in-person checklist — then turns what you find into a clear buyer-focused report so you can buy with confidence."
     />
 
     <!-- Canonical -->
@@ -19,23 +19,19 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
 
-    <!-- Open Graph (link previews) -->
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="CarVerity" />
     <meta property="og:locale" content="en_AU" />
     <meta property="og:url" content="https://www.carverity.com.au/" />
     <meta
       property="og:title"
-      content="CarVerity — Used car inspection, made simple"
+      content="CarVerity — Used Car Inspection Checklist App Australia"
     />
     <meta
       property="og:description"
-      content="A calm, guided in-person inspection flow that turns your checks into a clear report — so you can buy with confidence."
+      content="A guided in-person used car inspection flow for Australian buyers that turns your checks into a structured report — so you can make confident decisions."
     />
-
-    <!-- IMPORTANT:
-         The ?v=1 helps force refresh when you update the image later.
-         Increment it when you change the og-image.png -->
     <meta
       property="og:image"
       content="https://www.carverity.com.au/og-image.png?v=1"
@@ -51,16 +47,78 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta
       name="twitter:title"
-      content="CarVerity — Used car inspection, made simple"
+      content="CarVerity — Used Car Inspection Checklist App Australia"
     />
     <meta
       name="twitter:description"
-      content="A calm, guided in-person inspection flow that turns your checks into a clear report — so you can buy with confidence."
+      content="A guided in-person used car inspection flow for Australian buyers that turns your checks into a structured report."
     />
     <meta
       name="twitter:image"
       content="https://www.carverity.com.au/og-image.png?v=1"
     />
+
+    <!-- Structured Data: Primary Organization Entity -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "@id": "https://www.carverity.com.au/#organization",
+        "name": "CarVerity",
+        "url": "https://www.carverity.com.au",
+        "logo": "https://www.carverity.com.au/og-image.png",
+        "foundingLocation": {
+          "@type": "Country",
+          "name": "Australia"
+        },
+        "areaServed": {
+          "@type": "Country",
+          "name": "Australia"
+        },
+        "identifier": {
+          "@type": "PropertyValue",
+          "propertyID": "ABN",
+          "value": "44 861 824 638"
+        },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "customer support",
+          "email": "support@carverity.com.au",
+          "areaServed": "AU",
+          "availableLanguage": "English"
+        }
+      }
+    </script>
+
+    <!-- Structured Data: WebApplication -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "@id": "https://www.carverity.com.au/#webapp",
+        "name": "CarVerity",
+        "url": "https://www.carverity.com.au",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "browserRequirements": "Requires JavaScript. Works in modern browsers.",
+        "areaServed": {
+          "@type": "Country",
+          "name": "Australia"
+        },
+        "provider": {
+          "@id": "https://www.carverity.com.au/#organization"
+        },
+        "offers": {
+          "@type": "Offer",
+          "priceCurrency": "AUD",
+          "availability": "https://schema.org/InStock"
+        },
+        "potentialAction": {
+          "@type": "UseAction",
+          "target": "https://www.carverity.com.au/scan/in-person/start"
+        }
+      }
+    </script>
 
     <!-- Google Analytics (GA4) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-MP6XY244CS"></script>

@@ -1,6 +1,7 @@
 // src/pages/About.tsx
 
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
 import {
   ShieldCheck,
   ClipboardCheck,
@@ -9,8 +10,75 @@ import {
   Info,
   Mail,
 } from "lucide-react";
+import { applySeo } from "../utils/seo";
 
 export default function About() {
+  // SEO: route-level title/description/canonical + business identity structured data
+  useEffect(() => {
+    applySeo({
+      title: "About CarVerity | Australian Used Car Inspection App",
+      description:
+        "Learn about CarVerity — an Australian used car inspection web app built to help everyday buyers follow a calm, structured in-person checklist and generate a clear, shareable report. ABN 44 861 824 638.",
+      canonical: "https://www.carverity.com.au/about",
+      structuredData: [
+        {
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "About CarVerity",
+          url: "https://www.carverity.com.au/about",
+          isPartOf: {
+            "@type": "WebSite",
+            name: "CarVerity",
+            url: "https://www.carverity.com.au",
+          },
+          about: {
+            "@type": "Organization",
+            name: "CarVerity",
+            url: "https://www.carverity.com.au",
+            identifier: {
+              "@type": "PropertyValue",
+              propertyID: "ABN",
+              value: "44 861 824 638",
+            },
+            areaServed: "Australia",
+          },
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "CarVerity",
+          url: "https://www.carverity.com.au",
+          identifier: {
+            "@type": "PropertyValue",
+            propertyID: "ABN",
+            value: "44 861 824 638",
+          },
+          areaServed: "Australia",
+          contactPoint: [
+            {
+              "@type": "ContactPoint",
+              contactType: "customer support",
+              email: "support@carverity.com.au",
+              availableLanguage: ["en-AU", "en"],
+            },
+          ],
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "LocalBusiness",
+          name: "CarVerity",
+          url: "https://www.carverity.com.au",
+          areaServed: "Australia",
+          identifier: {
+            "@type": "PropertyValue",
+            propertyID: "ABN",
+            value: "44 861 824 638",
+          },
+        },
+      ],
+    });
+  }, []);
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 text-white space-y-12">
       {/* INTRO */}

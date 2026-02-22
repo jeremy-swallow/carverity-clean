@@ -19,6 +19,7 @@ import {
   saveProgress,
 } from "../utils/scanProgress";
 import { supabase } from "../supabaseClient";
+import { applySeo } from "../utils/seo";
 
 function normaliseResumeTarget(
   step: string | null,
@@ -76,6 +77,54 @@ export default function Home() {
   const [resumeStep, setResumeStep] = useState<string | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // SEO: route-level title/description/canonical + FAQ schema for the homepage
+  useEffect(() => {
+    applySeo({
+      title: "Used Car Inspection Checklist App Australia | CarVerity",
+      description:
+        "CarVerity is an Australian web app that guides you through a structured in-person used car inspection checklist and turns your findings into a clear buyer-focused report.",
+      canonical: "https://www.carverity.com.au/",
+      structuredData: {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: [
+          {
+            "@type": "Question",
+            name: "What is CarVerity?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "CarVerity is an Australian web app that guides buyers through a structured in-person used car inspection checklist and generates a clear, buyer-focused report.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "Is CarVerity a mechanical inspection?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "No. CarVerity is not a mechanical inspection service. It helps you record visible observations during an in-person inspection and organise your findings into a structured report.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "Do I need tools or mechanical knowledge?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "No tools or mechanical knowledge are required. The checklist is designed to be completed while standing normally around the vehicle.",
+            },
+          },
+          {
+            "@type": "Question",
+            name: "Is CarVerity designed for Australian buyers?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "Yes. CarVerity is built for Australian used car buyers and reflects common real-world buying situations in Australia.",
+            },
+          },
+        ],
+      },
+    });
+  }, []);
 
   // Auth gate: Resume should only appear when signed in
   useEffect(() => {
@@ -258,6 +307,25 @@ export default function Home() {
               .
             </p>
 
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Want to understand how the scan works end-to-end?{" "}
+              <Link
+                to="/what-to-expect"
+                className="underline text-emerald-300 hover:text-emerald-200"
+              >
+                See what to expect during an inspection
+              </Link>{" "}
+              — and if you have questions about how results and uncertainty are
+              handled,{" "}
+              <Link
+                to="/faq"
+                className="underline text-emerald-300 hover:text-emerald-200"
+              >
+                visit the FAQ
+              </Link>
+              .
+            </p>
+
             <div className="flex flex-wrap items-start gap-3 mt-1">
               <div className="flex flex-col gap-1">
                 <button
@@ -358,6 +426,18 @@ export default function Home() {
                 Used car checklist (Australia)
               </Link>
 
+              <Link to="/faq" className="text-slate-300 underline text-sm">
+                FAQ
+              </Link>
+
+              <Link to="/about" className="text-slate-300 underline text-sm">
+                About
+              </Link>
+
+              <Link to="/pricing" className="text-slate-300 underline text-sm">
+                Pricing
+              </Link>
+
               <Link to="/my-scans" className="text-slate-300 underline text-sm">
                 View My Scans
               </Link>
@@ -390,6 +470,25 @@ export default function Home() {
                   className="underline text-emerald-300 hover:text-emerald-200"
                 >
                   step-by-step used car buying checklist for Australia
+                </Link>
+                .
+              </p>
+
+              <p className="text-slate-300 text-sm leading-relaxed mt-3">
+                Learn more about CarVerity’s purpose and Australian business
+                details on the{" "}
+                <Link
+                  to="/about"
+                  className="underline text-emerald-300 hover:text-emerald-200"
+                >
+                  About page
+                </Link>
+                , or browse common questions in the{" "}
+                <Link
+                  to="/faq"
+                  className="underline text-emerald-300 hover:text-emerald-200"
+                >
+                  FAQ
                 </Link>
                 .
               </p>
@@ -563,6 +662,13 @@ export default function Home() {
             >
               See what the scan includes
             </Link>
+
+            <Link
+              to="/pricing"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold transition"
+            >
+              View pricing
+            </Link>
           </div>
         </div>
 
@@ -592,6 +698,13 @@ export default function Home() {
             >
               My scans
             </Link>
+
+            <Link
+              to="/what-to-check-when-buying-a-used-car-australia"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold transition"
+            >
+              Used car checklist
+            </Link>
           </div>
         </div>
 
@@ -600,7 +713,15 @@ export default function Home() {
           CarVerity helps you record what you can observe during an in-person
           inspection. It’s not a mechanical inspection or valuation — it’s a
           guided flow designed to reduce buyer regret and improve decision
-          confidence.
+          confidence. Learn more on the{" "}
+          <Link to="/about" className="underline text-slate-300">
+            About page
+          </Link>{" "}
+          or browse common questions in the{" "}
+          <Link to="/faq" className="underline text-slate-300">
+            FAQ
+          </Link>
+          .
         </div>
       </section>
     </div>

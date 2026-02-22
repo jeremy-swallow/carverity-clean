@@ -1,15 +1,53 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
   <url>
-    <loc>https://carverity.com.au/</loc>
+    <loc>https://www.carverity.com.au/</loc>
+    <lastmod>2026-02-23</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
   </url>
+
   <url>
-    <loc>https://carverity.com.au/pricing</loc>
+    <loc>https://www.carverity.com.au/pricing</loc>
+    <lastmod>2026-02-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
+
   <url>
-    <loc>https://carverity.com.au/what-to-expect</loc>
+    <loc>https://www.carverity.com.au/what-to-expect</loc>
+    <lastmod>2026-02-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
   </url>
+
   <url>
-    <loc>https://carverity.com.au/about</loc>
+    <loc>https://www.carverity.com.au/about</loc>
+    <lastmod>2026-02-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
+
+  <url>
+    <loc>https://www.carverity.com.au/faq</loc>
+    <lastmod>2026-02-23</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://www.carverity.com.au/privacy</loc>
+    <lastmod>2026-02-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+  <url>
+    <loc>https://www.carverity.com.au/terms</loc>
+    <lastmod>2026-02-23</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
 </urlset>
