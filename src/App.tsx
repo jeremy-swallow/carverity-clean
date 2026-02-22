@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import { useEffect, useState, type ReactNode } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
@@ -13,6 +15,7 @@ import About from "./pages/About";
 import MyScans from "./pages/MyScans";
 import Pricing from "./pages/Pricing";
 import FAQ from "./pages/FAQ";
+import Trust from "./pages/Trust";
 import SignIn from "./pages/SignIn";
 import Account from "./pages/Account";
 import AuthCallback from "./pages/AuthCallback";
@@ -124,6 +127,7 @@ export default function App() {
         <Route path="/scan-mode" element={<ScanMode />} />
         <Route path="/what-to-expect" element={<WhatToExpect />} />
         <Route path="/about" element={<About />} />
+        <Route path="/trust" element={<Trust />} />
         <Route path="/my-scans" element={<MyScans />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/faq" element={<FAQ />} />
