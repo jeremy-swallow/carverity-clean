@@ -24,7 +24,8 @@ import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import DeployTest from "./pages/DeployTest";
 import UsedCarGuide from "./pages/UsedCarGuide";
-import HowToInspectUsedCarInPerson from "./pages/HowToInspectUsedCarInPerson"; // ✅ ADDED
+import HowToInspectUsedCarInPerson from "./pages/HowToInspectUsedCarInPerson";
+import UsedCarInspectionMistakes from "./pages/UsedCarInspectionMistakes"; // ✅ ADDED
 
 /* Tester */
 import TestingExpectations from "./pages/TestingExpectations";
@@ -145,10 +146,15 @@ export default function App() {
           element={<UsedCarGuide />}
         />
 
-        {/* ✅ NEW INSPECTION GUIDE ROUTE */}
         <Route
           path="/how-to-inspect-a-used-car-in-person"
           element={<HowToInspectUsedCarInPerson />}
+        />
+
+        {/* ✅ NEW MISTAKES PAGE ROUTE */}
+        <Route
+          path="/used-car-inspection-mistakes-australia"
+          element={<UsedCarInspectionMistakes />}
         />
 
         {/* Tester */}
