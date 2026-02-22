@@ -25,7 +25,8 @@ import Privacy from "./pages/Privacy";
 import DeployTest from "./pages/DeployTest";
 import UsedCarGuide from "./pages/UsedCarGuide";
 import HowToInspectUsedCarInPerson from "./pages/HowToInspectUsedCarInPerson";
-import UsedCarInspectionMistakes from "./pages/UsedCarInspectionMistakes"; // ✅ ADDED
+import UsedCarInspectionMistakes from "./pages/UsedCarInspectionMistakes";
+import PPSRCheckAustralia from "./pages/PPSRCheckAustralia"; // ✅ ADDED
 
 /* Tester */
 import TestingExpectations from "./pages/TestingExpectations";
@@ -122,6 +123,7 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
+
         {/* Core */}
         <Route path="/" element={<Home />} />
         <Route path="/landing" element={<Landing />} />
@@ -151,10 +153,15 @@ export default function App() {
           element={<HowToInspectUsedCarInPerson />}
         />
 
-        {/* ✅ NEW MISTAKES PAGE ROUTE */}
         <Route
           path="/used-car-inspection-mistakes-australia"
           element={<UsedCarInspectionMistakes />}
+        />
+
+        {/* ✅ PPSR PAGE ROUTE */}
+        <Route
+          path="/ppsr-check-australia"
+          element={<PPSRCheckAustralia />}
         />
 
         {/* Tester */}
@@ -375,6 +382,7 @@ export default function App() {
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
+
       </Route>
     </Routes>
   );
