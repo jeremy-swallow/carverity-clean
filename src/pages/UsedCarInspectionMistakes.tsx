@@ -13,28 +13,52 @@ export default function UsedCarInspectionMistakes() {
         "Avoid the most common used car inspection mistakes Australian buyers make. Learn what to watch for, how to reduce risk, and how to inspect a used car properly.",
       canonical:
         "https://www.carverity.com.au/used-car-inspection-mistakes-australia",
-      structuredData: {
-        "@context": "https://schema.org",
-        "@type": "Article",
-        headline:
-          "7 Common Mistakes When Inspecting a Used Car (Australia 2026 Guide)",
-        description:
-          "A practical guide outlining the most common mistakes Australian buyers make when inspecting a used car and how to avoid them.",
-        author: {
-          "@type": "Organization",
-          name: "CarVerity",
-        },
-        publisher: {
-          "@type": "Organization",
-          name: "CarVerity",
-          logo: {
-            "@type": "ImageObject",
-            url: "https://www.carverity.com.au/og-image.png",
+      structuredData: [
+        {
+          "@context": "https://schema.org",
+          "@type": "Article",
+          "@id":
+            "https://www.carverity.com.au/used-car-inspection-mistakes-australia#article",
+          headline:
+            "7 Common Mistakes When Inspecting a Used Car (Australia 2026 Guide)",
+          description:
+            "A practical guide outlining the most common mistakes Australian buyers make when inspecting a used car and how to avoid them.",
+          author: {
+            "@type": "Organization",
+            name: "CarVerity",
           },
+          publisher: {
+            "@type": "Organization",
+            name: "CarVerity",
+            logo: {
+              "@type": "ImageObject",
+              url: "https://www.carverity.com.au/og-image.png",
+            },
+          },
+          mainEntityOfPage:
+            "https://www.carverity.com.au/used-car-inspection-mistakes-australia",
+          inLanguage: "en-AU",
         },
-        mainEntityOfPage:
-          "https://www.carverity.com.au/used-car-inspection-mistakes-australia",
-      },
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://www.carverity.com.au/",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Inspection Mistakes",
+              item:
+                "https://www.carverity.com.au/used-car-inspection-mistakes-australia",
+            },
+          ],
+        },
+      ],
     });
   }, []);
 
@@ -109,6 +133,17 @@ export default function UsedCarInspectionMistakes() {
             <p className="text-slate-400 leading-relaxed">
               A PPSR confirms whether a vehicle is under finance or previously
               written off. Never skip this step.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want a simple explanation of how PPSR works, see{" "}
+              <Link
+                to="/ppsr-check-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                what a PPSR check is in Australia
+              </Link>
+              .
             </p>
           </section>
 
@@ -216,6 +251,18 @@ export default function UsedCarInspectionMistakes() {
               >
                 CarVerity helps you inspect calmly and generate a structured
                 report
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Want to understand how CarVerity positions trust and boundaries?
+              Read{" "}
+              <Link
+                to="/trust"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                Trust & Transparency
               </Link>
               .
             </p>

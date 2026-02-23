@@ -7,33 +7,52 @@ import { applySeo } from "../utils/seo";
 export default function PPSRCheckAustralia() {
   useEffect(() => {
     applySeo({
-      title:
-        "What Is a PPSR Check? (Australia Guide 2026) | CarVerity",
+      title: "What Is a PPSR Check? (Australia Guide 2026) | CarVerity",
       description:
         "Learn what a PPSR check is in Australia, why it matters when buying a used car, how to run one, and what risks it protects you from.",
-      canonical:
-        "https://www.carverity.com.au/ppsr-check-australia",
-      structuredData: {
-        "@context": "https://schema.org",
-        "@type": "Article",
-        headline: "What Is a PPSR Check? (Australia Guide 2026)",
-        description:
-          "A complete guide explaining what a PPSR check is, how it works in Australia, and why every used car buyer should run one before purchasing.",
-        author: {
-          "@type": "Organization",
-          name: "CarVerity",
-        },
-        publisher: {
-          "@type": "Organization",
-          name: "CarVerity",
-          logo: {
-            "@type": "ImageObject",
-            url: "https://www.carverity.com.au/og-image.png",
+      canonical: "https://www.carverity.com.au/ppsr-check-australia",
+      structuredData: [
+        {
+          "@context": "https://schema.org",
+          "@type": "Article",
+          "@id": "https://www.carverity.com.au/ppsr-check-australia#article",
+          headline: "What Is a PPSR Check? (Australia Guide 2026)",
+          description:
+            "A complete guide explaining what a PPSR check is, how it works in Australia, and why every used car buyer should run one before purchasing.",
+          author: {
+            "@type": "Organization",
+            name: "CarVerity",
           },
+          publisher: {
+            "@type": "Organization",
+            name: "CarVerity",
+            logo: {
+              "@type": "ImageObject",
+              url: "https://www.carverity.com.au/og-image.png",
+            },
+          },
+          mainEntityOfPage: "https://www.carverity.com.au/ppsr-check-australia",
+          inLanguage: "en-AU",
         },
-        mainEntityOfPage:
-          "https://www.carverity.com.au/ppsr-check-australia",
-      },
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://www.carverity.com.au/",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "PPSR Check",
+              item: "https://www.carverity.com.au/ppsr-check-australia",
+            },
+          ],
+        },
+      ],
     });
   }, []);
 
@@ -41,7 +60,6 @@ export default function PPSRCheckAustralia() {
     <div className="text-white">
       <section className="max-w-3xl mx-auto px-6 py-16">
         <article className="space-y-12">
-
           <header className="space-y-4">
             <h1 className="text-3xl font-semibold tracking-tight">
               What Is a PPSR Check? (Australia 2026 Guide)
@@ -161,6 +179,18 @@ export default function PPSRCheckAustralia() {
               </Link>
               .
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want to avoid common buyer mistakes (and why they matter),
+              read{" "}
+              <Link
+                to="/used-car-inspection-mistakes-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                common used car inspection mistakes in Australia
+              </Link>
+              .
+            </p>
           </section>
 
           {/* CTA */}
@@ -175,8 +205,19 @@ export default function PPSRCheckAustralia() {
               </Link>{" "}
               and turns your observations into a clear buyer-focused report.
             </p>
-          </section>
 
+            <p className="text-slate-400 leading-relaxed">
+              Want to understand the boundaries of what CarVerity does (and does
+              not do)? See{" "}
+              <Link
+                to="/trust"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                Trust & Transparency
+              </Link>
+              .
+            </p>
+          </section>
         </article>
       </section>
     </div>

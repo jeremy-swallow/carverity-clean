@@ -13,6 +13,51 @@ export default function HowToInspectUsedCarInPerson() {
         "Learn how to inspect a used car in person in Australia with a calm, structured step-by-step approach. A practical guide covering exterior, interior, test drive and red flags.",
       canonical:
         "https://www.carverity.com.au/how-to-inspect-a-used-car-in-person",
+      structuredData: [
+        {
+          "@context": "https://schema.org",
+          "@type": "Article",
+          "@id":
+            "https://www.carverity.com.au/how-to-inspect-a-used-car-in-person#article",
+          headline:
+            "How To Inspect A Used Car In Person (Australia 2026 Guide)",
+          description:
+            "Learn how to inspect a used car in person in Australia with a calm, structured step-by-step approach. A practical guide covering exterior, interior, test drive and red flags.",
+          author: {
+            "@type": "Organization",
+            name: "CarVerity",
+          },
+          publisher: {
+            "@type": "Organization",
+            name: "CarVerity",
+            logo: {
+              "@type": "ImageObject",
+              url: "https://www.carverity.com.au/og-image.png",
+            },
+          },
+          mainEntityOfPage:
+            "https://www.carverity.com.au/how-to-inspect-a-used-car-in-person",
+          inLanguage: "en-AU",
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            {
+              "@type": "ListItem",
+              position: 1,
+              name: "Home",
+              item: "https://www.carverity.com.au/",
+            },
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: "Inspection Guide",
+              item: "https://www.carverity.com.au/how-to-inspect-a-used-car-in-person",
+            },
+          ],
+        },
+      ],
     });
   }, []);
 
@@ -65,6 +110,19 @@ export default function HowToInspectUsedCarInPerson() {
             <p className="text-slate-400 leading-relaxed">
               These steps reduce financial risk before you invest time in a
               physical inspection.
+            </p>
+
+            {/* Authority link (contextual) */}
+            <p className="text-slate-400 leading-relaxed">
+              If you’re unsure what a PPSR check is or what it protects you
+              from, read our{" "}
+              <Link
+                to="/ppsr-check-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                PPSR check guide for Australia
+              </Link>
+              .
             </p>
           </section>
 
@@ -239,6 +297,18 @@ export default function HowToInspectUsedCarInPerson() {
                 Trust & Transparency
               </Link>{" "}
               page to understand how the product operates.
+            </p>
+
+            {/* Cluster link: mistakes page */}
+            <p className="text-slate-400 leading-relaxed">
+              Want to avoid the most common buyer errors? Read{" "}
+              <Link
+                to="/used-car-inspection-mistakes-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                common used car inspection mistakes (Australia)
+              </Link>
+              .
             </p>
           </section>
         </article>

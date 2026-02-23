@@ -92,15 +92,24 @@ export default function UsedCarGuide() {
           </p>
 
           <ul className="list-disc pl-6 space-y-2 text-slate-300">
-            <li>Run a PPSR check to confirm the car isn’t under finance or written off</li>
+            <li>
+              Run a{" "}
+              <Link
+                to="/ppsr-check-australia"
+                className="underline text-white hover:opacity-80 transition"
+              >
+                PPSR check in Australia
+              </Link>{" "}
+              to confirm the car isn’t under finance or written off
+            </li>
             <li>Confirm the VIN matches registration paperwork</li>
             <li>Ask for full service history and supporting receipts</li>
             <li>Check for outstanding recalls</li>
           </ul>
 
           <p className="text-slate-400 leading-relaxed">
-            A PPSR check is essential when buying a used car in Australia. It
-            protects you from purchasing a vehicle that still has money owing.
+            A PPSR check protects you from purchasing a vehicle that still has
+            money owing or has previously been declared a statutory write-off.
           </p>
         </section>
 
@@ -116,7 +125,7 @@ export default function UsedCarGuide() {
           <ul className="list-disc pl-6 space-y-2 text-slate-300">
             <li>Check panel alignment and even spacing</li>
             <li>Look for paint inconsistencies or colour variation</li>
-            <li>Inspect for rust (especially in coastal regions like Melbourne or Sydney)</li>
+            <li>Inspect for rust (especially in coastal regions)</li>
             <li>Check tyre wear patterns across the full width</li>
           </ul>
 
@@ -126,84 +135,63 @@ export default function UsedCarGuide() {
           </p>
         </section>
 
-        {/* UNDER BONNET */}
+        {/* INTERIOR & DRIVE */}
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Under The Bonnet (Visual Only)</h2>
-
-          <p className="text-slate-400 leading-relaxed">
-            You don’t need to be a mechanic. You’re simply looking for obvious
-            signs of neglect or concealment.
-          </p>
-
-          <ul className="list-disc pl-6 space-y-2 text-slate-300">
-            <li>Check for fluid leaks around the engine</li>
-            <li>Look for corrosion on battery terminals</li>
-            <li>Inspect hoses for cracks or wear</li>
-            <li>Be cautious of an excessively clean engine bay</li>
-          </ul>
-
-          <p className="text-slate-400 leading-relaxed">
-            An overly detailed engine bay isn’t always a red flag — but it may
-            mean the seller is trying to hide leaks.
-          </p>
-        </section>
-
-        {/* INTERIOR */}
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Interior & Electronics</h2>
+          <h2 className="text-xl font-semibold">
+            Interior, Electronics & Test Drive
+          </h2>
 
           <ul className="list-disc pl-6 space-y-2 text-slate-300">
             <li>Ensure warning lights appear then turn off after startup</li>
             <li>Test air conditioning thoroughly</li>
             <li>Check windows, locks, mirrors and infotainment</li>
-            <li>Verify odometer consistency with service records</li>
-          </ul>
-
-          <p className="text-slate-400 leading-relaxed">
-            Electrical issues can be expensive to repair. Test everything.
-          </p>
-        </section>
-
-        {/* TEST DRIVE */}
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold">The Test Drive Checklist</h2>
-
-          <ul className="list-disc pl-6 space-y-2 text-slate-300">
             <li>Does the steering pull to one side?</li>
             <li>Is there vibration under braking?</li>
             <li>Are gear changes smooth?</li>
-            <li>Any unusual engine noises?</li>
           </ul>
 
           <p className="text-slate-400 leading-relaxed">
-            Trust your instincts. If something feels wrong, investigate further.
+            Many buyers rush this stage. If you want a calmer,
+            step-by-step breakdown, see our guide on{" "}
+            <Link
+              to="/how-to-inspect-a-used-car-in-person"
+              className="underline text-white hover:opacity-80 transition"
+            >
+              how to inspect a used car in person
+            </Link>.
           </p>
         </section>
 
-        {/* RED FLAGS */}
+        {/* COMMON MISTAKES */}
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Common Red Flags When Buying A Used Car</h2>
-
-          <ul className="list-disc pl-6 space-y-2 text-slate-300">
-            <li>Seller rushing you</li>
-            <li>Inconsistent service records</li>
-            <li>Strong oil or coolant smells</li>
-            <li>Reluctance to allow inspection</li>
-            <li>Stories that change during conversation</li>
-          </ul>
+          <h2 className="text-xl font-semibold">
+            Common Used Car Buying Mistakes
+          </h2>
 
           <p className="text-slate-400 leading-relaxed">
-            There will always be another car. Walking away is often the smartest decision.
+            Most buyers don’t miss issues because they don’t care — they miss
+            them because they feel pressured or excited.
+          </p>
+
+          <p className="text-slate-400 leading-relaxed">
+            We break this down in detail in our guide to{" "}
+            <Link
+              to="/used-car-inspection-mistakes-australia"
+              className="underline text-white hover:opacity-80 transition"
+            >
+              common used car inspection mistakes in Australia
+            </Link>.
           </p>
         </section>
 
-        {/* INTERNAL LINK AUTHORITY BLOCK */}
+        {/* AUTHORITY CLUSTER */}
         <section className="pt-10 border-t border-slate-800 space-y-6">
           <p className="text-slate-400 leading-relaxed">
-            If you prefer using a structured mobile checklist during your inspection,
+            If you prefer using a structured mobile checklist during your
+            inspection,{" "}
             <Link
               to="/"
-              className="text-white underline underline-offset-4 ml-1 hover:opacity-80 transition"
+              className="text-white underline underline-offset-4 hover:opacity-80 transition"
             >
               CarVerity was built specifically for Australian buyers
             </Link>{" "}
@@ -212,7 +200,7 @@ export default function UsedCarGuide() {
 
           <div className="space-y-2 text-sm text-slate-400">
             <p>
-              Want to understand how the inspection flow works? Read{" "}
+              Learn{" "}
               <Link
                 to="/what-to-expect"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
@@ -222,25 +210,24 @@ export default function UsedCarGuide() {
             </p>
 
             <p>
-              Have questions about how the app handles uncertainty or negotiation?
-              Visit our{" "}
+              Review our{" "}
+              <Link
+                to="/pricing"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                pricing options
+              </Link>{" "}
+              and start confidently.
+            </p>
+
+            <p>
+              Still unsure? Visit our{" "}
               <Link
                 to="/faq"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 frequently asked questions
               </Link>.
-            </p>
-
-            <p>
-              Ready to run your own inspection? See{" "}
-              <Link
-                to="/pricing"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                CarVerity pricing options
-              </Link>{" "}
-              and start confidently.
             </p>
           </div>
         </section>

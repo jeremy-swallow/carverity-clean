@@ -23,10 +23,14 @@ import AuthLinkExpired from "./pages/AuthLinkExpired";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import DeployTest from "./pages/DeployTest";
+
 import UsedCarGuide from "./pages/UsedCarGuide";
 import HowToInspectUsedCarInPerson from "./pages/HowToInspectUsedCarInPerson";
 import UsedCarInspectionMistakes from "./pages/UsedCarInspectionMistakes";
-import PPSRCheckAustralia from "./pages/PPSRCheckAustralia"; // ✅ ADDED
+import PPSRCheckAustralia from "./pages/PPSRCheckAustralia";
+import IsMechanicalInspectionWorthIt from "./pages/IsMechanicalInspectionWorthIt";
+import DealerVsPrivateSellerAustralia from "./pages/DealerVsPrivateSellerAustralia"; // ✅ NEW
+import HowMuchShouldYouOfferUsedCarAustralia from "./pages/HowMuchShouldYouOfferUsedCarAustralia";
 
 /* Tester */
 import TestingExpectations from "./pages/TestingExpectations";
@@ -58,13 +62,13 @@ import InPersonUnlockSuccess from "./pages/InPersonUnlockSuccess";
 import InPersonReportPrint from "./pages/InPersonReportPrint";
 import InPersonPricePositioning from "./pages/InPersonPricePositioning";
 
-/* ✅ RESULTS (WRAPPED) */
+/* RESULTS */
 import InPersonResultsWrapped from "./pages/InPersonResultsWrapped";
 
-/* ✅ DECISION (WRAPPED) */
+/* DECISION */
 import InPersonDecisionWrapped from "./pages/InPersonDecisionWrapped";
 
-/* Legacy / compatibility */
+/* Legacy */
 import InPersonScan from "./pages/InPersonScan";
 import InPersonChecks from "./pages/InPersonChecks";
 
@@ -82,7 +86,6 @@ function RequireAuth({ children }: { children: ReactNode }) {
     async function init() {
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
-
       setHasSession(Boolean(data?.session));
       setLoading(false);
     }
@@ -143,6 +146,7 @@ export default function App() {
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/deploy-test" element={<DeployTest />} />
 
+        {/* Authority Pages */}
         <Route
           path="/what-to-check-when-buying-a-used-car-australia"
           element={<UsedCarGuide />}
@@ -158,10 +162,24 @@ export default function App() {
           element={<UsedCarInspectionMistakes />}
         />
 
-        {/* ✅ PPSR PAGE ROUTE */}
         <Route
           path="/ppsr-check-australia"
           element={<PPSRCheckAustralia />}
+        />
+
+        <Route
+          path="/is-a-mechanical-inspection-worth-it-australia"
+          element={<IsMechanicalInspectionWorthIt />}
+        />
+
+        <Route
+          path="/dealer-vs-private-seller-australia"
+          element={<DealerVsPrivateSellerAustralia />}
+        />
+
+        <Route
+          path="/how-much-should-you-offer-used-car-australia"
+          element={<HowMuchShouldYouOfferUsedCarAustralia />}
         />
 
         {/* Tester */}
@@ -350,7 +368,7 @@ export default function App() {
 
         <Route
           path="/scan/in-person/decision"
-          element={<Navigate to="/my-scans" replace />}
+          element={<Navigate to="/my-scans" replace />} 
         />
 
         <Route
@@ -373,7 +391,7 @@ export default function App() {
 
         <Route
           path="/scan/in-person/print"
-          element={<Navigate to="/" replace />}
+          element={<Navigate to="/" replace />} 
         />
 
         {/* Legacy */}
