@@ -53,7 +53,8 @@ export default function HowToInspectUsedCarInPerson() {
               "@type": "ListItem",
               position: 2,
               name: "Inspection Guide",
-              item: "https://www.carverity.com.au/how-to-inspect-a-used-car-in-person",
+              item:
+                "https://www.carverity.com.au/how-to-inspect-a-used-car-in-person",
             },
           ],
         },
@@ -99,8 +100,14 @@ export default function HowToInspectUsedCarInPerson() {
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>
-                Run a PPSR check to confirm the vehicle is not under finance or
-                written off.
+                Run a{" "}
+                <Link
+                  to="/ppsr-check-australia"
+                  className="text-white underline underline-offset-4 hover:opacity-80 transition"
+                >
+                  PPSR check in Australia
+                </Link>{" "}
+                to confirm the vehicle is not under finance or written off.
               </li>
               <li>Confirm the VIN matches registration paperwork.</li>
               <li>Request full service history and supporting receipts.</li>
@@ -112,17 +119,15 @@ export default function HowToInspectUsedCarInPerson() {
               physical inspection.
             </p>
 
-            {/* Authority link (contextual) */}
             <p className="text-slate-400 leading-relaxed">
-              If you’re unsure what a PPSR check is or what it protects you
-              from, read our{" "}
+              Depending on the car’s age and value, you may also want to decide
+              whether{" "}
               <Link
-                to="/ppsr-check-australia"
+                to="/is-a-mechanical-inspection-worth-it-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                PPSR check guide for Australia
-              </Link>
-              .
+                a mechanical inspection is worth it in Australia
+              </Link>.
             </p>
           </section>
 
@@ -152,6 +157,17 @@ export default function HowToInspectUsedCarInPerson() {
               Uneven tyre wear may indicate alignment or suspension issues.
               Mismatched paint can suggest previous accident repairs.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you’re buying from a dealership rather than a private seller,
+              review the risks in our guide to{" "}
+              <Link
+                to="/dealer-vs-private-seller-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                dealer vs private seller in Australia
+              </Link>.
+            </p>
           </section>
 
           {/* UNDER BONNET */}
@@ -169,9 +185,7 @@ export default function HowToInspectUsedCarInPerson() {
               <li>Check for visible fluid leaks.</li>
               <li>Inspect battery terminals for corrosion.</li>
               <li>Look at hoses for cracks or wear.</li>
-              <li>
-                Be cautious if the engine bay appears excessively cleaned.
-              </li>
+              <li>Be cautious if the engine bay appears excessively cleaned.</li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
@@ -187,7 +201,7 @@ export default function HowToInspectUsedCarInPerson() {
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              Electrical repairs can be expensive. Test everything.
+              Electrical repairs can be expensive. Test everything carefully.
             </p>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
@@ -222,8 +236,14 @@ export default function HowToInspectUsedCarInPerson() {
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
-              If something feels wrong, pause the process. There will always be
-              another car.
+              Once you’ve identified issues, you may want guidance on{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much to offer on a used car in Australia
+              </Link>{" "}
+              based on condition and risk.
             </p>
           </section>
 
@@ -243,6 +263,16 @@ export default function HowToInspectUsedCarInPerson() {
             <p className="text-slate-400 leading-relaxed">
               Pressure and inconsistency are often stronger warning signs than
               cosmetic flaws.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Many buyers fall into avoidable traps. See our breakdown of{" "}
+              <Link
+                to="/used-car-inspection-mistakes-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                common used car inspection mistakes in Australia
+              </Link>.
             </p>
           </section>
 
@@ -264,17 +294,17 @@ export default function HowToInspectUsedCarInPerson() {
             </p>
           </section>
 
-          {/* INTERNAL LINKS */}
+          {/* INTERNAL LINKS / CLUSTER HUB */}
           <section className="pt-10 border-t border-slate-800 space-y-4">
             <p className="text-slate-400 leading-relaxed">
-              For a detailed checklist tailored to Australian buyers, read our{" "}
+              For a full overview of everything to check before buying, read
+              our{" "}
               <Link
                 to="/what-to-check-when-buying-a-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                complete used car inspection checklist
-              </Link>
-              .
+                complete used car inspection checklist for Australia
+              </Link>.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
@@ -299,17 +329,28 @@ export default function HowToInspectUsedCarInPerson() {
               page to understand how the product operates.
             </p>
 
-            {/* Cluster link: mistakes page */}
-            <p className="text-slate-400 leading-relaxed">
-              Want to avoid the most common buyer errors? Read{" "}
-              <Link
-                to="/used-car-inspection-mistakes-australia"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                common used car inspection mistakes (Australia)
-              </Link>
-              .
-            </p>
+            <div className="pt-4 text-sm text-slate-500">
+              <p className="font-semibold text-slate-400">
+                Related used car buying guides (Australia):
+              </p>
+              <p>
+                <Link to="/ppsr-check-australia" className="underline hover:text-white">
+                  PPSR check Australia
+                </Link>{" · "}
+                <Link to="/used-car-inspection-mistakes-australia" className="underline hover:text-white">
+                  Inspection mistakes
+                </Link>{" · "}
+                <Link to="/dealer-vs-private-seller-australia" className="underline hover:text-white">
+                  Dealer vs private seller
+                </Link>{" · "}
+                <Link to="/is-a-mechanical-inspection-worth-it-australia" className="underline hover:text-white">
+                  Mechanical inspection worth it?
+                </Link>{" · "}
+                <Link to="/how-much-should-you-offer-used-car-australia" className="underline hover:text-white">
+                  How much to offer?
+                </Link>
+              </p>
+            </div>
           </section>
         </article>
       </section>

@@ -83,8 +83,8 @@ export default function IsMechanicalInspectionWorthIt() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              This guide explains when a mechanical inspection makes sense,
-              what it actually covers, and how it fits into a broader risk-reduction strategy.
+              A mechanical inspection should be viewed as one layer in a broader,
+              structured risk-reduction strategy.
             </p>
           </header>
 
@@ -131,6 +131,17 @@ export default function IsMechanicalInspectionWorthIt() {
               In these cases, the inspection fee can be cheap insurance
               compared to a $3,000–$8,000 repair bill.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Before committing to a mechanic, ensure you have completed a{" "}
+              <Link
+                to="/how-to-inspect-a-used-car-in-person"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                structured in-person inspection
+              </Link>
+              .
+            </p>
           </section>
 
           {/* WHEN MAY NOT */}
@@ -149,6 +160,17 @@ export default function IsMechanicalInspectionWorthIt() {
             <p className="text-slate-400 leading-relaxed">
               In these situations, a mechanical inspection may offer diminishing returns.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              See our{" "}
+              <Link
+                to="/dealer-vs-private-seller-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                dealer vs private seller comparison
+              </Link>{" "}
+              to better understand protection differences in Australia.
+            </p>
           </section>
 
           {/* WHAT IT DOES NOT DO */}
@@ -164,7 +186,7 @@ export default function IsMechanicalInspectionWorthIt() {
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>Guarantee future reliability</li>
               <li>Prevent hidden intermittent faults</li>
-              <li>Replace a PPSR finance check</li>
+              <li>Replace a finance or written-off check</li>
               <li>Protect against seller misrepresentation</li>
             </ul>
 
@@ -203,12 +225,12 @@ export default function IsMechanicalInspectionWorthIt() {
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
-              For a complete inspection framework, see our{" "}
+              For a complete inspection framework, review our{" "}
               <Link
-                to="/how-to-inspect-a-used-car-in-person"
+                to="/what-to-check-when-buying-a-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                step-by-step inspection guide
+                complete Australian used car checklist
               </Link>
               .
             </p>
@@ -221,13 +243,14 @@ export default function IsMechanicalInspectionWorthIt() {
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              The safest strategy for higher-value purchases is:
+              The safest strategy for higher-value purchases is layered protection:
             </p>
 
             <ol className="list-decimal pl-6 space-y-2 text-slate-300">
               <li>Run a PPSR check</li>
               <li>Conduct a structured in-person inspection</li>
               <li>Test drive thoroughly</li>
+              <li>Calculate a logical offer</li>
               <li>Then consider a mechanical inspection if risk remains</li>
             </ol>
 
@@ -235,32 +258,21 @@ export default function IsMechanicalInspectionWorthIt() {
               Layered protection reduces risk far more effectively than relying
               on one single step.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              See our{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                used car negotiation guide for Australia
+              </Link>{" "}
+              to understand how inspection findings influence price.
+            </p>
           </section>
 
-          {/* INTERNAL LINKS */}
+          {/* CLUSTER DISTRIBUTION */}
           <section className="pt-10 border-t border-slate-800 space-y-4">
-            <p className="text-slate-400 leading-relaxed">
-              Not sure what to check yourself? Review our{" "}
-              <Link
-                to="/what-to-check-when-buying-a-used-car-australia"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                complete used car checklist for Australia
-              </Link>
-              .
-            </p>
-
-            <p className="text-slate-400 leading-relaxed">
-              Want to avoid common buyer errors? Read{" "}
-              <Link
-                to="/used-car-inspection-mistakes-australia"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                common inspection mistakes Australian buyers make
-              </Link>
-              .
-            </p>
-
             <p className="text-slate-400 leading-relaxed">
               If you prefer a structured mobile inspection flow,{" "}
               <Link
@@ -271,6 +283,32 @@ export default function IsMechanicalInspectionWorthIt() {
               </Link>{" "}
               and helps you document what you observe before committing.
             </p>
+
+            <div className="pt-4 text-sm text-slate-500">
+              <p className="font-semibold text-slate-400">
+                Related used car buying guides (Australia):
+              </p>
+              <p>
+                <Link to="/ppsr-check-australia" className="underline hover:text-white">
+                  PPSR check
+                </Link>{" · "}
+                <Link to="/how-to-inspect-a-used-car-in-person" className="underline hover:text-white">
+                  Inspect in person
+                </Link>{" · "}
+                <Link to="/what-to-check-when-buying-a-used-car-australia" className="underline hover:text-white">
+                  Used car checklist
+                </Link>{" · "}
+                <Link to="/how-much-should-you-offer-used-car-australia" className="underline hover:text-white">
+                  Negotiation guide
+                </Link>{" · "}
+                <Link to="/dealer-vs-private-seller-australia" className="underline hover:text-white">
+                  Dealer vs private seller
+                </Link>{" · "}
+                <Link to="/used-car-inspection-mistakes-australia" className="underline hover:text-white">
+                  Inspection mistakes
+                </Link>
+              </p>
+            </div>
           </section>
 
         </article>

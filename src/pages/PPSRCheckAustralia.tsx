@@ -66,15 +66,15 @@ export default function PPSRCheckAustralia() {
             </h1>
 
             <p className="text-slate-400 leading-relaxed">
-              A PPSR check is one of the most important steps when buying a used
-              car in Australia. It confirms whether a vehicle has money owing,
+              A PPSR check in Australia is one of the most important steps when
+              buying a used car. It confirms whether a vehicle has money owing,
               has been written off, or has been reported stolen.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
               Skipping this step can expose you to serious financial risk. This
               guide explains what a PPSR check is, why it matters, and how to
-              use it properly.
+              use it properly before purchasing a second-hand vehicle.
             </p>
           </header>
 
@@ -91,9 +91,9 @@ export default function PPSRCheckAustralia() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              When a car is financed, the lender records an interest on the PPSR.
-              If the loan is unpaid, the lender may still have legal rights over
-              the vehicle — even if it’s sold to you.
+              When a car is financed, the lender records an interest on the
+              PPSR. If the loan is unpaid, the lender may still have legal
+              rights over the vehicle — even if it’s sold to you.
             </p>
           </section>
 
@@ -105,7 +105,8 @@ export default function PPSRCheckAustralia() {
 
             <p className="text-slate-400 leading-relaxed">
               If you buy a car that still has finance owing, the lender may
-              repossess it. A PPSR check helps protect you from this scenario.
+              repossess it. A PPSR check protects you from this scenario and
+              provides written confirmation of the vehicle’s financial status.
             </p>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
@@ -114,6 +115,11 @@ export default function PPSRCheckAustralia() {
               <li>Shows whether the vehicle has been reported stolen</li>
               <li>Provides official confirmation for your records</li>
             </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              A PPSR check reduces financial risk — but it does not assess
+              condition or mechanical health.
+            </p>
           </section>
 
           {/* HOW TO RUN */}
@@ -132,6 +138,17 @@ export default function PPSRCheckAustralia() {
               Always ensure the VIN you use matches the vehicle’s compliance
               plate and registration documents.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you are unsure how to confirm VIN consistency during an
+              inspection, review our{" "}
+              <Link
+                to="/how-to-inspect-a-used-car-in-person"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                step-by-step used car inspection guide
+              </Link>.
+            </p>
           </section>
 
           {/* WHAT IT DOES NOT DO */}
@@ -142,12 +159,19 @@ export default function PPSRCheckAustralia() {
 
             <p className="text-slate-400 leading-relaxed">
               A PPSR check does not confirm mechanical condition, service
-              history, or accident repairs.
+              history, accident repairs, or cosmetic quality.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
               It only verifies financial and registration status. You still
-              need to conduct a proper in-person inspection.
+              need to conduct a proper in-person inspection and decide whether{" "}
+              <Link
+                to="/is-a-mechanical-inspection-worth-it-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                a mechanical inspection is worth it
+              </Link>{" "}
+              based on the vehicle’s risk profile.
             </p>
           </section>
 
@@ -165,35 +189,44 @@ export default function PPSRCheckAustralia() {
             <p className="text-slate-400 leading-relaxed">
               Before purchasing, review our{" "}
               <Link
-                to="/how-to-inspect-a-used-car-in-person"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                complete inspection guide
-              </Link>{" "}
-              and our{" "}
-              <Link
                 to="/what-to-check-when-buying-a-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                Australian used car checklist
-              </Link>
-              .
-            </p>
-
-            <p className="text-slate-400 leading-relaxed">
-              If you want to avoid common buyer mistakes (and why they matter),
-              read{" "}
+                complete Australian used car checklist
+              </Link>{" "}
+              and our{" "}
               <Link
                 to="/used-car-inspection-mistakes-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                common used car inspection mistakes in Australia
-              </Link>
-              .
+                common used car inspection mistakes guide
+              </Link>.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you are comparing seller types, read our breakdown of{" "}
+              <Link
+                to="/dealer-vs-private-seller-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                dealer vs private seller in Australia
+              </Link>{" "}
+              to understand differences in risk.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Once you’ve assessed risk, you may also want guidance on{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much to offer on a used car
+              </Link>{" "}
+              based on condition and uncertainty.
             </p>
           </section>
 
-          {/* CTA */}
+          {/* CTA + CLUSTER DISTRIBUTION */}
           <section className="pt-10 border-t border-slate-800 space-y-4">
             <p className="text-slate-400 leading-relaxed">
               If you want a calm, structured way to inspect a used car in person,
@@ -217,6 +250,32 @@ export default function PPSRCheckAustralia() {
               </Link>
               .
             </p>
+
+            <div className="pt-4 text-sm text-slate-500">
+              <p className="font-semibold text-slate-400">
+                Related used car buying guides (Australia):
+              </p>
+              <p>
+                <Link to="/what-to-check-when-buying-a-used-car-australia" className="underline hover:text-white">
+                  Used car checklist
+                </Link>{" · "}
+                <Link to="/how-to-inspect-a-used-car-in-person" className="underline hover:text-white">
+                  Inspect in person
+                </Link>{" · "}
+                <Link to="/used-car-inspection-mistakes-australia" className="underline hover:text-white">
+                  Inspection mistakes
+                </Link>{" · "}
+                <Link to="/is-a-mechanical-inspection-worth-it-australia" className="underline hover:text-white">
+                  Mechanical inspection worth it?
+                </Link>{" · "}
+                <Link to="/dealer-vs-private-seller-australia" className="underline hover:text-white">
+                  Dealer vs private seller
+                </Link>{" · "}
+                <Link to="/how-much-should-you-offer-used-car-australia" className="underline hover:text-white">
+                  How much to offer?
+                </Link>
+              </p>
+            </div>
           </section>
         </article>
       </section>

@@ -127,6 +127,18 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
             <p className="text-slate-400 leading-relaxed">
               Even minor issues can justify price adjustments when documented calmly.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you’re unsure how to structure your inspection findings, review
+              our{" "}
+              <Link
+                to="/how-to-inspect-a-used-car-in-person"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                step-by-step used car inspection guide
+              </Link>
+              .
+            </p>
           </section>
 
           {/* STEP 3 */}
@@ -146,9 +158,21 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
                 to="/ppsr-check-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                PPSR check
+                PPSR check in Australia
               </Link>{" "}
               before finalising numbers.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Depending on the vehicle’s age and complexity, you may also consider
+              whether{" "}
+              <Link
+                to="/is-a-mechanical-inspection-worth-it-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                a mechanical inspection is worth it
+              </Link>
+              .
             </p>
           </section>
 
@@ -191,6 +215,18 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
               <li>Private sales: often more flexible</li>
               <li>Vehicles with defects: larger adjustments justified</li>
             </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              Avoid emotional reactions during negotiation. Many buyers reduce
+              leverage by making avoidable errors. Review{" "}
+              <Link
+                to="/used-car-inspection-mistakes-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                common used car inspection mistakes in Australia
+              </Link>{" "}
+              to protect your position.
+            </p>
           </section>
 
           {/* STRUCTURED APPROACH */}
@@ -207,23 +243,16 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
             <p className="text-slate-400 leading-relaxed">
               Review our{" "}
               <Link
-                to="/how-to-inspect-a-used-car-in-person"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                step-by-step inspection guide
-              </Link>{" "}
-              and our{" "}
-              <Link
                 to="/what-to-check-when-buying-a-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                complete used car checklist
+                complete Australian used car checklist
               </Link>{" "}
               before calculating your offer.
             </p>
           </section>
 
-          {/* CTA */}
+          {/* CTA + CLUSTER DISTRIBUTION */}
           <section className="pt-10 border-t border-slate-800 space-y-4">
             <p className="text-slate-400 leading-relaxed">
               If you prefer a structured way to assess condition and calculate
@@ -247,6 +276,32 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
               </Link>{" "}
               page to understand how the product operates.
             </p>
+
+            <div className="pt-4 text-sm text-slate-500">
+              <p className="font-semibold text-slate-400">
+                Related used car buying guides (Australia):
+              </p>
+              <p>
+                <Link to="/ppsr-check-australia" className="underline hover:text-white">
+                  PPSR check Australia
+                </Link>{" · "}
+                <Link to="/how-to-inspect-a-used-car-in-person" className="underline hover:text-white">
+                  Inspect in person
+                </Link>{" · "}
+                <Link to="/what-to-check-when-buying-a-used-car-australia" className="underline hover:text-white">
+                  Used car checklist
+                </Link>{" · "}
+                <Link to="/dealer-vs-private-seller-australia" className="underline hover:text-white">
+                  Dealer vs private seller
+                </Link>{" · "}
+                <Link to="/used-car-inspection-mistakes-australia" className="underline hover:text-white">
+                  Inspection mistakes
+                </Link>{" · "}
+                <Link to="/is-a-mechanical-inspection-worth-it-australia" className="underline hover:text-white">
+                  Mechanical inspection worth it?
+                </Link>
+              </p>
+            </div>
           </section>
 
         </article>

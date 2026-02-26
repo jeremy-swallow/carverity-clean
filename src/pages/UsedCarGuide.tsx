@@ -111,6 +111,17 @@ export default function UsedCarGuide() {
             A PPSR check protects you from purchasing a vehicle that still has
             money owing or has previously been declared a statutory write-off.
           </p>
+
+          <p className="text-slate-400 leading-relaxed">
+            You should also decide whether{" "}
+            <Link
+              to="/is-a-mechanical-inspection-worth-it-australia"
+              className="underline text-white hover:opacity-80 transition"
+            >
+              a mechanical inspection is worth it in Australia
+            </Link>{" "}
+            based on the vehicle’s age, price and service history.
+          </p>
         </section>
 
         {/* EXTERIOR */}
@@ -132,6 +143,17 @@ export default function UsedCarGuide() {
           <p className="text-slate-400 leading-relaxed">
             Uneven tyre wear can indicate suspension or alignment issues.
             Mismatched paint can suggest prior accident repairs.
+          </p>
+
+          <p className="text-slate-400 leading-relaxed">
+            If you’re buying from a dealership rather than a private seller,
+            you may also want to compare the risks in our guide on{" "}
+            <Link
+              to="/dealer-vs-private-seller-australia"
+              className="underline text-white hover:opacity-80 transition"
+            >
+              dealer vs private seller in Australia
+            </Link>.
           </p>
         </section>
 
@@ -159,6 +181,17 @@ export default function UsedCarGuide() {
             >
               how to inspect a used car in person
             </Link>.
+          </p>
+
+          <p className="text-slate-400 leading-relaxed">
+            Once you’ve identified issues, you may also want guidance on{" "}
+            <Link
+              to="/how-much-should-you-offer-used-car-australia"
+              className="underline text-white hover:opacity-80 transition"
+            >
+              how much you should offer on a used car in Australia
+            </Link>{" "}
+            based on condition and risk.
           </p>
         </section>
 
@@ -228,6 +261,33 @@ export default function UsedCarGuide() {
               >
                 frequently asked questions
               </Link>.
+            </p>
+          </div>
+
+          {/* CLUSTER DISTRIBUTION BLOCK */}
+          <div className="pt-6 space-y-2 text-sm text-slate-500">
+            <p className="font-semibold text-slate-400">
+              Related used car buying guides (Australia):
+            </p>
+            <p>
+              <Link to="/ppsr-check-australia" className="underline hover:text-white">
+                PPSR check Australia
+              </Link>{" · "}
+              <Link to="/how-to-inspect-a-used-car-in-person" className="underline hover:text-white">
+                How to inspect a used car in person
+              </Link>{" · "}
+              <Link to="/used-car-inspection-mistakes-australia" className="underline hover:text-white">
+                Used car inspection mistakes
+              </Link>{" · "}
+              <Link to="/is-a-mechanical-inspection-worth-it-australia" className="underline hover:text-white">
+                Is a mechanical inspection worth it?
+              </Link>{" · "}
+              <Link to="/dealer-vs-private-seller-australia" className="underline hover:text-white">
+                Dealer vs private seller
+              </Link>{" · "}
+              <Link to="/how-much-should-you-offer-used-car-australia" className="underline hover:text-white">
+                How much should you offer?
+              </Link>
             </p>
           </div>
         </section>

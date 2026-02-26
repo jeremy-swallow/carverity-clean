@@ -66,6 +66,7 @@ export default function UsedCarInspectionMistakes() {
     <div className="text-white">
       <section className="max-w-3xl mx-auto px-6 py-16">
         <article className="space-y-12">
+
           <header className="space-y-4">
             <h1 className="text-3xl font-semibold tracking-tight">
               7 Common Mistakes When Inspecting a Used Car (Australia 2026)
@@ -100,6 +101,17 @@ export default function UsedCarInspectionMistakes() {
               A proper inspection takes time. Walking away because you feel
               rushed is often smarter than buying under pressure.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              A structured approach helps remove emotion. Review our{" "}
+              <Link
+                to="/how-to-inspect-a-used-car-in-person"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                step-by-step inspection guide for Australia
+              </Link>
+              .
+            </p>
           </section>
 
           {/* MISTAKE 2 */}
@@ -116,6 +128,17 @@ export default function UsedCarInspectionMistakes() {
             <p className="text-slate-400 leading-relaxed">
               Look beyond presentation. Focus on panel alignment, tyre wear,
               warning lights, and consistency across the vehicle.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If deeper mechanical concerns exist, consider whether{" "}
+              <Link
+                to="/is-a-mechanical-inspection-worth-it-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                a mechanical inspection is worth it
+              </Link>
+              .
             </p>
           </section>
 
@@ -136,7 +159,7 @@ export default function UsedCarInspectionMistakes() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              If you want a simple explanation of how PPSR works, see{" "}
+              Learn exactly{" "}
               <Link
                 to="/ppsr-check-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
@@ -217,56 +240,78 @@ export default function UsedCarInspectionMistakes() {
               through exterior, interior, and driving checks without skipping
               key steps.
             </p>
-          </section>
-
-          {/* INTERNAL LINKS */}
-          <section className="pt-10 border-t border-slate-800 space-y-4">
-            <p className="text-slate-400 leading-relaxed">
-              If you want a structured step-by-step guide, read our{" "}
-              <Link
-                to="/how-to-inspect-a-used-car-in-person"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                complete inspection guide
-              </Link>
-              .
-            </p>
 
             <p className="text-slate-400 leading-relaxed">
-              For a printable checklist tailored to Australian buyers, see our{" "}
+              See our{" "}
               <Link
                 to="/what-to-check-when-buying-a-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                used car checklist for Australia
-              </Link>
-              .
-            </p>
-
-            <p className="text-slate-400 leading-relaxed">
-              If you prefer a guided mobile flow during your inspection,{" "}
-              <Link
-                to="/"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                CarVerity helps you inspect calmly and generate a structured
-                report
-              </Link>
-              .
-            </p>
-
-            <p className="text-slate-400 leading-relaxed">
-              Want to understand how CarVerity positions trust and boundaries?
-              Read{" "}
-              <Link
-                to="/trust"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                Trust & Transparency
+                complete used car checklist for Australia
               </Link>
               .
             </p>
           </section>
+
+          {/* CLUSTER DISTRIBUTION */}
+          <section className="pt-10 border-t border-slate-800 space-y-4">
+            <p className="text-slate-400 leading-relaxed">
+              Want to calculate a fair offer after inspection? Read our{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                used car negotiation guide
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Comparing buying environments? See{" "}
+              <Link
+                to="/dealer-vs-private-seller-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                dealer vs private seller in Australia
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Prefer a structured mobile inspection flow?{" "}
+              <Link
+                to="/"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                CarVerity guides you step-by-step
+              </Link>{" "}
+              and helps you document what you observe before committing.
+            </p>
+
+            <div className="pt-4 text-sm text-slate-500">
+              <p className="font-semibold text-slate-400">
+                Related used car buying guides (Australia):
+              </p>
+              <p>
+                <Link to="/ppsr-check-australia" className="underline hover:text-white">
+                  PPSR check
+                </Link>{" · "}
+                <Link to="/how-to-inspect-a-used-car-in-person" className="underline hover:text-white">
+                  Inspect in person
+                </Link>{" · "}
+                <Link to="/what-to-check-when-buying-a-used-car-australia" className="underline hover:text-white">
+                  Used car checklist
+                </Link>{" · "}
+                <Link to="/is-a-mechanical-inspection-worth-it-australia" className="underline hover:text-white">
+                  Mechanical inspection worth it?
+                </Link>{" · "}
+                <Link to="/how-much-should-you-offer-used-car-australia" className="underline hover:text-white">
+                  Negotiation guide
+                </Link>
+              </p>
+            </div>
+          </section>
+
         </article>
       </section>
     </div>
