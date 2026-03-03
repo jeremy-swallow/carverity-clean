@@ -298,13 +298,19 @@ export default function Home() {
             </div>
 
             <h1 className="text-3xl md:text-5xl font-semibold tracking-tight leading-tight">
-              Used Car Inspection Checklist App for Australian Buyers
+              Confidence during your used car inspection
             </h1>
+
+            {/* Keep the SEO phrase, but demote it beneath the emotional headline */}
+            <p className="text-[12px] uppercase tracking-[0.18em] text-slate-400">
+              Used Car Inspection Checklist App for Australian Buyers
+            </p>
 
             <p className="text-slate-200 text-[15px] leading-relaxed">
               CarVerity guides you step-by-step while you&apos;re standing next
-              to the car, so you can spot visible issues, record evidence, and
-              finish with a clear report and buyer-safe next steps.
+              to the car — helping you assess what you can clearly see, capture
+              evidence, and finish with a clean report so you can decide what to
+              do next with confidence.
             </p>
 
             {/* NEW: subtle AU entity reinforcement */}
