@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import { supabase } from "./supabaseClient";
+import ScrollToTop from "./components/ScrollToTop";
 
 /* Core pages */
 import Home from "./pages/Home";
@@ -29,7 +30,7 @@ import HowToInspectUsedCarInPerson from "./pages/HowToInspectUsedCarInPerson";
 import UsedCarInspectionMistakes from "./pages/UsedCarInspectionMistakes";
 import PPSRCheckAustralia from "./pages/PPSRCheckAustralia";
 import IsMechanicalInspectionWorthIt from "./pages/IsMechanicalInspectionWorthIt";
-import DealerVsPrivateSellerAustralia from "./pages/DealerVsPrivateSellerAustralia"; // ✅ NEW
+import DealerVsPrivateSellerAustralia from "./pages/DealerVsPrivateSellerAustralia";
 import HowMuchShouldYouOfferUsedCarAustralia from "./pages/HowMuchShouldYouOfferUsedCarAustralia";
 
 /* Tester */
@@ -124,284 +125,288 @@ function RequireAuth({ children }: { children: ReactNode }) {
 ======================================================= */
 export default function App() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
+    <>
+      <ScrollToTop />
 
-        {/* Core */}
-        <Route path="/" element={<Home />} />
-        <Route path="/landing" element={<Landing />} />
-        <Route path="/start" element={<StartScan />} />
-        <Route path="/scan-mode" element={<ScanMode />} />
-        <Route path="/what-to-expect" element={<WhatToExpect />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/trust" element={<Trust />} />
-        <Route path="/my-scans" element={<MyScans />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/faq" element={<FAQ />} />
-        <Route path="/signin" element={<SignIn />} />
-        <Route path="/account" element={<Account />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/auth/link-expired" element={<AuthLinkExpired />} />
-        <Route path="/terms" element={<Terms />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/deploy-test" element={<DeployTest />} />
+      <Routes>
+        <Route element={<Layout />}>
 
-        {/* Authority Pages */}
-        <Route
-          path="/what-to-check-when-buying-a-used-car-australia"
-          element={<UsedCarGuide />}
-        />
+          {/* Core */}
+          <Route path="/" element={<Home />} />
+          <Route path="/landing" element={<Landing />} />
+          <Route path="/start" element={<StartScan />} />
+          <Route path="/scan-mode" element={<ScanMode />} />
+          <Route path="/what-to-expect" element={<WhatToExpect />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/trust" element={<Trust />} />
+          <Route path="/my-scans" element={<MyScans />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/account" element={<Account />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/auth/link-expired" element={<AuthLinkExpired />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/deploy-test" element={<DeployTest />} />
 
-        <Route
-          path="/how-to-inspect-a-used-car-in-person"
-          element={<HowToInspectUsedCarInPerson />}
-        />
+          {/* Authority Pages */}
+          <Route
+            path="/what-to-check-when-buying-a-used-car-australia"
+            element={<UsedCarGuide />}
+          />
 
-        <Route
-          path="/used-car-inspection-mistakes-australia"
-          element={<UsedCarInspectionMistakes />}
-        />
+          <Route
+            path="/how-to-inspect-a-used-car-in-person"
+            element={<HowToInspectUsedCarInPerson />}
+          />
 
-        <Route
-          path="/ppsr-check-australia"
-          element={<PPSRCheckAustralia />}
-        />
+          <Route
+            path="/used-car-inspection-mistakes-australia"
+            element={<UsedCarInspectionMistakes />}
+          />
 
-        <Route
-          path="/is-a-mechanical-inspection-worth-it-australia"
-          element={<IsMechanicalInspectionWorthIt />}
-        />
+          <Route
+            path="/ppsr-check-australia"
+            element={<PPSRCheckAustralia />}
+          />
 
-        <Route
-          path="/dealer-vs-private-seller-australia"
-          element={<DealerVsPrivateSellerAustralia />}
-        />
+          <Route
+            path="/is-a-mechanical-inspection-worth-it-australia"
+            element={<IsMechanicalInspectionWorthIt />}
+          />
 
-        <Route
-          path="/how-much-should-you-offer-used-car-australia"
-          element={<HowMuchShouldYouOfferUsedCarAustralia />}
-        />
+          <Route
+            path="/dealer-vs-private-seller-australia"
+            element={<DealerVsPrivateSellerAustralia />}
+          />
 
-        {/* Tester */}
-        <Route
-          path="/testing"
-          element={
-            <RequireAuth>
-              <TestingExpectations />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/how-much-should-you-offer-used-car-australia"
+            element={<HowMuchShouldYouOfferUsedCarAustralia />}
+          />
 
-        {/* Credits */}
-        <Route
-          path="/credits/history"
-          element={
-            <RequireAuth>
-              <CreditsHistory />
-            </RequireAuth>
-          }
-        />
+          {/* Tester */}
+          <Route
+            path="/testing"
+            element={
+              <RequireAuth>
+                <TestingExpectations />
+              </RequireAuth>
+            }
+          />
 
-        {/* Admin */}
-        <Route
-          path="/admin"
-          element={
-            <RequireAuth>
-              <Admin />
-            </RequireAuth>
-          }
-        />
+          {/* Credits */}
+          <Route
+            path="/credits/history"
+            element={
+              <RequireAuth>
+                <CreditsHistory />
+              </RequireAuth>
+            }
+          />
 
-        {/* In-person scan flow */}
-        <Route
-          path="/scan/in-person/start"
-          element={
-            <RequireAuth>
-              <InPersonStart />
-            </RequireAuth>
-          }
-        />
+          {/* Admin */}
+          <Route
+            path="/admin"
+            element={
+              <RequireAuth>
+                <Admin />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/sale"
-          element={
-            <RequireAuth>
-              <InPersonSaleContext />
-            </RequireAuth>
-          }
-        />
+          {/* In-person scan flow */}
+          <Route
+            path="/scan/in-person/start"
+            element={
+              <RequireAuth>
+                <InPersonStart />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/vehicle-details"
-          element={
-            <RequireAuth>
-              <InPersonVehicleDetails />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/sale"
+            element={
+              <RequireAuth>
+                <InPersonSaleContext />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/asking-price"
-          element={
-            <RequireAuth>
-              <InPersonAskingPrice />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/vehicle-details"
+            element={
+              <RequireAuth>
+                <InPersonVehicleDetails />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/photos"
-          element={
-            <RequireAuth>
-              <InPersonPhotos />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/asking-price"
+            element={
+              <RequireAuth>
+                <InPersonAskingPrice />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/owners"
-          element={
-            <RequireAuth>
-              <InPersonOwners />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/photos"
+            element={
+              <RequireAuth>
+                <InPersonPhotos />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/checks/intro"
-          element={
-            <RequireAuth>
-              <InPersonChecksIntro />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/owners"
+            element={
+              <RequireAuth>
+                <InPersonOwners />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/checks/around"
-          element={
-            <RequireAuth>
-              <InPersonChecksAroundCar />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/checks/intro"
+            element={
+              <RequireAuth>
+                <InPersonChecksIntro />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/checks/inside"
-          element={
-            <RequireAuth>
-              <InPersonChecksInsideCabin />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/checks/around"
+            element={
+              <RequireAuth>
+                <InPersonChecksAroundCar />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/checks/drive-intro"
-          element={
-            <RequireAuth>
-              <InPersonChecksDriveIntro />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/checks/inside"
+            element={
+              <RequireAuth>
+                <InPersonChecksInsideCabin />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/checks/drive"
-          element={
-            <RequireAuth>
-              <InPersonChecksDrive />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/checks/drive-intro"
+            element={
+              <RequireAuth>
+                <InPersonChecksDriveIntro />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/summary"
-          element={
-            <RequireAuth>
-              <InPersonSummary />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/checks/drive"
+            element={
+              <RequireAuth>
+                <InPersonChecksDrive />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/analyzing/:scanId"
-          element={
-            <RequireAuth>
-              <InPersonAnalyzing />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/summary"
+            element={
+              <RequireAuth>
+                <InPersonSummary />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/results/:scanId"
-          element={
-            <RequireAuth>
-              <InPersonResultsWrapped />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/analyzing/:scanId"
+            element={
+              <RequireAuth>
+                <InPersonAnalyzing />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/unlock/:scanId"
-          element={
-            <RequireAuth>
-              <InPersonUnlock />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/results/:scanId"
+            element={
+              <RequireAuth>
+                <InPersonResultsWrapped />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/unlock/success"
-          element={
-            <RequireAuth>
-              <InPersonUnlockSuccess />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/unlock/:scanId"
+            element={
+              <RequireAuth>
+                <InPersonUnlock />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/decision/:scanId"
-          element={
-            <RequireAuth>
-              <InPersonDecisionWrapped />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/unlock/success"
+            element={
+              <RequireAuth>
+                <InPersonUnlockSuccess />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/decision"
-          element={<Navigate to="/my-scans" replace />} 
-        />
+          <Route
+            path="/scan/in-person/decision/:scanId"
+            element={
+              <RequireAuth>
+                <InPersonDecisionWrapped />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/price-positioning/:scanId"
-          element={
-            <RequireAuth>
-              <InPersonPricePositioning />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/decision"
+            element={<Navigate to="/my-scans" replace />}
+          />
 
-        <Route
-          path="/scan/in-person/print/:scanId"
-          element={
-            <RequireAuth>
-              <InPersonReportPrint />
-            </RequireAuth>
-          }
-        />
+          <Route
+            path="/scan/in-person/price-positioning/:scanId"
+            element={
+              <RequireAuth>
+                <InPersonPricePositioning />
+              </RequireAuth>
+            }
+          />
 
-        <Route
-          path="/scan/in-person/print"
-          element={<Navigate to="/" replace />} 
-        />
+          <Route
+            path="/scan/in-person/print/:scanId"
+            element={
+              <RequireAuth>
+                <InPersonReportPrint />
+              </RequireAuth>
+            }
+          />
 
-        {/* Legacy */}
-        <Route path="/scan/in-person" element={<InPersonScan />} />
-        <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
+          <Route
+            path="/scan/in-person/print"
+            element={<Navigate to="/" replace />}
+          />
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Legacy */}
+          <Route path="/scan/in-person" element={<InPersonScan />} />
+          <Route path="/scan/in-person/checks" element={<InPersonChecks />} />
 
-      </Route>
-    </Routes>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+
+        </Route>
+      </Routes>
+    </>
   );
 }
