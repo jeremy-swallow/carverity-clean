@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
 import Layout from "./components/Layout";
 import { supabase } from "./supabaseClient";
 import ScrollToTop from "./components/ScrollToTop";
@@ -130,7 +131,6 @@ export default function App() {
 
       <Routes>
         <Route element={<Layout />}>
-
           {/* Core */}
           <Route path="/" element={<Home />} />
           <Route path="/landing" element={<Landing />} />
@@ -404,9 +404,10 @@ export default function App() {
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
-
         </Route>
       </Routes>
+
+      <Analytics />
     </>
   );
 }
