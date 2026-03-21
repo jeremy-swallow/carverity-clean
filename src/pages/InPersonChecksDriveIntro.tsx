@@ -11,10 +11,16 @@ import {
   Info,
   RotateCcw,
   Eye,
+  Sparkles,
 } from "lucide-react";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
-const DRIVE_CHECK_IDS = ["steering", "noise-hesitation", "adas-systems"];
+const DRIVE_CHECK_IDS = [
+  "steering",
+  "noise-hesitation",
+  "braking",
+  "adas-systems",
+];
 
 function removeDriveChecksFromProgress(progress: any) {
   const nextChecks = { ...(progress?.checks ?? {}) };
@@ -32,6 +38,7 @@ function removeDriveChecksFromProgress(progress: any) {
 
         if (id.startsWith("imp:steering")) return false;
         if (id.startsWith("imp:noise-hesitation")) return false;
+        if (id.startsWith("imp:braking")) return false;
         if (id.startsWith("imp:adas-systems")) return false;
         if (loc.includes("during the drive")) return false;
 
@@ -135,6 +142,17 @@ export default function InPersonChecksDriveIntro() {
           </div>
         </div>
 
+        <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-5 py-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <Sparkles className="h-4 w-4 text-slate-300 mt-0.5" />
+            <p className="text-sm text-slate-300 leading-relaxed">
+              Keep it practical. You’re not proving the car is perfect — you’re
+              looking for anything that would make you pause, ask questions, or
+              want clarification before buying.
+            </p>
+          </div>
+        </div>
+
         <div className="rounded-2xl border border-white/12 bg-slate-900/60 px-5 py-4 space-y-3">
           <div className="flex items-start gap-3">
             <ShieldCheck className="h-4 w-4 text-emerald-300 mt-0.5" />
@@ -149,7 +167,6 @@ export default function InPersonChecksDriveIntro() {
             </div>
           </div>
 
-          {/* ⬇️ COPY CHANGE APPLIED HERE */}
           <div className="flex items-start gap-3">
             <Timer className="h-4 w-4 text-slate-300 mt-0.5" />
             <div>
@@ -157,9 +174,9 @@ export default function InPersonChecksDriveIntro() {
                 Drive long enough to observe behaviour
               </p>
               <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-                You don’t need to push the car. Drive normally for long enough to
-                notice steering feel, braking response, noises, hesitation, and
-                how the car behaves once it’s warmed up.
+                You don’t need to push the car. Drive normally for long enough
+                to notice steering feel, braking response, noises, hesitation,
+                and how the car behaves once it’s warmed up.
               </p>
             </div>
           </div>
@@ -173,8 +190,8 @@ export default function InPersonChecksDriveIntro() {
                 During the drive, pay attention to these signals
               </p>
               <p className="text-sm text-slate-400 mt-1 leading-relaxed">
-                You’re not answering questions yet. Just notice what stands out —
-                you’ll record it after the drive.
+                You’re not answering questions yet. Just notice what stands out
+                — you’ll record it after the drive.
               </p>
             </div>
           </div>
@@ -185,8 +202,8 @@ export default function InPersonChecksDriveIntro() {
                 Starting & low speed
               </span>
               <div className="mt-1 text-slate-400">
-                Pulling away from a stop, slow turns, steering feel, hesitation,
-                or warning lights.
+                Pulling away from a stop, slow turns, steering feel,
+                hesitation, or warning lights.
               </div>
             </div>
 
