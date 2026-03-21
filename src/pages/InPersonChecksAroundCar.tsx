@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Car, Camera } from "lucide-react";
+import { Car, Camera, CheckCircle2, Sparkles } from "lucide-react";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 type AnswerValue = "ok" | "concern" | "unsure";
-type CheckAnswer = { value: AnswerValue; note?: string };
+type CheckAnswer = { value?: AnswerValue; note?: string };
 
 type StepPhoto = {
   id: string;
@@ -55,9 +55,7 @@ function removeLine(existing: string | undefined, lineToRemove: string) {
   return base
     .split("\n")
     .map((p) => p.trim())
-    .filter(
-      (p) => p.toLowerCase() !== lineToRemove.trim().toLowerCase()
-    )
+    .filter((p) => p.toLowerCase() !== lineToRemove.trim().toLowerCase())
     .join("\n");
 }
 
@@ -162,28 +160,8 @@ export default function InPersonChecksAroundCar() {
     Array.isArray(progress?.photos) ? progress.photos : []
   );
 
-  /* -------------------------------------------------------
-     Auto-fill missing answers as OK (never overwrite)
-  ------------------------------------------------------- */
-  useEffect(() => {
-    setAnswers((prev) => {
-      let changed = false;
-      const next = { ...(prev ?? {}) };
+  const [photoSavedFor, setPhotoSavedFor] = useState<string | null>(null);
 
-      for (const c of checks) {
-        if (!next[c.id]?.value) {
-          next[c.id] = { ...(next[c.id] ?? {}), value: "ok" };
-          changed = true;
-        }
-      }
-
-      return changed ? next : prev;
-    });
-  }, [checks]);
-
-  /* -------------------------------------------------------
-     Persist progress
-  ------------------------------------------------------- */
   useEffect(() => {
     saveProgress({
       ...(progress ?? {}),
@@ -193,6 +171,16 @@ export default function InPersonChecksAroundCar() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers, photos]);
+
+  useEffect(() => {
+    if (!photoSavedFor) return;
+
+    const t = window.setTimeout(() => {
+      setPhotoSavedFor(null);
+    }, 2200);
+
+    return () => window.clearTimeout(t);
+  }, [photoSavedFor]);
 
   function setAnswer(id: string, value: AnswerValue) {
     setAnswers((p) => ({ ...p, [id]: { ...p[id], value } }));
@@ -204,11 +192,9 @@ export default function InPersonChecksAroundCar() {
 
   function toggleChip(id: string, chip: string) {
     setAnswers((p) => {
-      const prev = p[id] ?? { value: "ok" as AnswerValue, note: "" };
+      const prev = p[id] ?? {};
       const lines = splitLines(prev.note);
-      const active = lines.some(
-        (l) => l.toLowerCase() === chip.toLowerCase()
-      );
+      const active = lines.some((l) => l.toLowerCase() === chip.toLowerCase());
 
       const nextNote = active
         ? removeLine(prev.note, chip)
@@ -229,9 +215,12 @@ export default function InPersonChecksAroundCar() {
           dataUrl: reader.result as string,
         },
       ]);
+      setPhotoSavedFor(stepId);
     };
     reader.readAsDataURL(file);
   }
+
+  const answeredCount = checks.filter((c) => Boolean(answers[c.id]?.value)).length;
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-8">
@@ -246,11 +235,31 @@ export default function InPersonChecksAroundCar() {
         </div>
       </div>
 
+      <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-5 py-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <Sparkles className="h-4 w-4 text-slate-300 mt-0.5" />
+          <p className="text-sm text-slate-300 leading-relaxed">
+            If nothing stands out, tap{" "}
+            <span className="text-slate-100 font-medium">Looks fine</span> and
+            move on. If something feels off, mark it quickly and use the chips
+            instead of typing where possible.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <span>Exterior checks</span>
+          <span>
+            {answeredCount} of {checks.length} answered
+          </span>
+        </div>
+      </div>
+
       <div className="space-y-5">
         {checks.map((c) => {
           const current = answers[c.id];
-          const selectedValue = current?.value ?? "ok";
+          const selectedValue = current?.value ?? null;
           const selectedLines = splitLines(current?.note);
+          const stepPhotos = photos.filter((p) => p.stepId === c.id);
 
           const chips =
             selectedValue === "concern"
@@ -264,11 +273,9 @@ export default function InPersonChecksAroundCar() {
               key={c.id}
               className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-5 space-y-4"
             >
-              <div>
-                <div className="text-sm font-semibold text-white">
-                  {c.title}
-                </div>
-                <p className="text-xs text-slate-400 mt-1">
+              <div className="space-y-1">
+                <div className="text-sm font-semibold text-white">{c.title}</div>
+                <p className="text-xs text-slate-400 leading-relaxed">
                   {c.guidance}
                 </p>
               </div>
@@ -277,10 +284,10 @@ export default function InPersonChecksAroundCar() {
                 <button
                   onClick={() => setAnswer(c.id, "ok")}
                   className={[
-                    "rounded-xl px-3 py-2 text-xs font-semibold border",
+                    "rounded-xl px-3 py-2 text-xs font-semibold border transition",
                     selectedValue === "ok"
                       ? "bg-emerald-500 text-black border-emerald-400/30"
-                      : "bg-slate-950/30 text-slate-200 border-white/10",
+                      : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
                   ].join(" ")}
                 >
                   Looks fine
@@ -289,10 +296,10 @@ export default function InPersonChecksAroundCar() {
                 <button
                   onClick={() => setAnswer(c.id, "concern")}
                   className={[
-                    "rounded-xl px-3 py-2 text-xs font-semibold border",
+                    "rounded-xl px-3 py-2 text-xs font-semibold border transition",
                     selectedValue === "concern"
                       ? "bg-amber-400 text-black border-amber-300/40"
-                      : "bg-slate-950/30 text-slate-200 border-white/10",
+                      : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
                   ].join(" ")}
                 >
                   Something off
@@ -301,15 +308,22 @@ export default function InPersonChecksAroundCar() {
                 <button
                   onClick={() => setAnswer(c.id, "unsure")}
                   className={[
-                    "rounded-xl px-3 py-2 text-xs font-semibold border",
+                    "rounded-xl px-3 py-2 text-xs font-semibold border transition",
                     selectedValue === "unsure"
                       ? "bg-slate-600 text-white border-slate-400/30"
-                      : "bg-slate-950/30 text-slate-200 border-white/10",
+                      : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
                   ].join(" ")}
                 >
                   Couldn’t check
                 </button>
               </div>
+
+              {!selectedValue && (
+                <p className="text-xs text-slate-500">
+                  Choose the option that best matches what you could actually
+                  see.
+                </p>
+              )}
 
               {chips.length > 0 && (
                 <div className="flex flex-wrap gap-2">
@@ -336,43 +350,75 @@ export default function InPersonChecksAroundCar() {
                 </div>
               )}
 
-              {(selectedValue !== "ok" || current?.note) && (
+              {(selectedValue === "concern" ||
+                selectedValue === "unsure" ||
+                current?.note) && (
                 <textarea
                   value={current?.note ?? ""}
                   onChange={(e) => setNote(c.id, e.target.value)}
-                  placeholder="Add a short note (optional)…"
+                  placeholder="Optional note to help you remember later…"
                   className="w-full rounded-xl bg-slate-950/40 border border-white/10 px-3 py-2 text-xs text-slate-200"
                   rows={3}
                 />
               )}
 
               {c.allowPhoto && (
-                <label className="inline-flex items-center gap-2 text-xs text-slate-300 cursor-pointer pt-2">
-                  <Camera className="h-4 w-4" />
-                  Add photo (best available view)
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) addPhoto(c.id, f);
-                    }}
-                  />
-                </label>
+                <div className="space-y-3 pt-1">
+                  <label className="inline-flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                    <Camera className="h-4 w-4" />
+                    Add photo (auto-saves)
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) addPhoto(c.id, f);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+
+                  {photoSavedFor === c.id && (
+                    <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2">
+                      <div className="flex items-center gap-2 text-xs text-emerald-100">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                        Photo saved for this check
+                      </div>
+                    </div>
+                  )}
+
+                  {stepPhotos.length > 0 && (
+                    <p className="text-xs text-slate-500">
+                      {stepPhotos.length} photo{stepPhotos.length === 1 ? "" : "s"}{" "}
+                      added for this check.
+                    </p>
+                  )}
+                </div>
               )}
             </section>
           );
         })}
       </div>
 
-      <button
-        onClick={() => navigate("/scan/in-person/checks/inside")}
-        className="w-full rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3"
-      >
-        Continue
-      </button>
+      <div className="space-y-3">
+        <div className="rounded-2xl border border-white/10 bg-slate-900/40 px-4 py-3">
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Next:{" "}
+            <span className="text-slate-200 font-medium">inside the cabin</span>
+            . You’ll check comfort, wear, moisture cues, and a few simple
+            function checks.
+          </p>
+        </div>
+
+        <button
+          onClick={() => navigate("/scan/in-person/checks/inside")}
+          className="w-full rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-3"
+        >
+          Continue to inside checks
+        </button>
+      </div>
     </div>
   );
 }
