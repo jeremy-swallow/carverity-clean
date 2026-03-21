@@ -28,7 +28,17 @@ type PricingVerdict = "missing" | "info" | "room" | "concern";
    Storage config
 ======================================================= */
 const PHOTO_BUCKET = "scan-photos";
-const SIGNED_URL_TTL = 60 * 60; // 1 hour
+const SIGNED_URL_TTL = 60 * 60; // 1 hour;
+
+/* =======================================================
+   Shared check ids
+======================================================= */
+const DRIVE_CHECK_IDS = [
+  "steering",
+  "noise-hesitation",
+  "braking",
+  "adas-systems",
+] as const;
 
 function formatMoney(n: number | null | undefined) {
   if (n == null || Number.isNaN(n)) return "—";
@@ -48,7 +58,13 @@ function clamp(n: number, min: number, max: number) {
 }
 
 function scoreFromChecks(checks: Record<string, any>) {
-  const values = Object.values(checks || {});
+  const values = Object.values(checks || {}).filter(
+    (a: any) =>
+      a &&
+      typeof a === "object" &&
+      (a.value === "ok" || a.value === "unsure" || a.value === "concern")
+  );
+
   if (!values.length) return 0;
 
   let score = 100;
@@ -83,7 +99,6 @@ function getPricingVerdict(args: {
 
   if (!askingPrice || askingPrice <= 0) return "missing";
 
-  // Heuristic: more issues => price sensitivity increases
   const issueScore = concerns * 2 + unsure * 1 + issuesRecorded * 0.25;
 
   if (issueScore >= 12) return "concern";
@@ -199,8 +214,7 @@ function hasVisitedDriveStep(progress: ScanProgress | null) {
 }
 
 function hasAnyDriveAnswers(checks: Record<string, any>) {
-  const driveIds = ["steering", "noise-hesitation", "adas-systems"];
-  return driveIds.some((id) =>
+  return DRIVE_CHECK_IDS.some((id) =>
     Boolean(checks?.[id]?.value || checks?.[id]?.note)
   );
 }
@@ -220,68 +234,57 @@ function getThumbnailFromPhotos(photos: any[]): string | null {
 }
 
 /**
- * Ensure checks have explicit stored defaults.
- * - UI shows "Looks fine" by default, so we persist "ok" for missing items.
- * - Never overwrites an existing user choice.
- *
- * IMPORTANT:
- * - We DO NOT default-fill Drive checks unless the Drive step was actually visited,
- *   otherwise Summary would incorrectly mark Drive as "done".
+ * Clean checks without silently defaulting missing items to "ok".
+ * This preserves only valid explicit selections and useful notes.
  */
-function ensureDefaultChecks(
-  progress: ScanProgress,
-  includeDriveDefaults: boolean
-) {
-  const baseCheckIds = [
-    // Around the car
-    "body-panels-paint",
-    "tyre-wear",
-    "brakes-visible",
-
-    // Inside the cabin
-    "interior-smell",
-    "interior-condition",
-    "seatbelts-trim",
-    "aircon",
-  ];
-
-  const driveCheckIds = [
-    // During the drive
-    "steering",
-    "noise-hesitation",
-    "adas-systems",
-  ];
-
-  const allCheckIds = includeDriveDefaults
-    ? [...baseCheckIds, ...driveCheckIds]
-    : baseCheckIds;
-
+function sanitiseChecks(progress: ScanProgress) {
   const existingChecks =
     progress?.checks && typeof progress.checks === "object"
       ? progress.checks
       : {};
 
   let changed = false;
-  const nextChecks: Record<string, any> = { ...(existingChecks ?? {}) };
+  const nextChecks: Record<string, any> = {};
 
-  for (const id of allCheckIds) {
-    const existing = nextChecks[id];
-
-    // If missing entirely, add default ok
+  for (const [id, existing] of Object.entries(existingChecks)) {
     if (!existing || typeof existing !== "object") {
-      nextChecks[id] = { value: "ok" };
       changed = true;
       continue;
     }
 
-    // If exists but no value, set default ok
-    if (!existing.value) {
-      nextChecks[id] = { ...existing, value: "ok" };
-      changed = true;
+    const rawValue = (existing as any).value;
+    const rawNote = (existing as any).note;
+    const note =
+      typeof rawNote === "string" && rawNote.trim().length > 0
+        ? rawNote
+        : undefined;
+
+    if (
+      rawValue === "ok" ||
+      rawValue === "concern" ||
+      rawValue === "unsure"
+    ) {
+      nextChecks[id] = note ? { value: rawValue, note } : { value: rawValue };
+
+      if ((existing as any).note !== note) changed = true;
+      continue;
     }
+
+    if (note) {
+      nextChecks[id] = { note };
+      changed = true;
+      continue;
+    }
+
+    changed = true;
   }
 
-  if (!changed) return { changed: false, next: progress };
+  const sameKeys =
+    Object.keys(existingChecks).length === Object.keys(nextChecks).length;
+
+  if (!changed && sameKeys) {
+    return { changed: false, next: progress };
+  }
 
   return {
     changed: true,
@@ -441,7 +444,7 @@ export default function InPersonSummary() {
   const [askingPriceInput, setAskingPriceInput] = useState<string>("");
   const [askingPriceTouched, setAskingPriceTouched] = useState(false);
 
-  // Reactive copy so Summary reflects saved defaults immediately
+  // Reactive copy so Summary reflects saved progress immediately
   const [progressState, setProgressState] = useState<ScanProgress>(() => {
     return loadProgress() ?? {};
   });
@@ -523,10 +526,7 @@ export default function InPersonSummary() {
       step: "summary",
     };
 
-    const visitedDrive =
-      hasVisitedDriveStep(latest) || hasAnyDriveAnswers(latest?.checks ?? {});
-    const { changed, next } = ensureDefaultChecks(merged, visitedDrive);
-
+    const { changed, next } = sanitiseChecks(merged);
     const finalProgress = changed ? next : merged;
 
     saveProgress(finalProgress);
@@ -575,7 +575,9 @@ export default function InPersonSummary() {
 
       const impPaths = extractImperfectionPhotoPaths(progressForDisplay);
 
-      const all = Array.from(new Set([...stepPaths, ...followPaths, ...impPaths]));
+      const all = Array.from(
+        new Set([...stepPaths, ...followPaths, ...impPaths])
+      );
 
       if (all.length === 0) return;
 
@@ -641,10 +643,10 @@ export default function InPersonSummary() {
       setAuthReady(true);
     }
 
-    init();
+    void init();
 
     const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      init();
+      void init();
     });
 
     return () => {
@@ -682,10 +684,7 @@ export default function InPersonSummary() {
         askingPrice: parsedAskingPrice,
       };
 
-      const visitedDrive =
-        hasVisitedDriveStep(latest) || hasAnyDriveAnswers(latest?.checks ?? {});
-      const { changed, next } = ensureDefaultChecks(merged, visitedDrive);
-
+      const { changed, next } = sanitiseChecks(merged);
       const progressForSave = changed ? next : merged;
 
       saveProgress(progressForSave);
@@ -736,7 +735,7 @@ export default function InPersonSummary() {
 
         photosCount: (progressForSave?.photos ?? []).length,
         fromOnlineScan,
-        progressSnapshot: progressForSave, // ✅ critical: persist photo storagePath refs
+        progressSnapshot: progressForSave, // ✅ critical: persist photo refs as saved
       });
 
       const unlocked = await hasUnlockForScan(activeScanId);
@@ -752,7 +751,9 @@ export default function InPersonSummary() {
         saveProgress(nextProg);
         setProgressState(nextProg);
 
-        navigate(`/scan/in-person/analyzing/${activeScanId}`, { replace: true });
+        navigate(`/scan/in-person/analyzing/${activeScanId}`, {
+          replace: true,
+        });
         return;
       }
 
@@ -838,9 +839,9 @@ export default function InPersonSummary() {
               Summary
             </h1>
             <p className="text-slate-400 mt-3 max-w-2xl leading-relaxed">
-              This is a clear snapshot of what you recorded. Next, CarVerity will
-              convert it into a buyer-safe report with reasoning and practical
-              next steps — without hype or pressure.
+              This is a clear snapshot of what you recorded. Next, CarVerity
+              will convert it into a buyer-safe report with reasoning and
+              practical next steps — without hype or pressure.
             </p>
           </div>
 
@@ -994,20 +995,20 @@ export default function InPersonSummary() {
                     value={askingPriceInput}
                     onChange={(e) => setAskingPriceInput(e.target.value)}
                     onBlur={() => {
-  setAskingPriceTouched(true);
+                      setAskingPriceTouched(true);
 
-  const latest = loadProgress() ?? {};
-  const next: ScanProgress = {
-    ...(latest ?? {}),
-    type: "in-person" as const,
-    scanId: activeScanId,
-    step: "summary",
-    askingPrice: parsedAskingPrice,
-  };
+                      const latest = loadProgress() ?? {};
+                      const next: ScanProgress = {
+                        ...(latest ?? {}),
+                        type: "in-person" as const,
+                        scanId: activeScanId,
+                        step: "summary",
+                        askingPrice: parsedAskingPrice,
+                      };
 
-  saveProgress(next);
-  setProgressState(next);
-}}
+                      saveProgress(next);
+                      setProgressState(next);
+                    }}
                     inputMode="numeric"
                     placeholder="e.g. 18,990"
                     className={[
@@ -1109,7 +1110,7 @@ export default function InPersonSummary() {
             </div>
           </div>
 
-          {/* Photos preview (NEW) */}
+          {/* Photos preview */}
           <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/30 p-5">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
