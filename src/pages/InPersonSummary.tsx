@@ -199,6 +199,52 @@ function toneClasses(tone: "good" | "info" | "warn" | "danger") {
   };
 }
 
+function scoreExplanation(args: {
+  concerns: number;
+  unsure: number;
+  answeredChecks: number;
+}) {
+  const { concerns, unsure, answeredChecks } = args;
+
+  if (answeredChecks === 0) {
+    return {
+      title: "No scored answers recorded yet",
+      body:
+        "This is not a clean bill of health. It simply means there is not enough recorded evidence yet for CarVerity to judge risk.",
+    };
+  }
+
+  if (concerns === 0 && unsure === 0) {
+    return {
+      title: "Your recorded answers were mostly reassuring",
+      body:
+        "That does not prove the car is problem-free — it only means you did not record concerns or unknowns in the checks you completed.",
+    };
+  }
+
+  if (concerns === 0 && unsure > 0) {
+    return {
+      title: "Unknowns are pulling the score down",
+      body:
+        "A lower score here does not automatically mean the car is bad. It often means there are still unanswered questions worth clarifying.",
+    };
+  }
+
+  if (concerns > 0 && unsure === 0) {
+    return {
+      title: "Recorded concerns are driving this score",
+      body:
+        "This score is reacting to issues you actually noticed. It is a prompt to slow down, understand those signals, and decide whether they change the value or the risk.",
+    };
+  }
+
+  return {
+    title: "This score reflects a mix of concerns and unknowns",
+    body:
+      "It is not a verdict on the whole car. It is a grounded summary of what you recorded, plus what still needs clarification before you commit.",
+  };
+}
+
 /**
  * Drive completion must NOT be inferred from default check fills.
  * It should reflect whether the user actually went through the Drive step.
@@ -615,8 +661,28 @@ export default function InPersonSummary() {
   const concerns = useMemo(() => countConcerns(checks), [checks]);
   const unsure = useMemo(() => countUnsure(checks), [checks]);
   const score = useMemo(() => scoreFromChecks(checks), [checks]);
+  const answeredChecks = useMemo(
+    () =>
+      Object.values(checks || {}).filter((a: any) =>
+        Boolean(
+          a &&
+            typeof a === "object" &&
+            (a.value === "ok" || a.value === "unsure" || a.value === "concern")
+        )
+      ).length,
+    [checks]
+  );
 
   const issuesRecorded = useMemo(() => concerns + unsure, [concerns, unsure]);
+  const scoreCopy = useMemo(
+    () =>
+      scoreExplanation({
+        concerns,
+        unsure,
+        answeredChecks,
+      }),
+    [concerns, unsure, answeredChecks]
+  );
 
   const verdict = useMemo(() => {
     return getPricingVerdict({
@@ -916,7 +982,7 @@ export default function InPersonSummary() {
                 Snapshot
               </p>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                This score reflects your recorded answers only.
+                This score reflects recorded answers only.
               </p>
             </div>
           </div>
@@ -927,6 +993,20 @@ export default function InPersonSummary() {
                 className={["h-full rounded-full", bandTone.bar].join(" ")}
                 style={{ width: `${clamp(score, 0, 100)}%` }}
               />
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+              <p className="text-sm font-semibold text-white">
+                {scoreCopy.title}
+              </p>
+              <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+                {scoreCopy.body}
+              </p>
+              <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+                Unanswered items do not improve the score. This number is a
+                guide to recorded risk and uncertainty — not a mechanical
+                diagnosis and not proof the car is good or bad.
+              </p>
             </div>
 
             <div className="mt-6 grid grid-cols-3 gap-3">
@@ -950,10 +1030,10 @@ export default function InPersonSummary() {
 
               <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">
-                  Notes
+                  Answered
                 </p>
                 <p className="text-lg font-semibold text-white tabular-nums mt-1">
-                  {followUps.length}
+                  {answeredChecks}
                 </p>
               </div>
             </div>
