@@ -12,6 +12,10 @@ import {
   RefreshCcw,
   ClipboardCheck,
   Image as ImageIcon,
+  CircleHelp,
+  ShieldCheck,
+  FileSearch,
+  CircleDot,
 } from "lucide-react";
 import { supabase } from "../supabaseClient";
 import {
@@ -23,6 +27,38 @@ import {
 import { saveScan, generateScanId, loadScanById } from "../utils/scanStorage";
 
 type PricingVerdict = "missing" | "info" | "room" | "concern";
+type UiTone = "good" | "info" | "warn" | "danger";
+
+type DebriefCard = {
+  id: string;
+  label: string;
+  value: string;
+  helper: string;
+  tone: UiTone;
+};
+
+type DebriefCopy = {
+  tone: UiTone;
+  eyebrow: string;
+  title: string;
+  body: string;
+  reassurance: string;
+};
+
+type UnknownItem = {
+  id: string;
+  title: string;
+  body: string;
+  actionLabel?: string;
+  action?: () => void;
+};
+
+type NextStepItem = {
+  id: string;
+  title: string;
+  body: string;
+  tone: UiTone;
+};
 
 /* =======================================================
    Storage config
@@ -87,6 +123,21 @@ function countConcerns(checks: Record<string, any>) {
 function countUnsure(checks: Record<string, any>) {
   return Object.values(checks || {}).filter((a: any) => a?.value === "unsure")
     .length;
+}
+
+function countOk(checks: Record<string, any>) {
+  return Object.values(checks || {}).filter((a: any) => a?.value === "ok")
+    .length;
+}
+
+function countNotesOnly(checks: Record<string, any>) {
+  return Object.values(checks || {}).filter((a: any) => {
+    if (!a || typeof a !== "object") return false;
+    const hasValidValue =
+      a.value === "ok" || a.value === "unsure" || a.value === "concern";
+    const hasNote = typeof a.note === "string" && a.note.trim().length > 0;
+    return !hasValidValue && hasNote;
+  }).length;
 }
 
 function getPricingVerdict(args: {
@@ -170,12 +221,13 @@ function scoreBand(score: number) {
   return { label: "High risk", tone: "danger" as const };
 }
 
-function toneClasses(tone: "good" | "info" | "warn" | "danger") {
+function toneClasses(tone: UiTone) {
   if (tone === "good") {
     return {
       pill: "bg-emerald-500/10 text-emerald-200 border-emerald-500/20",
       bar: "bg-emerald-500",
       icon: "text-emerald-300",
+      card: "border-emerald-500/20 bg-emerald-500/8",
     };
   }
   if (tone === "warn") {
@@ -183,6 +235,7 @@ function toneClasses(tone: "good" | "info" | "warn" | "danger") {
       pill: "bg-amber-500/10 text-amber-200 border-amber-500/20",
       bar: "bg-amber-400",
       icon: "text-amber-300",
+      card: "border-amber-500/20 bg-amber-500/8",
     };
   }
   if (tone === "danger") {
@@ -190,12 +243,14 @@ function toneClasses(tone: "good" | "info" | "warn" | "danger") {
       pill: "bg-rose-500/10 text-rose-200 border-rose-500/20",
       bar: "bg-rose-400",
       icon: "text-rose-300",
+      card: "border-rose-500/20 bg-rose-500/8",
     };
   }
   return {
     pill: "bg-sky-500/10 text-sky-200 border-sky-500/20",
     bar: "bg-sky-400",
     icon: "text-sky-300",
+    card: "border-sky-500/20 bg-sky-500/8",
   };
 }
 
@@ -245,6 +300,272 @@ function scoreExplanation(args: {
   };
 }
 
+function buildDebriefCopy(args: {
+  concerns: number;
+  unsure: number;
+  answeredChecks: number;
+  okCount: number;
+  notesOnly: number;
+  driveWasSkippedOrMissing: boolean;
+  hasPhotos: boolean;
+  hasAskingPrice: boolean;
+}): DebriefCopy {
+  const {
+    concerns,
+    unsure,
+    answeredChecks,
+    okCount,
+    notesOnly,
+    driveWasSkippedOrMissing,
+    hasPhotos,
+    hasAskingPrice,
+  } = args;
+
+  const evidenceSignals = concerns + unsure + okCount + notesOnly;
+  const unknownSignals =
+    (driveWasSkippedOrMissing ? 1 : 0) +
+    (!hasAskingPrice ? 1 : 0) +
+    (!hasPhotos ? 1 : 0);
+
+  if (answeredChecks === 0 && notesOnly === 0) {
+    return {
+      tone: "info",
+      eyebrow: "Guided debrief",
+      title: "Not enough has been recorded yet to feel confident",
+      body:
+        "This summary is intentionally cautious. CarVerity only works from what you actually captured, so skipped or missing items stay neutral instead of being treated as good news.",
+      reassurance:
+        "That is a safer result than pretending the car looked fine. You can still review checks, add the drive step, or continue and let the report explain where the uncertainty sits.",
+    };
+  }
+
+  if (concerns >= 3 || (concerns >= 2 && unsure >= 2)) {
+    return {
+      tone: "warn",
+      eyebrow: "Guided debrief",
+      title: "A few recorded signals suggest slowing down here",
+      body:
+        "You recorded multiple issues or doubts during the inspection. That does not automatically rule the car out, but it does mean the next step should focus on clarity rather than confidence.",
+      reassurance:
+        "CarVerity will separate what you clearly observed from what still needs checking, so you are not pushed into a false yes or no.",
+    };
+  }
+
+  if (concerns > 0 && unknownSignals > 0) {
+    return {
+      tone: "warn",
+      eyebrow: "Guided debrief",
+      title: "Some real concerns were recorded — and a few gaps still remain",
+      body:
+        "This is the kind of inspection where clarity matters most. You have recorded reasons to be cautious, but there are also some parts of the picture that are still unfinished or unverified.",
+      reassurance:
+        "The report will keep those two things separate: known issues on one side, unresolved unknowns on the other.",
+    };
+  }
+
+  if (concerns === 0 && unsure > 0) {
+    return {
+      tone: "info",
+      eyebrow: "Guided debrief",
+      title: "Nothing major was flagged, but there are still some question marks",
+      body:
+        "Most of the caution here comes from uncertainty rather than confirmed problems. That is useful, because buyer regret often comes from vague doubts that never got clarified.",
+      reassurance:
+        "CarVerity will treat those unknowns as follow-ups to resolve, not as automatic negatives.",
+    };
+  }
+
+  if (concerns === 0 && unsure === 0 && evidenceSignals > 0) {
+    return {
+      tone: "good",
+      eyebrow: "Guided debrief",
+      title: "What you recorded looks fairly reassuring so far",
+      body:
+        "Based on the answers you explicitly recorded, nothing stands out as a major warning sign. That is encouraging, but it is still only a summary of what you captured on the day.",
+      reassurance:
+        "Missing items are not being quietly counted as positive. The app is only giving credit to evidence you actually entered.",
+    };
+  }
+
+  return {
+    tone: "info",
+    eyebrow: "Guided debrief",
+    title: "You have a usable inspection snapshot — with some areas still to clarify",
+    body:
+      "This summary is designed to help you think clearly, not rush toward a verdict. It reflects the inspection you recorded, including any uncertainty that still needs follow-up.",
+    reassurance:
+      "The next step will turn this into a calmer buyer-safe interpretation of what is known, what is unclear, and what matters most.",
+  };
+}
+
+function buildStandoutCards(args: {
+  concerns: number;
+  unsure: number;
+  answeredChecks: number;
+  okCount: number;
+  notesOnly: number;
+  driveWasSkippedOrMissing: boolean;
+  photosCount: number;
+}): DebriefCard[] {
+  const {
+    concerns,
+    unsure,
+    answeredChecks,
+    okCount,
+    notesOnly,
+    driveWasSkippedOrMissing,
+    photosCount,
+  } = args;
+
+  const cards: DebriefCard[] = [
+    {
+      id: "concerns",
+      label: "Recorded concerns",
+      value: String(concerns),
+      helper:
+        concerns > 0
+          ? "These are the clearest reasons to slow down."
+          : "No explicit concern selections were recorded.",
+      tone: concerns > 0 ? "warn" : "good",
+    },
+    {
+      id: "unsure",
+      label: "Recorded unknowns",
+      value: String(unsure),
+      helper:
+        unsure > 0
+          ? "These are questions still worth clarifying."
+          : "No explicit unsure selections were recorded.",
+      tone: unsure > 0 ? "info" : "good",
+    },
+    {
+      id: "answered",
+      label: "Scored answers",
+      value: String(answeredChecks),
+      helper:
+        answeredChecks > 0
+          ? "Only explicit answers influence the score."
+          : "No scored evidence has been captured yet.",
+      tone: answeredChecks > 0 ? "info" : "warn",
+    },
+  ];
+
+  cards.push({
+    id: "supporting-evidence",
+    label: "Support captured",
+    value: `${okCount + notesOnly + photosCount}`,
+    helper:
+      okCount + notesOnly + photosCount > 0
+        ? "Includes reassuring answers, notes and photos."
+        : "Very little supporting evidence has been captured.",
+    tone: okCount + notesOnly + photosCount > 0 ? "good" : "info",
+  });
+
+  cards.push({
+    id: "drive-status",
+    label: "Drive step",
+    value: driveWasSkippedOrMissing ? "Not assessed" : "Recorded",
+    helper: driveWasSkippedOrMissing
+      ? "You can still complete the quick drive checks now."
+      : "Drive impressions are part of this summary.",
+    tone: driveWasSkippedOrMissing ? "warn" : "good",
+  });
+
+  return cards;
+}
+
+function buildNextSteps(args: {
+  concerns: number;
+  unsure: number;
+  answeredChecks: number;
+  driveWasSkippedOrMissing: boolean;
+  hasAskingPrice: boolean;
+  hasPhotos: boolean;
+}): NextStepItem[] {
+  const {
+    concerns,
+    unsure,
+    answeredChecks,
+    driveWasSkippedOrMissing,
+    hasAskingPrice,
+    hasPhotos,
+  } = args;
+
+  const items: NextStepItem[] = [];
+
+  if (concerns > 0) {
+    items.push({
+      id: "concern-follow-up",
+      title: "Focus first on the issues you clearly noticed",
+      body:
+        "The report will prioritise the few concern signals that are most likely to affect risk, confidence or value.",
+      tone: "warn",
+    });
+  }
+
+  if (unsure > 0) {
+    items.push({
+      id: "unsure-follow-up",
+      title: "Turn uncertainty into specific follow-up questions",
+      body:
+        "Unknowns are often where regret hides. The report will turn them into practical things to verify before deciding.",
+      tone: "info",
+    });
+  }
+
+  if (answeredChecks === 0) {
+    items.push({
+      id: "low-evidence",
+      title: "Low recorded evidence means lower confidence",
+      body:
+        "A thin inspection should stay cautious. CarVerity will avoid giving false reassurance when not much was actually entered.",
+      tone: "warn",
+    });
+  }
+
+  if (driveWasSkippedOrMissing) {
+    items.push({
+      id: "drive-gap",
+      title: "The drive step is still a gap in the picture",
+      body:
+        "Steering, braking and hesitation can change how safe or settled the car feels. Completing that step now would strengthen the report.",
+      tone: "warn",
+    });
+  }
+
+  if (!hasAskingPrice) {
+    items.push({
+      id: "price-gap",
+      title: "Price alignment is still incomplete",
+      body:
+        "Adding the asking price gives the report a better read on whether what you recorded feels proportionate to the advertised number.",
+      tone: "info",
+    });
+  }
+
+  if (!hasPhotos) {
+    items.push({
+      id: "photo-gap",
+      title: "No visual evidence was captured",
+      body:
+        "That is not a blocker. The report can still work from your answers and notes, but photos can make later review easier.",
+      tone: "info",
+    });
+  }
+
+  if (items.length === 0) {
+    items.push({
+      id: "balanced",
+      title: "You have enough recorded detail to generate a grounded report",
+      body:
+        "The next step is less about collecting more and more about interpreting what you already captured in a calm, buyer-safe way.",
+      tone: "good",
+    });
+  }
+
+  return items.slice(0, 3);
+}
+
 /**
  * Drive completion must NOT be inferred from default check fills.
  * It should reflect whether the user actually went through the Drive step.
@@ -266,8 +587,6 @@ function hasAnyDriveAnswers(checks: Record<string, any>) {
 }
 
 function getThumbnailFromPhotos(photos: any[]): string | null {
-  // Photos are now stored as { storagePath }, not dataUrl.
-  // Keep backwards compatibility only (older builds might still have dataUrl).
   if (!Array.isArray(photos) || photos.length === 0) return null;
 
   const first = photos[0];
@@ -396,12 +715,10 @@ function extractImperfectionPhotoPaths(progress: ScanProgress): string[] {
   const paths: string[] = [];
 
   for (const imp of imps) {
-    // Support: imp.storagePath
     if (typeof imp?.storagePath === "string" && imp.storagePath.length > 0) {
       paths.push(imp.storagePath);
     }
 
-    // Support: imp.photos[]
     if (Array.isArray(imp?.photos)) {
       for (const p of imp.photos) {
         if (typeof p?.storagePath === "string" && p.storagePath.length > 0) {
@@ -436,7 +753,6 @@ function dedupeByKey<T>(items: T[], keyFn: (item: T) => string): T[] {
 function normaliseProgressForDisplay(progress: ScanProgress): ScanProgress {
   const next: any = { ...(progress ?? {}) };
 
-  // Step photos
   if (Array.isArray(next.photos)) {
     next.photos = dedupeByKey(next.photos, (p: any) => {
       const sp = String(p?.storagePath ?? "").trim();
@@ -447,7 +763,6 @@ function normaliseProgressForDisplay(progress: ScanProgress): ScanProgress {
     });
   }
 
-  // Follow-up photos
   if (Array.isArray(next.followUpPhotos)) {
     next.followUpPhotos = dedupeByKey(next.followUpPhotos, (p: any) => {
       const sp = String(p?.storagePath ?? "").trim();
@@ -458,7 +773,6 @@ function normaliseProgressForDisplay(progress: ScanProgress): ScanProgress {
     });
   }
 
-  // Imperfections
   if (Array.isArray(next.imperfections)) {
     next.imperfections = dedupeByKey(next.imperfections, (imp: any) => {
       const id = String(imp?.id ?? "").trim();
@@ -490,16 +804,13 @@ export default function InPersonSummary() {
   const [askingPriceInput, setAskingPriceInput] = useState<string>("");
   const [askingPriceTouched, setAskingPriceTouched] = useState(false);
 
-  // Reactive copy so Summary reflects saved progress immediately
   const [progressState, setProgressState] = useState<ScanProgress>(() => {
     return loadProgress() ?? {};
   });
 
-  // Signed URLs for display (results-safe)
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [photoUrlsLoading, setPhotoUrlsLoading] = useState(false);
 
-  // Ensure scanId always exists for this flow
   const activeScanId: string = useMemo(() => {
     const existing = progressState?.scanId || routeScanId;
     if (existing && typeof existing === "string") return existing;
@@ -507,11 +818,6 @@ export default function InPersonSummary() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeScanId, progressState?.scanId]);
 
-  /**
-   * IMPORTANT:
-   * After refresh, progressState might not contain photos if the user is viewing
-   * a saved scan entry. We rehydrate from scanStorage.progressSnapshot.
-   */
   const progressForDisplay: ScanProgress = useMemo(() => {
     const local = progressState ?? {};
     const hasPhotos =
@@ -578,7 +884,6 @@ export default function InPersonSummary() {
     saveProgress(finalProgress);
     setProgressState(finalProgress);
 
-    // Initialise asking price input from stored value (once)
     setAskingPriceInput((prev) => {
       if (prev && prev.trim().length > 0) return prev;
       if (askingPrice && askingPrice > 0) return String(Math.round(askingPrice));
@@ -592,7 +897,6 @@ export default function InPersonSummary() {
     return parseAskingPrice(askingPriceInput);
   }, [askingPriceInput]);
 
-  // Load signed URLs for all photo paths we can display
   const allPhotoPathsKey = useMemo(() => {
     const stepPaths = (photos ?? [])
       .map((p: any) => String(p?.storagePath ?? ""))
@@ -660,7 +964,10 @@ export default function InPersonSummary() {
 
   const concerns = useMemo(() => countConcerns(checks), [checks]);
   const unsure = useMemo(() => countUnsure(checks), [checks]);
+  const okCount = useMemo(() => countOk(checks), [checks]);
+  const notesOnly = useMemo(() => countNotesOnly(checks), [checks]);
   const score = useMemo(() => scoreFromChecks(checks), [checks]);
+
   const answeredChecks = useMemo(
     () =>
       Object.values(checks || {}).filter((a: any) =>
@@ -674,6 +981,7 @@ export default function InPersonSummary() {
   );
 
   const issuesRecorded = useMemo(() => concerns + unsure, [concerns, unsure]);
+
   const scoreCopy = useMemo(
     () =>
       scoreExplanation({
@@ -801,7 +1109,7 @@ export default function InPersonSummary() {
 
         photosCount: (progressForSave?.photos ?? []).length,
         fromOnlineScan,
-        progressSnapshot: progressForSave, // ✅ critical: persist photo refs as saved
+        progressSnapshot: progressForSave,
       });
 
       const unlocked = await hasUnlockForScan(activeScanId);
@@ -892,22 +1200,147 @@ export default function InPersonSummary() {
   const displayImperfectionPaths =
     extractImperfectionPhotoPaths(progressForDisplay);
 
+  const totalDisplayPhotos =
+    displayStepPhotos.length +
+    displayFollowUpPhotos.length +
+    displayImperfectionPaths.length;
+
+  const hasPhotos = totalDisplayPhotos > 0;
+  const hasAskingPrice = Boolean(parsedAskingPrice && parsedAskingPrice > 0);
+
+  const debriefCopy = useMemo(
+    () =>
+      buildDebriefCopy({
+        concerns,
+        unsure,
+        answeredChecks,
+        okCount,
+        notesOnly,
+        driveWasSkippedOrMissing,
+        hasPhotos,
+        hasAskingPrice,
+      }),
+    [
+      concerns,
+      unsure,
+      answeredChecks,
+      okCount,
+      notesOnly,
+      driveWasSkippedOrMissing,
+      hasPhotos,
+      hasAskingPrice,
+    ]
+  );
+
+  const debriefTone = toneClasses(debriefCopy.tone);
+
+  const standoutCards = useMemo(
+    () =>
+      buildStandoutCards({
+        concerns,
+        unsure,
+        answeredChecks,
+        okCount,
+        notesOnly,
+        driveWasSkippedOrMissing,
+        photosCount: totalDisplayPhotos,
+      }),
+    [
+      concerns,
+      unsure,
+      answeredChecks,
+      okCount,
+      notesOnly,
+      driveWasSkippedOrMissing,
+      totalDisplayPhotos,
+    ]
+  );
+
+  const unknownItems = useMemo(() => {
+    const items: UnknownItem[] = [];
+
+    if (driveWasSkippedOrMissing) {
+      items.push({
+        id: "drive",
+        title: "Drive impressions are still missing",
+        body:
+          "Steering, braking, hesitation and driver-assist behaviour were not clearly recorded. That does not count as a positive result — it simply stays unassessed.",
+        actionLabel: "Do drive checks now",
+        action: handleDoDriveNow,
+      });
+    }
+
+    if (!hasAskingPrice) {
+      items.push({
+        id: "price",
+        title: "Price alignment cannot be judged properly yet",
+        body:
+          "Without the advertised price, the report can still explain risk — but it cannot properly judge whether the number feels fair for what you recorded.",
+      });
+    }
+
+    if (!hasPhotos) {
+      items.push({
+        id: "photos",
+        title: "No photo evidence was captured",
+        body:
+          "That is okay. The report can still use your answers and notes, but there will be less visual context to refer back to later.",
+      });
+    }
+
+    if (answeredChecks === 0 && notesOnly === 0) {
+      items.push({
+        id: "answers",
+        title: "Very little inspection evidence has been recorded",
+        body:
+          "A low-information inspection should stay cautious. CarVerity will avoid filling in the blanks or acting more confident than the evidence allows.",
+      });
+    }
+
+    return items;
+  }, [
+    driveWasSkippedOrMissing,
+    hasAskingPrice,
+    hasPhotos,
+    answeredChecks,
+    notesOnly,
+  ]);
+
+  const nextStepItems = useMemo(
+    () =>
+      buildNextSteps({
+        concerns,
+        unsure,
+        answeredChecks,
+        driveWasSkippedOrMissing,
+        hasAskingPrice,
+        hasPhotos,
+      }),
+    [
+      concerns,
+      unsure,
+      answeredChecks,
+      driveWasSkippedOrMissing,
+      hasAskingPrice,
+      hasPhotos,
+    ]
+  );
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-16">
-      <header className="mb-10">
+      <header className="mb-8">
         <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
           In-person inspection
         </p>
 
         <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-[240px]">
+          <div className="min-w-[260px]">
             <h1 className="text-3xl md:text-4xl font-semibold text-white">
-              Summary
+              Guided summary
             </h1>
             <p className="text-slate-400 mt-3 max-w-2xl leading-relaxed">
-              This is a clear snapshot of what you recorded. Next, CarVerity
-              will convert it into a buyer-safe report with reasoning and
-              practical next steps — without hype or pressure.
+              This page is designed to help you slow down and make sense of what
+              you actually recorded — not rush you toward a verdict.
             </p>
           </div>
 
@@ -918,23 +1351,79 @@ export default function InPersonSummary() {
               bandTone.pill,
             ].join(" ")}
           >
-            <CheckCircle2 className={["h-4 w-4", bandTone.icon].join(" ")} />
+            <ShieldCheck className={["h-4 w-4", bandTone.icon].join(" ")} />
             {band.label}
           </div>
         </div>
       </header>
 
+      <section
+        className={[
+          "rounded-3xl border p-6 md:p-7",
+          debriefTone.card,
+        ].join(" ")}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="min-w-[260px] flex-1">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+              {debriefCopy.eyebrow}
+            </p>
+
+            <h2 className="mt-3 text-2xl md:text-3xl font-semibold text-white leading-tight">
+              {debriefCopy.title}
+            </h2>
+
+            <p className="mt-4 text-sm md:text-[15px] text-slate-300 leading-relaxed max-w-3xl">
+              {debriefCopy.body}
+            </p>
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3">
+              <p className="text-sm text-slate-200 leading-relaxed">
+                {debriefCopy.reassurance}
+              </p>
+            </div>
+          </div>
+
+          <div className="w-full md:w-auto md:min-w-[220px] rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">
+              Recorded score
+            </p>
+
+            <div className="mt-3 flex items-end gap-3">
+              <div className="text-5xl font-semibold text-white tabular-nums">
+                {score}
+              </div>
+              <div className="pb-1">
+                <p className="text-sm text-slate-400">out of 100</p>
+              </div>
+            </div>
+
+            <div className="mt-4 h-2 rounded-full bg-slate-800 overflow-hidden">
+              <div
+                className={["h-full rounded-full", bandTone.bar].join(" ")}
+                style={{ width: `${clamp(score, 0, 100)}%` }}
+              />
+            </div>
+
+            <p className="mt-3 text-xs text-slate-400 leading-relaxed">
+              This number only reacts to explicit answers you selected.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {driveWasSkippedOrMissing && (
-        <div className="mb-8 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-5">
+        <div className="mt-8 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-5">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-4 w-4 text-amber-300 mt-0.5" />
             <div className="flex-1">
               <p className="text-sm font-semibold text-white">
-                Skipped test drive earlier — you can still do it now
+                The test drive is still unassessed — you can add it now
               </p>
               <p className="text-sm text-slate-300 mt-1 leading-relaxed">
-                If the situation changed (or you tapped skip by accident), you
-                can run the quick drive checks before generating the report.
+                If you skipped it earlier, changed circumstances, or tapped past
+                it by accident, you can still record the quick drive checks
+                before generating the report.
               </p>
 
               <div className="mt-4 flex flex-wrap gap-3">
@@ -959,106 +1448,211 @@ export default function InPersonSummary() {
         </div>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-3">
-        {/* Score card */}
-        <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                Overall score
-              </p>
-              <div className="mt-4 flex items-end gap-3">
-                <div className="text-5xl font-semibold text-white tabular-nums">
-                  {score}
-                </div>
-                <div className="pb-1">
-                  <p className="text-sm text-slate-400">out of 100</p>
-                </div>
-              </div>
-            </div>
+      <section className="mt-8">
+        <div className="flex items-center gap-2">
+          <CircleDot className="h-4 w-4 text-slate-300" />
+          <h2 className="text-lg font-semibold text-white">What stood out</h2>
+        </div>
+        <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+          These are the main signals the app can safely infer from what you
+          recorded — without filling in the blanks.
+        </p>
 
-            <div className="rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-500">
-                Snapshot
-              </p>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                This score reflects recorded answers only.
-              </p>
-            </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {standoutCards.map((card) => {
+            const tone = toneClasses(card.tone);
+            return (
+              <div
+                key={card.id}
+                className={[
+                  "rounded-2xl border p-4 bg-slate-900/45",
+                  tone.card,
+                ].join(" ")}
+              >
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                  {card.label}
+                </p>
+                <p className="mt-3 text-2xl font-semibold text-white tabular-nums">
+                  {card.value}
+                </p>
+                <p className="mt-2 text-xs text-slate-400 leading-relaxed">
+                  {card.helper}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="mt-8 grid gap-8 lg:grid-cols-3">
+        <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-6 lg:col-span-2">
+          <div className="flex items-center gap-2">
+            <FileSearch className="h-4 w-4 text-slate-300" />
+            <h2 className="text-lg font-semibold text-white">
+              What CarVerity knows from this inspection
+            </h2>
           </div>
 
-          <div className="mt-5">
-            <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
-              <div
-                className={["h-full rounded-full", bandTone.bar].join(" ")}
-                style={{ width: `${clamp(score, 0, 100)}%` }}
-              />
+          <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+            This side of the summary only reflects information you explicitly
+            captured during the inspection.
+          </p>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-rose-500/20 bg-rose-500/8 p-5">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-4 w-4 text-rose-300 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Recorded concerns
+                  </p>
+                  <p className="text-3xl font-semibold text-white tabular-nums mt-2">
+                    {concerns}
+                  </p>
+                  <p className="text-sm text-slate-300 mt-2 leading-relaxed">
+                    These are the clearest caution signals because you
+                    explicitly marked them as concerns.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-              <p className="text-sm font-semibold text-white">
-                {scoreCopy.title}
-              </p>
-              <p className="text-sm text-slate-400 mt-2 leading-relaxed">
-                {scoreCopy.body}
-              </p>
-              <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-                Unanswered items do not improve the score. This number is a
-                guide to recorded risk and uncertainty — not a mechanical
-                diagnosis and not proof the car is good or bad.
-              </p>
+            <div className="rounded-2xl border border-sky-500/20 bg-sky-500/8 p-5">
+              <div className="flex items-start gap-3">
+                <CircleHelp className="h-4 w-4 text-sky-300 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Recorded unknowns
+                  </p>
+                  <p className="text-3xl font-semibold text-white tabular-nums mt-2">
+                    {unsure}
+                  </p>
+                  <p className="text-sm text-slate-300 mt-2 leading-relaxed">
+                    These are not automatic negatives. They are areas that still
+                    need clarification.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">
-                  Concerns
-                </p>
-                <p className="text-lg font-semibold text-white tabular-nums mt-1">
-                  {concerns}
-                </p>
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/8 p-5">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-4 w-4 text-emerald-300 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Reassuring recorded answers
+                  </p>
+                  <p className="text-3xl font-semibold text-white tabular-nums mt-2">
+                    {okCount}
+                  </p>
+                  <p className="text-sm text-slate-300 mt-2 leading-relaxed">
+                    These are the items you explicitly marked as okay. Nothing
+                    else is silently assumed to be okay on your behalf.
+                  </p>
+                </div>
               </div>
+            </div>
 
-              <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">
-                  Unsure
-                </p>
-                <p className="text-lg font-semibold text-white tabular-nums mt-1">
-                  {unsure}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">
-                  Answered
-                </p>
-                <p className="text-lg font-semibold text-white tabular-nums mt-1">
-                  {answeredChecks}
-                </p>
+            <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5">
+              <div className="flex items-start gap-3">
+                <ClipboardCheck className="h-4 w-4 text-slate-300 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Notes and context captured
+                  </p>
+                  <p className="text-3xl font-semibold text-white tabular-nums mt-2">
+                    {notesOnly}
+                  </p>
+                  <p className="text-sm text-slate-300 mt-2 leading-relaxed">
+                    Notes help the report explain what felt off, even when you
+                    did not select a scored answer.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-            <div className="flex items-start gap-3">
-              <ClipboardCheck className="h-4 w-4 text-slate-300 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-white">
-                  Evidence considered
-                </p>
-                <p className="text-sm text-slate-400 mt-1 leading-relaxed">
-                  This report is based on the information you recorded during
-                  the inspection: your marked concerns, items you selected as
-                  unsure, your notes, and any photos captured. Items you did not
-                  record are treated as not assessed (not as positive or
-                  negative).
-                </p>
-              </div>
-            </div>
+            <p className="text-sm font-semibold text-white">
+              {scoreCopy.title}
+            </p>
+            <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+              {scoreCopy.body}
+            </p>
+            <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+              Unanswered items do not improve the score. This number is a guide
+              to recorded risk and uncertainty — not a mechanical diagnosis and
+              not proof the car is good or bad.
+            </p>
           </div>
         </section>
 
-        {/* Asking price + verdict */}
+        <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-6">
+          <div className="flex items-center gap-2">
+            <Info className="h-4 w-4 text-slate-300" />
+            <h2 className="text-lg font-semibold text-white">
+              Still not assessed
+            </h2>
+          </div>
+
+          <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+            These are gaps in the picture — not red flags by default.
+          </p>
+
+          {unknownItems.length === 0 ? (
+            <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/8 p-4">
+              <p className="text-sm font-semibold text-white">
+                No major obvious gaps stand out
+              </p>
+              <p className="text-sm text-slate-300 mt-2 leading-relaxed">
+                From what this page can see, you have captured a reasonably
+                complete set of inspection inputs for the report to work with.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-5 space-y-3">
+              {unknownItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-white/10 bg-slate-950/40 p-4"
+                >
+                  <p className="text-sm font-semibold text-white">
+                    {item.title}
+                  </p>
+                  <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+                    {item.body}
+                  </p>
+
+                  {item.action && item.actionLabel && (
+                    <div className="mt-4">
+                      <button
+                        type="button"
+                        onClick={item.action}
+                        className="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold px-4 py-2 text-sm"
+                      >
+                        {item.actionLabel}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+            <p className="text-sm font-semibold text-white">
+              Evidence rule
+            </p>
+            <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+              CarVerity only scores what you explicitly entered: your selections,
+              notes and captured photos. Missing items reduce certainty, not
+              quality.
+            </p>
+          </div>
+        </section>
+      </div>
+
+      <div className="mt-8 grid gap-8 lg:grid-cols-3">
         <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-6 lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="min-w-[240px] flex-1">
@@ -1163,7 +1757,7 @@ export default function InPersonSummary() {
                     <Camera className="h-3.5 w-3.5 text-slate-400" />
                     Photos captured:{" "}
                     <span className="text-slate-200 tabular-nums font-semibold">
-                      {photos.length}
+                      {totalDisplayPhotos}
                     </span>
                   </span>
 
@@ -1181,31 +1775,25 @@ export default function InPersonSummary() {
                     <span className="text-slate-200 font-semibold">
                       Buyer-safe logic:
                     </span>{" "}
-                    CarVerity won’t “fill in gaps”. If you marked items as
-                    unsure, the report treats them as questions to clarify — not
-                    automatic negatives.
+                    CarVerity will not quietly convert missing evidence into
+                    positive evidence. If something is unclear, it stays unclear.
                   </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Photos preview */}
           <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/30 p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <ImageIcon className="h-4 w-4 text-slate-300" />
-                <p className="text-sm font-semibold text-white">
-                  Photos captured
-                </p>
-              </div>
-              <p className="text-xs text-slate-500 tabular-nums">
-                {displayStepPhotos.length +
-                  displayFollowUpPhotos.length +
-                  displayImperfectionPaths.length}{" "}
-                total
+            <div className="flex items-center gap-2">
+              <ImageIcon className="h-4 w-4 text-slate-300" />
+              <p className="text-sm font-semibold text-white">
+                Photos captured
               </p>
             </div>
+
+            <p className="text-xs text-slate-500 mt-2 tabular-nums">
+              {totalDisplayPhotos} total
+            </p>
 
             {photoUrlsLoading && (
               <p className="text-xs text-slate-500 mt-3">Loading previews…</p>
@@ -1323,49 +1911,62 @@ export default function InPersonSummary() {
               </div>
             )}
           </div>
+        </section>
 
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                What you’ll get
-              </p>
-              <p className="text-sm text-slate-200 font-semibold mt-2">
-                Clear reasoning
-              </p>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                “Why this matters” explanations tied to what you recorded.
-              </p>
-            </div>
+        <section className="rounded-2xl border border-white/10 bg-slate-900/50 p-6">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-slate-300" />
+            <h2 className="text-lg font-semibold text-white">
+              What happens next
+            </h2>
+          </div>
 
-            <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                What to do next
-              </p>
-              <p className="text-sm text-slate-200 font-semibold mt-2">
-                Practical follow-ups
-              </p>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                The few questions that reduce buyer regret the most.
-              </p>
-            </div>
+          <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+            The report’s job is to interpret this inspection calmly and keep the
+            unknowns separate from the knowns.
+          </p>
 
-            <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                Price alignment
-              </p>
-              <p className="text-sm text-slate-200 font-semibold mt-2">
-                Sanity-check signal
-              </p>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                A grounded read on whether the asking price fits what you
-                recorded.
-              </p>
-            </div>
+          <div className="mt-5 space-y-3">
+            {nextStepItems.map((item) => {
+              const tone = toneClasses(item.tone);
+              return (
+                <div
+                  key={item.id}
+                  className={[
+                    "rounded-2xl border p-4 bg-slate-950/40",
+                    tone.card,
+                  ].join(" ")}
+                >
+                  <p className="text-sm font-semibold text-white">
+                    {item.title}
+                  </p>
+                  <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+                    {item.body}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
+            <p className="text-sm font-semibold text-white">
+              What you’ll get
+            </p>
+            <ul className="mt-3 space-y-3 text-sm text-slate-400">
+              <li className="leading-relaxed">
+                Clear reasoning tied to what you recorded
+              </li>
+              <li className="leading-relaxed">
+                Practical follow-ups that reduce buyer regret
+              </li>
+              <li className="leading-relaxed">
+                A grounded price-alignment signal if the asking price is added
+              </li>
+            </ul>
           </div>
         </section>
       </div>
 
-      {/* Actions */}
       <section className="mt-10 rounded-2xl border border-white/10 bg-slate-900/40 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -1374,7 +1975,7 @@ export default function InPersonSummary() {
             </p>
             <p className="text-sm text-slate-400 mt-1 leading-relaxed">
               A credit is used when report generation begins. If you want to
-              change anything, review checks first.
+              tighten anything up first, review the checks before continuing.
             </p>
           </div>
 
@@ -1442,7 +2043,6 @@ export default function InPersonSummary() {
         )}
       </section>
 
-      {/* Footer reassurance */}
       <div className="mt-8 rounded-2xl border border-white/10 bg-slate-900/30 p-5">
         <div className="flex items-start gap-3">
           <Info className="h-4 w-4 text-slate-300 mt-0.5" />
@@ -1451,9 +2051,10 @@ export default function InPersonSummary() {
               Buyer-safe guidance, not car-yard hype
             </p>
             <p className="text-sm text-slate-400 mt-1 leading-relaxed">
-              CarVerity is designed to reduce buyer regret. The report focuses
-              on what your inspection means, what to clarify, and when to walk
-              away — without scripts or pressure.
+              CarVerity is built to reduce buyer regret. The report focuses on
+              what your inspection means, what still needs clarification, and
+              when caution is justified — without scripts, pressure or fake
+              certainty.
             </p>
           </div>
         </div>
