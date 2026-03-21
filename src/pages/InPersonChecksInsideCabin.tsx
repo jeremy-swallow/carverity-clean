@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sofa } from "lucide-react";
+import { Sofa, Sparkles } from "lucide-react";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 type AnswerValue = "ok" | "concern" | "unsure";
-type CheckAnswer = { value: AnswerValue; note?: string };
+type CheckAnswer = { value?: AnswerValue; note?: string };
 
 type CheckItem = {
   id: string;
@@ -172,27 +172,12 @@ export default function InPersonChecksInsideCabin() {
   );
 
   useEffect(() => {
-    setAnswers((prev) => {
-      let changed = false;
-      const next: Record<string, CheckAnswer> = { ...(prev ?? {}) };
-
-      for (const c of checks) {
-        if (!next[c.id]?.value) {
-          next[c.id] = { ...(next[c.id] ?? {}), value: "ok" };
-          changed = true;
-        }
-      }
-
-      return changed ? next : prev;
-    });
-  }, [checks]);
-
-  useEffect(() => {
     saveProgress({
       ...(progress ?? {}),
       step: "/scan/in-person/checks/inside",
       checks: answers,
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers]);
 
   function setAnswer(id: string, value: AnswerValue) {
@@ -205,7 +190,7 @@ export default function InPersonChecksInsideCabin() {
 
   function toggleChip(id: string, chipText: string) {
     setAnswers((p) => {
-      const prev = p[id] ?? { value: "ok" as AnswerValue, note: "" };
+      const prev = p[id] ?? {};
       const lines = splitLines(prev.note);
       const already = lines.some(
         (l) => l.toLowerCase() === chipText.toLowerCase()
@@ -218,6 +203,8 @@ export default function InPersonChecksInsideCabin() {
       return { ...p, [id]: { ...prev, note: nextNote } };
     });
   }
+
+  const answeredCount = checks.filter((c) => Boolean(answers[c.id]?.value)).length;
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 space-y-8">
@@ -232,10 +219,30 @@ export default function InPersonChecksInsideCabin() {
         </div>
       </div>
 
+      <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-5 py-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <Sparkles className="h-4 w-4 text-slate-300 mt-0.5" />
+          <p className="text-sm text-slate-300 leading-relaxed">
+            Keep this practical. If something looks normal, tap{" "}
+            <span className="text-slate-100 font-medium">Looks fine</span> and
+            move on. If access is limited or you are not sure, choose{" "}
+            <span className="text-slate-100 font-medium">Couldn’t check</span>{" "}
+            rather than guessing.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <span>Cabin checks</span>
+          <span>
+            {answeredCount} of {checks.length} answered
+          </span>
+        </div>
+      </div>
+
       <div className="space-y-5">
         {checks.map((c) => {
           const current = answers[c.id];
-          const selected = current?.value ?? "ok";
+          const selected = current?.value ?? null;
           const chips =
             selected === "concern"
               ? c.quickConcerns
@@ -251,10 +258,10 @@ export default function InPersonChecksInsideCabin() {
               className="rounded-2xl border border-white/10 bg-slate-900/60 px-5 py-5 space-y-4"
             >
               <div>
-                <div className="text-sm font-semibold text-white">
-                  {c.title}
-                </div>
-                <p className="text-xs text-slate-400">{c.guidance}</p>
+                <div className="text-sm font-semibold text-white">{c.title}</div>
+                <p className="text-xs text-slate-400 leading-relaxed mt-1">
+                  {c.guidance}
+                </p>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
@@ -266,10 +273,10 @@ export default function InPersonChecksInsideCabin() {
                       "rounded-xl px-3 py-2 text-xs font-semibold border transition",
                       selected === v
                         ? v === "ok"
-                          ? "bg-emerald-500 text-black"
+                          ? "bg-emerald-500 text-black border-emerald-400/30"
                           : v === "concern"
-                          ? "bg-amber-400 text-black"
-                          : "bg-slate-600 text-white"
+                          ? "bg-amber-400 text-black border-amber-300/40"
+                          : "bg-slate-600 text-white border-slate-400/30"
                         : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
                     ].join(" ")}
                   >
@@ -281,6 +288,13 @@ export default function InPersonChecksInsideCabin() {
                   </button>
                 ))}
               </div>
+
+              {!selected && (
+                <p className="text-xs text-slate-500">
+                  Choose the option that best matches what you could actually
+                  inspect.
+                </p>
+              )}
 
               {chips.length > 0 && (
                 <div className="flex flex-wrap gap-2">
@@ -306,11 +320,13 @@ export default function InPersonChecksInsideCabin() {
                 </div>
               )}
 
-              {(selected !== "ok" || current?.note) && (
+              {(selected === "concern" ||
+                selected === "unsure" ||
+                current?.note) && (
                 <textarea
                   value={current?.note ?? ""}
                   onChange={(e) => setNote(c.id, e.target.value)}
-                  placeholder="Optional note…"
+                  placeholder="Optional note to help you remember later…"
                   className="w-full rounded-xl bg-slate-950/40 border border-white/10 px-3 py-2 text-xs text-slate-200"
                   rows={3}
                 />
@@ -329,9 +345,9 @@ export default function InPersonChecksInsideCabin() {
         </button>
         <button
           onClick={() => navigate("/scan/in-person/checks/drive-intro")}
-          className="flex-1 rounded-2xl bg-emerald-500 px-4 py-3 font-semibold text-black"
+          className="flex-1 rounded-2xl bg-emerald-500 hover:bg-emerald-400 px-4 py-3 font-semibold text-black"
         >
-          Continue
+          Continue to drive briefing
         </button>
       </div>
     </div>
