@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Car } from "lucide-react";
+import { Car, Sparkles } from "lucide-react";
 import { loadProgress, saveProgress } from "../utils/scanProgress";
 
 type AnswerValue = "ok" | "concern" | "unsure";
-type CheckAnswer = { value: AnswerValue; note?: string };
+type CheckAnswer = { value?: AnswerValue; note?: string };
 
 type CheckConfig = {
   id: string;
@@ -133,22 +133,7 @@ export default function InPersonChecksDrive() {
 
   const currentIndex = 2;
   const percent = Math.round(((currentIndex + 1) / steps.length) * 100);
-
-  useEffect(() => {
-    setAnswers((prev) => {
-      let changed = false;
-      const next: Record<string, CheckAnswer> = { ...(prev ?? {}) };
-
-      for (const c of checks) {
-        if (!next[c.id]?.value) {
-          next[c.id] = { ...(next[c.id] ?? {}), value: "ok" };
-          changed = true;
-        }
-      }
-
-      return changed ? next : prev;
-    });
-  }, [checks]);
+  const answeredCount = checks.filter((c) => Boolean(answers[c.id]?.value)).length;
 
   useEffect(() => {
     saveProgress({
@@ -169,7 +154,7 @@ export default function InPersonChecksDrive() {
 
   function toggleChip(id: string, chipText: string) {
     setAnswers((p) => {
-      const prev = p[id] ?? { value: "ok" as AnswerValue, note: "" };
+      const prev = p[id] ?? {};
       const lines = splitLines(prev.note);
 
       const already = lines.some(
@@ -226,10 +211,29 @@ export default function InPersonChecksDrive() {
         </div>
       </div>
 
+      <div className="rounded-2xl border border-white/12 bg-slate-900/50 px-5 py-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <Sparkles className="h-4 w-4 text-slate-300 mt-0.5" />
+          <p className="text-sm text-slate-300 leading-relaxed">
+            Keep this practical. If the drive felt normal, tap{" "}
+            <span className="text-slate-100 font-medium">Looks fine</span> and
+            move on. If the drive was limited or something stood out, record that
+            instead of guessing.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <span>Drive checks</span>
+          <span>
+            {answeredCount} of {checks.length} answered
+          </span>
+        </div>
+      </div>
+
       <div className="space-y-5">
         {checks.map((c) => {
           const current = answers[c.id];
-          const selected = current?.value ?? "ok";
+          const selected = current?.value ?? null;
           const selectedLines = splitLines(current?.note);
 
           const chips =
@@ -246,7 +250,7 @@ export default function InPersonChecksDrive() {
             >
               <div>
                 <div className="text-sm font-semibold text-white">{c.title}</div>
-                <p className="text-xs text-slate-400 leading-relaxed">
+                <p className="text-xs text-slate-400 leading-relaxed mt-1">
                   {c.guidance}
                 </p>
               </div>
@@ -260,10 +264,10 @@ export default function InPersonChecksDrive() {
                       "rounded-xl px-3 py-2 text-xs font-semibold border transition",
                       selected === v
                         ? v === "ok"
-                          ? "bg-emerald-500 text-black"
+                          ? "bg-emerald-500 text-black border-emerald-400/30"
                           : v === "concern"
-                          ? "bg-amber-400 text-black"
-                          : "bg-slate-600 text-white"
+                          ? "bg-amber-400 text-black border-amber-300/40"
+                          : "bg-slate-600 text-white border-slate-400/30"
                         : "bg-slate-950/30 text-slate-200 border-white/10 hover:bg-white/5",
                     ].join(" ")}
                   >
@@ -275,6 +279,13 @@ export default function InPersonChecksDrive() {
                   </button>
                 ))}
               </div>
+
+              {!selected && (
+                <p className="text-xs text-slate-500">
+                  Choose the option that best matches what you actually noticed
+                  during the drive.
+                </p>
+              )}
 
               {chips.length > 0 && (
                 <div className="flex flex-wrap gap-2">
@@ -300,11 +311,13 @@ export default function InPersonChecksDrive() {
                 </div>
               )}
 
-              {(selected !== "ok" || current?.note) && (
+              {(selected === "concern" ||
+                selected === "unsure" ||
+                current?.note) && (
                 <textarea
                   value={current?.note ?? ""}
                   onChange={(e) => setNote(c.id, e.target.value)}
-                  placeholder="Optional note…"
+                  placeholder="Optional note to help you remember later…"
                   className="w-full rounded-xl bg-slate-950/40 border border-white/10 px-3 py-2 text-xs text-slate-200"
                   rows={3}
                 />
@@ -323,9 +336,9 @@ export default function InPersonChecksDrive() {
         </button>
         <button
           onClick={() => navigate("/scan/in-person/summary")}
-          className="flex-1 rounded-2xl bg-emerald-500 px-4 py-3 font-semibold text-black"
+          className="flex-1 rounded-2xl bg-emerald-500 hover:bg-emerald-400 px-4 py-3 font-semibold text-black"
         >
-          Continue
+          Continue to summary
         </button>
       </div>
     </div>
