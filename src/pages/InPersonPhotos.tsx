@@ -213,6 +213,7 @@ export default function InPersonPhotos() {
 
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
 
   // Thumbnail state (signed URLs)
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
@@ -231,6 +232,16 @@ export default function InPersonPhotos() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanId, photos]);
+
+  useEffect(() => {
+    if (!uploadSuccess) return;
+
+    const t = window.setTimeout(() => {
+      setUploadSuccess(null);
+    }, 2500);
+
+    return () => window.clearTimeout(t);
+  }, [uploadSuccess]);
 
   /* =========================================================
      Photo steps — baseline v1
@@ -339,6 +350,8 @@ export default function InPersonPhotos() {
   useEffect(() => {
     containerRef.current?.scrollTo({ top: 0 });
     window.scrollTo({ top: 0 });
+    setUploadSuccess(null);
+    setUploadError(null);
   }, [stepIndex]);
 
   /* =========================================================
@@ -346,7 +359,6 @@ export default function InPersonPhotos() {
   ========================================================== */
 
   const stepPhotoPathsKey = useMemo(() => {
-    // stable dependency key to trigger thumbnail refresh
     return stepPhotos.map((p) => p.storagePath).join("|");
   }, [stepPhotos]);
 
@@ -408,7 +420,6 @@ export default function InPersonPhotos() {
 
     const photoId = makeId();
 
-    // ✅ Compress before upload
     const compressed = await compressImageToJpeg(
       file,
       COMPRESS_MAX_WIDTH,
@@ -440,6 +451,7 @@ export default function InPersonPhotos() {
     if (atHardLimit) return;
 
     setUploadError(null);
+    setUploadSuccess(null);
     setUploading(true);
 
     try {
@@ -447,7 +459,6 @@ export default function InPersonPhotos() {
 
       setPhotos((prev) => [...prev, uploaded]);
 
-      // Preload signed URL for immediate thumbnail display
       const url = await createSignedUrlSafe(
         PHOTO_BUCKET,
         uploaded.storagePath,
@@ -459,6 +470,8 @@ export default function InPersonPhotos() {
           [uploaded.storagePath]: url,
         }));
       }
+
+      setUploadSuccess("Photo saved");
     } catch (e: unknown) {
       console.error("[InPersonPhotos] upload error:", e);
       const msg = e instanceof Error ? e.message : "Could not upload photo.";
@@ -495,11 +508,10 @@ export default function InPersonPhotos() {
     if (!target) return;
 
     setUploadError(null);
+    setUploadSuccess(null);
 
-    // Optimistic UI remove first
     setPhotos((prev) => prev.filter((p) => p.id !== id));
 
-    // Remove thumb URL entry
     setThumbUrls((prev) => {
       const next = { ...prev };
       delete next[target.storagePath];
@@ -575,7 +587,6 @@ export default function InPersonPhotos() {
 
   return (
     <div ref={containerRef} className="max-w-3xl mx-auto px-6 py-12 space-y-6">
-      {/* Top bar */}
       <div className="flex items-center justify-between gap-4">
         <button
           onClick={prevStep}
@@ -590,7 +601,6 @@ export default function InPersonPhotos() {
         </div>
       </div>
 
-      {/* Mini progress */}
       <div className="space-y-3">
         <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-slate-500">
           <span>Evidence</span>
@@ -620,7 +630,6 @@ export default function InPersonPhotos() {
         </p>
       </div>
 
-      {/* Step card */}
       <section className="rounded-2xl border border-white/12 bg-slate-900/70 px-5 py-5 space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
@@ -671,8 +680,14 @@ export default function InPersonPhotos() {
         )}
       </section>
 
-      {/* Capture controls */}
       <section className="rounded-2xl border border-white/12 bg-slate-900/60 px-5 py-5 space-y-4">
+        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+          <p className="text-sm text-slate-300 leading-relaxed">
+            Add one clear photo for this step. Photos save automatically after
+            you take one or choose one from your phone.
+          </p>
+        </div>
+
         {atHardLimit && (
           <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-3">
             <div className="flex items-start gap-3">
@@ -696,7 +711,16 @@ export default function InPersonPhotos() {
           <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
             <div className="flex items-center gap-2 text-sm text-slate-300">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Uploading photo…
+              Saving photo…
+            </div>
+          </div>
+        )}
+
+        {uploadSuccess && !uploading && (
+          <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm text-emerald-100">
+              <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+              ✅ {uploadSuccess} — you can add another or continue
             </div>
           </div>
         )}
@@ -713,7 +737,7 @@ export default function InPersonPhotos() {
             ].join(" ")}
           >
             <Camera className="h-4 w-4" />
-            Take photo
+            Take photo (auto-saves)
           </button>
 
           <label
@@ -728,7 +752,7 @@ export default function InPersonPhotos() {
               ].join(" ")}
             >
               <Upload className="h-4 w-4" />
-              Upload
+              Choose from phone
             </span>
             <input
               type="file"
@@ -740,7 +764,6 @@ export default function InPersonPhotos() {
           </label>
         </div>
 
-        {/* Step photos */}
         {stepPhotos.length > 0 ? (
           <div className="space-y-3 pt-1">
             {thumbLoading && (
@@ -787,11 +810,10 @@ export default function InPersonPhotos() {
           </div>
         ) : (
           <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-            <p className="text-sm text-slate-300">
-              No photos added for this step yet.
-            </p>
+            <p className="text-sm text-slate-300">No photo added for this step yet.</p>
             <p className="text-xs text-slate-500 mt-1">
-              Add one clear photo and move on — don’t overthink it.
+              Take a photo or choose one from your phone — it will save
+              automatically.
             </p>
           </div>
         )}
@@ -803,7 +825,6 @@ export default function InPersonPhotos() {
         )}
       </section>
 
-      {/* Nav buttons */}
       <div className="flex flex-col sm:flex-row gap-3">
         <button
           onClick={prevStep}
@@ -837,7 +858,6 @@ export default function InPersonPhotos() {
         mechanical faults.
       </p>
 
-      {/* Exit confirm */}
       {showExitConfirm && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center px-6">
           <div className="bg-slate-900 border border-white/20 rounded-2xl px-6 py-5 space-y-3 max-w-md w-full">
