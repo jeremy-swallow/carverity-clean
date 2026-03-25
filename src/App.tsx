@@ -34,6 +34,7 @@ import IsMechanicalInspectionWorthIt from "./pages/IsMechanicalInspectionWorthIt
 import DealerVsPrivateSellerAustralia from "./pages/DealerVsPrivateSellerAustralia";
 import HowMuchShouldYouOfferUsedCarAustralia from "./pages/HowMuchShouldYouOfferUsedCarAustralia";
 import UsedCarChecklistAustralia from "./pages/UsedCarChecklistAustralia";
+import UsedCarChecklistPrintable from "./pages/UsedCarChecklistPrintable";
 
 /* Tester */
 import TestingExpectations from "./pages/TestingExpectations";
@@ -190,6 +191,11 @@ export default function App() {
           <Route
             path="/used-car-checklist-australia"
             element={<UsedCarChecklistAustralia />}
+          />
+
+          <Route
+            path="/used-car-checklist-printable"
+            element={<UsedCarChecklistPrintable />}
           />
 
           {/* Tester */}
