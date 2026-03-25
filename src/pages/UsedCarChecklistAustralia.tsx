@@ -82,6 +82,35 @@ export default function UsedCarChecklistAustralia() {
               you buy, including what to check outside the car, inside the
               cabin, during the test drive, and immediately afterwards.
             </p>
+
+            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-5">
+              <h2 className="text-lg font-semibold text-white">
+                Want a version you can print?
+              </h2>
+
+              <p className="mt-3 text-slate-300 leading-relaxed">
+                If you prefer something simple on paper, use the{" "}
+                <Link
+                  to="/used-car-checklist-printable"
+                  className="text-white underline underline-offset-4 hover:opacity-80 transition"
+                >
+                  printable used car checklist
+                </Link>
+                .
+              </p>
+
+              <p className="mt-3 text-slate-300 leading-relaxed">
+                For the stronger option while standing next to the car,{" "}
+                <Link
+                  to="/"
+                  className="text-white underline underline-offset-4 hover:opacity-80 transition"
+                >
+                  CarVerity guides you step-by-step
+                </Link>{" "}
+                and helps you capture photos, stay structured, and finish with
+                a clearer report.
+              </p>
+            </div>
           </header>
 
           {/* QUICK CHECKLIST */}
@@ -112,7 +141,10 @@ export default function UsedCarChecklistAustralia() {
                   </li>
                   <li>Ask for service history and receipts.</li>
                   <li>Confirm the VIN and registration details match.</li>
-                  <li>Decide in advance whether a mechanic inspection may be needed.</li>
+                  <li>
+                    Decide in advance whether a mechanic inspection may be
+                    needed.
+                  </li>
                 </ul>
               </div>
 
@@ -122,7 +154,9 @@ export default function UsedCarChecklistAustralia() {
                   <li>Check for dents, scratches, and mismatched paint.</li>
                   <li>Look for uneven panel gaps.</li>
                   <li>Inspect tyres for even wear and usable tread depth.</li>
-                  <li>Look for rust around doors, wheel arches, and lower panels.</li>
+                  <li>
+                    Look for rust around doors, wheel arches, and lower panels.
+                  </li>
                   <li>Check lights, glass, and mirrors for damage.</li>
                 </ul>
               </div>
@@ -133,13 +167,17 @@ export default function UsedCarChecklistAustralia() {
                   <li>Check seat wear against the car’s age and kilometres.</li>
                   <li>Test windows, locks, mirrors, and buttons.</li>
                   <li>Check dashboard warning lights on startup.</li>
-                  <li>Test air conditioning, infotainment, and reverse camera.</li>
+                  <li>
+                    Test air conditioning, infotainment, and reverse camera.
+                  </li>
                   <li>Look for signs of water damage or unusual smells.</li>
                 </ul>
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold">Under the Bonnet (Visual Only)</h3>
+                <h3 className="text-lg font-semibold">
+                  Under the Bonnet (Visual Only)
+                </h3>
                 <ul className="list-disc pl-6 space-y-2 text-slate-300">
                   <li>Look for visible leaks or wet areas.</li>
                   <li>Check battery terminals for corrosion.</li>
@@ -153,7 +191,9 @@ export default function UsedCarChecklistAustralia() {
                 <ul className="list-disc pl-6 space-y-2 text-slate-300">
                   <li>Check for smooth acceleration without hesitation.</li>
                   <li>See whether braking feels straight and stable.</li>
-                  <li>Notice if the steering pulls, feels vague, or vibrates.</li>
+                  <li>
+                    Notice if the steering pulls, feels vague, or vibrates.
+                  </li>
                   <li>Listen for knocks, rattles, whining, or clunks.</li>
                   <li>Check that gear changes feel smooth.</li>
                 </ul>
@@ -198,7 +238,8 @@ export default function UsedCarChecklistAustralia() {
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 how to inspect a used car in person
-              </Link>.
+              </Link>
+              .
             </p>
           </section>
 
@@ -215,9 +256,13 @@ export default function UsedCarChecklistAustralia() {
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>Mismatched paint can suggest previous repair work.</li>
-              <li>Uneven panel gaps can point to accident repairs or poor fitment.</li>
+              <li>
+                Uneven panel gaps can point to accident repairs or poor fitment.
+              </li>
               <li>Rust around lower panels can worsen quickly if ignored.</li>
-              <li>Uneven tyre wear may indicate suspension or alignment issues.</li>
+              <li>
+                Uneven tyre wear may indicate suspension or alignment issues.
+              </li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
@@ -241,10 +286,17 @@ export default function UsedCarChecklistAustralia() {
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>Make sure warning lights appear at startup and then clear.</li>
-              <li>Test air conditioning properly, not just for a few seconds.</li>
+              <li>
+                Test air conditioning properly, not just for a few seconds.
+              </li>
               <li>Check all windows, locks, mirrors, and seat adjustments.</li>
-              <li>Confirm the odometer makes sense with the overall wear.</li>
-              <li>Be cautious if something feels heavily worn for the stated kilometres.</li>
+              <li>
+                Confirm the odometer makes sense with the overall wear.
+              </li>
+              <li>
+                Be cautious if something feels heavily worn for the stated
+                kilometres.
+              </li>
             </ul>
           </section>
 
@@ -263,7 +315,9 @@ export default function UsedCarChecklistAustralia() {
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>Does the engine accelerate cleanly?</li>
-              <li>Does the steering stay straight without constant correction?</li>
+              <li>
+                Does the steering stay straight without constant correction?
+              </li>
               <li>Is there vibration under braking?</li>
               <li>Do gear changes feel smooth or delayed?</li>
               <li>Are there clunks over bumps or unusual humming sounds?</li>
@@ -320,15 +374,20 @@ export default function UsedCarChecklistAustralia() {
 
             <p className="text-slate-400 leading-relaxed">
               If you want something simple to use while standing next to the
-              vehicle, save this page to your phone before you inspect the car
-              or print it out for reference. A checklist is most useful when it
-              is easy to follow under pressure.
+              vehicle, you can use our{" "}
+              <Link
+                to="/used-car-checklist-printable"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                printable checklist version
+              </Link>
+              .
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              Over time, you may want to turn this page into a dedicated print
-              version or downloadable PDF, but even this page alone can already
-              work as a practical used car checklist for Australia.
+              It is designed as a simplified paper-friendly fallback. The guided
+              app experience is still the stronger option if you want structure,
+              photo capture, saved progress, and a clearer summary at the end.
             </p>
           </section>
 
@@ -391,6 +450,12 @@ export default function UsedCarChecklistAustralia() {
                 Related used car buying guides (Australia):
               </p>
               <p>
+                <Link
+                  to="/used-car-checklist-printable"
+                  className="underline hover:text-white"
+                >
+                  Printable checklist
+                </Link>{" · "}
                 <Link
                   to="/what-to-check-when-buying-a-used-car-australia"
                   className="underline hover:text-white"
