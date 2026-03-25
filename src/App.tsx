@@ -33,6 +33,7 @@ import PPSRCheckAustralia from "./pages/PPSRCheckAustralia";
 import IsMechanicalInspectionWorthIt from "./pages/IsMechanicalInspectionWorthIt";
 import DealerVsPrivateSellerAustralia from "./pages/DealerVsPrivateSellerAustralia";
 import HowMuchShouldYouOfferUsedCarAustralia from "./pages/HowMuchShouldYouOfferUsedCarAustralia";
+import UsedCarChecklistAustralia from "./pages/UsedCarChecklistAustralia";
 
 /* Tester */
 import TestingExpectations from "./pages/TestingExpectations";
@@ -184,6 +185,11 @@ export default function App() {
           <Route
             path="/how-much-should-you-offer-used-car-australia"
             element={<HowMuchShouldYouOfferUsedCarAustralia />}
+          />
+
+          <Route
+            path="/used-car-checklist-australia"
+            element={<UsedCarChecklistAustralia />}
           />
 
           {/* Tester */}
