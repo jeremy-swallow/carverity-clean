@@ -335,6 +335,17 @@ export default function Home() {
               .
             </p>
 
+            <p className="text-slate-300 text-sm">
+              Want a simpler version you can use on the spot?{" "}
+              <Link
+                to="/used-car-checklist-australia"
+                className="underline text-emerald-300 hover:text-emerald-200"
+              >
+                Use our printable used car checklist for Australia
+              </Link>
+              .
+            </p>
+
             <p className="text-slate-300 text-sm leading-relaxed">
               Want to understand how the scan works end-to-end?{" "}
               <Link
@@ -455,6 +466,13 @@ export default function Home() {
               </Link>
 
               <Link
+                to="/used-car-checklist-australia"
+                className="text-slate-300 underline text-sm"
+              >
+                Printable checklist (Australia)
+              </Link>
+
+              <Link
                 to="/how-to-inspect-a-used-car-in-person"
                 className="text-slate-300 underline text-sm"
               >
@@ -508,6 +526,13 @@ export default function Home() {
               className="underline text-emerald-300 hover:text-emerald-200"
             >
               used car inspection checklist for Australia
+            </Link>
+            , use the{" "}
+            <Link
+              to="/used-car-checklist-australia"
+              className="underline text-emerald-300 hover:text-emerald-200"
+            >
+              printable used car checklist
             </Link>
             , then read{" "}
             <Link
@@ -578,6 +603,22 @@ export default function Home() {
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <Link
+              to="/used-car-checklist-australia"
+              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 hover:bg-slate-950/55 transition"
+            >
+              <div className="flex items-center gap-2 text-slate-200">
+                <ClipboardCheck className="h-4 w-4 text-emerald-300" />
+                <p className="text-sm font-semibold">
+                  Printable checklist (AU)
+                </p>
+              </div>
+              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                A simple used car checklist you can save, scan, or print before
+                you inspect.
+              </p>
+            </Link>
+
+            <Link
               to="/what-to-check-when-buying-a-used-car-australia"
               className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 hover:bg-slate-950/55 transition"
             >
@@ -590,21 +631,6 @@ export default function Home() {
               <p className="text-xs text-slate-300 mt-2 leading-relaxed">
                 Step-by-step inspection checks you can do in person without
                 tools.
-              </p>
-            </Link>
-
-            <Link
-              to="/how-to-inspect-a-used-car-in-person"
-              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 hover:bg-slate-950/55 transition"
-            >
-              <div className="flex items-center gap-2 text-slate-200">
-                <ClipboardCheck className="h-4 w-4 text-emerald-300" />
-                <p className="text-sm font-semibold">
-                  How to inspect in person
-                </p>
-              </div>
-              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                A practical in-person flow: outside, cabin, and test drive.
               </p>
             </Link>
 
@@ -624,6 +650,12 @@ export default function Home() {
 
           {/* NEW: extra crawl distribution (all real routes) */}
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            <Link
+              to="/used-car-checklist-australia"
+              className="underline text-slate-300 hover:text-white"
+            >
+              Printable used car checklist (Australia)
+            </Link>
             <Link
               to="/used-car-inspection-mistakes-australia"
               className="underline text-slate-300 hover:text-white"
@@ -710,6 +742,13 @@ export default function Home() {
                   className="underline text-emerald-300 hover:text-emerald-200"
                 >
                   step-by-step used car buying checklist for Australia
+                </Link>{" "}
+                or use the{" "}
+                <Link
+                  to="/used-car-checklist-australia"
+                  className="underline text-emerald-300 hover:text-emerald-200"
+                >
+                  printable checklist version
                 </Link>
                 .
               </p>
@@ -947,10 +986,10 @@ export default function Home() {
             </Link>
 
             <Link
-              to="/what-to-check-when-buying-a-used-car-australia"
+              to="/used-car-checklist-australia"
               className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold transition"
             >
-              Used car checklist
+              Printable checklist
             </Link>
           </div>
         </div>
@@ -982,6 +1021,13 @@ export default function Home() {
             {" · "}
             <Link to="/what-to-expect" className="underline text-slate-300">
               What to expect
+            </Link>
+            {" · "}
+            <Link
+              to="/used-car-checklist-australia"
+              className="underline text-slate-300"
+            >
+              Printable checklist (AU)
             </Link>
             {" · "}
             <Link
