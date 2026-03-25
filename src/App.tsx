@@ -28,6 +28,7 @@ import DeployTest from "./pages/DeployTest";
 
 import UsedCarGuide from "./pages/UsedCarGuide";
 import HowToInspectUsedCarInPerson from "./pages/HowToInspectUsedCarInPerson";
+import HowToTestDriveUsedCarAustralia from "./pages/HowToTestDriveUsedCarAustralia";
 import UsedCarInspectionMistakes from "./pages/UsedCarInspectionMistakes";
 import PPSRCheckAustralia from "./pages/PPSRCheckAustralia";
 import IsMechanicalInspectionWorthIt from "./pages/IsMechanicalInspectionWorthIt";
@@ -161,6 +162,11 @@ export default function App() {
           <Route
             path="/how-to-inspect-a-used-car-in-person"
             element={<HowToInspectUsedCarInPerson />}
+          />
+
+          <Route
+            path="/how-to-test-drive-a-used-car-australia"
+            element={<HowToTestDriveUsedCarAustralia />}
           />
 
           <Route
