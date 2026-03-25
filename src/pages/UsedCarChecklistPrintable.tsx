@@ -1,5 +1,3 @@
-// src/pages/UsedCarChecklistPrintable.tsx
-
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { applySeo } from "../utils/seo";
@@ -7,9 +5,10 @@ import { applySeo } from "../utils/seo";
 export default function UsedCarChecklistPrintable() {
   useEffect(() => {
     applySeo({
-      title: "Printable Used Car Checklist Australia 2026 | CarVerity",
+      title:
+        "Printable Used Car Checklist Australia (Free Simple Version)",
       description:
-        "Print or save this simplified used car checklist for Australia. A practical exterior, interior and test drive checklist for buyers who want a clean, printable version.",
+        "Print or save this simple used car checklist for Australia. Includes history checks, exterior, interior, test drive notes, common red flags, and a cleaner printable format for buyers.",
       canonical: "https://www.carverity.com.au/used-car-checklist-printable",
       structuredData: [
         {
@@ -17,15 +16,48 @@ export default function UsedCarChecklistPrintable() {
           "@type": "WebPage",
           "@id":
             "https://www.carverity.com.au/used-car-checklist-printable#webpage",
-          name: "Printable Used Car Checklist Australia 2026",
+          name: "Printable Used Car Checklist Australia",
           description:
-            "Print or save this simplified used car checklist for Australia. A practical exterior, interior and test drive checklist for buyers who want a clean, printable version.",
+            "A simple printable used car checklist for Australian buyers covering history checks, exterior, interior, test drive notes, and common red flags.",
           isPartOf: {
             "@type": "WebSite",
             name: "CarVerity",
             url: "https://www.carverity.com.au/",
           },
           inLanguage: "en-AU",
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "Can I print a used car checklist to take with me?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "Yes. A printable used car checklist can be useful if you want something simple to take with you to an inspection and tick off as you go.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "What should a printable used car checklist include?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "A printable used car checklist should include history checks, exterior checks, interior and electronics checks, test drive observations, common red flags, and a notes section for anything that feels off.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Is a printable checklist better than a guided app?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "A printable checklist is useful as a basic fallback, but a guided app can make the inspection easier by helping you move through the process step by step and record what you notice as you go.",
+              },
+            },
+          ],
         },
         {
           "@context": "https://schema.org",
@@ -165,19 +197,19 @@ export default function UsedCarChecklistPrintable() {
             Printable Used Car Checklist (Australia)
           </h1>
           <p className="mt-3 text-slate-300 leading-relaxed">
-            This is the simplified print version. It is useful if you want
-            something basic on paper.
+            This is the simple print version for buyers who want something clean
+            and easy to take to an inspection.
           </p>
           <p className="mt-3 text-slate-300 leading-relaxed">
-            For the better option while standing next to the car,{" "}
+            For the stronger option while standing next to the car,{" "}
             <Link
               to="/"
               className="underline underline-offset-4 text-emerald-300 hover:text-emerald-200"
             >
               use CarVerity’s guided inspection flow
             </Link>
-            . It gives you structure, photo capture, saved progress and a clear
-            report at the end.
+            . It gives you structure, photo capture, saved progress, and a
+            clearer report at the end.
           </p>
 
           <div className="mt-5 flex flex-wrap gap-3">
@@ -212,21 +244,34 @@ export default function UsedCarChecklistPrintable() {
                   CarVerity
                 </p>
                 <h2 className="mt-2 text-2xl md:text-3xl font-semibold tracking-tight text-white print-text-dark">
-                  Used Car Checklist — Printable Version
+                  Printable Used Car Checklist
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300 print-text-mid">
                   A simple buyer-focused checklist for inspecting a used car in
-                  Australia. Tick what you checked, circle concerns, and slow
-                  the process down before making a decision.
+                  Australia. Tick what you checked, mark concerns, and slow the
+                  process down before making a decision.
                 </p>
               </div>
 
               <div className="text-right text-xs text-slate-400 print-text-light">
-                <p>Australia 2026</p>
+                <p>Australia</p>
                 <p className="mt-1">carverity.com.au</p>
               </div>
             </div>
           </header>
+
+          <section className="mt-8 print-section print-compact rounded-2xl border border-white/10 bg-slate-950/20 p-5 print-hide">
+            <h3 className="text-lg font-semibold text-white print-text-dark">
+              Quick Answer
+            </h3>
+            <p className="mt-3 text-slate-200 print-text-mid leading-relaxed">
+              A printable used car checklist should cover the car’s history,
+              exterior, interior, test drive behaviour, post-drive review, and
+              common red flags. The goal is not to diagnose everything. It is to
+              stay structured enough that you do not miss important details
+              under pressure.
+            </p>
+          </section>
 
           <section className="mt-8 grid gap-6 md:grid-cols-2 print-grid">
             <div className="print-section print-block rounded-2xl border border-white/10 bg-slate-950/30 p-5">
@@ -239,6 +284,7 @@ export default function UsedCarChecklistPrintable() {
                 <li>☐ Ask for service history and receipts</li>
                 <li>☐ Check whether recalls have been addressed</li>
                 <li>☐ Decide whether you may also want a mechanic inspection</li>
+                <li>☐ Ask about faults or recent repairs</li>
               </ul>
             </div>
 
@@ -252,6 +298,7 @@ export default function UsedCarChecklistPrintable() {
                 <li>☐ Check panel gaps for evenness</li>
                 <li>☐ Look for rust around lower panels and wheel arches</li>
                 <li>☐ Check tyres for even wear and good tread</li>
+                <li>☐ Check lights, glass and mirrors</li>
               </ul>
             </div>
 
@@ -271,7 +318,7 @@ export default function UsedCarChecklistPrintable() {
 
             <div className="print-section print-block rounded-2xl border border-white/10 bg-slate-950/30 p-5">
               <h3 className="text-lg font-semibold text-white print-text-dark">
-                Under The Bonnet (Visual Only)
+                Under the Bonnet (Visual Only)
               </h3>
               <ul className="mt-4 space-y-3 text-slate-200 print-text-mid">
                 <li>☐ Look for visible fluid leaks</li>
@@ -297,13 +344,14 @@ export default function UsedCarChecklistPrintable() {
 
             <div className="print-section print-block rounded-2xl border border-white/10 bg-slate-950/30 p-5">
               <h3 className="text-lg font-semibold text-white print-text-dark">
-                After The Drive
+                After the Drive
               </h3>
               <ul className="mt-4 space-y-3 text-slate-200 print-text-mid">
                 <li>☐ Check for new warning lights</li>
                 <li>☐ Look under the car for leaks</li>
                 <li>☐ Notice any burning smell or unusual odour</li>
                 <li>☐ Do one final walk-around</li>
+                <li>☐ Write down anything that felt off</li>
               </ul>
             </div>
           </section>
@@ -340,7 +388,7 @@ export default function UsedCarChecklistPrintable() {
             </h3>
             <p className="mt-3 text-slate-200 print-text-mid leading-relaxed">
               This printable version is intentionally simple. If you want the
-              stronger option, CarVerity guides you step-by-step, helps you
+              stronger option, CarVerity guides you step by step, helps you
               capture photos, keeps your inspection structured, and turns your
               observations into a clear report you can review afterwards.
             </p>
@@ -362,9 +410,53 @@ export default function UsedCarChecklistPrintable() {
             </div>
           </section>
 
+          <section className="mt-8 print-section print-compact rounded-2xl border border-white/10 bg-slate-950/20 p-5 print-hide">
+            <h3 className="text-lg font-semibold text-white print-text-dark">
+              Frequently Asked Questions
+            </h3>
+
+            <div className="mt-4 space-y-4">
+              <div>
+                <h4 className="text-base font-semibold text-white print-text-dark">
+                  Can I use this on my phone instead of printing it?
+                </h4>
+                <p className="mt-2 text-slate-200 print-text-mid leading-relaxed">
+                  Yes. You can keep this page open on your phone and use it as a
+                  simple mobile checklist during the inspection.
+                </p>
+              </div>
+
+              <div>
+                <h4 className="text-base font-semibold text-white print-text-dark">
+                  Is this enough for every used car inspection?
+                </h4>
+                <p className="mt-2 text-slate-200 print-text-mid leading-relaxed">
+                  It is a strong basic structure, but some vehicles or situations
+                  may still justify a mechanical inspection or deeper follow-up.
+                </p>
+              </div>
+
+              <div>
+                <h4 className="text-base font-semibold text-white print-text-dark">
+                  Where can I get the fuller version?
+                </h4>
+                <p className="mt-2 text-slate-200 print-text-mid leading-relaxed">
+                  Use the{" "}
+                  <Link
+                    to="/used-car-checklist-australia"
+                    className="underline underline-offset-4 print-link"
+                  >
+                    full used car checklist page
+                  </Link>{" "}
+                  for the more detailed version.
+                </p>
+              </div>
+            </div>
+          </section>
+
           <footer className="mt-8 print-footer border-t border-white/10 pt-5 text-xs text-slate-400 print-text-light">
             <p>
-              Source page:{" "}
+              Full checklist:{" "}
               <Link
                 to="/used-car-checklist-australia"
                 className="underline underline-offset-4 print-link"

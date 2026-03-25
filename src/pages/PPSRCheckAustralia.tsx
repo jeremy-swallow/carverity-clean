@@ -1,5 +1,3 @@
-// src/pages/PPSRCheckAustralia.tsx
-
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { applySeo } from "../utils/seo";
@@ -7,18 +5,20 @@ import { applySeo } from "../utils/seo";
 export default function PPSRCheckAustralia() {
   useEffect(() => {
     applySeo({
-      title: "What Is a PPSR Check? (Australia Guide 2026) | CarVerity",
+      title:
+        "PPSR Check Australia (Why It Matters Before Buying a Used Car)",
       description:
-        "Learn what a PPSR check is in Australia, why it matters when buying a used car, how to run one, and what risks it protects you from.",
+        "Learn what a PPSR check is in Australia, what it tells you, why it matters before buying a used car, and what a PPSR check does not tell you about the vehicle.",
       canonical: "https://www.carverity.com.au/ppsr-check-australia",
       structuredData: [
         {
           "@context": "https://schema.org",
           "@type": "Article",
           "@id": "https://www.carverity.com.au/ppsr-check-australia#article",
-          headline: "What Is a PPSR Check? (Australia Guide 2026)",
+          headline:
+            "PPSR Check Australia (Why It Matters Before Buying a Used Car)",
           description:
-            "A complete guide explaining what a PPSR check is, how it works in Australia, and why every used car buyer should run one before purchasing.",
+            "A practical Australian guide explaining what a PPSR check is, what it tells used car buyers, why it matters, and what it does not cover.",
           author: {
             "@type": "Organization",
             name: "CarVerity",
@@ -33,6 +33,39 @@ export default function PPSRCheckAustralia() {
           },
           mainEntityOfPage: "https://www.carverity.com.au/ppsr-check-australia",
           inLanguage: "en-AU",
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "What is a PPSR check in Australia?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "A PPSR check in Australia is a search of the Personal Property Securities Register that helps show whether a vehicle has money owing, has been recorded as stolen, or has a write-off history.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Is a PPSR check enough before buying a used car?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "No. A PPSR check is important for financial and history risk, but it does not tell you the car’s actual condition, service quality, or how it behaves on the road.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "What does a PPSR check not tell you?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "A PPSR check does not tell you whether a car is mechanically healthy, whether it has been maintained well, or whether it has cosmetic or driving issues that only show up during an inspection or test drive.",
+              },
+            },
+          ],
         },
         {
           "@context": "https://schema.org",
@@ -62,23 +95,48 @@ export default function PPSRCheckAustralia() {
         <article className="space-y-12">
           <header className="space-y-4">
             <h1 className="text-3xl font-semibold tracking-tight">
-              What Is a PPSR Check? (Australia 2026 Guide)
+              PPSR Check Australia
             </h1>
 
             <p className="text-slate-400 leading-relaxed">
-              A PPSR check in Australia is one of the most important steps when
-              buying a used car. It confirms whether a vehicle has money owing,
-              has been written off, or has been reported stolen.
+              A PPSR check is one of the most important early steps when buying
+              a used car in Australia. It helps you understand whether the
+              vehicle carries financial or history risks before you spend money
+              or become too invested.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              Skipping this step can expose you to serious financial risk. This
-              guide explains what a PPSR check is, why it matters, and how to
-              use it properly before purchasing a second-hand vehicle.
+              Skipping this step can expose you to serious problems that are not
+              obvious from looking at the car. This guide explains what a PPSR
+              check is, why it matters, what it can tell you, and what it cannot.
             </p>
           </header>
 
-          {/* WHAT IS PPSR */}
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              Quick Answer: What Is a PPSR Check?
+            </h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              A PPSR check is a search of the Personal Property Securities
+              Register in Australia. Used car buyers use it to check whether a
+              vehicle has money owing, has been reported stolen, or has a
+              recorded write-off history.
+            </p>
+
+            <ul className="list-disc pl-6 space-y-2 text-slate-300">
+              <li>Shows whether finance is recorded against the vehicle</li>
+              <li>Can reveal stolen status</li>
+              <li>Can show write-off history</li>
+              <li>Helps reduce major pre-purchase risk</li>
+            </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              It is one of the first checks worth doing because it can rule out
+              a bad option before you waste more time on it.
+            </p>
+          </section>
+
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
               What Does PPSR Stand For?
@@ -86,162 +144,314 @@ export default function PPSRCheckAustralia() {
 
             <p className="text-slate-400 leading-relaxed">
               PPSR stands for the Personal Property Securities Register. It is
-              the official Australian government register that records security
-              interests over personal property, including vehicles.
+              the official Australian register used to record security interests
+              over personal property, including vehicles.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              When a car is financed, the lender records an interest on the
-              PPSR. If the loan is unpaid, the lender may still have legal
-              rights over the vehicle — even if it’s sold to you.
+              In simple terms, if a car has finance attached to it, that
+              interest may be recorded there. That matters because a lender may
+              still have rights over the vehicle if the loan has not been
+              cleared properly.
             </p>
           </section>
 
-          {/* WHY IT MATTERS */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
-              Why Is a PPSR Check Important?
+              Why a PPSR Check Matters Before Buying a Used Car
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              If you buy a car that still has finance owing, the lender may
-              repossess it. A PPSR check protects you from this scenario and
-              provides written confirmation of the vehicle’s financial status.
+              A used car can look clean, drive reasonably well, and still carry
+              serious financial or history problems. That is what makes the PPSR
+              check so important.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Buyers often focus on the physical condition of the car first, but
+              the history risk can be just as important. A PPSR check helps you
+              spot problems that will not show up during a walk-around or test
+              drive.
             </p>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
-              <li>Confirms whether finance is owing</li>
-              <li>Identifies written-off vehicles</li>
-              <li>Shows whether the vehicle has been reported stolen</li>
-              <li>Provides official confirmation for your records</li>
+              <li>It can help protect you from buying a car with finance owing</li>
+              <li>It can reveal whether the vehicle has a serious history issue</li>
+              <li>It gives you a stronger base before you inspect or negotiate</li>
+              <li>It helps you ask better questions if something does not look right</li>
+            </ul>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              What a PPSR Check Can Tell You
+            </h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              A PPSR check is useful because it focuses on major history and
+              registration-related risks, not general condition.
+            </p>
+
+            <ul className="list-disc pl-6 space-y-2 text-slate-300">
+              <li>Whether finance is recorded against the vehicle</li>
+              <li>Whether the vehicle has been reported stolen</li>
+              <li>Whether the vehicle has write-off history recorded</li>
+              <li>Whether the key identifier information matches what you were given</li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
-              A PPSR check reduces financial risk — but it does not assess
-              condition or mechanical health.
+              For buyers, this makes it one of the best early filters before
+              committing more time to the car.
             </p>
           </section>
 
-          {/* HOW TO RUN */}
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              What a PPSR Check Does Not Tell You
+            </h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              This is where many buyers misunderstand the PPSR. A clean PPSR
+              result does not mean the car is automatically a good buy.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              A PPSR check does not confirm mechanical condition, service
+              quality, cosmetic standard, how well the car has been maintained,
+              or how it behaves on the road.
+            </p>
+
+            <ul className="list-disc pl-6 space-y-2 text-slate-300">
+              <li>It does not replace a physical inspection</li>
+              <li>It does not replace a test drive</li>
+              <li>It does not replace checking service history</li>
+              <li>It does not replace a mechanic inspection where appropriate</li>
+            </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              That is why a PPSR check should be treated as one part of the
+              buying process, not the whole process.
+            </p>
+          </section>
+
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
               How To Run a PPSR Check in Australia
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              You can complete a PPSR check online using the vehicle’s VIN
-              (Vehicle Identification Number). The process takes only a few
-              minutes.
+              You can run a PPSR check online using the vehicle’s VIN. The
+              process is usually quick, but accuracy matters. Always make sure
+              the VIN you are using matches the car itself and the paperwork you
+              have been shown.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              Always ensure the VIN you use matches the vehicle’s compliance
-              plate and registration documents.
+              Confirm the VIN against the vehicle and registration details
+              carefully. If those details do not line up cleanly, that is a
+              reason to slow down and ask more questions.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              If you are unsure how to confirm VIN consistency during an
-              inspection, review our{" "}
+              If you want help checking those details in person, review our{" "}
               <Link
                 to="/how-to-inspect-a-used-car-in-person"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 step-by-step used car inspection guide
-              </Link>.
+              </Link>
+              .
             </p>
           </section>
 
-          {/* WHAT IT DOES NOT DO */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
-              What a PPSR Check Does Not Do
+              When To Run the PPSR Check
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              A PPSR check does not confirm mechanical condition, service
-              history, accident repairs, or cosmetic quality.
+              Ideally, do the PPSR check before getting too far into the buying
+              process. That way, you reduce the chance of wasting effort on a
+              car that already has a major history problem.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              It only verifies financial and registration status. You still
-              need to conduct a proper in-person inspection and decide whether{" "}
-              <Link
-                to="/is-a-mechanical-inspection-worth-it-australia"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                a mechanical inspection is worth it
-              </Link>{" "}
-              based on the vehicle’s risk profile.
+              A good sequence is:
+            </p>
+
+            <ul className="list-disc pl-6 space-y-2 text-slate-300">
+              <li>Check the listing and ask initial questions</li>
+              <li>Confirm the VIN and basic paperwork details</li>
+              <li>Run the PPSR check</li>
+              <li>Only then move into the deeper physical inspection</li>
+            </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              This approach helps you stay more objective and reduces wasted
+              time.
             </p>
           </section>
 
-          {/* COMBINE WITH INSPECTION */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
               Combine a PPSR Check With a Proper Inspection
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              Running a PPSR check protects you financially. A structured
-              inspection protects you mechanically and practically.
+              A PPSR check protects you from one category of risk. A proper
+              inspection protects you from another.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              Before purchasing, review our{" "}
+              Once the history side looks acceptable, you still need to inspect
+              the car itself. That means checking the body, tyres, interior,
+              warning lights, service history, and how the car behaves during
+              the drive.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Start with our{" "}
               <Link
                 to="/what-to-check-when-buying-a-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                complete Australian used car checklist
+                complete used car checklist for Australia
               </Link>{" "}
               and our{" "}
               <Link
                 to="/used-car-inspection-mistakes-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                common used car inspection mistakes guide
-              </Link>.
+                guide to common used car inspection mistakes
+              </Link>
+              .
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              Is a PPSR Check Enough on Its Own?
+            </h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              No. It is important, but it is not enough on its own.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              If you are comparing seller types, read our breakdown of{" "}
+              A car can return a clean PPSR result and still have poor service
+              history, rough road behaviour, hidden repair quality issues, or
+              expensive maintenance coming up.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Depending on the price, age, and condition of the vehicle, you may
+              also need to decide whether{" "}
+              <Link
+                to="/is-a-mechanical-inspection-worth-it-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                a mechanical inspection is worth it
+              </Link>
+              .
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              What To Do After the PPSR Check
+            </h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              Once you have the result, use it to decide your next step rather
+              than treating it as a final answer.
+            </p>
+
+            <ul className="list-disc pl-6 space-y-2 text-slate-300">
+              <li>If something looks wrong, stop and clarify it before proceeding</li>
+              <li>If the result looks acceptable, continue to the physical inspection</li>
+              <li>Compare the seller’s story with the paperwork and the car itself</li>
+              <li>Use what you learn to judge risk and price more clearly</li>
+            </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you are comparing sale types as well, our guide to{" "}
               <Link
                 to="/dealer-vs-private-seller-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 dealer vs private seller in Australia
               </Link>{" "}
-              to understand differences in risk.
+              can help you think through the risk context.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              Once you’ve assessed risk, you may also want guidance on{" "}
+              And once you have assessed the car properly, you may also want to
+              review{" "}
               <Link
                 to="/how-much-should-you-offer-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 how much to offer on a used car
-              </Link>{" "}
-              based on condition and uncertainty.
+              </Link>
+              .
             </p>
           </section>
 
-          {/* CTA + CLUSTER DISTRIBUTION */}
+          <section className="pt-10 border-t border-slate-800 space-y-4">
+            <h2 className="text-xl font-semibold">
+              Frequently Asked Questions
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-base font-semibold text-white">
+                  Does a PPSR check tell me if the car is mechanically good?
+                </h3>
+                <p className="text-slate-400 leading-relaxed mt-2">
+                  No. A PPSR check is about history and financial risk, not
+                  mechanical condition.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-base font-semibold text-white">
+                  Should I do a PPSR check before inspecting the car in person?
+                </h3>
+                <p className="text-slate-400 leading-relaxed mt-2">
+                  In many cases, yes. It is a smart early filter because it can
+                  rule out major risks before you invest more time in the car.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-base font-semibold text-white">
+                  Do I still need a test drive after a clean PPSR result?
+                </h3>
+                <p className="text-slate-400 leading-relaxed mt-2">
+                  Yes. A clean PPSR result does not tell you how the car drives,
+                  how well it has been maintained, or whether it has physical
+                  issues that show up during an inspection.
+                </p>
+              </div>
+            </div>
+          </section>
+
           <section className="pt-10 border-t border-slate-800 space-y-4">
             <p className="text-slate-400 leading-relaxed">
-              If you want a calm, structured way to inspect a used car in person,
+              If you want a calm, structured way to inspect a used car in
+              person,{" "}
               <Link
                 to="/"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition ml-1"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                CarVerity guides you step-by-step
+                CarVerity guides you step by step
               </Link>{" "}
-              and turns your observations into a clear buyer-focused report.
+              and turns your observations into a clearer buyer-focused report.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              Want to understand the boundaries of what CarVerity does (and does
-              not do)? See{" "}
+              Want to understand the boundaries of what CarVerity does and does
+              not do? See{" "}
               <Link
                 to="/trust"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
@@ -255,23 +465,47 @@ export default function PPSRCheckAustralia() {
               <p className="font-semibold text-slate-400">
                 Related used car buying guides (Australia):
               </p>
-              <p>
-                <Link to="/what-to-check-when-buying-a-used-car-australia" className="underline hover:text-white">
+              <p className="leading-relaxed">
+                <Link
+                  to="/what-to-check-when-buying-a-used-car-australia"
+                  className="underline hover:text-white"
+                >
                   Used car checklist
                 </Link>{" · "}
-                <Link to="/how-to-inspect-a-used-car-in-person" className="underline hover:text-white">
+                <Link
+                  to="/how-to-inspect-a-used-car-in-person"
+                  className="underline hover:text-white"
+                >
                   Inspect in person
                 </Link>{" · "}
-                <Link to="/used-car-inspection-mistakes-australia" className="underline hover:text-white">
+                <Link
+                  to="/how-to-test-drive-a-used-car-australia"
+                  className="underline hover:text-white"
+                >
+                  Test drive guide
+                </Link>{" · "}
+                <Link
+                  to="/used-car-inspection-mistakes-australia"
+                  className="underline hover:text-white"
+                >
                   Inspection mistakes
                 </Link>{" · "}
-                <Link to="/is-a-mechanical-inspection-worth-it-australia" className="underline hover:text-white">
+                <Link
+                  to="/is-a-mechanical-inspection-worth-it-australia"
+                  className="underline hover:text-white"
+                >
                   Mechanical inspection worth it?
                 </Link>{" · "}
-                <Link to="/dealer-vs-private-seller-australia" className="underline hover:text-white">
+                <Link
+                  to="/dealer-vs-private-seller-australia"
+                  className="underline hover:text-white"
+                >
                   Dealer vs private seller
                 </Link>{" · "}
-                <Link to="/how-much-should-you-offer-used-car-australia" className="underline hover:text-white">
+                <Link
+                  to="/how-much-should-you-offer-used-car-australia"
+                  className="underline hover:text-white"
+                >
                   How much to offer?
                 </Link>
               </p>

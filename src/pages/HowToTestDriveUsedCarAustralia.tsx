@@ -1,5 +1,3 @@
-// src/pages/HowToTestDriveUsedCarAustralia.tsx
-
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { applySeo } from "../utils/seo";
@@ -8,9 +6,9 @@ export default function HowToTestDriveUsedCarAustralia() {
   useEffect(() => {
     applySeo({
       title:
-        "How To Test Drive A Used Car (Australia 2026 Guide) | CarVerity",
+        "How To Test Drive a Used Car (What to Check Before You Buy)",
       description:
-        "Learn how to test drive a used car in Australia with a clear step-by-step approach. What to check, what to listen for, and common warning signs before you buy.",
+        "Learn how to test drive a used car in Australia with a practical step-by-step approach. What to check before driving, what to listen for on the road, which warning signs matter, and the common mistakes buyers make.",
       canonical:
         "https://www.carverity.com.au/how-to-test-drive-a-used-car-australia",
       structuredData: [
@@ -20,9 +18,9 @@ export default function HowToTestDriveUsedCarAustralia() {
           "@id":
             "https://www.carverity.com.au/how-to-test-drive-a-used-car-australia#article",
           headline:
-            "How To Test Drive A Used Car (Australia 2026 Guide)",
+            "How To Test Drive a Used Car (What to Check Before You Buy)",
           description:
-            "Learn how to test drive a used car in Australia with a clear step-by-step approach. What to check, what to listen for, and common warning signs before you buy.",
+            "A practical Australian guide explaining what to check before the car moves, what to pay attention to during the drive, and which red flags buyers often miss.",
           author: {
             "@type": "Organization",
             name: "CarVerity",
@@ -38,6 +36,39 @@ export default function HowToTestDriveUsedCarAustralia() {
           mainEntityOfPage:
             "https://www.carverity.com.au/how-to-test-drive-a-used-car-australia",
           inLanguage: "en-AU",
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "How do you test drive a used car properly?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "Test drive a used car properly by checking warning lights and engine behaviour before moving, then driving at low speed and normal road speed while paying attention to steering, braking, gear changes, noises, vibration, and overall consistency.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "What should I look for during a used car test drive?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "During a used car test drive, look for steering pull, braking vibration, unusual engine or suspension noises, rough gear changes, hesitation under acceleration, warning lights, and anything that feels inconsistent or rushed.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "How long should a used car test drive be?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "A used car test drive should be long enough to assess low-speed behaviour, normal suburban driving, braking, and general feel. A drive that is too short can make it easier to miss warning signs.",
+              },
+            },
+          ],
         },
         {
           "@context": "https://schema.org",
@@ -68,28 +99,57 @@ export default function HowToTestDriveUsedCarAustralia() {
         <article className="space-y-12">
           <header className="space-y-4">
             <h1 className="text-3xl font-semibold tracking-tight">
-              How To Test Drive A Used Car (Australia 2026 Guide)
+              How To Test Drive a Used Car
             </h1>
 
             <p className="text-slate-400 leading-relaxed">
               A test drive is one of the most important parts of buying a used
-              car — but most people are not quite sure what they should actually
-              be paying attention to.
+              car, but many buyers are not fully sure what they should actually
+              be paying attention to once the car starts moving.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
               In Australia, test drives are often short, awkward, and slightly
               rushed. That makes it easy to miss warning signs that only appear
-              when the car is moving.
+              when the vehicle is under normal driving conditions.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              This guide gives you a simple, structured way to test drive a used
-              car so you can focus on what actually matters.
+              This guide gives you a practical step-by-step way to test drive a
+              used car so you can focus on what matters, notice red flags
+              earlier, and make a calmer decision before you buy.
             </p>
           </header>
 
-          {/* BEFORE YOU DRIVE */}
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              Quick Answer: How Do You Test Drive a Used Car Properly?
+            </h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              To test drive a used car properly, check the dashboard warning
+              lights and idle first, then drive at low speed and normal road
+              speed while paying attention to steering, braking, gear changes,
+              engine response, vibration, and unusual noises. Follow the same
+              structure each time so the seller or situation does not rush you
+              past important details.
+            </p>
+
+            <ul className="list-disc pl-6 space-y-2 text-slate-300">
+              <li>Check the car before it moves</li>
+              <li>Start with low-speed driving</li>
+              <li>Drive at normal suburban speed</li>
+              <li>Test braking in safe conditions</li>
+              <li>Listen carefully for noises and vibration</li>
+              <li>Review the car again once the drive ends</li>
+            </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              A lot of buying mistakes happen because people drive the car, but
+              do not assess it in a structured way.
+            </p>
+          </section>
+
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
               Step 1: Before You Start Driving
@@ -97,53 +157,60 @@ export default function HowToTestDriveUsedCarAustralia() {
 
             <p className="text-slate-400 leading-relaxed">
               Before the car even moves, there are a few things worth checking.
-              These early moments can reveal issues straight away.
+              These early moments can reveal issues immediately.
             </p>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
-              <li>
-                Start the engine and watch the dashboard warning lights.
-              </li>
-              <li>
-                Make sure lights appear briefly and then turn off.
-              </li>
-              <li>Listen to how the engine sounds at idle.</li>
-              <li>
-                Notice any shaking, roughness, or unusual vibration.
-              </li>
+              <li>Start the engine and watch the dashboard warning lights</li>
+              <li>Make sure the lights appear briefly and then switch off</li>
+              <li>Listen to how the engine sounds at idle</li>
+              <li>Notice shaking, roughness or unusual vibration</li>
+              <li>Check that air conditioning and basic controls work</li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
-              If something feels off before you even move, it is worth paying
-              attention to.
+              If something feels off before you even move, that matters. It does
+              not always mean the car is bad, but it should make you pay closer
+              attention during the rest of the drive.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Before getting this far, it is also smart to run a{" "}
+              <Link
+                to="/ppsr-check-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                PPSR check in Australia
+              </Link>{" "}
+              so you are not spending time on a car with a serious history or
+              finance problem.
             </p>
           </section>
 
-          {/* LOW SPEED */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
-              Step 2: Low-Speed Driving (Initial Feel)
+              Step 2: Low-Speed Driving
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              Start slowly. You are not testing performance — you are testing how
-              the car behaves in normal conditions.
+              Start slowly. You are not testing performance. You are testing how
+              the car behaves in ordinary conditions.
             </p>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>Does the car move off smoothly?</li>
-              <li>Does the steering feel light and controlled?</li>
+              <li>Does the steering feel controlled and predictable?</li>
               <li>Are there clunks or knocks when moving off?</li>
-              <li>Do the brakes feel responsive and straight?</li>
+              <li>Do the brakes feel straight and responsive?</li>
+              <li>Does anything feel unusually harsh or hesitant?</li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
-              Low-speed driving often reveals suspension noises and early
-              warning signs.
+              Low-speed driving often reveals early suspension noises, steering
+              concerns, and braking problems that buyers might otherwise ignore.
             </p>
           </section>
 
-          {/* NORMAL DRIVING */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
               Step 3: Normal Driving Conditions
@@ -151,135 +218,238 @@ export default function HowToTestDriveUsedCarAustralia() {
 
             <p className="text-slate-400 leading-relaxed">
               Once you are comfortable, drive at normal suburban speeds. This is
-              where you get a better sense of the car’s overall behaviour.
+              where you get a clearer sense of the car’s overall behaviour.
             </p>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>Does the car drive straight without pulling?</li>
-              <li>Is the steering stable or does it feel vague?</li>
-              <li>Do gear changes feel smooth?</li>
+              <li>Does the steering feel stable or vague?</li>
+              <li>Do gear changes feel smooth and consistent?</li>
               <li>Is the engine responsive without hesitation?</li>
+              <li>Does anything feel uneven, uncertain or delayed?</li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
-              A car should feel predictable and controlled — not uncertain or
-              inconsistent.
+              A good used car should feel predictable and settled, not strange
+              or inconsistent.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want the full inspection process before and around the
+              drive, read our guide on{" "}
+              <Link
+                to="/how-to-inspect-a-used-car-in-person"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how to inspect a used car in person
+              </Link>.
             </p>
           </section>
 
-          {/* BRAKING */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
-              Step 4: Braking & Control
+              Step 4: Braking and Control
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              Braking performance is critical. Try a few gentle and slightly
-              firmer stops in safe conditions.
+              Braking performance matters. Try a few gentle stops and, where
+              safe and appropriate, one or two firmer stops so you can judge how
+              the car behaves.
             </p>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>Does the car brake in a straight line?</li>
               <li>Is there vibration through the steering wheel?</li>
-              <li>Do you hear grinding or squealing?</li>
+              <li>Do you hear squealing, grinding or scraping?</li>
               <li>Does braking feel smooth or uneven?</li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
-              Vibration or pulling during braking can indicate worn components.
+              Pulling or vibration during braking can point to worn or uneven
+              components. You do not need to diagnose the exact cause to know it
+              deserves attention.
             </p>
           </section>
 
-          {/* NOISES */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
-              Step 5: Listen Carefully For Noises
+              Step 5: Listen Carefully for Noises
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              One of the biggest advantages of a test drive is being able to
-              hear how the car behaves.
+              One of the biggest advantages of a test drive is hearing how the
+              car behaves in motion. Do not talk your way through the whole
+              drive. Give yourself enough quiet to notice things.
             </p>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>Knocking sounds over bumps</li>
-              <li>Whining noises when accelerating</li>
+              <li>Whining noises during acceleration</li>
               <li>Humming or droning at speed</li>
               <li>Rattles from inside the cabin</li>
+              <li>Anything that appears only under load or braking</li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
-              You don’t need to diagnose the problem — just notice that it
-              exists.
+              You do not need to identify the problem perfectly. You only need
+              to notice that something is there and take it seriously.
             </p>
           </section>
 
-          {/* AFTER DRIVE */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
-              Step 6: After The Test Drive
+              Step 6: After the Test Drive
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              Once you finish driving, take a moment before making any decision.
+              Once the drive is finished, take a moment before making any
+              decision. This is a good time to look again with a clearer head.
             </p>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>Check for warning lights that appeared during the drive</li>
-              <li>Look under the car for fresh leaks</li>
-              <li>Notice any burning smell</li>
-              <li>Do one final walk-around</li>
+              <li>Look underneath for fresh leaks</li>
+              <li>Notice any burning smell or heat-related issue</li>
+              <li>Do one final walk-around of the car</li>
+              <li>Write down anything that felt questionable</li>
             </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              Problems that show up after the drive can matter just as much as
+              the ones you notice while moving.
+            </p>
           </section>
 
-          {/* COMMON MISTAKES */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
-              Common Test Drive Mistakes
+              Common Used Car Test Drive Mistakes
             </h2>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>Driving for only a few minutes</li>
-              <li>Talking too much and not focusing</li>
-              <li>Ignoring small noises or vibrations</li>
+              <li>Talking too much and not focusing on the car</li>
+              <li>Ignoring small noises or vibration</li>
               <li>Feeling rushed by the seller</li>
+              <li>Not checking the car again after the drive</li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
-              If something feels off, it is always worth slowing down and asking
-              questions.
+              Many buyers miss useful information simply because they treat the
+              test drive like a quick formality instead of part of the actual
+              inspection.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              Many buyers miss key issues. See our guide to{" "}
+              We unpack more of these avoidable mistakes in our guide to{" "}
               <Link
                 to="/used-car-inspection-mistakes-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 used car inspection mistakes in Australia
-              </Link>
-              .
+              </Link>.
             </p>
           </section>
 
-          {/* WHY STRUCTURE */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
-              Why Structure Matters During A Test Drive
+              What to Do if Something Feels Off
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              Most people do not miss problems because they lack knowledge.
-              They miss them because the situation is distracting.
+              If the car pulls, vibrates, hesitates, makes odd noises, or simply
+              feels inconsistent, slow the process down. That does not always
+              mean you must walk away immediately, but it does mean you should
+              not ignore what you noticed.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Some issues may support negotiation. Others may be enough to rule
+              the car out, especially if the seller becomes vague or dismissive.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you are trying to judge price after spotting issues, our guide
+              on{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much to offer on a used car in Australia
+              </Link>{" "}
+              can help.
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              Why Structure Matters During a Test Drive
+            </h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              Most people do not miss problems because they are careless. They
+              miss them because the situation is distracting, social, and often
+              rushed.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
               Having a simple structure helps you stay focused and notice things
               you would otherwise overlook.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              That is also why{" "}
+              <Link
+                to="/"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                CarVerity
+              </Link>{" "}
+              guides buyers through the drive step by step and helps capture
+              what they notice in a more structured way.
+            </p>
           </section>
 
-          {/* CTA */}
+          <section className="pt-10 border-t border-slate-800 space-y-4">
+            <h2 className="text-xl font-semibold">
+              Frequently Asked Questions
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-base font-semibold text-white">
+                  What should I listen for during a used car test drive?
+                </h3>
+                <p className="text-slate-400 leading-relaxed mt-2">
+                  Listen for knocking, whining, humming, droning, rattles, or
+                  any sound that appears during bumps, braking, acceleration, or
+                  steady driving.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-base font-semibold text-white">
+                  Should a used car test drive include braking checks?
+                </h3>
+                <p className="text-slate-400 leading-relaxed mt-2">
+                  Yes. Braking behaviour is one of the most important things to
+                  pay attention to. You want to know whether the car stops
+                  smoothly, straight, and without vibration or strange noises.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-base font-semibold text-white">
+                  Is a short test drive enough?
+                </h3>
+                <p className="text-slate-400 leading-relaxed mt-2">
+                  Often no. A drive that is too short can make it easier to miss
+                  issues that only show up once the car is warmed up or moving
+                  under normal road conditions.
+                </p>
+              </div>
+            </div>
+          </section>
+
           <section className="pt-10 border-t border-slate-800 space-y-4">
             <p className="text-slate-400 leading-relaxed">
               For a full inspection process, start with our{" "}
@@ -308,17 +478,41 @@ export default function HowToTestDriveUsedCarAustralia() {
               <p className="font-semibold text-slate-400">
                 Related guides (Australia):
               </p>
-              <p>
-                <Link to="/how-to-inspect-a-used-car-in-person" className="underline hover:text-white">
+              <p className="leading-relaxed">
+                <Link
+                  to="/what-to-check-when-buying-a-used-car-australia"
+                  className="underline hover:text-white"
+                >
+                  What to check when buying a used car
+                </Link>{" · "}
+                <Link
+                  to="/how-to-inspect-a-used-car-in-person"
+                  className="underline hover:text-white"
+                >
                   Inspect in person
                 </Link>{" · "}
-                <Link to="/ppsr-check-australia" className="underline hover:text-white">
+                <Link
+                  to="/ppsr-check-australia"
+                  className="underline hover:text-white"
+                >
                   PPSR check
                 </Link>{" · "}
-                <Link to="/dealer-vs-private-seller-australia" className="underline hover:text-white">
+                <Link
+                  to="/used-car-inspection-mistakes-australia"
+                  className="underline hover:text-white"
+                >
+                  Inspection mistakes
+                </Link>{" · "}
+                <Link
+                  to="/dealer-vs-private-seller-australia"
+                  className="underline hover:text-white"
+                >
                   Dealer vs private
                 </Link>{" · "}
-                <Link to="/how-much-should-you-offer-used-car-australia" className="underline hover:text-white">
+                <Link
+                  to="/how-much-should-you-offer-used-car-australia"
+                  className="underline hover:text-white"
+                >
                   How much to offer
                 </Link>
               </p>

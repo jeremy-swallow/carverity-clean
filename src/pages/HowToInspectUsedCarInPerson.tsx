@@ -1,5 +1,3 @@
-// src/pages/HowToInspectUsedCarInPerson.tsx
-
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { applySeo } from "../utils/seo";
@@ -8,9 +6,9 @@ export default function HowToInspectUsedCarInPerson() {
   useEffect(() => {
     applySeo({
       title:
-        "How To Inspect A Used Car In Person (Australia 2026 Guide) | CarVerity",
+        "How To Inspect a Used Car in Person (Without Missing Red Flags)",
       description:
-        "Learn how to inspect a used car in person in Australia with a calm, structured step-by-step approach. A practical guide covering exterior, interior, test drive and red flags.",
+        "Learn how to inspect a used car in person in Australia with a practical step-by-step process. What to check before you arrive, around the car, inside the cabin, during the test drive, and which red flags buyers often miss.",
       canonical:
         "https://www.carverity.com.au/how-to-inspect-a-used-car-in-person",
       structuredData: [
@@ -20,9 +18,9 @@ export default function HowToInspectUsedCarInPerson() {
           "@id":
             "https://www.carverity.com.au/how-to-inspect-a-used-car-in-person#article",
           headline:
-            "How To Inspect A Used Car In Person (Australia 2026 Guide)",
+            "How To Inspect a Used Car in Person (Without Missing Red Flags)",
           description:
-            "Learn how to inspect a used car in person in Australia with a calm, structured step-by-step approach. A practical guide covering exterior, interior, test drive and red flags.",
+            "A practical Australian guide covering what to check before arrival, around the car, inside the cabin, and during the test drive when inspecting a used car in person.",
           author: {
             "@type": "Organization",
             name: "CarVerity",
@@ -38,6 +36,39 @@ export default function HowToInspectUsedCarInPerson() {
           mainEntityOfPage:
             "https://www.carverity.com.au/how-to-inspect-a-used-car-in-person",
           inLanguage: "en-AU",
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "How do you inspect a used car in person?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "Inspect a used car in person by checking its history first, then walking around the exterior slowly, testing the interior and electronics carefully, and taking it on a proper test drive. The goal is to follow a consistent process so you do not miss red flags under pressure.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "What should I look for when inspecting a used car in person?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "Look for inconsistent paint, uneven tyre wear, warning lights that stay on, poor service history, signs of water or interior wear, unusual noises on the test drive, braking vibration, steering pull, and seller behaviour that feels rushed or unclear.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Should I inspect a used car before doing a PPSR check?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "It is usually better to do a PPSR check before spending too much time on the physical inspection. That helps rule out major financial or written-off history issues early.",
+              },
+            },
+          ],
         },
         {
           "@context": "https://schema.org",
@@ -68,34 +99,63 @@ export default function HowToInspectUsedCarInPerson() {
         <article className="space-y-12">
           <header className="space-y-4">
             <h1 className="text-3xl font-semibold tracking-tight">
-              How To Inspect A Used Car In Person (Australia 2026 Guide)
+              How To Inspect a Used Car in Person
             </h1>
 
             <p className="text-slate-400 leading-relaxed">
-              Knowing how to inspect a used car properly can save you thousands
-              of dollars — and a great deal of stress. In Australia, most used
-              car purchases happen quickly, often in car parks, driveways, or
-              busy yards. That pressure makes it easy to miss important details.
+              Knowing how to inspect a used car in person can save you from
+              expensive regret. In Australia, these inspections often happen in
+              driveways, car parks, or busy yards where it is easy to feel
+              rushed and overlook something important.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              This guide walks you through a structured, step-by-step approach
-              to inspecting a used car in person. It focuses on what you can
-              realistically observe without mechanical tools or specialist
+              This guide gives you a practical step-by-step process you can
+              follow in real life. It focuses on what ordinary buyers can
+              realistically check without specialist tools or mechanical
               training.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              The goal is not to diagnose everything. It is to inspect the car
+              calmly, spot obvious warning signs, and make a better decision
+              before you commit.
             </p>
           </header>
 
-          {/* BEFORE YOU ARRIVE */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
-              Step 1: Before You Arrive
+              Quick Answer: How Do You Inspect a Used Car in Person?
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              A proper used car inspection starts before you even see the
-              vehicle. In Australia, there are several essential checks you
-              should complete first.
+              To inspect a used car in person, start with the paperwork and
+              vehicle history, then walk around the outside slowly, check the
+              cabin and electronics carefully, and take the car on a proper test
+              drive. Follow the same order every time so pressure does not cause
+              you to miss details.
+            </p>
+
+            <ul className="list-disc pl-6 space-y-2 text-slate-300">
+              <li>Check the history before you arrive</li>
+              <li>Inspect the exterior for inconsistency, not just damage</li>
+              <li>Test warning lights, air conditioning and cabin features</li>
+              <li>Drive the car and pay attention to feel, sound and braking</li>
+              <li>Slow down if anything feels off, vague or rushed</li>
+            </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              That structure alone will put you ahead of many buyers.
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">Step 1: Before You Arrive</h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              A proper inspection starts before you even see the vehicle. This
+              helps you avoid wasting time on the wrong car and gives you a
+              clearer idea of what needs attention once you get there.
             </p>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
@@ -107,21 +167,22 @@ export default function HowToInspectUsedCarInPerson() {
                 >
                   PPSR check in Australia
                 </Link>{" "}
-                to confirm the vehicle is not under finance or written off.
+                to check for finance, stolen status, or write-off history
               </li>
-              <li>Confirm the VIN matches registration paperwork.</li>
-              <li>Request full service history and supporting receipts.</li>
-              <li>Check for outstanding recalls.</li>
+              <li>Confirm the VIN matches the registration paperwork</li>
+              <li>Ask for full service history and supporting receipts</li>
+              <li>Check whether any recalls are outstanding</li>
+              <li>Ask direct questions about faults, repairs and ownership</li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
-              These steps reduce financial risk before you invest time in a
-              physical inspection.
+              These checks help reduce risk before you become emotionally
+              invested in the car.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              Depending on the car’s age and value, you may also want to decide
-              whether{" "}
+              Depending on the age, value and condition of the car, you may also
+              want to decide whether{" "}
               <Link
                 to="/is-a-mechanical-inspection-worth-it-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
@@ -131,142 +192,176 @@ export default function HowToInspectUsedCarInPerson() {
             </p>
           </section>
 
-          {/* FIRST IMPRESSION */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
-              Step 2: First Walk-Around (Exterior Overview)
+              Step 2: First Walk-Around of the Exterior
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              When inspecting a used car in person, start by slowly walking
-              around the vehicle. You are looking for consistency, not just
-              obvious damage.
+              Start by slowly walking around the car. Do not rush to the obvious
+              dents and scratches. Look for consistency across the whole
+              vehicle.
             </p>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
-              <li>Check panel gaps for even spacing.</li>
-              <li>Look for mismatched paint or colour variation.</li>
-              <li>
-                Inspect for rust, particularly in coastal areas like Melbourne
-                or Sydney.
-              </li>
-              <li>Check tyre wear across the full width of each tyre.</li>
+              <li>Check panel gaps for even spacing</li>
+              <li>Look for mismatched paint or colour variation</li>
+              <li>Inspect for rust, bubbling or corrosion</li>
+              <li>Check tyre wear across the full width of each tyre</li>
+              <li>Look at headlights, tail-lights and glass condition</li>
+              <li>Watch for overspray, poorly aligned panels or repair clues</li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
-              Uneven tyre wear may indicate alignment or suspension issues.
-              Mismatched paint can suggest previous accident repairs.
+              Uneven tyre wear may point to alignment or suspension issues.
+              Paint inconsistency may suggest prior repairs. These are the kinds
+              of details buyers often miss because the car looks clean at first
+              glance.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              If you’re buying from a dealership rather than a private seller,
-              review the risks in our guide to{" "}
+              For a broader overview of what buyers should check before purchase,
+              see our main guide on{" "}
+              <Link
+                to="/what-to-check-when-buying-a-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                what to check when buying a used car in Australia
+              </Link>.
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              Step 3: Look Inside the Cabin Properly
+            </h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              A tidy interior can create false confidence. Instead of judging
+              the cabin only by appearance, test how things actually function.
+            </p>
+
+            <ul className="list-disc pl-6 space-y-2 text-slate-300">
+              <li>Make sure warning lights appear at startup, then turn off</li>
+              <li>Test the air conditioning properly</li>
+              <li>Check windows, mirrors, locks and infotainment</li>
+              <li>Look for unusual smells, moisture or signs of leaks</li>
+              <li>Compare wear on seats, wheel and pedals with the odometer</li>
+              <li>Check that buttons and switches work normally</li>
+            </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              Interior wear that feels inconsistent with the claimed kilometres
+              is worth questioning. It may be harmless, but it should not be
+              ignored.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want a simpler inspection flow to follow while standing
+              next to the car, our{" "}
+              <Link
+                to="/used-car-checklist-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                used car checklist for Australia
+              </Link>{" "}
+              can help keep you structured.
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              Step 4: Use the Test Drive Properly
+            </h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              The test drive is where many meaningful problems show up, but it
+              only helps if you stay deliberate and know what to pay attention
+              to.
+            </p>
+
+            <ul className="list-disc pl-6 space-y-2 text-slate-300">
+              <li>Does the steering pull to one side?</li>
+              <li>Is there vibration when braking?</li>
+              <li>Are gear changes smooth and predictable?</li>
+              <li>Do you hear unusual knocks, clunks or whining sounds?</li>
+              <li>Does the engine feel hesitant, rough or weak?</li>
+              <li>Does anything feel inconsistent at normal road speed?</li>
+            </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              Buyers often remember to drive the car but forget to assess it in
+              a structured way. That is why this step matters so much.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              For a more focused driving breakdown, read our guide on{" "}
+              <Link
+                to="/how-to-test-drive-a-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how to test drive a used car in Australia
+              </Link>.
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              Step 5: Watch the Seller as Well as the Car
+            </h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              A used car inspection is not only about the vehicle. Seller
+              behaviour can tell you a lot as well.
+            </p>
+
+            <ul className="list-disc pl-6 space-y-2 text-slate-300">
+              <li>Are they rushing you to decide?</li>
+              <li>Do their answers stay consistent?</li>
+              <li>Are they reluctant to let you inspect properly?</li>
+              <li>Do they become vague when asked about history or repairs?</li>
+            </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              Pressure and inconsistency are often stronger warning signs than a
+              cosmetic flaw. A genuine seller usually does not need to push you
+              through the process.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you are comparing different sale types, our guide on{" "}
               <Link
                 to="/dealer-vs-private-seller-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 dealer vs private seller in Australia
-              </Link>.
-            </p>
-          </section>
-
-          {/* UNDER BONNET */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold">
-              Step 3: Under the Bonnet (Visual Only)
-            </h2>
-
-            <p className="text-slate-400 leading-relaxed">
-              You do not need to diagnose mechanical problems. Instead, focus
-              on visible signs of neglect.
-            </p>
-
-            <ul className="list-disc pl-6 space-y-2 text-slate-300">
-              <li>Check for visible fluid leaks.</li>
-              <li>Inspect battery terminals for corrosion.</li>
-              <li>Look at hoses for cracks or wear.</li>
-              <li>Be cautious if the engine bay appears excessively cleaned.</li>
-            </ul>
-
-            <p className="text-slate-400 leading-relaxed">
-              An overly detailed engine bay may sometimes be used to conceal
-              leaks.
-            </p>
-          </section>
-
-          {/* INTERIOR */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold">
-              Step 4: Interior & Electronics
-            </h2>
-
-            <p className="text-slate-400 leading-relaxed">
-              Electrical repairs can be expensive. Test everything carefully.
-            </p>
-
-            <ul className="list-disc pl-6 space-y-2 text-slate-300">
-              <li>
-                Ensure warning lights appear on startup and then turn off.
-              </li>
-              <li>Test air conditioning thoroughly.</li>
-              <li>
-                Check windows, mirrors, locks, and infotainment systems.
-              </li>
-              <li>
-                Confirm odometer readings align with service documentation.
-              </li>
-            </ul>
-          </section>
-
-          {/* TEST DRIVE */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold">
-              Step 5: The Test Drive
-            </h2>
-
-            <p className="text-slate-400 leading-relaxed">
-              The test drive is where many issues become noticeable.
-            </p>
-
-            <ul className="list-disc pl-6 space-y-2 text-slate-300">
-              <li>Does the steering pull to one side?</li>
-              <li>Is there vibration under braking?</li>
-              <li>Are gear changes smooth?</li>
-              <li>Are there unusual engine noises?</li>
-            </ul>
-
-            <p className="text-slate-400 leading-relaxed">
-              Once you’ve identified issues, you may want guidance on{" "}
-              <Link
-                to="/how-much-should-you-offer-used-car-australia"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                how much to offer on a used car in Australia
               </Link>{" "}
-              based on condition and risk.
+              breaks down how the risks can differ.
             </p>
           </section>
 
-          {/* RED FLAGS */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
-              Common Red Flags When Inspecting A Used Car
+              Common Red Flags When Inspecting a Used Car in Person
             </h2>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
-              <li>Seller rushing you to decide.</li>
-              <li>Inconsistent service history.</li>
-              <li>Reluctance to allow inspection.</li>
-              <li>Stories that change during conversation.</li>
+              <li>Seller rushing you or discouraging checks</li>
+              <li>Inconsistent or incomplete service history</li>
+              <li>Paint and panel inconsistencies</li>
+              <li>Uneven tyre wear</li>
+              <li>Warning lights that stay on</li>
+              <li>Vibration, pulling or poor shifting on the drive</li>
+              <li>Stories that change during conversation</li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
-              Pressure and inconsistency are often stronger warning signs than
-              cosmetic flaws.
+              None of these automatically means the car is a hard no, but they
+              should slow you down and make you ask better questions.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              Many buyers fall into avoidable traps. See our breakdown of{" "}
+              We unpack this further in our guide to{" "}
               <Link
                 to="/used-car-inspection-mistakes-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
@@ -276,81 +371,160 @@ export default function HowToInspectUsedCarInPerson() {
             </p>
           </section>
 
-          {/* STRUCTURE */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
-              Why Structure Matters When Inspecting A Used Car
+              What to Do if You Notice Problems
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
-              Most buyers do not miss problems because they lack intelligence.
-              They miss them because inspections happen in stressful
+              Not every issue means you should walk away immediately. Some
+              problems support negotiation. Others suggest the car carries more
+              risk than the asking price justifies.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              The important thing is to document what you noticed, stay calm,
+              and avoid making a quick emotional decision on the spot.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you are trying to work out price based on condition, read our
+              guide on{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much to offer on a used car in Australia
+              </Link>.
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              Why Structure Matters During a Used Car Inspection
+            </h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              Most buyers do not miss problems because they are careless. They
+              miss them because inspections happen in distracting, pressured
               environments.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              A structured checklist slows the process down and ensures each
-              area of the vehicle is evaluated methodically.
-            </p>
-          </section>
-
-          {/* INTERNAL LINKS / CLUSTER HUB */}
-          <section className="pt-10 border-t border-slate-800 space-y-4">
-            <p className="text-slate-400 leading-relaxed">
-              For a full overview of everything to check before buying, read
-              our{" "}
-              <Link
-                to="/what-to-check-when-buying-a-used-car-australia"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                complete used car inspection checklist for Australia
-              </Link>.
+              A structure slows the process down. It gives you a repeatable way
+              to check the car without relying on memory or confidence in the
+              moment.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              If you prefer a structured mobile flow during your inspection,{" "}
+              That is also why tools like{" "}
               <Link
                 to="/"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                CarVerity guides you step-by-step
+                CarVerity
               </Link>{" "}
-              and turns your observations into a clear report.
+              exist: to guide buyers step by step, help them record what they
+              notice, and reduce the chance of missing something important while
+              inspecting in person.
             </p>
+          </section>
 
-            <p className="text-slate-400 leading-relaxed">
-              You can also review our{" "}
-              <Link
-                to="/trust"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                Trust & Transparency
-              </Link>{" "}
-              page to understand how the product operates.
-            </p>
+          <section className="pt-10 border-t border-slate-800 space-y-4">
+            <h2 className="text-xl font-semibold">
+              Frequently Asked Questions
+            </h2>
 
-            <div className="pt-4 text-sm text-slate-500">
-              <p className="font-semibold text-slate-400">
-                Related used car buying guides (Australia):
-              </p>
-              <p>
-                <Link to="/ppsr-check-australia" className="underline hover:text-white">
-                  PPSR check Australia
-                </Link>{" · "}
-                <Link to="/used-car-inspection-mistakes-australia" className="underline hover:text-white">
-                  Inspection mistakes
-                </Link>{" · "}
-                <Link to="/dealer-vs-private-seller-australia" className="underline hover:text-white">
-                  Dealer vs private seller
-                </Link>{" · "}
-                <Link to="/is-a-mechanical-inspection-worth-it-australia" className="underline hover:text-white">
-                  Mechanical inspection worth it?
-                </Link>{" · "}
-                <Link to="/how-much-should-you-offer-used-car-australia" className="underline hover:text-white">
-                  How much to offer?
-                </Link>
-              </p>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-base font-semibold text-white">
+                  How long should a used car inspection take?
+                </h3>
+                <p className="text-slate-400 leading-relaxed mt-2">
+                  Long enough that you do not feel rushed. Even a straightforward
+                  in-person inspection should give you time to review paperwork,
+                  walk around the vehicle, test the cabin properly, and take a
+                  meaningful drive.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-base font-semibold text-white">
+                  Should I inspect a used car even if it looks clean?
+                </h3>
+                <p className="text-slate-400 leading-relaxed mt-2">
+                  Yes. A clean-looking car can still have warning signs that
+                  only show up when you inspect methodically and test things
+                  properly.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-base font-semibold text-white">
+                  Is a PPSR check enough on its own?
+                </h3>
+                <p className="text-slate-400 leading-relaxed mt-2">
+                  No. A PPSR check is important, but it does not replace a
+                  physical inspection, service history review, or test drive.
+                </p>
+              </div>
             </div>
+          </section>
+
+          <section className="pt-6 space-y-3 text-sm text-slate-500">
+            <p className="font-semibold text-slate-400">
+              Related used car buying guides (Australia):
+            </p>
+            <p className="leading-relaxed">
+              <Link
+                to="/what-to-check-when-buying-a-used-car-australia"
+                className="underline hover:text-white"
+              >
+                What to check when buying a used car
+              </Link>{" · "}
+              <Link
+                to="/ppsr-check-australia"
+                className="underline hover:text-white"
+              >
+                PPSR check Australia
+              </Link>{" · "}
+              <Link
+                to="/how-to-test-drive-a-used-car-australia"
+                className="underline hover:text-white"
+              >
+                How to test drive a used car
+              </Link>{" · "}
+              <Link
+                to="/used-car-inspection-mistakes-australia"
+                className="underline hover:text-white"
+              >
+                Inspection mistakes
+              </Link>{" · "}
+              <Link
+                to="/used-car-checklist-australia"
+                className="underline hover:text-white"
+              >
+                Used car checklist Australia
+              </Link>{" · "}
+              <Link
+                to="/is-a-mechanical-inspection-worth-it-australia"
+                className="underline hover:text-white"
+              >
+                Mechanical inspection worth it?
+              </Link>{" · "}
+              <Link
+                to="/dealer-vs-private-seller-australia"
+                className="underline hover:text-white"
+              >
+                Dealer vs private seller
+              </Link>{" · "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="underline hover:text-white"
+              >
+                How much to offer?
+              </Link>
+            </p>
           </section>
         </article>
       </section>
