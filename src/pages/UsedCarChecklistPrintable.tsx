@@ -10,8 +10,7 @@ export default function UsedCarChecklistPrintable() {
       title: "Printable Used Car Checklist Australia 2026 | CarVerity",
       description:
         "Print or save this simplified used car checklist for Australia. A practical exterior, interior and test drive checklist for buyers who want a clean, printable version.",
-      canonical:
-        "https://www.carverity.com.au/used-car-checklist-australia",
+      canonical: "https://www.carverity.com.au/used-car-checklist-printable",
       structuredData: [
         {
           "@context": "https://schema.org",
@@ -67,11 +66,16 @@ export default function UsedCarChecklistPrintable() {
         @media print {
           @page {
             size: A4;
-            margin: 14mm;
+            margin: 12mm;
+          }
+
+          html, body {
+            background: white !important;
           }
 
           body {
-            background: white !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
 
           .print-hide {
@@ -84,9 +88,11 @@ export default function UsedCarChecklistPrintable() {
           }
 
           .print-card {
-            border: 1px solid #d1d5db !important;
+            border: 0 !important;
             background: white !important;
             box-shadow: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
           }
 
           .print-text-dark {
@@ -101,14 +107,54 @@ export default function UsedCarChecklistPrintable() {
             color: #6b7280 !important;
           }
 
-          .print-section {
-            break-inside: avoid;
-            page-break-inside: avoid;
-          }
-
           .print-link {
             color: #111827 !important;
             text-decoration: none !important;
+          }
+
+          .print-section {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .print-grid {
+            display: block !important;
+          }
+
+          .print-grid > .print-block {
+            display: block !important;
+            width: 100% !important;
+            margin-bottom: 10px !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+            border: 1px solid #d1d5db !important;
+            background: white !important;
+            box-shadow: none !important;
+          }
+
+          .print-compact {
+            margin-top: 10px !important;
+          }
+
+          .print-no-gap > * + * {
+            margin-top: 10px !important;
+          }
+
+          .print-notes-line {
+            height: 28px !important;
+            border-color: #d1d5db !important;
+          }
+
+          .print-header {
+            margin-bottom: 10px !important;
+            padding-bottom: 10px !important;
+            border-bottom: 1px solid #d1d5db !important;
+          }
+
+          .print-footer {
+            margin-top: 10px !important;
+            padding-top: 10px !important;
+            border-top: 1px solid #d1d5db !important;
           }
         }
       `}</style>
@@ -159,7 +205,7 @@ export default function UsedCarChecklistPrintable() {
         </div>
 
         <article className="print-card rounded-3xl border border-white/10 bg-white/5 p-6 md:p-10 shadow-2xl shadow-black/20">
-          <header className="border-b border-white/10 pb-6 print-section">
+          <header className="print-section print-header border-b border-white/10 pb-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400 print-text-light">
@@ -182,8 +228,8 @@ export default function UsedCarChecklistPrintable() {
             </div>
           </header>
 
-          <section className="mt-8 grid gap-6 md:grid-cols-2">
-            <div className="print-section rounded-2xl border border-white/10 bg-slate-950/30 p-5">
+          <section className="mt-8 grid gap-6 md:grid-cols-2 print-grid">
+            <div className="print-section print-block rounded-2xl border border-white/10 bg-slate-950/30 p-5">
               <h3 className="text-lg font-semibold text-white print-text-dark">
                 Before You Arrive
               </h3>
@@ -196,7 +242,7 @@ export default function UsedCarChecklistPrintable() {
               </ul>
             </div>
 
-            <div className="print-section rounded-2xl border border-white/10 bg-slate-950/30 p-5">
+            <div className="print-section print-block rounded-2xl border border-white/10 bg-slate-950/30 p-5">
               <h3 className="text-lg font-semibold text-white print-text-dark">
                 First Walk-Around
               </h3>
@@ -209,7 +255,7 @@ export default function UsedCarChecklistPrintable() {
               </ul>
             </div>
 
-            <div className="print-section rounded-2xl border border-white/10 bg-slate-950/30 p-5">
+            <div className="print-section print-block rounded-2xl border border-white/10 bg-slate-950/30 p-5">
               <h3 className="text-lg font-semibold text-white print-text-dark">
                 Interior & Electronics
               </h3>
@@ -223,7 +269,7 @@ export default function UsedCarChecklistPrintable() {
               </ul>
             </div>
 
-            <div className="print-section rounded-2xl border border-white/10 bg-slate-950/30 p-5">
+            <div className="print-section print-block rounded-2xl border border-white/10 bg-slate-950/30 p-5">
               <h3 className="text-lg font-semibold text-white print-text-dark">
                 Under The Bonnet (Visual Only)
               </h3>
@@ -235,7 +281,7 @@ export default function UsedCarChecklistPrintable() {
               </ul>
             </div>
 
-            <div className="print-section rounded-2xl border border-white/10 bg-slate-950/30 p-5">
+            <div className="print-section print-block rounded-2xl border border-white/10 bg-slate-950/30 p-5">
               <h3 className="text-lg font-semibold text-white print-text-dark">
                 Test Drive
               </h3>
@@ -249,7 +295,7 @@ export default function UsedCarChecklistPrintable() {
               </ul>
             </div>
 
-            <div className="print-section rounded-2xl border border-white/10 bg-slate-950/30 p-5">
+            <div className="print-section print-block rounded-2xl border border-white/10 bg-slate-950/30 p-5">
               <h3 className="text-lg font-semibold text-white print-text-dark">
                 After The Drive
               </h3>
@@ -262,7 +308,7 @@ export default function UsedCarChecklistPrintable() {
             </div>
           </section>
 
-          <section className="mt-8 print-section rounded-2xl border border-white/10 bg-slate-950/30 p-5">
+          <section className="mt-8 print-section print-compact rounded-2xl border border-white/10 bg-slate-950/30 p-5">
             <h3 className="text-lg font-semibold text-white print-text-dark">
               Common Red Flags
             </h3>
@@ -276,19 +322,19 @@ export default function UsedCarChecklistPrintable() {
             </ul>
           </section>
 
-          <section className="mt-8 print-section rounded-2xl border border-dashed border-white/15 bg-slate-950/20 p-5">
+          <section className="mt-8 print-section print-compact rounded-2xl border border-dashed border-white/15 bg-slate-950/20 p-5">
             <h3 className="text-lg font-semibold text-white print-text-dark">
               Notes
             </h3>
-            <div className="mt-4 space-y-4">
-              <div className="h-10 rounded-lg border border-white/10" />
-              <div className="h-10 rounded-lg border border-white/10" />
-              <div className="h-10 rounded-lg border border-white/10" />
-              <div className="h-10 rounded-lg border border-white/10" />
+            <div className="mt-4 space-y-4 print-no-gap">
+              <div className="print-notes-line h-10 rounded-lg border border-white/10" />
+              <div className="print-notes-line h-10 rounded-lg border border-white/10" />
+              <div className="print-notes-line h-10 rounded-lg border border-white/10" />
+              <div className="print-notes-line h-10 rounded-lg border border-white/10" />
             </div>
           </section>
 
-          <section className="mt-8 print-section rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-5">
+          <section className="mt-8 print-section print-compact rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-5">
             <h3 className="text-lg font-semibold text-white print-text-dark">
               Better Than Paper
             </h3>
@@ -316,7 +362,7 @@ export default function UsedCarChecklistPrintable() {
             </div>
           </section>
 
-          <footer className="mt-8 border-t border-white/10 pt-5 text-xs text-slate-400 print-text-light">
+          <footer className="mt-8 print-footer border-t border-white/10 pt-5 text-xs text-slate-400 print-text-light">
             <p>
               Source page:{" "}
               <Link
