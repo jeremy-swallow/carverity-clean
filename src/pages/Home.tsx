@@ -395,6 +395,18 @@ export default function Home() {
               .
             </p>
 
+            <p className="text-sm leading-relaxed text-slate-300">
+              Worried about high kilometres?{" "}
+              <Link
+                to="/how-many-km-is-too-many-used-car-australia"
+                className="text-emerald-300 underline hover:text-emerald-200"
+              >
+                Read our guide on how many kilometres is too many for a used car
+                in Australia
+              </Link>
+              .
+            </p>
+
             <div className="mt-1 flex flex-wrap items-start gap-3">
               <div className="flex flex-col gap-1">
                 <button
@@ -525,6 +537,13 @@ export default function Home() {
                 PPSR check
               </Link>
 
+              <Link
+                to="/how-many-km-is-too-many-used-car-australia"
+                className="text-sm text-slate-300 underline"
+              >
+                High kilometre guide
+              </Link>
+
               <Link to="/faq" className="text-sm text-slate-300 underline">
                 FAQ
               </Link>
@@ -645,6 +664,18 @@ export default function Home() {
           </p>
 
           <p className="mt-3 text-sm leading-relaxed text-slate-300">
+            If odometer readings are making you hesitate, our{" "}
+            <Link
+              to="/how-many-km-is-too-many-used-car-australia"
+              className="text-emerald-300 underline hover:text-emerald-200"
+            >
+              high-kilometre used car guide for Australia
+            </Link>{" "}
+            explains when kilometres matter, when they matter less, and how to
+            judge value more clearly.
+          </p>
+
+          <p className="mt-3 text-sm leading-relaxed text-slate-300">
             Want to understand how CarVerity fits into that process?{" "}
             <Link
               to="/what-to-expect"
@@ -748,6 +779,12 @@ export default function Home() {
               className="text-slate-300 underline hover:text-white"
             >
               Used car inspection mistakes
+            </Link>
+            <Link
+              to="/how-many-km-is-too-many-used-car-australia"
+              className="text-slate-300 underline hover:text-white"
+            >
+              How many km is too many?
             </Link>
             <Link
               to="/is-a-mechanical-inspection-worth-it-australia"
@@ -1256,6 +1293,13 @@ export default function Home() {
               className="text-slate-300 underline"
             >
               PPSR check
+            </Link>
+            {" · "}
+            <Link
+              to="/how-many-km-is-too-many-used-car-australia"
+              className="text-slate-300 underline"
+            >
+              How many km is too many?
             </Link>
             {" · "}
             <Link
