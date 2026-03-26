@@ -36,6 +36,7 @@ import DealerVsPrivateSellerAustralia from "./pages/DealerVsPrivateSellerAustral
 import HowMuchShouldYouOfferUsedCarAustralia from "./pages/HowMuchShouldYouOfferUsedCarAustralia";
 import UsedCarChecklistAustralia from "./pages/UsedCarChecklistAustralia";
 import UsedCarChecklistPrintable from "./pages/UsedCarChecklistPrintable";
+import HowManyKmTooManyUsedCarAustralia from "./pages/HowManyKmTooManyUsedCarAustralia";
 
 /* Tester */
 import TestingExpectations from "./pages/TestingExpectations";
@@ -202,6 +203,11 @@ export default function App() {
           <Route
             path="/used-car-checklist-printable"
             element={<UsedCarChecklistPrintable />}
+          />
+
+          <Route
+            path="/how-many-km-is-too-many-used-car-australia"
+            element={<HowManyKmTooManyUsedCarAustralia />}
           />
 
           {/* Tester */}
