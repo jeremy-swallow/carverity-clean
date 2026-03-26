@@ -188,7 +188,21 @@ export default function HowToInspectUsedCarInPerson() {
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 a mechanical inspection is worth it in Australia
-              </Link>.
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you are already thinking ahead to negotiation, it can also help
+              to understand how buyers often approach pricing before you become
+              too invested. Our guide on{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much you should offer on a used car in Australia
+              </Link>{" "}
+              can help frame that side of the decision.
             </p>
           </section>
 
@@ -227,7 +241,8 @@ export default function HowToInspectUsedCarInPerson() {
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 what to check when buying a used car in Australia
-              </Link>.
+              </Link>
+              .
             </p>
           </section>
 
@@ -295,13 +310,33 @@ export default function HowToInspectUsedCarInPerson() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
+              What you notice during the drive should also shape how you think
+              about price. Small issues do not always mean you should walk away,
+              but they do affect your position and how confident you feel about
+              the asking price.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you are unsure how buyers usually adjust their offer based on
+              what they notice, see{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much to offer on a used car in Australia
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
               For a more focused driving breakdown, read our guide on{" "}
               <Link
                 to="/how-to-test-drive-a-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 how to test drive a used car in Australia
-              </Link>.
+              </Link>
+              .
             </p>
           </section>
 
@@ -367,7 +402,8 @@ export default function HowToInspectUsedCarInPerson() {
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 common used car inspection mistakes in Australia
-              </Link>.
+              </Link>
+              .
             </p>
           </section>
 
@@ -395,7 +431,21 @@ export default function HowToInspectUsedCarInPerson() {
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 how much to offer on a used car in Australia
-              </Link>.
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Once you have finished inspecting the car, most buyers move
+              straight into deciding what to do next. If you want a clearer
+              framework before making an offer, read{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much you should offer on a used car in Australia
+              </Link>
+              .
             </p>
           </section>
 

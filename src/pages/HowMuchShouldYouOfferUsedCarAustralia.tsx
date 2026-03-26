@@ -119,6 +119,20 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
               Australia without relying on emotion, pressure, or the seller’s
               confidence.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Most buyers reach this point after inspecting a car and trying to
+              make sense of what they found. If you want a clearer, structured
+              way to capture those observations before deciding on price,{" "}
+              <Link
+                to="/"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                CarVerity helps you document what you see and position your
+                offer more logically
+              </Link>
+              .
+            </p>
           </header>
 
           <section className="space-y-4">
@@ -331,9 +345,7 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-xl font-semibold">
-              Use Structure, Not Emotion
-            </h2>
+            <h2 className="text-xl font-semibold">Use Structure, Not Emotion</h2>
 
             <p className="text-slate-400 leading-relaxed">
               Emotional negotiation usually leads to poor decisions. Buyers get
@@ -435,7 +447,8 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
                 to="/"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                CarVerity helps you document issues and position price more logically
+                CarVerity helps you document issues and position price more
+                logically
               </Link>
               .
             </p>

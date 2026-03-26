@@ -235,6 +235,24 @@ export default function HowToTestDriveUsedCarAustralia() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
+              Small issues during a test drive don’t always mean you should walk
+              away — but they do affect how you think about the price.
+              Understanding how buyers adjust their offer based on what they
+              notice can help you stay balanced.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you’re not sure how to factor this in, see{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much to offer on a used car in Australia
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
               If you want the full inspection process before and around the
               drive, read our guide on{" "}
               <Link
@@ -242,7 +260,8 @@ export default function HowToTestDriveUsedCarAustralia() {
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 how to inspect a used car in person
-              </Link>.
+              </Link>
+              .
             </p>
           </section>
 
@@ -318,6 +337,19 @@ export default function HowToTestDriveUsedCarAustralia() {
               Problems that show up after the drive can matter just as much as
               the ones you notice while moving.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              Once you’ve finished the test drive and have a feel for how the
+              car drives, the next step is deciding what it’s actually worth to
+              you. If you’re unsure how buyers typically approach this, read{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much you should offer on a used car in Australia
+              </Link>
+              .
+            </p>
           </section>
 
           <section className="space-y-4">
@@ -346,7 +378,8 @@ export default function HowToTestDriveUsedCarAustralia() {
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 used car inspection mistakes in Australia
-              </Link>.
+              </Link>
+              .
             </p>
           </section>
 
@@ -460,6 +493,19 @@ export default function HowToTestDriveUsedCarAustralia() {
                 used car inspection checklist for Australia
               </Link>
               .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              After the test drive, most buyers move straight into price
+              discussions. Taking a moment to think clearly about your position
+              can make a big difference. If you want a simple framework, read{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much you should offer on a used car in Australia
+              </Link>{" "}
+              before making your move.
             </p>
 
             <p className="text-slate-400 leading-relaxed">

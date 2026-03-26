@@ -119,11 +119,25 @@ export default function UsedCarInspectionMistakes() {
               If you know what buyers usually get wrong, it becomes much easier
               to inspect a car more calmly and make a better decision.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              And once you have identified issues or uncertainties, the next
+              step is usually working out what they mean for the asking price.
+              If you want help with that side of the decision, read{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much you should offer on a used car in Australia
+              </Link>
+              .
+            </p>
           </header>
 
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
-              Quick Answer: What Are the Most Common Used Car Inspection Mistakes?
+              Quick Answer: What Are the Most Common Used Car Inspection
+              Mistakes?
             </h2>
 
             <p className="text-slate-400 leading-relaxed">
@@ -139,7 +153,9 @@ export default function UsedCarInspectionMistakes() {
               <li>Focusing too heavily on cosmetic appearance</li>
               <li>Skipping a PPSR check</li>
               <li>Not watching the dashboard at startup</li>
-              <li>Not testing windows, locks, air conditioning and electronics</li>
+              <li>
+                Not testing windows, locks, air conditioning and electronics
+              </li>
               <li>Doing a short or unfocused test drive</li>
               <li>Trying to remember everything instead of using a checklist</li>
             </ul>
@@ -300,12 +316,26 @@ export default function UsedCarInspectionMistakes() {
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
+              What shows up during the drive should also shape how you think
+              about price. Some issues may be manageable, while others change
+              what the car is worth to you.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
               If you want a clearer framework for this stage, read our guide on{" "}
               <Link
                 to="/how-to-test-drive-a-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 how to test drive a used car in Australia
+              </Link>
+              , and if you need help translating those issues into a sensible
+              price position, read{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much to offer on a used car in Australia
               </Link>
               .
             </p>

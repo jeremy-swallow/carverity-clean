@@ -120,6 +120,19 @@ export default function UsedCarChecklistAustralia() {
               built for that.
             </p>
 
+            <p className="text-slate-400 leading-relaxed">
+              Once you have worked through a checklist like this, the next
+              question many buyers face is what the car is actually worth to
+              them. If you are unsure how to approach that step, read{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much you should offer on a used car in Australia
+              </Link>
+              .
+            </p>
+
             <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-5">
               <h2 className="text-lg font-semibold text-white">
                 Want a version you can print?
@@ -205,7 +218,10 @@ export default function UsedCarChecklistAustralia() {
                   </li>
                   <li>Ask for service history and receipts</li>
                   <li>Confirm the VIN and registration details match</li>
-                  <li>Decide in advance whether a mechanic inspection may be needed</li>
+                  <li>
+                    Decide in advance whether a mechanic inspection may be
+                    needed
+                  </li>
                   <li>Ask direct questions about faults and recent repairs</li>
                 </ul>
               </div>
@@ -216,7 +232,9 @@ export default function UsedCarChecklistAustralia() {
                   <li>Check for dents, scratches, and mismatched paint</li>
                   <li>Look for uneven panel gaps</li>
                   <li>Inspect tyres for even wear and usable tread depth</li>
-                  <li>Look for rust around doors, wheel arches, and lower panels</li>
+                  <li>
+                    Look for rust around doors, wheel arches, and lower panels
+                  </li>
                   <li>Check lights, glass, and mirrors for damage</li>
                 </ul>
               </div>
@@ -249,7 +267,9 @@ export default function UsedCarChecklistAustralia() {
                 <ul className="list-disc pl-6 space-y-2 text-slate-300">
                   <li>Check for smooth acceleration without hesitation</li>
                   <li>See whether braking feels straight and stable</li>
-                  <li>Notice if the steering pulls, feels vague, or vibrates</li>
+                  <li>
+                    Notice if the steering pulls, feels vague, or vibrates
+                  </li>
                   <li>Listen for knocks, rattles, whining, or clunks</li>
                   <li>Check that gear changes feel smooth</li>
                 </ul>
@@ -310,9 +330,13 @@ export default function UsedCarChecklistAustralia() {
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>Mismatched paint can suggest previous repair work</li>
-              <li>Uneven panel gaps can point to accident repairs or poor fitment</li>
+              <li>
+                Uneven panel gaps can point to accident repairs or poor fitment
+              </li>
               <li>Rust around lower panels can worsen quickly if ignored</li>
-              <li>Uneven tyre wear may indicate suspension or alignment issues</li>
+              <li>
+                Uneven tyre wear may indicate suspension or alignment issues
+              </li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
@@ -346,10 +370,15 @@ export default function UsedCarChecklistAustralia() {
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>Make sure warning lights appear at startup and then clear</li>
-              <li>Test air conditioning properly, not just for a few seconds</li>
+              <li>
+                Test air conditioning properly, not just for a few seconds
+              </li>
               <li>Check all windows, locks, mirrors, and seat adjustments</li>
               <li>Confirm the odometer makes sense with the overall wear</li>
-              <li>Be cautious if something feels heavily worn for the stated kilometres</li>
+              <li>
+                Be cautious if something feels heavily worn for the stated
+                kilometres
+              </li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
@@ -372,11 +401,31 @@ export default function UsedCarChecklistAustralia() {
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
               <li>Does the engine accelerate cleanly?</li>
-              <li>Does the steering stay straight without constant correction?</li>
+              <li>
+                Does the steering stay straight without constant correction?
+              </li>
               <li>Is there vibration under braking?</li>
               <li>Do gear changes feel smooth or delayed?</li>
               <li>Are there clunks over bumps or unusual humming sounds?</li>
             </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              What you notice during the drive should influence how you think
+              about price. Small issues do not always mean you walk away, but
+              they do affect what the car is worth to you.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you are unsure how buyers adjust their offer based on these
+              observations, read{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much to offer on a used car in Australia
+              </Link>
+              .
+            </p>
 
             <p className="text-slate-400 leading-relaxed">
               For a more focused drive-specific guide, see{" "}
@@ -537,6 +586,21 @@ export default function UsedCarChecklistAustralia() {
               .
             </p>
 
+            <p className="text-slate-400 leading-relaxed">
+              Once you have worked through the checklist and gathered your
+              observations, the final step is deciding what to do next. Most
+              buyers move straight into price discussions at this point. Taking
+              a moment to think clearly about your position can make a big
+              difference. If you want a simple framework, read{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much you should offer on a used car in Australia
+              </Link>{" "}
+              before making your move.
+            </p>
+
             <div className="pt-4 text-sm text-slate-500">
               <p className="font-semibold text-slate-400">
                 Related used car buying guides (Australia):
@@ -583,6 +647,12 @@ export default function UsedCarChecklistAustralia() {
                   className="underline hover:text-white"
                 >
                   Dealer vs private seller
+                </Link>{" · "}
+                <Link
+                  to="/how-much-should-you-offer-used-car-australia"
+                  className="underline hover:text-white"
+                >
+                  How much to offer?
                 </Link>
               </p>
             </div>
