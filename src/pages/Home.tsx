@@ -43,7 +43,6 @@ function normaliseResumeTarget(
   if (s === "summary") return "/scan/in-person/summary";
   if (s === "start") return "/scan/in-person/start";
 
-  // Unknown
   return null;
 }
 
@@ -78,71 +77,102 @@ export default function Home() {
   const [authReady, setAuthReady] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // SEO: route-level title/description/canonical + FAQ schema for the homepage
   useEffect(() => {
     applySeo({
-      title: "Used Car Inspection Checklist App Australia | CarVerity",
+      title:
+        "Used Car Inspection Checklist App Australia | CarVerity",
       description:
-        "CarVerity is an Australian web app that guides you through a structured in-person used car inspection checklist and turns your findings into a clear buyer-focused report.",
+        "CarVerity is an Australian used car inspection checklist web app that guides you through an in-person vehicle check, helps you capture evidence, and turns your findings into a clear buyer-focused report.",
       canonical: "https://www.carverity.com.au/",
-      structuredData: {
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        mainEntity: [
-          {
-            "@type": "Question",
-            name: "What is CarVerity?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "CarVerity is an Australian web app that guides buyers through a structured in-person used car inspection checklist and generates a clear, buyer-focused report.",
-            },
+      structuredData: [
+        {
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "CarVerity",
+          url: "https://www.carverity.com.au/",
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "CarVerity",
+          url: "https://www.carverity.com.au/",
+          logo: "https://www.carverity.com.au/logo192.png",
+          areaServed: "AU",
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "CarVerity",
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web",
+          url: "https://www.carverity.com.au/",
+          areaServed: "AU",
+          offers: {
+            "@type": "Offer",
+            price: "0",
+            priceCurrency: "AUD",
           },
-          {
-            "@type": "Question",
-            name: "Is CarVerity a mechanical inspection?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "No. CarVerity is not a mechanical inspection service. It helps you record visible observations during an in-person inspection and organise your findings into a structured report.",
+          description:
+            "CarVerity is an Australian web app that guides buyers through a structured in-person used car inspection checklist and generates a clear, buyer-focused report.",
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: [
+            {
+              "@type": "Question",
+              name: "What is CarVerity?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "CarVerity is an Australian web app that guides buyers through a structured in-person used car inspection checklist and generates a clear, buyer-focused report.",
+              },
             },
-          },
-          {
-            "@type": "Question",
-            name: "Do I need tools or mechanical knowledge?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "No tools or mechanical knowledge are required. The checklist is designed to be completed while standing normally around the vehicle.",
+            {
+              "@type": "Question",
+              name: "Is CarVerity a mechanical inspection?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "No. CarVerity is not a mechanical inspection service. It helps you record visible observations during an in-person inspection and organise your findings into a structured report.",
+              },
             },
-          },
-          {
-            "@type": "Question",
-            name: "Is CarVerity designed for Australian buyers?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "Yes. CarVerity is built for Australian used car buyers and reflects common real-world buying situations in Australia.",
+            {
+              "@type": "Question",
+              name: "Do I need tools or mechanical knowledge?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "No tools or mechanical knowledge are required. The checklist is designed to be completed while standing normally around the vehicle.",
+              },
             },
-          },
-          {
-            "@type": "Question",
-            name: "What should I check before buying a used car in Australia?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "Start with a structured in-person checklist: inspect the exterior, cabin, and test drive, capture clear photos, and confirm key paperwork like a PPSR check before committing.",
+            {
+              "@type": "Question",
+              name: "Is CarVerity designed for Australian buyers?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes. CarVerity is built for Australian used car buyers and reflects common real-world buying situations in Australia.",
+              },
             },
-          },
-          {
-            "@type": "Question",
-            name: "Should I do a PPSR check before buying a used car?",
-            acceptedAnswer: {
-              "@type": "Answer",
-              text: "Yes. A PPSR check can help you identify finance owing or certain recorded statuses before you buy, which reduces risk for Australian used car buyers.",
+            {
+              "@type": "Question",
+              name: "What should I check before buying a used car in Australia?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Start with a structured in-person checklist: inspect the exterior, cabin, and test drive, capture clear photos, and confirm key paperwork like a PPSR check before committing.",
+              },
             },
-          },
-        ],
-      },
+            {
+              "@type": "Question",
+              name: "Should I do a PPSR check before buying a used car?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text: "Yes. A PPSR check can help you identify finance owing or certain recorded statuses before you buy, which reduces risk for Australian used car buyers.",
+              },
+            },
+          ],
+        },
+      ],
     });
   }, []);
 
-  // Auth gate: Resume should only appear when signed in
   useEffect(() => {
     let cancelled = false;
 
@@ -172,7 +202,6 @@ export default function Home() {
     };
   }, []);
 
-  // Resume step loading (but we will only SHOW it when logged in)
   useEffect(() => {
     const progress: any = loadProgress();
     const rawStep = progress?.step ? String(progress.step) : "";
@@ -182,8 +211,6 @@ export default function Home() {
       return;
     }
 
-    // If progress is pointing at an end-of-flow page, treat it as completed
-    // and clear it once (not during render).
     const completedStepPrefixes = [
       "/scan/in-person/results",
       "/scan/in-person/print",
@@ -215,7 +242,6 @@ export default function Home() {
       return;
     }
 
-    // Keep stored step in a route-safe format so resume never "flashes"
     if (rawStep !== target) {
       try {
         saveProgress({
@@ -231,15 +257,12 @@ export default function Home() {
   }, []);
 
   const shouldShowResume = useMemo(() => {
-    // IMPORTANT: Only show Resume when signed in
     if (!authReady) return false;
     if (!isLoggedIn) return false;
     return Boolean(resumeStep);
   }, [authReady, isLoggedIn, resumeStep]);
 
   function handleStartInPerson() {
-    // USER REQUIREMENT:
-    // Start scan must ALWAYS start clean unless user explicitly taps Resume.
     try {
       clearProgress();
     } catch {
@@ -252,7 +275,6 @@ export default function Home() {
   function resumeScan() {
     if (!resumeStep) return;
 
-    // Safety: if somehow clicked while logged out, force sign-in
     if (!isLoggedIn) {
       try {
         const progress: any = loadProgress() ?? {};
@@ -276,106 +298,112 @@ export default function Home() {
       <section className="relative w-full overflow-hidden border-b border-white/10">
         <img
           src="/photo-guides/hero.png"
-          alt="Car interior dashboard"
-          className="absolute inset-0 w-full h-full object-cover"
+          alt="Used car inspection app interface and car interior dashboard for Australian buyers"
+          className="absolute inset-0 h-full w-full object-cover"
         />
 
         <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/75 to-black/90" />
 
-        {/* Subtle premium glow */}
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
           <div className="absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
         </div>
 
-        <div className="relative max-w-5xl mx-auto px-6 py-24 md:py-20">
-          <div className="max-w-xl md:max-w-2xl flex flex-col gap-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1.5 w-fit">
+        <div className="relative mx-auto max-w-5xl px-6 py-24 md:py-20">
+          <div className="flex max-w-xl flex-col gap-5 md:max-w-2xl">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1.5">
               <ShieldCheck className="h-4 w-4 text-emerald-300" />
               <span className="text-[12px] text-slate-200">
                 Buyer-safe in-person inspection
               </span>
             </div>
 
-            <h1 className="text-3xl md:text-5xl font-semibold tracking-tight leading-tight">
-              Confidence during your used car inspection
+            <h1 className="text-3xl font-semibold leading-tight tracking-tight md:text-5xl">
+              Used car inspection checklist app for Australian buyers
             </h1>
 
-            {/* Keep the SEO phrase, but demote it beneath the emotional headline */}
             <p className="text-[12px] uppercase tracking-[0.18em] text-slate-400">
-              Used Car Inspection Checklist App for Australian Buyers
+              Structured used car checks you can do in person without tools
             </p>
 
-            <p className="text-slate-200 text-[15px] leading-relaxed">
+            <p className="text-[15px] leading-relaxed text-slate-200">
               CarVerity guides you step-by-step while you&apos;re standing next
               to the car — helping you assess what you can clearly see, capture
               evidence, and finish with a clean report so you can decide what to
               do next with confidence.
             </p>
 
-            {/* NEW: subtle AU entity reinforcement */}
-            <p className="text-slate-300 text-sm leading-relaxed">
+            <p className="text-sm leading-relaxed text-slate-300">
               Designed for real-world Australian buying situations — from private
-              driveway sales to licensed car yards across VIC, NSW, QLD and beyond.
+              driveway sales to licensed car yards across VIC, NSW, QLD and
+              beyond.
             </p>
 
-            <p className="text-slate-300 text-sm">
-              No mechanic tools. No guesswork. Just what you can see, check, and
-              confirm.
+            <p className="text-sm text-slate-300">
+              No mechanic tools. No crawling underneath the car. No guesswork.
+              Just what you can see, check, and confirm.
             </p>
 
-            <p className="text-slate-300 text-sm">
-              Not sure what to look for?{" "}
+            <p className="text-sm leading-relaxed text-slate-300">
+              If you&apos;re still working out{" "}
               <Link
                 to="/what-to-check-when-buying-a-used-car-australia"
-                className="underline text-emerald-300 hover:text-emerald-200"
+                className="text-emerald-300 underline hover:text-emerald-200"
               >
-                Read our complete used car checklist for Australia
+                what to check when buying a used car in Australia
               </Link>
-              .
-            </p>
-
-            <p className="text-slate-300 text-sm">
-              Want a simpler version you can use on the spot?{" "}
+              , start with our full guide. For a simpler version you can keep on
+              hand during an inspection, use the{" "}
               <Link
                 to="/used-car-checklist-australia"
-                className="underline text-emerald-300 hover:text-emerald-200"
+                className="text-emerald-300 underline hover:text-emerald-200"
               >
-                Use our printable used car checklist for Australia
+                used car checklist for Australia
+              </Link>{" "}
+              or the{" "}
+              <Link
+                to="/used-car-checklist-printable"
+                className="text-emerald-300 underline hover:text-emerald-200"
+              >
+                printable used car checklist
               </Link>
               .
             </p>
 
-            <p className="text-slate-300 text-sm leading-relaxed">
-              Want to understand how the scan works end-to-end?{" "}
+            <p className="text-sm leading-relaxed text-slate-300">
+              Want to understand the full flow before you begin?{" "}
               <Link
                 to="/what-to-expect"
-                className="underline text-emerald-300 hover:text-emerald-200"
+                className="text-emerald-300 underline hover:text-emerald-200"
               >
                 See what to expect during an inspection
-              </Link>{" "}
-              — and if you have questions about how results and uncertainty are
-              handled,{" "}
+              </Link>
+              , learn{" "}
               <Link
-                to="/faq"
-                className="underline text-emerald-300 hover:text-emerald-200"
+                to="/how-to-inspect-a-used-car-in-person"
+                className="text-emerald-300 underline hover:text-emerald-200"
               >
-                visit the FAQ
+                how to inspect a used car in person
+              </Link>
+              , and review{" "}
+              <Link
+                to="/how-to-test-drive-a-used-car-australia"
+                className="text-emerald-300 underline hover:text-emerald-200"
+              >
+                how to test drive a used car in Australia
               </Link>
               .
             </p>
 
-            <div className="flex flex-wrap items-start gap-3 mt-1">
+            <div className="mt-1 flex flex-wrap items-start gap-3">
               <div className="flex flex-col gap-1">
                 <button
                   onClick={handleStartInPerson}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-black font-semibold transition"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"
                 >
                   Start in-person inspection
                   <ArrowRight className="h-4 w-4" />
                 </button>
-
-                {/* NEW: reassurance under primary CTA */}
                 <span className="text-[11px] text-slate-300">
                   No payment required to start.
                 </span>
@@ -385,7 +413,7 @@ export default function Home() {
                 <div className="flex flex-col gap-1">
                   <button
                     onClick={resumeScan}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-black font-semibold transition"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 font-semibold text-black transition hover:bg-amber-300"
                   >
                     Resume inspection
                     <ArrowRight className="h-4 w-4" />
@@ -397,8 +425,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* BEST FOR */}
-            <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-300 leading-relaxed">
+            <div className="flex flex-wrap items-center gap-2 text-[12px] leading-relaxed text-slate-300">
               <span className="text-slate-400">
                 Designed for real-world buying situations:
               </span>
@@ -413,14 +440,13 @@ export default function Home() {
               </span>
             </div>
 
-            {/* HOW IT WORKS (premium strip) */}
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-black/30 px-5 py-4">
                 <div className="flex items-center gap-2 text-slate-200">
                   <ClipboardCheck className="h-4 w-4 text-slate-300" />
                   <p className="text-sm font-semibold">Guided scan</p>
                 </div>
-                <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                <p className="mt-2 text-xs leading-relaxed text-slate-300">
                   Outside → cabin → test drive, with clear prompts that keep you
                   focused.
                 </p>
@@ -431,9 +457,9 @@ export default function Home() {
                   <Camera className="h-4 w-4 text-slate-300" />
                   <p className="text-sm font-semibold">Evidence captured</p>
                 </div>
-                <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                  Notes + photos that create a clean record of what you actually
-                  observed.
+                <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                  Notes and photos that create a clean record of what you
+                  actually observed.
                 </p>
               </div>
 
@@ -442,67 +468,83 @@ export default function Home() {
                   <FileText className="h-4 w-4 text-slate-300" />
                   <p className="text-sm font-semibold">Buyer-ready report</p>
                 </div>
-                <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                  Priority findings, what to clarify, and next steps — based on
+                <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                  Priority findings, what to clarify, and next steps based on
                   what you recorded.
                 </p>
               </div>
             </div>
 
-            {/* Links */}
             <div className="flex flex-wrap gap-x-5 gap-y-2 pt-2">
               <Link
                 to="/what-to-expect"
-                className="text-slate-300 underline text-sm"
+                className="text-sm text-slate-300 underline"
               >
                 What to expect
               </Link>
 
               <Link
                 to="/what-to-check-when-buying-a-used-car-australia"
-                className="text-slate-300 underline text-sm"
+                className="text-sm text-slate-300 underline"
+              >
+                What to check when buying a used car
+              </Link>
+
+              <Link
+                to="/used-car-checklist-australia"
+                className="text-sm text-slate-300 underline"
               >
                 Used car checklist (Australia)
               </Link>
 
               <Link
-                to="/used-car-checklist-australia"
-                className="text-slate-300 underline text-sm"
+                to="/used-car-checklist-printable"
+                className="text-sm text-slate-300 underline"
               >
-                Printable checklist (Australia)
+                Printable checklist
               </Link>
 
               <Link
                 to="/how-to-inspect-a-used-car-in-person"
-                className="text-slate-300 underline text-sm"
+                className="text-sm text-slate-300 underline"
               >
-                How to inspect a used car in person
+                How to inspect in person
+              </Link>
+
+              <Link
+                to="/how-to-test-drive-a-used-car-australia"
+                className="text-sm text-slate-300 underline"
+              >
+                Test drive guide
               </Link>
 
               <Link
                 to="/ppsr-check-australia"
-                className="text-slate-300 underline text-sm"
+                className="text-sm text-slate-300 underline"
               >
-                PPSR check (Australia)
+                PPSR check
               </Link>
 
-              <Link to="/faq" className="text-slate-300 underline text-sm">
+              <Link to="/faq" className="text-sm text-slate-300 underline">
                 FAQ
               </Link>
 
-              <Link to="/about" className="text-slate-300 underline text-sm">
+              <Link to="/about" className="text-sm text-slate-300 underline">
                 About
               </Link>
 
-              <Link to="/trust" className="text-slate-300 underline text-sm">
+              <Link to="/trust" className="text-sm text-slate-300 underline">
                 Trust
               </Link>
 
-              <Link to="/pricing" className="text-slate-300 underline text-sm">
+              <Link to="/pricing" className="text-sm text-slate-300 underline">
                 Pricing
               </Link>
 
-              <Link to="/my-scans" className="text-slate-300 underline text-sm">
+              <Link
+                to="/my-scans"
+                className="text-sm text-slate-300 underline"
+              >
                 View My Scans
               </Link>
             </div>
@@ -511,209 +553,254 @@ export default function Home() {
       </section>
 
       {/* INFORMATION */}
-      <section className="max-w-5xl mx-auto px-6 py-12 md:py-12 grid gap-6">
-        {/* INTERNAL LINKING HUB (SEO DISTRIBUTION) */}
+      <section className="mx-auto grid max-w-5xl gap-6 px-6 py-12 md:py-12">
+        {/* SEO HUB */}
         <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-6">
-          <h2 className="text-lg font-semibold mb-2">
-            Used car buying guides (Australia)
+          <h2 className="mb-2 text-lg font-semibold">
+            Used car buying guides for Australia
           </h2>
 
-          <p className="text-slate-300 text-sm leading-relaxed">
-            If you’re buying a used car, the best way to avoid regret is to slow
-            down and follow a structured process. Start with the{" "}
+          <p className="text-sm leading-relaxed text-slate-300">
+            If you&apos;re buying a used car in Australia, the best way to avoid
+            regret is to slow down and follow a structured process. Start with
+            our{" "}
             <Link
               to="/what-to-check-when-buying-a-used-car-australia"
-              className="underline text-emerald-300 hover:text-emerald-200"
+              className="text-emerald-300 underline hover:text-emerald-200"
             >
-              used car inspection checklist for Australia
+              guide on what to check when buying a used car in Australia
             </Link>
-            , use the{" "}
+            , then keep a simpler{" "}
             <Link
               to="/used-car-checklist-australia"
-              className="underline text-emerald-300 hover:text-emerald-200"
+              className="text-emerald-300 underline hover:text-emerald-200"
             >
-              printable used car checklist
-            </Link>
-            , then read{" "}
+              used car checklist
+            </Link>{" "}
+            or{" "}
+            <Link
+              to="/used-car-checklist-printable"
+              className="text-emerald-300 underline hover:text-emerald-200"
+            >
+              printable checklist
+            </Link>{" "}
+            ready for inspection day.
+          </p>
+
+          <p className="mt-3 text-sm leading-relaxed text-slate-300">
+            Before you inspect, learn{" "}
             <Link
               to="/how-to-inspect-a-used-car-in-person"
-              className="underline text-emerald-300 hover:text-emerald-200"
+              className="text-emerald-300 underline hover:text-emerald-200"
             >
               how to inspect a used car in person
             </Link>{" "}
-            and avoid common{" "}
+            and{" "}
+            <Link
+              to="/how-to-test-drive-a-used-car-australia"
+              className="text-emerald-300 underline hover:text-emerald-200"
+            >
+              how to test drive a used car in Australia
+            </Link>
+            . It also helps to avoid common{" "}
             <Link
               to="/used-car-inspection-mistakes-australia"
-              className="underline text-emerald-300 hover:text-emerald-200"
+              className="text-emerald-300 underline hover:text-emerald-200"
             >
               used car inspection mistakes in Australia
             </Link>
             .
           </p>
 
-          <p className="text-slate-300 text-sm leading-relaxed mt-3">
-            Before you commit, consider a{" "}
+          <p className="mt-3 text-sm leading-relaxed text-slate-300">
+            Before committing, consider a{" "}
             <Link
               to="/ppsr-check-australia"
-              className="underline text-emerald-300 hover:text-emerald-200"
+              className="text-emerald-300 underline hover:text-emerald-200"
             >
               PPSR check in Australia
             </Link>{" "}
             and decide whether{" "}
             <Link
               to="/is-a-mechanical-inspection-worth-it-australia"
-              className="underline text-emerald-300 hover:text-emerald-200"
+              className="text-emerald-300 underline hover:text-emerald-200"
             >
-              a mechanical inspection is worth it in Australia
+              a mechanical inspection is worth it
             </Link>
-            . If you’re comparing options, see{" "}
+            . If you are comparing sellers, read{" "}
             <Link
               to="/dealer-vs-private-seller-australia"
-              className="underline text-emerald-300 hover:text-emerald-200"
+              className="text-emerald-300 underline hover:text-emerald-200"
             >
               dealer vs private seller in Australia
-            </Link>{" "}
-            — and if you’re preparing an offer, read{" "}
+            </Link>
+            , and if you are preparing an offer, see{" "}
             <Link
               to="/how-much-should-you-offer-used-car-australia"
-              className="underline text-emerald-300 hover:text-emerald-200"
+              className="text-emerald-300 underline hover:text-emerald-200"
             >
               how much you should offer on a used car in Australia
             </Link>
             .
           </p>
 
-          <p className="text-slate-300 text-sm leading-relaxed mt-3">
-            Want to understand how the scan works end-to-end?{" "}
+          <p className="mt-3 text-sm leading-relaxed text-slate-300">
+            Want to understand how CarVerity fits into that process?{" "}
             <Link
               to="/what-to-expect"
-              className="underline text-emerald-300 hover:text-emerald-200"
+              className="text-emerald-300 underline hover:text-emerald-200"
             >
               See what to expect during a CarVerity inspection
             </Link>
-            . For questions about how results and uncertainty are handled,{" "}
+            . For questions about how results, saved scans, and buyer-safe
+            guidance work, read the{" "}
             <Link
               to="/faq"
-              className="underline text-emerald-300 hover:text-emerald-200"
+              className="text-emerald-300 underline hover:text-emerald-200"
             >
-              read the CarVerity FAQ
+              CarVerity FAQ
             </Link>
             .
           </p>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Link
-              to="/used-car-checklist-australia"
-              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 hover:bg-slate-950/55 transition"
+              to="/what-to-check-when-buying-a-used-car-australia"
+              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-950/55"
             >
               <div className="flex items-center gap-2 text-slate-200">
                 <ClipboardCheck className="h-4 w-4 text-emerald-300" />
-                <p className="text-sm font-semibold">
-                  Printable checklist (AU)
-                </p>
+                <p className="text-sm font-semibold">Full used car guide</p>
               </div>
-              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                A simple used car checklist you can save, scan, or print before
-                you inspect.
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                The complete step-by-step guide for what to check before buying.
               </p>
             </Link>
 
             <Link
-              to="/what-to-check-when-buying-a-used-car-australia"
-              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 hover:bg-slate-950/55 transition"
+              to="/used-car-checklist-printable"
+              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-950/55"
             >
               <div className="flex items-center gap-2 text-slate-200">
                 <ClipboardCheck className="h-4 w-4 text-emerald-300" />
-                <p className="text-sm font-semibold">
-                  Used car checklist (AU)
-                </p>
+                <p className="text-sm font-semibold">Printable checklist</p>
               </div>
-              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                Step-by-step inspection checks you can do in person without
-                tools.
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                A quick checklist you can save, print, or keep open on your
+                phone.
+              </p>
+            </Link>
+
+            <Link
+              to="/how-to-test-drive-a-used-car-australia"
+              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-950/55"
+            >
+              <div className="flex items-center gap-2 text-slate-200">
+                <Timer className="h-4 w-4 text-emerald-300" />
+                <p className="text-sm font-semibold">Test drive guide</p>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                What to notice during a used car test drive in Australia.
               </p>
             </Link>
 
             <Link
               to="/ppsr-check-australia"
-              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 hover:bg-slate-950/55 transition"
+              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-950/55"
             >
               <div className="flex items-center gap-2 text-slate-200">
                 <ShieldCheck className="h-4 w-4 text-emerald-300" />
-                <p className="text-sm font-semibold">PPSR check (AU)</p>
+                <p className="text-sm font-semibold">PPSR check guide</p>
               </div>
-              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                Reduce risk by confirming key PPSR details before purchase.
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                Reduce risk by understanding what to confirm before you buy.
               </p>
             </Link>
           </div>
 
-          {/* NEW: extra crawl distribution (all real routes) */}
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm">
             <Link
               to="/used-car-checklist-australia"
-              className="underline text-slate-300 hover:text-white"
+              className="text-slate-300 underline hover:text-white"
             >
-              Printable used car checklist (Australia)
+              Used car checklist (Australia)
+            </Link>
+            <Link
+              to="/used-car-checklist-printable"
+              className="text-slate-300 underline hover:text-white"
+            >
+              Printable used car checklist
+            </Link>
+            <Link
+              to="/how-to-inspect-a-used-car-in-person"
+              className="text-slate-300 underline hover:text-white"
+            >
+              How to inspect a used car in person
+            </Link>
+            <Link
+              to="/how-to-test-drive-a-used-car-australia"
+              className="text-slate-300 underline hover:text-white"
+            >
+              How to test drive a used car
             </Link>
             <Link
               to="/used-car-inspection-mistakes-australia"
-              className="underline text-slate-300 hover:text-white"
+              className="text-slate-300 underline hover:text-white"
             >
-              Used car inspection mistakes (Australia)
+              Used car inspection mistakes
             </Link>
             <Link
               to="/is-a-mechanical-inspection-worth-it-australia"
-              className="underline text-slate-300 hover:text-white"
+              className="text-slate-300 underline hover:text-white"
             >
               Is a mechanical inspection worth it?
             </Link>
             <Link
               to="/dealer-vs-private-seller-australia"
-              className="underline text-slate-300 hover:text-white"
+              className="text-slate-300 underline hover:text-white"
             >
-              Dealer vs private seller (Australia)
+              Dealer vs private seller
             </Link>
             <Link
               to="/how-much-should-you-offer-used-car-australia"
-              className="underline text-slate-300 hover:text-white"
+              className="text-slate-300 underline hover:text-white"
             >
-              How much should you offer (Australia)?
+              How much should you offer?
             </Link>
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
               to="/pricing"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold transition"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-slate-950/30 px-5 py-3 font-semibold text-slate-200 transition hover:bg-slate-900"
             >
               View pricing
             </Link>
 
             <Link
               to="/about"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold transition"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-slate-950/30 px-5 py-3 font-semibold text-slate-200 transition hover:bg-slate-900"
             >
               About CarVerity
             </Link>
 
             <Link
               to="/trust"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold transition"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-slate-950/30 px-5 py-3 font-semibold text-slate-200 transition hover:bg-slate-900"
             >
               Trust
             </Link>
 
             <Link
               to="/terms"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold transition"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-slate-950/30 px-5 py-3 font-semibold text-slate-200 transition hover:bg-slate-900"
             >
               Terms
             </Link>
 
             <Link
               to="/privacy"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold transition"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-slate-950/30 px-5 py-3 font-semibold text-slate-200 transition hover:bg-slate-900"
             >
               Privacy
             </Link>
@@ -724,55 +811,68 @@ export default function Home() {
         <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-6">
           <div className="flex items-start justify-between gap-6">
             <div className="max-w-2xl">
-              <h2 className="text-lg font-semibold mb-2">
-                Built for everyday buyers (not mechanics)
+              <h2 className="mb-2 text-lg font-semibold">
+                Built for everyday buyers, not mechanics
               </h2>
 
-              <p className="text-slate-300 text-sm leading-relaxed">
-                If you don’t buy cars often, it’s easy to miss small warning
-                signs — or get pressured into a decision you’re not ready for.
-                CarVerity is a guided flow that helps you slow down, stay
-                organised, and focus on what actually matters.
+              <p className="text-sm leading-relaxed text-slate-300">
+                If you don&apos;t buy cars often, it&apos;s easy to miss small
+                warning signs or get rushed into a decision you&apos;re not ready
+                for. CarVerity is a guided inspection flow that helps you slow
+                down, stay organised, and focus on what actually matters.
               </p>
 
-              <p className="text-slate-300 text-sm leading-relaxed mt-3">
-                Before you inspect, you can also review our{" "}
+              <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                It is especially useful for first-time buyers, buyers comparing
+                multiple cars on the same day, and anyone who wants a clearer
+                structure during private sales or dealership inspections.
+              </p>
+
+              <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                Before you inspect, you can review our{" "}
                 <Link
                   to="/what-to-check-when-buying-a-used-car-australia"
-                  className="underline text-emerald-300 hover:text-emerald-200"
+                  className="text-emerald-300 underline hover:text-emerald-200"
                 >
-                  step-by-step used car buying checklist for Australia
-                </Link>{" "}
-                or use the{" "}
+                  step-by-step used car buying guide
+                </Link>
+                , use the{" "}
                 <Link
                   to="/used-car-checklist-australia"
-                  className="underline text-emerald-300 hover:text-emerald-200"
+                  className="text-emerald-300 underline hover:text-emerald-200"
                 >
-                  printable checklist version
+                  used car checklist
                 </Link>
-                .
+                , or keep the{" "}
+                <Link
+                  to="/used-car-checklist-printable"
+                  className="text-emerald-300 underline hover:text-emerald-200"
+                >
+                  printable checklist
+                </Link>{" "}
+                with you.
               </p>
 
-              <p className="text-slate-300 text-sm leading-relaxed mt-3">
-                Learn more about CarVerity’s purpose and Australian business
+              <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                Learn more about CarVerity&apos;s purpose and Australian business
                 details on the{" "}
                 <Link
                   to="/about"
-                  className="underline text-emerald-300 hover:text-emerald-200"
+                  className="text-emerald-300 underline hover:text-emerald-200"
                 >
                   About page
                 </Link>
-                , browse our approach to buyer-safe design on{" "}
+                , browse our buyer-safe approach on{" "}
                 <Link
                   to="/trust"
-                  className="underline text-emerald-300 hover:text-emerald-200"
+                  className="text-emerald-300 underline hover:text-emerald-200"
                 >
                   Trust
                 </Link>
-                , or review common questions in the{" "}
+                , or read common questions in the{" "}
                 <Link
                   to="/faq"
-                  className="underline text-emerald-300 hover:text-emerald-200"
+                  className="text-emerald-300 underline hover:text-emerald-200"
                 >
                   FAQ
                 </Link>
@@ -780,10 +880,10 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3">
+            <div className="hidden items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 sm:flex">
               <Sparkles className="h-4 w-4 text-emerald-300" />
               <div>
-                <div className="text-xs text-slate-200 font-semibold">
+                <div className="text-xs font-semibold text-slate-200">
                   Premium feel
                 </div>
                 <div className="text-[11px] text-slate-400">
@@ -801,8 +901,8 @@ export default function Home() {
                   No tools required
                 </p>
               </div>
-              <p className="text-slate-200 text-sm mt-2">
-                You don’t need a jack, scanner, or mechanical knowledge.
+              <p className="mt-2 text-sm text-slate-200">
+                You do not need a scanner, a jack, or mechanical knowledge.
               </p>
             </div>
 
@@ -810,12 +910,12 @@ export default function Home() {
               <div className="flex items-center gap-2 text-slate-200">
                 <CheckCircle2 className="h-4 w-4 text-emerald-300" />
                 <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
-                  No underbody checks
+                  Standing-height checks
                 </p>
               </div>
-              <p className="text-slate-200 text-sm mt-2">
-                Everything is designed to be done standing normally around the
-                car.
+              <p className="mt-2 text-sm text-slate-200">
+                The flow is designed around what you can inspect normally around
+                the vehicle.
               </p>
             </div>
 
@@ -826,34 +926,41 @@ export default function Home() {
                   Buyer-safe wording
                 </p>
               </div>
-              <p className="text-slate-200 text-sm mt-2">
-                Clear guidance without alarmist language or pressure.
+              <p className="mt-2 text-sm text-slate-200">
+                Clear guidance without alarmist language or pressure-heavy
+                prompts.
               </p>
             </div>
           </div>
         </div>
 
-        {/* WHAT YOU GET AT THE END */}
+        {/* WHAT YOU GET */}
         <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-6">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="max-w-2xl">
-              <h2 className="text-lg font-semibold mb-2">
-                What you get at the end
+              <h2 className="mb-2 text-lg font-semibold">
+                What you get at the end of the inspection
               </h2>
 
-              <p className="text-slate-300 text-sm leading-relaxed">
-                When you finish the inspection, CarVerity turns what you
-                recorded into a clean, structured report — so you can decide
-                what to do next with confidence.
+              <p className="text-sm leading-relaxed text-slate-300">
+                When you finish the scan, CarVerity turns what you recorded into
+                a clean, structured report so you can decide what to do next with
+                more confidence.
+              </p>
+
+              <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                That makes it easier to compare cars, discuss issues with a
+                seller, review the vehicle later, or decide whether you should
+                pause and get more information first.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3 w-fit">
+            <div className="w-fit rounded-2xl border border-white/10 bg-slate-950/30 px-4 py-3">
               <div className="flex items-center gap-2">
                 <Timer className="h-4 w-4 text-slate-300" />
                 <div>
-                  <div className="text-xs text-slate-200 font-semibold">
-                    Designed to feel “finished”
+                  <div className="text-xs font-semibold text-slate-200">
+                    Designed to feel finished
                   </div>
                   <div className="text-[11px] text-slate-400">
                     Report → print → email (optional)
@@ -870,7 +977,7 @@ export default function Home() {
                 <span className="font-semibold text-white">
                   Priority findings
                 </span>{" "}
-                (the biggest issues worth paying attention to)
+                so the biggest concerns are easier to spot
               </span>
             </li>
             <li className="flex gap-2">
@@ -879,23 +986,23 @@ export default function Home() {
                 <span className="font-semibold text-white">
                   Items worth clarifying
                 </span>{" "}
-                (questions to ask before you commit)
+                before you commit to the car
               </span>
             </li>
             <li className="flex gap-2">
               <span className="text-slate-400">•</span>
               <span>
                 <span className="font-semibold text-white">Photo evidence</span>{" "}
-                (what you captured during the scan)
+                linked to what you captured during the scan
               </span>
             </li>
             <li className="flex gap-2">
               <span className="text-slate-400">•</span>
               <span>
                 <span className="font-semibold text-white">
-                  Negotiation advice
+                  Separate negotiation guidance
                 </span>{" "}
-                (kept separate from the report)
+                kept away from the main report flow
               </span>
             </li>
           </ul>
@@ -906,8 +1013,9 @@ export default function Home() {
                 <BadgeCheck className="h-4 w-4 text-emerald-300" />
                 <p className="text-sm font-semibold">Structured</p>
               </div>
-              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                The report is organised so you don’t miss the important bits.
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                The report is organised so the important parts are easier to
+                review.
               </p>
             </div>
 
@@ -916,8 +1024,8 @@ export default function Home() {
                 <ShieldCheck className="h-4 w-4 text-emerald-300" />
                 <p className="text-sm font-semibold">Buyer-safe</p>
               </div>
-              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                Clear language that helps you clarify — not escalate.
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                Clear language designed to help you clarify, not escalate.
               </p>
             </div>
 
@@ -926,9 +1034,9 @@ export default function Home() {
                 <FileText className="h-4 w-4 text-emerald-300" />
                 <p className="text-sm font-semibold">Shareable</p>
               </div>
-              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                Print / save as PDF, and email it from your own device if you
-                want.
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                Print it, save it as PDF, or email it from your own device if
+                you want.
               </p>
             </div>
           </div>
@@ -936,7 +1044,7 @@ export default function Home() {
           <div className="mt-5 flex flex-wrap gap-3">
             <button
               onClick={handleStartInPerson}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-emerald-400 hover:bg-emerald-300 text-black font-semibold transition"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-3 font-semibold text-black transition hover:bg-emerald-300"
             >
               Start inspection
               <ArrowRight className="h-4 w-4" />
@@ -944,25 +1052,104 @@ export default function Home() {
 
             <Link
               to="/what-to-expect"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold transition"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-slate-950/30 px-5 py-3 font-semibold text-slate-200 transition hover:bg-slate-900"
             >
               See what the scan includes
             </Link>
 
             <Link
               to="/pricing"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold transition"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-slate-950/30 px-5 py-3 font-semibold text-slate-200 transition hover:bg-slate-900"
             >
               View pricing
             </Link>
           </div>
         </div>
 
+        {/* DECISION SUPPORT / CONTENT CLUSTER */}
+        <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-6">
+          <h2 className="mb-2 text-lg font-semibold">
+            Still researching before you inspect?
+          </h2>
+
+          <p className="text-sm leading-relaxed text-slate-300">
+            Many buyers are not ready to inspect straight away. If you are still
+            comparing sellers, offers, and risk, these guides help build the
+            bigger picture around the inspection itself.
+          </p>
+
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            <Link
+              to="/dealer-vs-private-seller-australia"
+              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-950/55"
+            >
+              <div className="flex items-center gap-2 text-slate-200">
+                <ShieldCheck className="h-4 w-4 text-emerald-300" />
+                <p className="text-sm font-semibold">
+                  Dealer vs private seller
+                </p>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                Understand the trade-offs between buying from a dealer and buying
+                privately in Australia.
+              </p>
+            </Link>
+
+            <Link
+              to="/how-much-should-you-offer-used-car-australia"
+              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-950/55"
+            >
+              <div className="flex items-center gap-2 text-slate-200">
+                <BadgeCheck className="h-4 w-4 text-emerald-300" />
+                <p className="text-sm font-semibold">
+                  How much should you offer?
+                </p>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                Learn how buyers often think about pricing, room to move, and
+                offer strategy in Australia.
+              </p>
+            </Link>
+
+            <Link
+              to="/is-a-mechanical-inspection-worth-it-australia"
+              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-950/55"
+            >
+              <div className="flex items-center gap-2 text-slate-200">
+                <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                <p className="text-sm font-semibold">
+                  Is a mechanical inspection worth it?
+                </p>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                Work out when a professional inspection may still make sense
+                after your own in-person checks.
+              </p>
+            </Link>
+
+            <Link
+              to="/used-car-inspection-mistakes-australia"
+              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-950/55"
+            >
+              <div className="flex items-center gap-2 text-slate-200">
+                <FileText className="h-4 w-4 text-emerald-300" />
+                <p className="text-sm font-semibold">
+                  Common inspection mistakes
+                </p>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                See where buyers commonly rush, overlook details, or lose track
+                during inspections.
+              </p>
+            </Link>
+          </div>
+        </div>
+
         {/* QUICK LINKS */}
-        <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-slate-900/60 p-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-semibold text-white">Already started?</h3>
-            <p className="text-slate-300 text-sm mt-1">
+            <p className="mt-1 text-sm text-slate-300">
               You can resume your in-progress inspection anytime.
             </p>
           </div>
@@ -971,7 +1158,7 @@ export default function Home() {
             {shouldShowResume && (
               <button
                 onClick={resumeScan}
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-black font-semibold transition"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 font-semibold text-black transition hover:bg-amber-300"
               >
                 Resume inspection
                 <ArrowRight className="h-4 w-4" />
@@ -980,14 +1167,14 @@ export default function Home() {
 
             <Link
               to="/my-scans"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold transition"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-slate-950/30 px-5 py-3 font-semibold text-slate-200 transition hover:bg-slate-900"
             >
               My scans
             </Link>
 
             <Link
-              to="/used-car-checklist-australia"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-white/15 bg-slate-950/30 hover:bg-slate-900 text-slate-200 font-semibold transition"
+              to="/used-car-checklist-printable"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-slate-950/30 px-5 py-3 font-semibold text-slate-200 transition hover:bg-slate-900"
             >
               Printable checklist
             </Link>
@@ -995,92 +1182,108 @@ export default function Home() {
         </div>
 
         {/* FOOTER NOTE */}
-        <div className="text-xs text-slate-500 leading-relaxed">
+        <div className="text-xs leading-relaxed text-slate-500">
           CarVerity helps you record what you can observe during an in-person
-          inspection. It’s not a mechanical inspection or valuation — it’s a
-          guided flow designed to reduce buyer regret and improve decision
-          confidence. (CarVerity is a structured used car inspection flow for
-          Australian buyers.) Learn more on the{" "}
-          <Link to="/about" className="underline text-slate-300">
+          used car inspection. It is not a mechanical inspection or valuation.
+          It is a structured, buyer-safe flow designed to reduce regret and
+          improve decision confidence for Australian buyers. Learn more on the{" "}
+          <Link to="/about" className="text-slate-300 underline">
             About page
           </Link>
           , read about buyer-safe design on{" "}
-          <Link to="/trust" className="underline text-slate-300">
+          <Link to="/trust" className="text-slate-300 underline">
             Trust
-          </Link>{" "}
-          or browse common questions in the{" "}
-          <Link to="/faq" className="underline text-slate-300">
+          </Link>
+          , or browse common questions in the{" "}
+          <Link to="/faq" className="text-slate-300 underline">
             FAQ
           </Link>
           .
-          <span className="block mt-3">
+          <span className="mt-3 block">
             Quick links:{" "}
-            <Link to="/pricing" className="underline text-slate-300">
+            <Link to="/pricing" className="text-slate-300 underline">
               Pricing
             </Link>
             {" · "}
-            <Link to="/what-to-expect" className="underline text-slate-300">
+            <Link to="/what-to-expect" className="text-slate-300 underline">
               What to expect
             </Link>
             {" · "}
             <Link
-              to="/used-car-checklist-australia"
-              className="underline text-slate-300"
+              to="/what-to-check-when-buying-a-used-car-australia"
+              className="text-slate-300 underline"
             >
-              Printable checklist (AU)
+              What to check when buying a used car
             </Link>
             {" · "}
             <Link
-              to="/what-to-check-when-buying-a-used-car-australia"
-              className="underline text-slate-300"
+              to="/used-car-checklist-australia"
+              className="text-slate-300 underline"
             >
-              Used car checklist (AU)
+              Used car checklist
+            </Link>
+            {" · "}
+            <Link
+              to="/used-car-checklist-printable"
+              className="text-slate-300 underline"
+            >
+              Printable checklist
             </Link>
             {" · "}
             <Link
               to="/how-to-inspect-a-used-car-in-person"
-              className="underline text-slate-300"
+              className="text-slate-300 underline"
             >
               Inspect in person
             </Link>
             {" · "}
             <Link
-              to="/used-car-inspection-mistakes-australia"
-              className="underline text-slate-300"
+              to="/how-to-test-drive-a-used-car-australia"
+              className="text-slate-300 underline"
             >
-              Inspection mistakes (AU)
+              Test drive guide
             </Link>
             {" · "}
-            <Link to="/ppsr-check-australia" className="underline text-slate-300">
-              PPSR check (AU)
+            <Link
+              to="/used-car-inspection-mistakes-australia"
+              className="text-slate-300 underline"
+            >
+              Inspection mistakes
+            </Link>
+            {" · "}
+            <Link
+              to="/ppsr-check-australia"
+              className="text-slate-300 underline"
+            >
+              PPSR check
             </Link>
             {" · "}
             <Link
               to="/is-a-mechanical-inspection-worth-it-australia"
-              className="underline text-slate-300"
+              className="text-slate-300 underline"
             >
               Mechanical inspection: worth it?
             </Link>
             {" · "}
             <Link
               to="/dealer-vs-private-seller-australia"
-              className="underline text-slate-300"
+              className="text-slate-300 underline"
             >
-              Dealer vs private (AU)
+              Dealer vs private
             </Link>
             {" · "}
             <Link
               to="/how-much-should-you-offer-used-car-australia"
-              className="underline text-slate-300"
+              className="text-slate-300 underline"
             >
               How much should you offer?
             </Link>
             {" · "}
-            <Link to="/terms" className="underline text-slate-300">
+            <Link to="/terms" className="text-slate-300 underline">
               Terms
             </Link>
             {" · "}
-            <Link to="/privacy" className="underline text-slate-300">
+            <Link to="/privacy" className="text-slate-300 underline">
               Privacy
             </Link>
           </span>
