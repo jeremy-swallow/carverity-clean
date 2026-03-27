@@ -212,6 +212,19 @@ export default function UsedCarChecklistPrintable() {
             clearer report at the end.
           </p>
 
+          <p className="mt-3 text-slate-300 leading-relaxed">
+            Buyers also often over-focus on the odometer without knowing how to
+            interpret it properly. If you want a clearer sense of what counts as
+            high mileage in context, read{" "}
+            <Link
+              to="/how-many-km-is-too-many-used-car-australia"
+              className="underline underline-offset-4 text-emerald-300 hover:text-emerald-200"
+            >
+              how many km is too many for a used car in Australia
+            </Link>
+            .
+          </p>
+
           <div className="mt-5 flex flex-wrap gap-3">
             <button
               onClick={handlePrint}

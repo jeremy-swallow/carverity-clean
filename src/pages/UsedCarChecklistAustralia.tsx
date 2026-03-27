@@ -115,6 +115,20 @@ export default function UsedCarChecklistAustralia() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
+              One thing many buyers struggle with is how to interpret the
+              odometer properly. Kilometres alone do not tell the full story,
+              but they still shape how you judge wear, condition, and risk. If
+              you are unsure what counts as high mileage, read{" "}
+              <Link
+                to="/how-many-km-is-too-many-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how many km is too many for a used car in Australia
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
               If you have been searching for a simple used car checklist you can
               actually use while standing next to the vehicle, this page is
               built for that.
@@ -383,7 +397,15 @@ export default function UsedCarChecklistAustralia() {
 
             <p className="text-slate-400 leading-relaxed">
               Clean presentation can create false confidence. Function matters
-              more than appearance here.
+              more than appearance here. If you are unsure how to interpret the
+              odometer more confidently, read{" "}
+              <Link
+                to="/how-many-km-is-too-many-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how many km is too many for a used car in Australia
+              </Link>
+              .
             </p>
           </section>
 
@@ -647,6 +669,12 @@ export default function UsedCarChecklistAustralia() {
                   className="underline hover:text-white"
                 >
                   Dealer vs private seller
+                </Link>{" · "}
+                <Link
+                  to="/how-many-km-is-too-many-used-car-australia"
+                  className="underline hover:text-white"
+                >
+                  How many km is too many?
                 </Link>{" · "}
                 <Link
                   to="/how-much-should-you-offer-used-car-australia"

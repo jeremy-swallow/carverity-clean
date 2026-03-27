@@ -110,6 +110,20 @@ export default function PPSRCheckAustralia() {
               obvious from looking at the car. This guide explains what a PPSR
               check is, why it matters, what it can tell you, and what it cannot.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              A PPSR check can tell you about finance and recorded history, but
+              it does not tell you whether the odometer reading represents
+              reasonable wear for the car’s age and usage. If you want help
+              judging that side of the risk, read{" "}
+              <Link
+                to="/how-many-km-is-too-many-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how many km is too many for a used car in Australia
+              </Link>
+              .
+            </p>
           </header>
 
           <section className="space-y-4">
@@ -501,6 +515,12 @@ export default function PPSRCheckAustralia() {
                   className="underline hover:text-white"
                 >
                   Dealer vs private seller
+                </Link>{" · "}
+                <Link
+                  to="/how-many-km-is-too-many-used-car-australia"
+                  className="underline hover:text-white"
+                >
+                  How many km is too many?
                 </Link>{" · "}
                 <Link
                   to="/how-much-should-you-offer-used-car-australia"

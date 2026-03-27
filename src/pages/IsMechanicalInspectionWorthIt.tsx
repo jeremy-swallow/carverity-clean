@@ -200,6 +200,19 @@ export default function IsMechanicalInspectionWorthIt() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
+              If you are unsure how much weight to put on the odometer itself,
+              it also helps to read{" "}
+              <Link
+                to="/how-many-km-is-too-many-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how many km is too many for a used car in Australia
+              </Link>
+              . That gives useful context before deciding whether the car’s age
+              and mileage justify paying for deeper inspection.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
               Before paying for one, it still makes sense to complete your own{" "}
               <Link
                 to="/how-to-inspect-a-used-car-in-person"
@@ -472,6 +485,12 @@ export default function IsMechanicalInspectionWorthIt() {
                   className="underline hover:text-white"
                 >
                   Inspection mistakes
+                </Link>{" · "}
+                <Link
+                  to="/how-many-km-is-too-many-used-car-australia"
+                  className="underline hover:text-white"
+                >
+                  How many km is too many?
                 </Link>
               </p>
             </div>

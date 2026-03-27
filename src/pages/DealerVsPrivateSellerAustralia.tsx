@@ -361,6 +361,21 @@ export default function DealerVsPrivateSellerAustralia() {
               The right choice depends on whether you value lower risk more than
               lower price.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              One factor that often changes this decision is how comfortable you
+              are interpreting a car’s age and usage. For example, higher
+              kilometre vehicles can sometimes offer better value, but they also
+              require more careful inspection and judgement. If you’re unsure
+              how to think about that, read{" "}
+              <Link
+                to="/how-many-km-is-too-many-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how many km is too many for a used car in Australia
+              </Link>
+              .
+            </p>
           </section>
 
           <section className="space-y-4">
@@ -503,6 +518,12 @@ export default function DealerVsPrivateSellerAustralia() {
                   className="underline hover:text-white"
                 >
                   Mechanical inspection worth it?
+                </Link>{" · "}
+                <Link
+                  to="/how-many-km-is-too-many-used-car-australia"
+                  className="underline hover:text-white"
+                >
+                  How many km is too many?
                 </Link>{" · "}
                 <Link
                   to="/how-much-should-you-offer-used-car-australia"

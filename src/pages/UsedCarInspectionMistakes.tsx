@@ -291,6 +291,19 @@ export default function UsedCarInspectionMistakes() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
+              Buyers also sometimes assume a low odometer reading automatically
+              means lower risk, or fail to question wear that does not match the
+              claimed kilometres. If you want a clearer sense of that, read{" "}
+              <Link
+                to="/how-many-km-is-too-many-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how many km is too many for a used car in Australia
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
               Buyers often assume these details are minor until they become
               their problem.
             </p>
@@ -548,6 +561,12 @@ export default function UsedCarInspectionMistakes() {
                   className="underline hover:text-white"
                 >
                   Mechanical inspection worth it?
+                </Link>{" · "}
+                <Link
+                  to="/how-many-km-is-too-many-used-car-australia"
+                  className="underline hover:text-white"
+                >
+                  How many km is too many?
                 </Link>{" · "}
                 <Link
                   to="/how-much-should-you-offer-used-car-australia"

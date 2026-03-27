@@ -258,7 +258,14 @@ export default function UsedCarGuide() {
           <p className="text-slate-400 leading-relaxed">
             Heavy seat, steering wheel or pedal wear on a supposedly low-kilometre
             car is worth questioning. It does not prove anything on its own, but
-            it is the kind of detail buyers often regret ignoring later.
+            it is the kind of detail buyers often regret ignoring later. If you
+            are unsure how to think about odometer numbers more broadly, read{" "}
+            <Link
+              to="/how-many-km-is-too-many-used-car-australia"
+              className="underline text-white hover:opacity-80 transition"
+            >
+              how many km is too many for a used car in Australia
+            </Link>.
           </p>
         </section>
 
@@ -531,6 +538,12 @@ export default function UsedCarGuide() {
               className="underline hover:text-white"
             >
               Dealer vs private seller
+            </Link>{" · "}
+            <Link
+              to="/how-many-km-is-too-many-used-car-australia"
+              className="underline hover:text-white"
+            >
+              How many km is too many?
             </Link>{" · "}
             <Link
               to="/how-much-should-you-offer-used-car-australia"

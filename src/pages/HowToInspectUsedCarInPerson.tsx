@@ -268,7 +268,15 @@ export default function HowToInspectUsedCarInPerson() {
             <p className="text-slate-400 leading-relaxed">
               Interior wear that feels inconsistent with the claimed kilometres
               is worth questioning. It may be harmless, but it should not be
-              ignored.
+              ignored. If you want a clearer sense of when odometer readings
+              start becoming a concern, read{" "}
+              <Link
+                to="/how-many-km-is-too-many-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how many km is too many for a used car in Australia
+              </Link>
+              .
             </p>
 
             <p className="text-slate-400 leading-relaxed">
@@ -567,6 +575,12 @@ export default function HowToInspectUsedCarInPerson() {
                 className="underline hover:text-white"
               >
                 Dealer vs private seller
+              </Link>{" · "}
+              <Link
+                to="/how-many-km-is-too-many-used-car-australia"
+                className="underline hover:text-white"
+              >
+                How many km is too many?
               </Link>{" · "}
               <Link
                 to="/how-much-should-you-offer-used-car-australia"

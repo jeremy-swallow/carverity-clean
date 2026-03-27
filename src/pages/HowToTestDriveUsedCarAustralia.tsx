@@ -235,6 +235,19 @@ export default function HowToTestDriveUsedCarAustralia() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
+              Mileage can also change how you interpret what you notice during a
+              drive, especially when it comes to wear, responsiveness, and
+              overall condition. If you are unsure how to think about that, read{" "}
+              <Link
+                to="/how-many-km-is-too-many-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how many km is too many for a used car in Australia
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
               Small issues during a test drive don’t always mean you should walk
               away — but they do affect how you think about the price.
               Understanding how buyers adjust their offer based on what they
@@ -554,6 +567,12 @@ export default function HowToTestDriveUsedCarAustralia() {
                   className="underline hover:text-white"
                 >
                   Dealer vs private
+                </Link>{" · "}
+                <Link
+                  to="/how-many-km-is-too-many-used-car-australia"
+                  className="underline hover:text-white"
+                >
+                  How many km is too many?
                 </Link>{" · "}
                 <Link
                   to="/how-much-should-you-offer-used-car-australia"
