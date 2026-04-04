@@ -6,7 +6,7 @@ export default function HowToTestDriveUsedCarAustralia() {
   useEffect(() => {
     applySeo({
       title:
-        "How To Test Drive a Used Car (What to Check Before You Buy)",
+        "How To Test Drive a Used Car (What to Check Before You Buy) | CarVerity",
       description:
         "Learn how to test drive a used car in Australia with a practical step-by-step approach. What to check before driving, what to listen for on the road, which warning signs matter, and the common mistakes buyers make.",
       canonical:
@@ -66,6 +66,24 @@ export default function HowToTestDriveUsedCarAustralia() {
                 "@type": "Answer",
                 text:
                   "A used car test drive should be long enough to assess low-speed behaviour, normal suburban driving, braking, and general feel. A drive that is too short can make it easier to miss warning signs.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Should a used car test drive include braking checks?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "Yes. Braking behaviour is one of the most important things to pay attention to. You want to know whether the car stops smoothly, straight, and without vibration or strange noises.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Is a short test drive enough?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "Often no. A drive that is too short can make it easier to miss issues that only show up once the car is warmed up or moving under normal road conditions.",
               },
             },
           ],
@@ -209,6 +227,18 @@ export default function HowToTestDriveUsedCarAustralia() {
               Low-speed driving often reveals early suspension noises, steering
               concerns, and braking problems that buyers might otherwise ignore.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want the broader step-by-step process surrounding the test
+              drive, read our guide on{" "}
+              <Link
+                to="/how-to-inspect-a-used-car-in-person"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how to inspect a used car in person
+              </Link>
+              .
+            </p>
           </section>
 
           <section className="space-y-4">
@@ -248,31 +278,19 @@ export default function HowToTestDriveUsedCarAustralia() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              Small issues during a test drive don’t always mean you should walk
-              away — but they do affect how you think about the price.
+              Small issues during a test drive do not always mean you should
+              walk away, but they do affect how you think about the price.
               Understanding how buyers adjust their offer based on what they
               notice can help you stay balanced.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              If you’re not sure how to factor this in, see{" "}
+              If you are not sure how to factor this in, see{" "}
               <Link
                 to="/how-much-should-you-offer-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 how much to offer on a used car in Australia
-              </Link>
-              .
-            </p>
-
-            <p className="text-slate-400 leading-relaxed">
-              If you want the full inspection process before and around the
-              drive, read our guide on{" "}
-              <Link
-                to="/how-to-inspect-a-used-car-in-person"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                how to inspect a used car in person
               </Link>
               .
             </p>
@@ -352,9 +370,9 @@ export default function HowToTestDriveUsedCarAustralia() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
-              Once you’ve finished the test drive and have a feel for how the
-              car drives, the next step is deciding what it’s actually worth to
-              you. If you’re unsure how buyers typically approach this, read{" "}
+              Once you have finished the test drive and have a feel for how the
+              car drives, the next step is deciding what it is actually worth to
+              you. If you are unsure how buyers typically approach this, read{" "}
               <Link
                 to="/how-much-should-you-offer-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
@@ -503,7 +521,7 @@ export default function HowToTestDriveUsedCarAustralia() {
                 to="/what-to-check-when-buying-a-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                used car inspection checklist for Australia
+                guide on what to check when buying a used car in Australia
               </Link>
               .
             </p>
@@ -561,6 +579,12 @@ export default function HowToTestDriveUsedCarAustralia() {
                   className="underline hover:text-white"
                 >
                   Inspection mistakes
+                </Link>{" · "}
+                <Link
+                  to="/used-car-checklist-australia"
+                  className="underline hover:text-white"
+                >
+                  Used car checklist
                 </Link>{" · "}
                 <Link
                   to="/dealer-vs-private-seller-australia"
