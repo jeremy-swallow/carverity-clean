@@ -6,7 +6,7 @@ export default function UsedCarChecklistAustralia() {
   useEffect(() => {
     applySeo({
       title:
-        "Used Car Checklist Australia (What to Check Before You Buy)",
+        "Used Car Checklist Australia (What to Check Before You Buy) | CarVerity",
       description:
         "Use this practical used car checklist in Australia to inspect a car properly before you buy. Includes history checks, exterior, interior, test drive checks, red flags, and a printable checklist option.",
       canonical: "https://www.carverity.com.au/used-car-checklist-australia",
@@ -65,6 +65,24 @@ export default function UsedCarChecklistAustralia() {
                 "@type": "Answer",
                 text:
                   "A printable checklist can be useful as a simple fallback, but a guided app can be easier during the inspection because it helps you move through the process step by step and record what you notice.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "What should I check first on a used car?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "Start with the history and paperwork before you become too invested. A PPSR check, VIN confirmation, and service history review can rule out major problems early.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Is a used car checklist enough on its own?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "It is a strong start, but it does not replace good judgement, proper follow-up questions, or a mechanical inspection where the car or situation justifies it.",
               },
             },
           ],
@@ -132,6 +150,18 @@ export default function UsedCarChecklistAustralia() {
               If you have been searching for a simple used car checklist you can
               actually use while standing next to the vehicle, this page is
               built for that.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              For the broader step-by-step hub that ties the whole buying
+              process together, read{" "}
+              <Link
+                to="/what-to-check-when-buying-a-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                what to check when buying a used car in Australia
+              </Link>
+              .
             </p>
 
             <p className="text-slate-400 leading-relaxed">
@@ -206,9 +236,7 @@ export default function UsedCarChecklistAustralia() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-xl font-semibold">
-              Quick Used Car Checklist
-            </h2>
+            <h2 className="text-xl font-semibold">Quick Used Car Checklist</h2>
 
             <p className="text-slate-400 leading-relaxed">
               If you want a simple used car checklist you can quickly scan on
