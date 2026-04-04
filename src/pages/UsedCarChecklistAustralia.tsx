@@ -491,6 +491,34 @@ export default function UsedCarChecklistAustralia() {
 
           <section className="space-y-4">
             <h2 className="text-xl font-semibold">
+              Common Used Car Red Flags
+            </h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              A used car can still look tidy on first glance and carry warning
+              signs that matter. These are some of the red flags buyers most
+              often regret overlooking.
+            </p>
+
+            <ul className="list-disc pl-6 space-y-2 text-slate-300">
+              <li>Warning lights that stay on or behave oddly</li>
+              <li>Fresh paint or mismatched colour on one section of the car</li>
+              <li>Uneven tyre wear that points to underlying issues</li>
+              <li>Knocking, whining, rattling, or clunking noises on the drive</li>
+              <li>Seller answers that feel vague, inconsistent, or rushed</li>
+              <li>Patchy service history or missing supporting paperwork</li>
+              <li>Signs of moisture, mould, or water intrusion inside the cabin</li>
+            </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              One red flag does not always mean the car is a hard no, but it
+              should slow you down. If multiple red flags stack up together, the
+              risk usually changes.
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">
               Common Used Car Inspection Mistakes
             </h2>
 
@@ -514,6 +542,44 @@ export default function UsedCarChecklistAustralia() {
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 common used car inspection mistakes in Australia
+              </Link>
+              .
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold">
+              What To Do If You Find Issues
+            </h2>
+
+            <p className="text-slate-400 leading-relaxed">
+              Finding issues does not always mean you must walk away straight
+              away. The better question is what those issues mean for risk,
+              price, and whether the deal still makes sense.
+            </p>
+
+            <ul className="list-disc pl-6 space-y-2 text-slate-300">
+              <li>Minor issues may support a lower offer</li>
+              <li>Unclear or unresolved issues may justify a mechanical inspection</li>
+              <li>Multiple red flags may be enough reason to move on</li>
+            </ul>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you are trying to work out how much problems should change your
+              number, read{" "}
+              <Link
+                to="/how-much-should-you-offer-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how much to offer on a used car in Australia
+              </Link>
+              . If the uncertainty still feels too high, it may also help to
+              read{" "}
+              <Link
+                to="/is-a-mechanical-inspection-worth-it-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                whether a mechanical inspection is worth it
               </Link>
               .
             </p>
@@ -554,6 +620,7 @@ export default function UsedCarChecklistAustralia() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
+              If you do not want to rely on memory while standing there,{" "}
               <Link
                 to="/"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
