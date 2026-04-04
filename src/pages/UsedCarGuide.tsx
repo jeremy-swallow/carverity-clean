@@ -138,6 +138,18 @@ export default function UsedCarGuide() {
               start here and move through the process in order. That alone helps
               reduce missed details.
             </p>
+
+            <p className="text-slate-400 text-base leading-relaxed">
+              If you want the full order of the decision from research through
+              to negotiation, start with our{" "}
+              <Link
+                to="/used-car-buying-process-australia"
+                className="underline text-white hover:opacity-80 transition"
+              >
+                used car buying process guide for Australia
+              </Link>
+              .
+            </p>
           </header>
 
           <section className="space-y-4">
@@ -204,6 +216,18 @@ export default function UsedCarGuide() {
               A PPSR check is one of the most important early filters. It can
               help protect you from buying a vehicle with money owing or a
               serious history issue.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want the full sequence of what to do before, during, and
+              after inspection day, follow our{" "}
+              <Link
+                to="/used-car-buying-process-australia"
+                className="underline text-white hover:opacity-80 transition"
+              >
+                step-by-step used car buying process in Australia
+              </Link>
+              .
             </p>
 
             <p className="text-slate-400 leading-relaxed">
@@ -493,6 +517,18 @@ export default function UsedCarGuide() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
+              If you want the full structure that ties research, checks, risk,
+              and pricing together, follow our{" "}
+              <Link
+                to="/used-car-buying-process-australia"
+                className="underline text-white hover:opacity-80 transition"
+              >
+                used car buying process guide for Australia
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
               Tools like{" "}
               <Link
                 to="/"
@@ -554,6 +590,12 @@ export default function UsedCarGuide() {
             </p>
 
             <p className="leading-relaxed">
+              <Link
+                to="/used-car-buying-process-australia"
+                className="underline hover:text-white"
+              >
+                Used car buying process
+              </Link>{" · "}
               <Link
                 to="/ppsr-check-australia"
                 className="underline hover:text-white"
