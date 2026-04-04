@@ -6,7 +6,7 @@ export default function PPSRCheckAustralia() {
   useEffect(() => {
     applySeo({
       title:
-        "PPSR Check Australia (Why It Matters Before Buying a Used Car)",
+        "PPSR Check Australia (Why It Matters Before Buying a Used Car) | CarVerity",
       description:
         "Learn what a PPSR check is in Australia, what it tells you, why it matters before buying a used car, and what a PPSR check does not tell you about the vehicle.",
       canonical: "https://www.carverity.com.au/ppsr-check-australia",
@@ -65,6 +65,24 @@ export default function PPSRCheckAustralia() {
                   "A PPSR check does not tell you whether a car is mechanically healthy, whether it has been maintained well, or whether it has cosmetic or driving issues that only show up during an inspection or test drive.",
               },
             },
+            {
+              "@type": "Question",
+              name: "Should I do a PPSR check before inspecting the car in person?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "In many cases, yes. It is a smart early filter because it can rule out major risks before you invest more time in the car.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Does a PPSR check tell me if the car is mechanically good?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "No. A PPSR check is about history and financial risk, not mechanical condition.",
+              },
+            },
           ],
         },
         {
@@ -108,7 +126,8 @@ export default function PPSRCheckAustralia() {
             <p className="text-slate-400 leading-relaxed">
               Skipping this step can expose you to serious problems that are not
               obvious from looking at the car. This guide explains what a PPSR
-              check is, why it matters, what it can tell you, and what it cannot.
+              check is, why it matters, what it can tell you, and what it
+              cannot.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
@@ -121,6 +140,18 @@ export default function PPSRCheckAustralia() {
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 how many km is too many for a used car in Australia
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              And if you want the broader step-by-step buying process around the
+              PPSR result, start with our{" "}
+              <Link
+                to="/what-to-check-when-buying-a-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                guide to what to check when buying a used car in Australia
               </Link>
               .
             </p>
@@ -189,10 +220,19 @@ export default function PPSRCheckAustralia() {
             </p>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
-              <li>It can help protect you from buying a car with finance owing</li>
-              <li>It can reveal whether the vehicle has a serious history issue</li>
-              <li>It gives you a stronger base before you inspect or negotiate</li>
-              <li>It helps you ask better questions if something does not look right</li>
+              <li>
+                It can help protect you from buying a car with finance owing
+              </li>
+              <li>
+                It can reveal whether the vehicle has a serious history issue
+              </li>
+              <li>
+                It gives you a stronger base before you inspect or negotiate
+              </li>
+              <li>
+                It helps you ask better questions if something does not look
+                right
+              </li>
             </ul>
           </section>
 
@@ -210,7 +250,10 @@ export default function PPSRCheckAustralia() {
               <li>Whether finance is recorded against the vehicle</li>
               <li>Whether the vehicle has been reported stolen</li>
               <li>Whether the vehicle has write-off history recorded</li>
-              <li>Whether the key identifier information matches what you were given</li>
+              <li>
+                Whether the key identifier information matches what you were
+                given
+              </li>
             </ul>
 
             <p className="text-slate-400 leading-relaxed">
@@ -279,9 +322,7 @@ export default function PPSRCheckAustralia() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-xl font-semibold">
-              When To Run the PPSR Check
-            </h2>
+            <h2 className="text-xl font-semibold">When To Run the PPSR Check</h2>
 
             <p className="text-slate-400 leading-relaxed">
               Ideally, do the PPSR check before getting too far into the buying
@@ -329,7 +370,7 @@ export default function PPSRCheckAustralia() {
                 to="/what-to-check-when-buying-a-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                complete used car checklist for Australia
+                complete guide to what to check when buying a used car
               </Link>{" "}
               and our{" "}
               <Link
@@ -339,6 +380,18 @@ export default function PPSRCheckAustralia() {
                 guide to common used car inspection mistakes
               </Link>
               .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want something simpler to follow while standing next to the
+              car, our{" "}
+              <Link
+                to="/used-car-checklist-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                used car checklist for Australia
+              </Link>{" "}
+              can help keep you structured.
             </p>
           </section>
 
@@ -381,9 +434,16 @@ export default function PPSRCheckAustralia() {
             </p>
 
             <ul className="list-disc pl-6 space-y-2 text-slate-300">
-              <li>If something looks wrong, stop and clarify it before proceeding</li>
-              <li>If the result looks acceptable, continue to the physical inspection</li>
-              <li>Compare the seller’s story with the paperwork and the car itself</li>
+              <li>
+                If something looks wrong, stop and clarify it before proceeding
+              </li>
+              <li>
+                If the result looks acceptable, continue to the physical
+                inspection
+              </li>
+              <li>
+                Compare the seller’s story with the paperwork and the car itself
+              </li>
               <li>Use what you learn to judge risk and price more clearly</li>
             </ul>
 
@@ -497,6 +557,12 @@ export default function PPSRCheckAustralia() {
                   className="underline hover:text-white"
                 >
                   Test drive guide
+                </Link>{" · "}
+                <Link
+                  to="/used-car-checklist-australia"
+                  className="underline hover:text-white"
+                >
+                  Used car checklist Australia
                 </Link>{" · "}
                 <Link
                   to="/used-car-inspection-mistakes-australia"
