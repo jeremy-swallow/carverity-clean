@@ -6,7 +6,7 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
   useEffect(() => {
     applySeo({
       title:
-        "How Much Should You Offer on a Used Car? (Australia Buyer Guide)",
+        "How Much Should You Offer on a Used Car? (Australia Buyer Guide) | CarVerity",
       description:
         "Not sure how much to offer on a used car in Australia? Learn how to calculate a fair offer, adjust for condition, factor in risk, and avoid paying too much.",
       canonical:
@@ -66,6 +66,24 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
                 "@type": "Answer",
                 text:
                   "The main factors are market value, kilometres, service history, tyre and brake condition, cosmetic damage, seller type, mechanical concerns, and how much uncertainty remains after inspection.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Should I always offer below the asking price?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "Often yes, but not blindly. The better question is whether the asking price is already fair for the market and condition.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "What if the seller will not negotiate?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "You need to decide whether the current price still makes sense for the car and the risk involved. Sometimes the best negotiation move is walking away.",
               },
             },
           ],
@@ -161,7 +179,7 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
                 to="/what-to-check-when-buying-a-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                full used car inspection checklist for Australia
+                guide to what to check when buying a used car in Australia
               </Link>
               .
             </p>
@@ -191,6 +209,19 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
               cars, there may be less room to negotiate aggressively. If it is
               clearly above the market, you already have a stronger case for a
               lower offer.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              This is also where kilometres start to matter in context. If you
+              are unsure how much weight to give mileage when comparing similar
+              cars, read{" "}
+              <Link
+                to="/how-many-km-is-too-many-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                how many km is too many for a used car in Australia
+              </Link>
+              .
             </p>
           </section>
 
@@ -228,6 +259,18 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
                 step-by-step used car inspection guide
               </Link>
               .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want a faster on-the-spot structure while standing next to
+              the car, our{" "}
+              <Link
+                to="/used-car-checklist-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                used car checklist for Australia
+              </Link>{" "}
+              can help you keep your observations organised.
             </p>
           </section>
 
@@ -371,7 +414,7 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
                 to="/what-to-check-when-buying-a-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
-                complete Australian used car checklist
+                complete guide to what to check when buying a used car
               </Link>{" "}
               before deciding what to offer.
             </p>
@@ -488,6 +531,12 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
                   Test drive guide
                 </Link>{" · "}
                 <Link
+                  to="/used-car-checklist-australia"
+                  className="underline hover:text-white"
+                >
+                  Used car checklist Australia
+                </Link>{" · "}
+                <Link
                   to="/ppsr-check-australia"
                   className="underline hover:text-white"
                 >
@@ -510,6 +559,12 @@ export default function HowMuchShouldYouOfferUsedCarAustralia() {
                   className="underline hover:text-white"
                 >
                   Mechanical inspection worth it?
+                </Link>{" · "}
+                <Link
+                  to="/how-many-km-is-too-many-used-car-australia"
+                  className="underline hover:text-white"
+                >
+                  How many km is too many?
                 </Link>
               </p>
             </div>
