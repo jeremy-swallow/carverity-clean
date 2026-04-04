@@ -26,6 +26,7 @@ import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import DeployTest from "./pages/DeployTest";
 
+/* Authority Pages */
 import UsedCarGuide from "./pages/UsedCarGuide";
 import HowToInspectUsedCarInPerson from "./pages/HowToInspectUsedCarInPerson";
 import HowToTestDriveUsedCarAustralia from "./pages/HowToTestDriveUsedCarAustralia";
@@ -37,6 +38,9 @@ import HowMuchShouldYouOfferUsedCarAustralia from "./pages/HowMuchShouldYouOffer
 import UsedCarChecklistAustralia from "./pages/UsedCarChecklistAustralia";
 import UsedCarChecklistPrintable from "./pages/UsedCarChecklistPrintable";
 import HowManyKmTooManyUsedCarAustralia from "./pages/HowManyKmTooManyUsedCarAustralia";
+
+/* NEW HUB PAGE */
+import UsedCarBuyingProcessAustralia from "./pages/UsedCarBuyingProcessAustralia";
 
 /* Tester */
 import TestingExpectations from "./pages/TestingExpectations";
@@ -153,6 +157,12 @@ export default function App() {
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/deploy-test" element={<DeployTest />} />
+
+          {/* AUTHORITY HUB (MOST IMPORTANT PAGE) */}
+          <Route
+            path="/used-car-buying-process-australia"
+            element={<UsedCarBuyingProcessAustralia />}
+          />
 
           {/* Authority Pages */}
           <Route
