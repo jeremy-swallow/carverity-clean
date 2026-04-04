@@ -148,6 +148,17 @@ export default function PPSRCheckAustralia() {
               And if you want the broader step-by-step buying process around the
               PPSR result, start with our{" "}
               <Link
+                to="/used-car-buying-process-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                used car buying process guide for Australia
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want the broader inspection hub as well, read our{" "}
+              <Link
                 to="/what-to-check-when-buying-a-used-car-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
@@ -345,6 +356,17 @@ export default function PPSRCheckAustralia() {
               This approach helps you stay more objective and reduces wasted
               time.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want that full sequence laid out clearly, follow our{" "}
+              <Link
+                to="/used-car-buying-process-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                step-by-step used car buying process in Australia
+              </Link>
+              .
+            </p>
           </section>
 
           <section className="space-y-4">
@@ -512,6 +534,18 @@ export default function PPSRCheckAustralia() {
 
           <section className="pt-10 border-t border-slate-800 space-y-4">
             <p className="text-slate-400 leading-relaxed">
+              If you want the broader order around research, PPSR, inspection,
+              test drive, and negotiation, start with our{" "}
+              <Link
+                to="/used-car-buying-process-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                used car buying process guide for Australia
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
               If you want a calm, structured way to inspect a used car in
               person,{" "}
               <Link
@@ -540,6 +574,12 @@ export default function PPSRCheckAustralia() {
                 Related used car buying guides (Australia):
               </p>
               <p className="leading-relaxed">
+                <Link
+                  to="/used-car-buying-process-australia"
+                  className="underline hover:text-white"
+                >
+                  Used car buying process
+                </Link>{" · "}
                 <Link
                   to="/what-to-check-when-buying-a-used-car-australia"
                   className="underline hover:text-white"
