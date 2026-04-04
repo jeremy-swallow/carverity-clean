@@ -6,7 +6,7 @@ export default function UsedCarInspectionMistakes() {
   useEffect(() => {
     applySeo({
       title:
-        "Used Car Inspection Mistakes to Avoid (What Buyers Often Miss)",
+        "Used Car Inspection Mistakes to Avoid (What Buyers Often Miss) | CarVerity",
       description:
         "Avoid the most common used car inspection mistakes Australian buyers make. Learn what people miss under pressure, which red flags matter, and how to inspect a used car more confidently before buying.",
       canonical:
@@ -68,6 +68,24 @@ export default function UsedCarInspectionMistakes() {
                   "You can avoid missing things by checking the history before you arrive, inspecting the car in a set order, testing cabin features properly, taking a meaningful test drive, and using a structured checklist so you are not relying on memory.",
               },
             },
+            {
+              "@type": "Question",
+              name: "What is the biggest mistake when buying a used car?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "Rushing the process is one of the biggest mistakes because it causes buyers to miss smaller warning signs that can matter a lot later.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Is a clean-looking used car usually safer to buy?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "Not necessarily. Clean presentation can make a car feel more trustworthy, but it does not replace proper checks on history, condition, warning lights, tyres, and road behaviour.",
+              },
+            },
           ],
         },
         {
@@ -118,6 +136,17 @@ export default function UsedCarInspectionMistakes() {
             <p className="text-slate-400 leading-relaxed">
               If you know what buyers usually get wrong, it becomes much easier
               to inspect a car more calmly and make a better decision.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              For the broader step-by-step overview, read{" "}
+              <Link
+                to="/what-to-check-when-buying-a-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                what to check when buying a used car in Australia
+              </Link>
+              .
             </p>
 
             <p className="text-slate-400 leading-relaxed">
@@ -373,7 +402,7 @@ export default function UsedCarInspectionMistakes() {
             <p className="text-slate-400 leading-relaxed">
               If you want a better structure, use our{" "}
               <Link
-                to="/what-to-check-when-buying-a-used-car-australia"
+                to="/used-car-checklist-australia"
                 className="text-white underline underline-offset-4 hover:opacity-80 transition"
               >
                 complete used car checklist for Australia
