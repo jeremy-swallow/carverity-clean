@@ -153,6 +153,18 @@ export default function UsedCarChecklistAustralia() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
+              If you want the full sequence before you even get to the checklist
+              itself, start with our{" "}
+              <Link
+                to="/used-car-buying-process-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                step-by-step used car buying process in Australia
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
               For the broader step-by-step hub that ties the whole buying
               process together, read{" "}
               <Link
@@ -675,6 +687,18 @@ export default function UsedCarChecklistAustralia() {
 
           <section className="pt-10 border-t border-slate-800 space-y-4">
             <p className="text-slate-400 leading-relaxed">
+              If you want the whole sequence from research through to inspection,
+              start with our{" "}
+              <Link
+                to="/used-car-buying-process-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                used car buying process guide for Australia
+              </Link>
+              .
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
               For a broader overview, read our{" "}
               <Link
                 to="/what-to-check-when-buying-a-used-car-australia"
@@ -723,6 +747,12 @@ export default function UsedCarChecklistAustralia() {
                 Related used car buying guides (Australia):
               </p>
               <p className="leading-relaxed">
+                <Link
+                  to="/used-car-buying-process-australia"
+                  className="underline hover:text-white"
+                >
+                  Used car buying process
+                </Link>{" · "}
                 <Link
                   to="/used-car-checklist-printable"
                   className="underline hover:text-white"
