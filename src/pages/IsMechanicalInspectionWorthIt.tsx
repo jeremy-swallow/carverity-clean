@@ -6,7 +6,7 @@ export default function IsMechanicalInspectionWorthIt() {
   useEffect(() => {
     applySeo({
       title:
-        "Is a Mechanical Inspection Worth It for a Used Car in Australia?",
+        "Is a Mechanical Inspection Worth It for a Used Car in Australia? | CarVerity",
       description:
         "Should you pay for a mechanical inspection before buying a used car in Australia? Learn when it is worth it, when it may not be, what it does and does not protect you from, and how to reduce buyer risk properly.",
       canonical:
@@ -68,6 +68,24 @@ export default function IsMechanicalInspectionWorthIt() {
                   "No. A mechanical inspection and a PPSR check do different jobs. A mechanical inspection looks at the car’s condition, while a PPSR check helps identify financial or history risks.",
               },
             },
+            {
+              "@type": "Question",
+              name: "Is a mechanical inspection always necessary?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "No. It depends on the vehicle, the price, the available history, and how much uncertainty remains after your own checks.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Should I get a mechanical inspection before or after my own inspection?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "Usually after your own structured inspection. That helps you decide whether the car is worth taking further and gives you better context for what you want checked.",
+              },
+            },
           ],
         },
         {
@@ -117,6 +135,18 @@ export default function IsMechanicalInspectionWorthIt() {
               The smartest way to think about a mechanical inspection is not as
               a magic solution, but as one layer in a broader used car buying
               process.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want the broader buying framework around that decision,
+              start with our{" "}
+              <Link
+                to="/what-to-check-when-buying-a-used-car-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                guide to what to check when buying a used car in Australia
+              </Link>
+              .
             </p>
           </header>
 
@@ -328,6 +358,18 @@ export default function IsMechanicalInspectionWorthIt() {
               </Link>
               .
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want something simpler to keep on hand during the
+              inspection itself, use our{" "}
+              <Link
+                to="/used-car-checklist-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                used car checklist for Australia
+              </Link>
+              .
+            </p>
           </section>
 
           <section className="space-y-4">
@@ -345,7 +387,9 @@ export default function IsMechanicalInspectionWorthIt() {
               <li>Carry out a structured in-person inspection</li>
               <li>Test drive the car properly</li>
               <li>Work out a logical offer based on what you found</li>
-              <li>Use a mechanical inspection when the remaining risk justifies it</li>
+              <li>
+                Use a mechanical inspection when the remaining risk justifies it
+              </li>
             </ol>
 
             <p className="text-slate-400 leading-relaxed">
@@ -384,6 +428,18 @@ export default function IsMechanicalInspectionWorthIt() {
               plus incomplete information is exactly the situation where paying
               for one can make sense.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              This is also where many buyers benefit from revisiting{" "}
+              <Link
+                to="/used-car-inspection-mistakes-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                common used car inspection mistakes
+              </Link>{" "}
+              so they can separate avoidable buyer errors from genuine reasons
+              to seek extra reassurance.
+            </p>
           </section>
 
           <section className="pt-10 border-t border-slate-800 space-y-4">
@@ -405,7 +461,8 @@ export default function IsMechanicalInspectionWorthIt() {
 
               <div>
                 <h3 className="text-base font-semibold text-white">
-                  Should I get a mechanical inspection before or after my own inspection?
+                  Should I get a mechanical inspection before or after my own
+                  inspection?
                 </h3>
                 <p className="text-slate-400 leading-relaxed mt-2">
                   Usually after your own structured inspection. That helps you
@@ -467,6 +524,12 @@ export default function IsMechanicalInspectionWorthIt() {
                   className="underline hover:text-white"
                 >
                   Used car checklist
+                </Link>{" · "}
+                <Link
+                  to="/used-car-checklist-australia"
+                  className="underline hover:text-white"
+                >
+                  Used car checklist Australia
                 </Link>{" · "}
                 <Link
                   to="/how-much-should-you-offer-used-car-australia"
