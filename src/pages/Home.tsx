@@ -79,8 +79,7 @@ export default function Home() {
 
   useEffect(() => {
     applySeo({
-      title:
-        "Used Car Inspection Checklist App Australia | CarVerity",
+      title: "Used Car Inspection Checklist App Australia | CarVerity",
       description:
         "CarVerity is an Australian used car inspection checklist web app that guides you through an in-person vehicle check, helps you capture evidence, and turns your findings into a clear buyer-focused report.",
       canonical: "https://www.carverity.com.au/",
@@ -90,6 +89,20 @@ export default function Home() {
           "@type": "WebSite",
           name: "CarVerity",
           url: "https://www.carverity.com.au/",
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "CarVerity | Used Car Inspection Checklist App Australia",
+          url: "https://www.carverity.com.au/",
+          description:
+            "Australian used car inspection checklist app that helps buyers inspect a car in person, capture evidence, and review a structured buyer-focused report.",
+          inLanguage: "en-AU",
+          isPartOf: {
+            "@type": "WebSite",
+            name: "CarVerity",
+            url: "https://www.carverity.com.au/",
+          },
         },
         {
           "@context": "https://schema.org",
@@ -334,9 +347,9 @@ export default function Home() {
             </p>
 
             <p className="text-sm leading-relaxed text-slate-300">
-              Designed for real-world Australian buying situations — from private
-              driveway sales to licensed car yards across VIC, NSW, QLD and
-              beyond.
+              Designed for real-world Australian buying situations — from
+              private driveway sales to licensed car yards across VIC, NSW, QLD
+              and beyond.
             </p>
 
             <p className="text-sm text-slate-300">
@@ -981,8 +994,8 @@ export default function Home() {
 
               <p className="text-sm leading-relaxed text-slate-300">
                 When you finish the scan, CarVerity turns what you recorded into
-                a clean, structured report so you can decide what to do next with
-                more confidence.
+                a clean, structured report so you can decide what to do next
+                with more confidence.
               </p>
 
               <p className="mt-3 text-sm leading-relaxed text-slate-300">
@@ -1127,8 +1140,8 @@ export default function Home() {
                 </p>
               </div>
               <p className="mt-2 text-xs leading-relaxed text-slate-300">
-                Understand the trade-offs between buying from a dealer and buying
-                privately in Australia.
+                Understand the trade-offs between buying from a dealer and
+                buying privately in Australia.
               </p>
             </Link>
 
