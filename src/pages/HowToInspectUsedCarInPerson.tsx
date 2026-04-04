@@ -139,6 +139,18 @@ export default function HowToInspectUsedCarInPerson() {
               calmly, spot obvious warning signs, and make a better decision
               before you commit.
             </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want the full order from research through inspection,
+              test drive, and negotiation, start with our{" "}
+              <Link
+                to="/used-car-buying-process-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                used car buying process guide for Australia
+              </Link>
+              .
+            </p>
           </header>
 
           <section className="space-y-4">
@@ -196,6 +208,18 @@ export default function HowToInspectUsedCarInPerson() {
             <p className="text-slate-400 leading-relaxed">
               These checks help reduce risk before you become emotionally
               invested in the car.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
+              If you want the broader order around research, PPSR, inspection,
+              and pricing, our{" "}
+              <Link
+                to="/used-car-buying-process-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                used car buying process guide for Australia
+              </Link>{" "}
+              ties those steps together.
             </p>
 
             <p className="text-slate-400 leading-relaxed">
@@ -481,6 +505,18 @@ export default function HowToInspectUsedCarInPerson() {
             </p>
 
             <p className="text-slate-400 leading-relaxed">
+              If you want the broader structure around research, checks, risk,
+              and price, our{" "}
+              <Link
+                to="/used-car-buying-process-australia"
+                className="text-white underline underline-offset-4 hover:opacity-80 transition"
+              >
+                used car buying process guide for Australia
+              </Link>{" "}
+              connects the full journey.
+            </p>
+
+            <p className="text-slate-400 leading-relaxed">
               That is also why tools like{" "}
               <Link
                 to="/"
@@ -540,6 +576,12 @@ export default function HowToInspectUsedCarInPerson() {
               Related used car buying guides (Australia):
             </p>
             <p className="leading-relaxed">
+              <Link
+                to="/used-car-buying-process-australia"
+                className="underline hover:text-white"
+              >
+                Used car buying process
+              </Link>{" · "}
               <Link
                 to="/what-to-check-when-buying-a-used-car-australia"
                 className="underline hover:text-white"
