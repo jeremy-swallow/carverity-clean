@@ -360,13 +360,20 @@ export default function Home() {
             <p className="text-sm leading-relaxed text-slate-300">
               If you&apos;re still working out{" "}
               <Link
+                to="/used-car-buying-process-australia"
+                className="text-emerald-300 underline hover:text-emerald-200"
+              >
+                the used car buying process in Australia
+              </Link>
+              , start there first. Then move into our{" "}
+              <Link
                 to="/what-to-check-when-buying-a-used-car-australia"
                 className="text-emerald-300 underline hover:text-emerald-200"
               >
-                what to check when buying a used car in Australia
+                full guide on what to check when buying a used car in Australia
               </Link>
-              , start with our full guide. For a simpler version you can keep on
-              hand during an inspection, use the{" "}
+              . For a simpler version you can keep on hand during an inspection,
+              use the{" "}
               <Link
                 to="/used-car-checklist-australia"
                 className="text-emerald-300 underline hover:text-emerald-200"
@@ -502,6 +509,13 @@ export default function Home() {
 
             <div className="flex flex-wrap gap-x-5 gap-y-2 pt-2">
               <Link
+                to="/used-car-buying-process-australia"
+                className="text-sm text-slate-300 underline"
+              >
+                Used car buying process
+              </Link>
+
+              <Link
                 to="/what-to-expect"
                 className="text-sm text-slate-300 underline"
               >
@@ -596,6 +610,13 @@ export default function Home() {
             If you&apos;re buying a used car in Australia, the best way to avoid
             regret is to slow down and follow a structured process. Start with
             our{" "}
+            <Link
+              to="/used-car-buying-process-australia"
+              className="text-emerald-300 underline hover:text-emerald-200"
+            >
+              step-by-step used car buying process guide
+            </Link>
+            , then move into our{" "}
             <Link
               to="/what-to-check-when-buying-a-used-car-australia"
               className="text-emerald-300 underline hover:text-emerald-200"
@@ -709,6 +730,19 @@ export default function Home() {
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Link
+              to="/used-car-buying-process-australia"
+              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-950/55"
+            >
+              <div className="flex items-center gap-2 text-slate-200">
+                <ClipboardCheck className="h-4 w-4 text-emerald-300" />
+                <p className="text-sm font-semibold">Buying process guide</p>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                The full step-by-step process from research through to offer.
+              </p>
+            </Link>
+
+            <Link
               to="/what-to-check-when-buying-a-used-car-australia"
               className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-950/55"
             >
@@ -747,22 +781,15 @@ export default function Home() {
                 What to notice during a used car test drive in Australia.
               </p>
             </Link>
-
-            <Link
-              to="/ppsr-check-australia"
-              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-950/55"
-            >
-              <div className="flex items-center gap-2 text-slate-200">
-                <ShieldCheck className="h-4 w-4 text-emerald-300" />
-                <p className="text-sm font-semibold">PPSR check guide</p>
-              </div>
-              <p className="mt-2 text-xs leading-relaxed text-slate-300">
-                Reduce risk by understanding what to confirm before you buy.
-              </p>
-            </Link>
           </div>
 
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            <Link
+              to="/used-car-buying-process-australia"
+              className="text-slate-300 underline hover:text-white"
+            >
+              Used car buying process
+            </Link>
             <Link
               to="/used-car-checklist-australia"
               className="text-slate-300 underline hover:text-white"
@@ -880,6 +907,13 @@ export default function Home() {
 
               <p className="mt-3 text-sm leading-relaxed text-slate-300">
                 Before you inspect, you can review our{" "}
+                <Link
+                  to="/used-car-buying-process-australia"
+                  className="text-emerald-300 underline hover:text-emerald-200"
+                >
+                  step-by-step used car buying process guide
+                </Link>
+                , our{" "}
                 <Link
                   to="/what-to-check-when-buying-a-used-car-australia"
                   className="text-emerald-300 underline hover:text-emerald-200"
@@ -1130,6 +1164,20 @@ export default function Home() {
 
           <div className="mt-5 grid gap-3 md:grid-cols-2">
             <Link
+              to="/used-car-buying-process-australia"
+              className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-950/55"
+            >
+              <div className="flex items-center gap-2 text-slate-200">
+                <ClipboardCheck className="h-4 w-4 text-emerald-300" />
+                <p className="text-sm font-semibold">Used car buying process</p>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                Follow the full step-by-step process from research through to
+                negotiation.
+              </p>
+            </Link>
+
+            <Link
               to="/dealer-vs-private-seller-australia"
               className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-950/55"
             >
@@ -1257,6 +1305,13 @@ export default function Home() {
             {" · "}
             <Link to="/what-to-expect" className="text-slate-300 underline">
               What to expect
+            </Link>
+            {" · "}
+            <Link
+              to="/used-car-buying-process-australia"
+              className="text-slate-300 underline"
+            >
+              Used car buying process
             </Link>
             {" · "}
             <Link
