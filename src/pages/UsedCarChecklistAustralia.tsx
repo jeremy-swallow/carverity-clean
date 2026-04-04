@@ -699,6 +699,12 @@ export default function UsedCarChecklistAustralia() {
                   Dealer vs private seller
                 </Link>{" · "}
                 <Link
+                  to="/is-a-mechanical-inspection-worth-it-australia"
+                  className="underline hover:text-white"
+                >
+                  Mechanical inspection worth it?
+                </Link>{" · "}
+                <Link
                   to="/how-many-km-is-too-many-used-car-australia"
                   className="underline hover:text-white"
                 >
