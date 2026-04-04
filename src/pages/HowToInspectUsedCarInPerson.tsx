@@ -6,7 +6,7 @@ export default function HowToInspectUsedCarInPerson() {
   useEffect(() => {
     applySeo({
       title:
-        "How To Inspect a Used Car in Person (Without Missing Red Flags)",
+        "How To Inspect a Used Car in Person (Without Missing Red Flags) | CarVerity",
       description:
         "Learn how to inspect a used car in person in Australia with a practical step-by-step process. What to check before you arrive, around the car, inside the cabin, during the test drive, and which red flags buyers often miss.",
       canonical:
@@ -66,6 +66,24 @@ export default function HowToInspectUsedCarInPerson() {
                 "@type": "Answer",
                 text:
                   "It is usually better to do a PPSR check before spending too much time on the physical inspection. That helps rule out major financial or written-off history issues early.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "How long should a used car inspection take?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "Long enough that you do not feel rushed. Even a straightforward in-person inspection should give you time to review paperwork, walk around the vehicle, test the cabin properly, and take a meaningful drive.",
+              },
+            },
+            {
+              "@type": "Question",
+              name: "Is a PPSR check enough on its own?",
+              acceptedAnswer: {
+                "@type": "Answer",
+                text:
+                  "No. A PPSR check is important, but it does not replace a physical inspection, service history review, or test drive.",
               },
             },
           ],
@@ -429,18 +447,6 @@ export default function HowToInspectUsedCarInPerson() {
             <p className="text-slate-400 leading-relaxed">
               The important thing is to document what you noticed, stay calm,
               and avoid making a quick emotional decision on the spot.
-            </p>
-
-            <p className="text-slate-400 leading-relaxed">
-              If you are trying to work out price based on condition, read our
-              guide on{" "}
-              <Link
-                to="/how-much-should-you-offer-used-car-australia"
-                className="text-white underline underline-offset-4 hover:opacity-80 transition"
-              >
-                how much to offer on a used car in Australia
-              </Link>
-              .
             </p>
 
             <p className="text-slate-400 leading-relaxed">
